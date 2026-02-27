@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Huddledin — Collaborative Care Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --teal:#0d9488;--teal-l:#14b8a6;--teal-d:#0f766e;
+  --mint:#a7f3d0;--mint-l:#d1fae5;
+  --coral:#f97316;--coral-l:#fed7aa;
+  --amber:#f59e0b;--amber-l:#fef3c7;
+  --navy:#1e293b;--navy-m:#334155;
+  --slate:#64748b;--slate-l:#94a3b8;
+  --bg:#f0fdf9;--bg2:#e6faf4;--white:#ffffff;
+  --border:#d1fae5;--border2:#b2f0d8;
+  --shadow:0 4px 24px rgba(13,148,136,.10);
+  --shadow-lg:0 8px 40px rgba(13,148,136,.18);
+  --r:16px;--r-sm:10px;--r-lg:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--navy);font-size:15px}
+.ff{font-family:'Fraunces',serif}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--teal-l);border-radius:4px}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes badgePop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+.fade-in{animation:fadeIn .38s ease both}
+.slide-up{animation:slideUp .45s cubic-bezier(.16,1,.3,1) both}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;min-height:100vh}
+#header{
+  position:sticky;top:0;z-index:200;
+  background:var(--white);border-bottom:1px solid var(--border);
+  height:62px;display:flex;align-items:center;
+  padding:0 20px;gap:16px;
+  box-shadow:0 2px 12px rgba(13,148,136,.06)
+}
+#logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+#logo .icon{font-size:1.5rem}
+#logo .name{font-family:'Fraunces',serif;font-size:1.25rem;font-weight:700;color:var(--teal)}
+#child-switcher{display:flex;gap:6px;margin-left:12px}
+.child-btn{
+  display:flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:20px;border:2px solid transparent;background:var(--bg);
+  cursor:pointer;transition:all .2s;font-family:inherit;font-size:.8rem;font-weight:600
+}
+.child-btn.active{border-color:var(--teal);background:var(--mint-l);color:var(--teal-d)}
+.child-btn .emoji{font-size:1rem}
+#header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sign-out-btn{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:7px 14px;cursor:pointer;font-family:inherit;font-size:.8rem;
+  color:var(--slate);font-weight:500;transition:all .2s
+}
+.sign-out-btn:hover{background:var(--bg2)}
+
+/* Body area */
+#body{display:flex;flex:1;min-height:0}
+#sidenav{
+  width:210px;min-width:210px;background:var(--white);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:16px 10px;gap:3px;overflow-y:auto
+}
+.sidenav-user{padding:8px 12px 16px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.sidenav-user .label{font-size:.7rem;color:var(--slate);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.sidenav-user .uname{font-weight:700;color:var(--navy);font-size:.88rem;margin:2px 0 5px}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:12px;
+  border:none;background:transparent;cursor:pointer;font-family:inherit;
+  font-weight:500;font-size:.88rem;color:var(--slate);text-align:left;
+  transition:all .18s;width:100%
+}
+.nav-btn:hover{background:var(--bg);color:var(--navy)}
+.nav-btn.active{background:var(--mint-l);color:var(--teal-d);font-weight:700}
+.nav-btn .ni{font-size:1.1rem}
+
+#main{flex:1;overflow-y:auto;padding-bottom:20px}
+#bottom-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--white);border-top:1px solid var(--border);
+  box-shadow:0 -4px 20px rgba(13,148,136,.08);z-index:150
+}
+.bnav-btn{
+  flex:1;padding:9px 4px 11px;display:flex;flex-direction:column;align-items:center;
+  gap:2px;border:none;background:none;cursor:pointer;
+  color:var(--slate-l);font-family:inherit;font-size:.58rem;font-weight:600;transition:color .2s
+}
+.bnav-btn.active{color:var(--teal)}
+.bnav-btn .bi{font-size:1.2rem}
+.bnav-dot{width:4px;height:4px;border-radius:50%;background:var(--teal);margin-top:1px}
+
+/* Sections */
+.section{padding:22px;max-width:920px;margin:0 auto}
+.page-title{font-family:'Fraunces',serif;font-size:1.55rem;font-weight:700;color:var(--navy);margin-bottom:4px}
+.page-sub{color:var(--slate);font-size:.84rem;margin-bottom:22px}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+
+/* Cards */
+.card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;transition:box-shadow .2s}
+.card.clickable{cursor:pointer}
+.card.clickable:hover{box-shadow:var(--shadow-lg)}
+
+/* Grid layouts */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.grid-folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border-radius:11px;
+  font-family:inherit;font-weight:600;cursor:pointer;border:none;
+  transition:all .18s;white-space:nowrap;font-size:.86rem
+}
+.btn-sm{padding:7px 14px;font-size:.8rem}
+.btn-md{padding:10px 20px}
+.btn-lg{padding:13px 26px;font-size:.96rem}
+.btn-primary{background:var(--teal);color:#fff;box-shadow:0 2px 12px rgba(13,148,136,.3)}
+.btn-primary:hover{background:var(--teal-d)}
+.btn-secondary{background:var(--mint-l);color:var(--teal-d)}
+.btn-secondary:hover{background:var(--mint)}
+.btn-ghost{background:transparent;color:var(--teal);border:1.5px solid var(--teal)}
+.btn-ghost:hover{background:var(--mint-l)}
+.btn-danger{background:#fee2e2;color:#dc2626}
+.btn-danger:hover{background:#fecaca}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 2px 12px rgba(249,115,22,.3)}
+.btn-full{width:100%;justify-content:center}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* Badges */
+.badge{border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:600;white-space:nowrap;display:inline-block}
+.badge-teal{background:var(--mint-l);color:var(--teal-d)}
+.badge-coral{background:var(--coral-l);color:#c2410c}
+.badge-amber{background:var(--amber-l);color:#92400e}
+.badge-slate{background:#f1f5f9;color:var(--slate)}
+.badge-purple{background:#ede9fe;color:#5b21b6}
+.badge-pink{background:#fce7f3;color:#9d174d}
+.badge-green{background:#dcfce7;color:#166534}
+
+/* Avatar */
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;font-size:1.2rem}
+
+/* Inputs */
+.inp{
+  width:100%;padding:11px 15px;border-radius:11px;border:1.5px solid var(--border);
+  font-family:inherit;font-size:.88rem;outline:none;background:var(--bg);
+  transition:border-color .2s;color:var(--navy)
+}
+.inp:focus{border-color:var(--teal)}
+.inp-group{display:flex;flex-direction:column;gap:11px}
+textarea.inp{resize:vertical;min-height:100px;line-height:1.6}
+select.inp{cursor:pointer}
+
+/* Modal overlay */
+.overlay{
+  position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);
+  z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px
+}
+.modal{
+  background:#fff;border-radius:var(--r-lg);width:100%;max-height:90vh;
+  overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.22);animation:slideUp .35s cubic-bezier(.16,1,.3,1) both
+}
+.modal-header{
+  padding:20px 26px 16px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1
+}
+.modal-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy)}
+.modal-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--slate);line-height:1;padding:4px}
+.modal-body{padding:22px 26px}
+
+/* Spinner */
+.spinner{
+  width:18px;height:18px;border:2px solid var(--mint);border-top-color:var(--teal);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0
+}
+
+/* Toggle switch */
+.toggle{width:42px;height:23px;border-radius:12px;background:var(--slate-l);cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0}
+.toggle.on{background:var(--teal)}
+.toggle::after{content:'';width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.on::after{left:22px}
+
+/* Checkbox */
+.chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--slate-l);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;border:none}
+.chk.done{background:var(--teal);border-color:var(--teal)}
+.chk.done::after{content:'✓';color:#fff;font-size:.7rem;font-weight:700}
+
+/* Folder blur */
+.blur-wrap{position:relative}
+.blur-content{filter:blur(3px);pointer-events:none;user-select:none}
+.blur-lock{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;cursor:pointer;z-index:2
+}
+.blur-lock-icon{font-size:1.6rem}
+.blur-lock-label{font-size:.65rem;color:var(--slate);font-weight:700;margin-top:3px}
+
+/* Notification bell */
+.notif-wrap{position:relative}
+.notif-btn{
+  background:#fff;border:1.5px solid var(--border);border-radius:11px;
+  padding:7px 11px;cursor:pointer;font-size:1rem;position:relative;
+  display:flex;align-items:center
+}
+.notif-count{
+  position:absolute;top:-6px;right:-6px;background:var(--coral);color:#fff;
+  border-radius:50%;width:18px;height:18px;display:flex;align-items:center;
+  justify-content:center;font-size:.62rem;font-weight:700;animation:badgePop .3s ease
+}
+.notif-dropdown{
+  position:absolute;right:0;top:calc(100% + 8px);background:#fff;
+  border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow-lg);
+  width:295px;z-index:500;overflow:hidden;animation:fadeIn .2s ease
+}
+.notif-dd-header{padding:14px 18px 11px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.notif-item{padding:11px 18px;border-bottom:1px solid #f0fdf9;display:flex;gap:11px;align-items:flex-start}
+.notif-item.unread{background:var(--mint-l)}
+.notif-item-text{font-size:.8rem;color:var(--navy);line-height:1.4}
+.notif-item-time{font-size:.7rem;color:var(--slate-l);margin-top:2px}
+
+/* Stat cards */
+.stat-card{display:flex;align-items:center;gap:15px}
+.stat-icon{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.stat-num{font-size:1.7rem;font-weight:700;color:var(--navy);line-height:1}
+.stat-label{font-size:.74rem;color:var(--slate);margin-top:2px}
+
+/* Chat bubbles */
+.bubble-me{background:var(--teal);color:#fff;border-radius:16px 16px 4px 16px;padding:9px 15px;max-width:68%;font-size:.85rem;line-height:1.5}
+.bubble-them{background:var(--bg);color:var(--navy);border-radius:16px 16px 16px 4px;padding:9px 15px;max-width:68%;font-size:.85rem;line-height:1.5}
+.bubble-time{font-size:.65rem;opacity:.65;margin-top:3px;text-align:right}
+.bubble-name{font-size:.68rem;font-weight:700;color:var(--teal);margin-bottom:3px}
+
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day-label{text-align:center;font-size:.72rem;font-weight:700;color:var(--slate);padding:8px 0}
+.cal-day{min-height:40px;padding:4px;text-align:center;position:relative}
+.cal-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.82rem;font-weight:400}
+.cal-num.has-event{background:var(--teal);color:#fff;font-weight:700;cursor:pointer}
+.cal-dot{font-size:.52rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:3px;padding:1px 3px;margin-top:1px;color:#fff}
+
+/* Pending ghost card */
+.ghost-card{opacity:.72;border:1.5px dashed var(--slate-l) !important}
+
+/* Vault AI block */
+.ai-block{
+  background:linear-gradient(135deg,var(--mint-l) 0%,#fff 100%);
+  border-radius:13px;padding:18px;border:1.5px solid var(--teal-l)
+}
+.ai-label{font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* File item */
+.file-item{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:11px;background:var(--bg);border:1px solid var(--border);margin-bottom:9px}
+
+/* Upload success */
+.upload-success{background:var(--mint-l);border:1px solid var(--teal);border-radius:11px;padding:11px 18px;color:var(--teal-d);font-weight:600;margin-bottom:14px;animation:fadeIn .3s ease}
+
+/* Separator */
+.sep{border:none;border-top:1px solid var(--border);margin:14px 0}
+
+/* Responsive */
+@media(max-width:767px){
+  #sidenav{display:none}
+  #bottom-nav{display:flex}
+  .section{padding:16px 14px;padding-bottom:80px}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  #child-switcher .cname{display:none}
+}
+@media(min-width:768px){
+  #bottom-nav{display:none}
+}
+
+/* ── LOGIN SCREEN ── */
+#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+.login-bg{background:linear-gradient(135deg,#0f766e 0%,#14b8a6 45%,#a7f3d0 100%)}
+.login-orb1{position:absolute;top:-80px;right:-80px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.08)}
+.login-orb2{position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
+.login-card{background:rgba(255,255,255,.12);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.25);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;color:#fff;position:relative;z-index:1}
+.login-plain{background:#fff;border:1px solid var(--border);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;position:relative;z-index:1;box-shadow:var(--shadow-lg)}
+
+/* Selected role */
+.role-card{
+  display:flex;align-items:center;gap:15px;padding:16px;border-radius:14px;
+  border:2px solid var(--border);background:#fff;cursor:pointer;transition:all .2s;margin-bottom:12px
+}
+.role-card:hover{border-color:var(--teal);box-shadow:var(--shadow)}
+.role-card.selected{border-color:var(--teal);background:var(--mint-l)}
+
+/* ── LANDING PAGE SPECIFIC ── */
+.landing-hero{font-size:2.8rem;font-weight:700;line-height:1.1;color:#fff;margin-bottom:10px}
+.landing-sub{color:rgba(255,255,255,.85);font-size:1rem;margin-bottom:36px;line-height:1.6}
+.landing-btn-white{background:#fff;color:var(--teal-d);border-radius:13px;padding:13px 28px;font-family:inherit;font-size:.96rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.15);transition:all .2s;width:100%;margin-bottom:10px}
+.landing-btn-white:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.2)}
+.landing-btn-ghost{background:transparent;color:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.45);border-radius:13px;padding:12px 28px;font-family:inherit;font-size:.96rem;font-weight:600;cursor:pointer;width:100%;transition:all .2s}
+.landing-btn-ghost:hover{background:rgba(255,255,255,.1)}
+.landing-tagline{color:rgba(255,255,255,.55);font-size:.75rem;margin-top:28px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const DROPBOX_TOKEN = "sl.u.AGWlyueCeEoysUJd9wLn-PDIvP9Kd6IL9N_JiW2pLLv7Rc8AZpjfeeOJJ6tqD9yyEOujIXViAMTzofOJUnt7kefUyHcu74iHHedEeOieiyfHXsCmbP-q7tLdtyupRgce1C_NJUrZPZr6VvO3bDHkvxDvq71BiYJkHAL5bZOm4BqdIg6BMFXkyzTJU494JuP-wLTEfzMePwtFHdM_E_qYV2g2QeKKD-jB52SUnPTAAamxmPX5n6cWrChOpF1NPPPw_E6suKI5Bpi8BpLzupIe_rnAApADu_3oxjznYHdikDHLn8RcV76KSeM7bz3A7Eb603LoC509BAR4U46IOaqrlqgoJ59sp5Ps9ZuPPpQtBE2fI3hQ_ymafSsu_-eZisHnvWe5buSe8kI6RWHBfW1yhtKFvzpUogRsaaDWm3iNOgwIjur-qCWs0olxrFlZK9RiaSTFKNpUEJwiT5qYGSANKzav3GiTAX-Dj-b26qk1UpRDiriaS_b0Y2Mklvz6Fr-Wg0SPu5OVxHfErayCoVM4myuvXPO5Tqwx7Hll0TkEUgD_DytZIoOdIgvuKxbNnG8xvRrHfHxdTbOK_j6wKDvZCCoGIzkKmMqqd4Q7VYYhBXsxRKMciv2meAwFxrNoc9I6jENFlnOpXZqB0VtaJibmjbEIcrr9BzQF-e2KhD8wwY8VsEAudevG2Xe6g-RnTT6C2YjNr8HdOP51dFnyup6wQ3A0gQ24_hMocyw-q-ku6brqQ-NgSHDzLIO1PrIVl9ayqzGjjBD6k4DIUSpbx0_NWQLqAIQai7RD5cOTHSnveGBMnEUKVuD_gG4m17XRZdy8kLJcSIvQostHhFjASsu9DpINxNKf2ltl57hcjxlXYHnFOhMSf48FcqGdz1oeKs4XTrM9tupLx5Q5Imy-qoOG2q6NQPAe_cAuFM6ULu-2t6wrHDoHNGIcnUgDmJlcS5XvQqsh1F_lVlnHjneAWaiwmmld3DDbjfm6ZcP-2lZRB9P-H2jFifCl58Jrgvos8eW0m40ODbZhOG_cCdyCHBoGZkaoyEhh2lMEgZNQ0oa1RNci09AbYlcsp7OUV22h73JAsyDjXDEH45Go4tQURSlgiQ51GY5s06-Q2_hu3ZE_1d9ID_736o7lWCnG1JSc7YOlkvuDfu48Tg5xN5rEEupI4pCmDVzg12pTXngrrGlS7VbM8uKEpnE3ABneKkXJpCbLTxwBnVrL-3rPzoBRU2wv8W_Y2dWvFv2-h3b-gOZQV8FRzV2jLu5Np7ut4PLrveGx4dMafygCavmZih60HZz2QaTAOf0fnt2dTzu6KsljRbo9Dg";
+
+// ─── MOCK DATA ─────────────────────────────────────────────────────────────
+const children = [
+  {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing Disorder","Speech Delay"]},
+  {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum Disorder"]}
+];
+const specialists = [
+  {id:"s1",name:"Dr. Sarah Okafor",role:"Speech Therapist",email:"s.okafor@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active"},
+  {id:"s2",name:"James Whitfield",role:"Occupational Therapist",email:"j.whitfield@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active"},
+  {id:"s3",name:"Dr. Priya Nair",role:"Physical Therapist",email:"p.nair@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active"},
+  {id:"s4",name:"Dr. Marcus Webb",role:"Behavioral Therapist",email:"m.webb@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending"}
+];
+const folders = [
+  {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[{name:"Session_Jan.pdf",date:"2025-01-15",locked:true},{name:"Goals_Q1.pdf",date:"2025-02-01",locked:false}]},
+  {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[{name:"OT_Assessment.pdf",date:"2025-01-20",locked:true}]},
+  {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[{name:"PT_Progress.pdf",date:"2025-02-10",locked:false}]},
+  {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[{name:"Annual_Physical.pdf",date:"2024-12-01",locked:true}]},
+  {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[{name:"Med_Schedule.pdf",date:"2025-01-01",locked:true}]},
+  {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[{name:"IEP_2025.pdf",date:"2025-01-08",locked:false}]}
+];
+let homework = [
+  {id:"h1",childId:"c1",task:"Practice 'S' sound blends for 10 min daily",specialist:"Dr. Sarah Okafor",due:"2025-03-01",completed:false,category:"Speech"},
+  {id:"h2",childId:"c1",task:"Sensory bin activity: rice textures (15 min)",specialist:"James Whitfield",due:"2025-02-28",completed:true,category:"OT"},
+  {id:"h3",childId:"c2",task:"Morning balance beam walk before school",specialist:"Dr. Priya Nair",due:"2025-03-02",completed:false,category:"PT"},
+  {id:"h4",childId:"c2",task:"Social story reading — 'Making Friends'",specialist:"Dr. Sarah Okafor",due:"2025-02-27",completed:false,category:"Speech"}
+];
+const appointments = [
+  {id:"a1",childId:"c1",title:"Speech Session",specialist:"Dr. Sarah Okafor",date:"2025-03-03",time:"10:00 AM",type:"speech"},
+  {id:"a2",childId:"c1",title:"OT Session",specialist:"James Whitfield",date:"2025-03-05",time:"2:00 PM",type:"ot"},
+  {id:"a3",childId:"c2",title:"PT Session",specialist:"Dr. Priya Nair",date:"2025-03-04",time:"11:30 AM",type:"pt"},
+  {id:"a4",childId:"c2",title:"Speech Session",specialist:"Dr. Sarah Okafor",date:"2025-03-06",time:"9:00 AM",type:"speech"}
+];
+let vaultNotes = [
+  {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% accuracy on CELF-5 subtest. Observed perseverative behavior during transitions — recommend further OT collaboration. Parent reported increased frustration at home during homework tasks. Consider modifying HEP frequency. Will trial visual schedules next session.",published:false,locked:false,summary:null},
+  {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout. Articulation improving measurably.",published:true,locked:true,summary:"Lily had a great session today! She's making wonderful progress with her speech sounds and showed real improvement during our assessment. Keep encouraging her talking at home!"}
+];
+let notifications = [
+  {id:"n1",type:"report",msg:"Dr. Sarah Okafor published a new summary for Lily",time:"2h ago",read:false,childId:"c1"},
+  {id:"n2",type:"homework",msg:"James Whitfield marked OT homework complete for Lily",time:"1d ago",read:false,childId:"c1"},
+  {id:"n3",type:"chat",msg:"New message from Dr. Sarah Okafor",time:"1d ago",read:true,childId:"c1"},
+  {id:"n4",type:"invite",msg:"Dr. Marcus Webb requested to join Noah's care team",time:"2d ago",read:true,childId:"c2"}
+];
+let chats = [
+  {id:"ch1",participants:["parent","s1"],childId:"c1",approved:true,messages:[
+    {id:"m1",sender:"s1",text:"Hi! Just wanted to share that Lily did wonderfully today 🌟",time:"10:32 AM",date:"2025-02-24"},
+    {id:"m2",sender:"parent",text:"That's so great to hear! She was practicing all week.",time:"11:05 AM",date:"2025-02-24"},
+    {id:"m3",sender:"s1",text:"It really shows. I'll publish the summary shortly.",time:"11:08 AM",date:"2025-02-24"}
+  ]}
+];
+let settings_notifs = {reports:true,chat:true,homework:true,appointments:false};
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let state = {
+  screen:"login", // login | app
+  loginStep:"landing", // landing | role | form
+  role:"parent",
+  specialistId:"s1",
+  activeChild:"c1",
+  activeTab:"dashboard",
+  notifOpen:false,
+  selectedFolderId:null,
+  uploadFile:null,
+  uploadSharePerms:{},
+  activeVaultNoteId:null,
+  vaultSummarizing:false,
+  vaultSummaryText:"",
+  activeChatId:"ch1",
+  chatMsg:"",
+  pendingHandshake:null,
+  confirmData:null // {title,msg,danger,onConfirm}
+};
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+const typeColor={speech:"#0d9488",ot:"#f97316",pt:"#8b5cf6",general:"#64748b",meds:"#f59e0b",school:"#ec4899"};
+const notifIcon={report:"📄",homework:"✅",chat:"💬",invite:"🤝"};
+const catColor=c=>c==="Speech"?"badge-teal":c==="OT"?"badge-coral":c==="PT"?"badge-purple":"badge-slate";
+
+function h(tag,attrs={},children=[]){
+  const el=document.createElement(tag);
+  for(const[k,v] of Object.entries(attrs)){
+    if(k==="class")el.className=v;
+    else if(k==="style"&&typeof v==="object")Object.assign(el.style,v);
+    else if(k.startsWith("on"))el.addEventListener(k.slice(2).toLowerCase(),v);
+    else el.setAttribute(k,v);
+  }
+  for(const c of children){
+    if(c==null)continue;
+    el.appendChild(typeof c==="string"?document.createTextNode(c):c);
+  }
+  return el;
+}
+function div(cls,children=[],style={}){return h("div",{class:cls,style},children)}
+function btn(text,cls,onClick,attrs={}){const b=h("button",{class:"btn "+cls,...attrs});b.innerHTML=text;b.onclick=onClick;return b;}
+function badge(text,color="teal"){return h("span",{class:`badge badge-${color}`},[text])}
+function spinner(){return h("span",{class:"spinner"})}
+
+function re(){
+  const app=document.getElementById("app");
+  app.innerHTML="";
+  app.appendChild(render());
+}
+
+function setS(patch,doRe=true){Object.assign(state,patch);if(doRe)re();}
+
+// ─── MODAL HELPERS ──────────────────────────────────────────────────────────
+function makeModal(title,body,maxW=480){
+  const ov=div("overlay");
+  const mo=div("modal",[],(maxW!==480)?{maxWidth:maxW+"px"}:{maxWidth:"480px"});
+  const mh=div("modal-header",[
+    h("span",{class:"modal-title"},[title]),
+    h("button",{class:"modal-close"},["✕"])
+  ]);
+  mh.querySelector(".modal-close").onclick=()=>ov.remove();
+  const mb=div("modal-body",[body]);
+  mo.appendChild(mh);mo.appendChild(mb);ov.appendChild(mo);
+  ov.onclick=e=>{if(e.target===ov)ov.remove()};
+  return {ov,close:()=>ov.remove()};
+}
+function confirm(title,msg,danger,onConfirm){
+  const {ov,close}=makeModal(title,document.createDocumentFragment(),380);
+  const body=div("",[ 
+    h("p",{style:{color:"var(--slate)",marginBottom:"22px",lineHeight:"1.6"}},[msg]),
+    div("",[
+      btn("Cancel","btn-md btn-secondary",close),
+      btn("Confirm","btn-md "+(danger?"btn-danger":"btn-primary"),()=>{onConfirm();close()})
+    ],{display:"flex",gap:"12px",justifyContent:"flex-end"})
+  ]);
+  ov.querySelector(".modal-body").appendChild(body);
+  document.body.appendChild(ov);
+}
+
+// ─── COMPONENTS ─────────────────────────────────────────────────────────────
+
+// Notif bell dropdown
+function renderNotifBell(){
+  const unread=notifications.filter(n=>!n.read).length;
+  const wrap=div("notif-wrap");
+  const bellBtn=h("button",{class:"notif-btn"},["🔔"]);
+  if(unread>0){const cnt=div("notif-count",[String(unread)]);bellBtn.appendChild(cnt);}
+  let dd=null;
+  bellBtn.onclick=()=>{
+    if(dd){dd.remove();dd=null;return;}
+    dd=div("notif-dropdown fade-in");
+    const ddh=div("notif-dd-header",[
+      h("span",{style:{fontWeight:700,color:"var(--navy)"}},"Notifications"),
+      btn("See all","btn-sm btn-ghost",()=>{dd.remove();dd=null;setS({activeTab:"notifications",notifOpen:false});})
+    ]);
+    dd.appendChild(ddh);
+    notifications.slice(0,5).forEach(n=>{
+      const ni=div("notif-item"+(n.read?"":" unread"),[
+        h("span",{},[notifIcon[n.type]]),
+        div("",[
+          div("notif-item-text",[n.msg]),
+          div("notif-item-time",[n.time])
+        ])
+      ]);
+      dd.appendChild(ni);
+    });
+    wrap.appendChild(dd);
+    setTimeout(()=>document.addEventListener("click",function outside(e){if(!wrap.contains(e.target)){dd&&dd.remove();dd=null;document.removeEventListener("click",outside);}},{once:false}),10);
+  };
+  wrap.appendChild(bellBtn);
+  return wrap;
+}
+
+// Avatar
+function renderAvatar(emoji,size=40,color="#d1fae5"){
+  return h("div",{class:"avatar",style:{width:size+"px",height:size+"px",background:color,fontSize:(size*0.42)+"px"}},[emoji||"?"])
+}
+
+// Header
+function renderHeader(){
+  const hd=h("header",{id:"header"});
+  const logo=h("a",{id:"logo",href:"#"},[ h("span",{class:"icon"},["🤝"]), h("span",{class:"name"},["Huddledin"]) ]);
+  logo.onclick=e=>e.preventDefault();
+  hd.appendChild(logo);
+
+  if(state.role==="parent"){
+    const sw=div("",[]); sw.id="child-switcher";
+    children.forEach(c=>{
+      const cb=h("button",{class:"child-btn"+(state.activeChild===c.id?" active":"")});
+      cb.innerHTML=`<span class="emoji">${c.avatar}</span><span class="cname">${c.name.split(" ")[0]}</span>`;
+      cb.onclick=()=>setS({activeChild:c.id});
+      sw.appendChild(cb);
+    });
+    hd.appendChild(sw);
+  }
+
+  const right=div("",[]); right.id="header-right";
+  right.appendChild(renderNotifBell());
+  const so=h("button",{class:"sign-out-btn"},["Sign Out"]);
+  so.onclick=()=>setS({screen:"login",loginStep:"landing",role:"parent",activeTab:"dashboard"});
+  right.appendChild(so);
+  hd.appendChild(right);
+  return hd;
+}
+
+// Side nav
+function renderSideNav(){
+  const tabs=state.role==="parent"?parentTabs():specialistTabs();
+  const nav=h("nav",{id:"sidenav"});
+  const spec=specialists.find(s=>s.id===state.specialistId);
+  const ublock=div("sidenav-user",[
+    div("label",["Signed in as"]),
+    div("uname",[state.role==="parent"?"The Carter Family":(spec?.name||"Dr. Sarah Okafor")]),
+    badge(state.role==="parent"?"Parent":"Specialist","teal")
+  ]);
+  nav.appendChild(ublock);
+  tabs.forEach(t=>{
+    const b=h("button",{class:"nav-btn"+(state.activeTab===t.id?" active":"")});
+    b.innerHTML=`<span class="ni">${t.icon}</span>${t.label}`;
+    b.onclick=()=>setS({activeTab:t.id});
+    nav.appendChild(b);
+  });
+  return nav;
+}
+
+// Bottom nav
+function renderBottomNav(){
+  const tabs=state.role==="parent"?parentTabs():specialistTabs();
+  const nav=h("nav",{id:"bottom-nav"});
+  tabs.forEach(t=>{
+    const b=h("button",{class:"bnav-btn"+(state.activeTab===t.id?" active":"")});
+    b.innerHTML=`<span class="bi">${t.icon}</span>${t.label}`;
+    if(state.activeTab===t.id)b.appendChild(div("bnav-dot"));
+    b.onclick=()=>setS({activeTab:t.id});
+    nav.appendChild(b);
+  });
+  return nav;
+}
+
+function parentTabs(){return[
+  {id:"dashboard",label:"Home",icon:"🏠"},{id:"files",label:"Files",icon:"📁"},
+  {id:"team",label:"Team",icon:"👥"},{id:"calendar",label:"Calendar",icon:"📅"},
+  {id:"chat",label:"Chat",icon:"💬"},{id:"notifications",label:"Alerts",icon:"🔔"},
+  {id:"settings",label:"Settings",icon:"⚙️"}
+];}
+function specialistTabs(){return[
+  {id:"patients",label:"Patients",icon:"👤"},{id:"vault",label:"Vault",icon:"🔒"},
+  {id:"homework",label:"Tasks",icon:"📋"},{id:"files",label:"Files",icon:"📁"},
+  {id:"chat",label:"Chat",icon:"💬"},{id:"notifications",label:"Alerts",icon:"🔔"}
+];}
+
+// ── PARENT DASHBOARD ────────────────────────────────────────────────────────
+function renderDashboard(){
+  const child=children.find(c=>c.id===state.activeChild);
+  const childHW=homework.filter(h=>h.childId===state.activeChild);
+  const childAppts=appointments.filter(a=>a.childId===state.activeChild);
+  const pending=childHW.filter(h=>!h.completed).length;
+
+  const sec=div("section fade-in");
+
+  // Child header
+  const ch=div("",[
+    h("span",{style:{fontSize:"2rem"}},[child.avatar]),
+    div("",[
+      h("h2",{class:"ff",style:{fontSize:"1.55rem",fontWeight:700,color:"var(--navy)"}},[child.name+"'s Dashboard"]),
+      div("",[...child.diagnoses.map(d=>badge(d,"teal"))],{display:"flex",gap:"7px",flexWrap:"wrap",marginTop:"5px"})
+    ])
+  ],{display:"flex",alignItems:"center",gap:"13px",marginBottom:"24px"});
+  sec.appendChild(ch);
+
+  // Stats
+  const stats=div("grid-3",[
+    makeStatCard("📅","#14b8a6",String(childAppts.length),"Upcoming Appointments"),
+    makeStatCard("📋","#f97316",String(pending),"Pending Tasks"),
+    makeStatCard("👥","#8b5cf6",String(specialists.filter(s=>s.status==="active").length),"Care Team Members")
+  ]);
+  stats.style.marginBottom="24px";
+  sec.appendChild(stats);
+
+  // HW + Appts
+  const grid=div("grid-2");
+
+  // Homework card
+  const hwCard=div("card",[h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},"📋 Homework & Tasks")]);
+  if(!childHW.length)hwCard.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".88rem"}},"No tasks assigned yet."));
+  childHW.forEach(hw=>{
+    const row=div("",[],{display:"flex",gap:"11px",padding:"10px 0",borderBottom:"1px solid #f0fdf9",alignItems:"flex-start"});
+    const chk=div("chk"+(hw.completed?" done":""));
+    chk.onclick=()=>{hw.completed=!hw.completed;re();};
+    const info=div("",[
+      div("",[hw.task],{fontSize:".86rem",color:hw.completed?"var(--slate-l)":"var(--navy)",textDecoration:hw.completed?"line-through":"none",lineHeight:"1.4",marginBottom:"4px"}),
+      div("",[badge(hw.category,catColor(hw.category).replace("badge-","").replace("-teal","teal").replace("-coral","coral").replace("-purple","purple")),
+        h("span",{style:{fontSize:".72rem",color:"var(--slate-l)",marginLeft:"7px"}},["Due "+hw.due])])
+    ],{flex:"1"});
+    row.appendChild(chk);row.appendChild(info);
+    hwCard.appendChild(row);
+  });
+  grid.appendChild(hwCard);
+
+  // Appointments card
+  const aptCard=div("card",[h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},"📅 Upcoming Appointments")]);
+  if(!childAppts.length)aptCard.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".88rem"}},"No appointments scheduled."));
+  childAppts.forEach(apt=>{
+    const row=div("",[],{display:"flex",gap:"12px",padding:"10px 0",borderBottom:"1px solid #f0fdf9",alignItems:"center"});
+    const icon=div("",[apt.title[0]],{width:"40px",height:"40px",borderRadius:"12px",background:(typeColor[apt.type]||"#14b8a6")+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem",flexShrink:0});
+    icon.textContent="📅";
+    const info=div("",[
+      div("",[apt.title],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
+      div("",[apt.specialist],{fontSize:".76rem",color:"var(--slate)"}),
+      div("",[apt.date+" · "+apt.time],{fontSize:".73rem",color:"var(--teal)",fontWeight:600,marginTop:"2px"})
+    ],{flex:1});
+    row.appendChild(icon);row.appendChild(info);
+    aptCard.appendChild(row);
+  });
+  grid.appendChild(aptCard);
+  sec.appendChild(grid);
+  return sec;
+}
+
+function makeStatCard(icon,color,value,label){
+  return div("card",[
+    div("stat-card",[
+      div("stat-icon",[icon],{background:color+"22"}),
+      div("",[div("stat-num",[value]),div("stat-label",[label])])
+    ])
+  ]);
+}
+
+// ── FILE MANAGER ──────────────────────────────────────────────────────────
+function renderFiles(){
+  const isParent=state.role==="parent";
+  const spec=specialists.find(s=>s.id===state.specialistId);
+  const perms=spec?.permissions[state.activeChild]||[];
+  const canAccess=key=>isParent||perms.includes(key);
+
+  const sec=div("section fade-in");
+  const shr=div("section-header",[
+    div("",[
+      h("h2",{class:"page-title"},["File Manager"]),
+      div("page-sub",["Dropbox-backed records & reports"])
+    ])
+  ]);
+  if(isParent){
+    const upBtn=btn("📤 Upload to Dropbox","btn-md btn-primary",()=>triggerUpload());
+    shr.appendChild(upBtn);
+  }
+  sec.appendChild(shr);
+
+  // Hidden file input
+  const fi=h("input",{type:"file",style:{display:"none"}});
+  fi.id="file-input";
+  fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+  sec.appendChild(fi);
+
+  const grid=div("grid-folders");
+  folders.forEach(folder=>{
+    const acc=canAccess(folder.key);
+    const wrap=div("blur-wrap");
+    const inner=div("card clickable",[
+      h("div",{style:{fontSize:"2.2rem",marginBottom:"8px",textAlign:"center"}},[folder.icon]),
+      h("div",{style:{fontWeight:600,color:"var(--navy)",textAlign:"center",fontSize:".86rem"}},[folder.name]),
+      h("div",{style:{fontSize:".73rem",color:"var(--slate)",textAlign:"center",marginTop:"4px"}},[folder.files.length+" files"])
+    ]);
+    if(!acc){
+      inner.classList.add("blur-content");
+      const lock=div("blur-lock",[
+        h("span",{class:"blur-lock-icon"},["🔒"]),
+        h("span",{class:"blur-lock-label"},["Request Access"])
+      ]);
+      lock.onclick=()=>showRequestAccessModal(folder);
+      wrap.appendChild(inner);wrap.appendChild(lock);
+    } else {
+      inner.onclick=()=>showFolderModal(folder);
+      wrap.appendChild(inner);
+    }
+    grid.appendChild(wrap);
+  });
+  sec.appendChild(grid);
+  return sec;
+}
+
+function triggerUpload(){document.getElementById("file-input")?.click();}
+
+function showShareModal(file){
+  const frag=document.createDocumentFragment();
+  const p=h("p",{style:{color:"var(--slate)",marginBottom:"16px"}},[`Choose who can view "${file.name}":`]);
+  frag.appendChild(p);
+  const permsState={};
+  specialists.filter(s=>s.status==="active").forEach(s=>{permsState[s.id]=true;});
+  const rows=div("inp-group");
+  specialists.filter(s=>s.status==="active").forEach(s=>{
+    const lbl=h("label",{style:{display:"flex",alignItems:"center",gap:"11px",cursor:"pointer"}});
+    const cb=h("input",{type:"checkbox",checked:"true"});
+    cb.checked=true;
+    lbl.appendChild(cb);
+    lbl.appendChild(renderAvatar(s.avatar,32,"#d1fae5"));
+    lbl.appendChild(div("",[
+      div("",[s.name],{fontWeight:600,fontSize:".86rem"}),
+      div("",[s.role],{fontSize:".76rem",color:"var(--slate)"})
+    ]));
+    rows.appendChild(lbl);
+  });
+  frag.appendChild(rows);
+  const btns=div("",[],{display:"flex",gap:"12px",marginTop:"20px"});
+  const {ov,close}=makeModal("📤 Share Settings",frag);
+  const cancelB=btn("Cancel","btn-md btn-ghost",close);
+  const upB=btn('<span class="spinner" style="display:none"></span> Upload & Share',"btn-md btn-primary",async()=>{
+    const sp=upB.querySelector(".spinner");sp.style.display="inline-block";
+    upB.disabled=true;
+    try{
+      const ab=await file.arrayBuffer();
+      const child=children.find(c=>c.id===state.activeChild);
+      const resp=await fetch("https://content.dropboxapi.com/2/files/upload",{
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer "+DROPBOX_TOKEN,
+          "Content-Type":"application/octet-stream",
+          "Dropbox-API-Arg":JSON.stringify({path:`/Huddledin/${child?.name||"General"}/${file.name}`,mode:"add",autorename:true})
+        },body:ab
+      });
+      const data=await resp.json();
+      close();
+      showToast("✅ \""+( data.name||file.name)+"\" uploaded to Dropbox!");
+    }catch(e){close();showToast("❌ Upload failed: "+e.message,true);}
+  });
+  btns.appendChild(cancelB);btns.appendChild(upB);
+  ov.querySelector(".modal-body").appendChild(btns);
+  document.body.appendChild(ov);
+}
+
+function showFolderModal(folder){
+  const frag=document.createDocumentFragment();
+  folder.files.forEach(f=>{
+    frag.appendChild(div("file-item",[
+      h("span",{style:{fontSize:"1.3rem"}},["📄"]),
+      div("",[
+        div("",[f.name],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
+        div("",[f.date],{fontSize:".73rem",color:"var(--slate)"})
+      ],{flex:1}),
+      f.locked?badge("🔒 Locked","amber"):h("span",{},[])
+    ]));
+  });
+  if(state.role==="parent"){
+    const ub=btn("📤 Upload File Here","btn-md btn-primary btn-full",()=>{ov.remove();triggerUpload();});
+    ub.style.marginTop="10px";
+    frag.appendChild(ub);
+  }
+  const {ov}=makeModal(folder.icon+" "+folder.name,frag);
+  document.body.appendChild(ov);
+}
+
+function showRequestAccessModal(folder){
+  const frag=document.createDocumentFragment();
+  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"20px",lineHeight:"1.6"}},
+    [`You don't have access to the ${folder.name} folder. Send an access request to the Carter family?`]));
+  const {ov,close}=makeModal("🔒 Request Access",frag,380);
+  frag.appendChild(btn("Send Request","btn-md btn-primary btn-full",()=>{
+    close();showToast("✅ Access request sent to parent!");
+  }));
+  ov.querySelector(".modal-body").appendChild(btn("Send Request","btn-md btn-primary btn-full",()=>{close();showToast("✅ Access request sent to parent!");}));
+  document.body.appendChild(ov);
+}
+
+function showToast(msg,err=false){
+  const t=div("",[msg],{
+    position:"fixed",bottom:"90px",left:"50%",transform:"translateX(-50%)",
+    background:err?"#fca5a5":typeof msg==="string"&&msg.startsWith("✅")?"var(--mint-l)":"var(--mint-l)",
+    border:"1px solid "+(err?"#f87171":"var(--teal)"),
+    color:err?"#991b1b":"var(--teal-d)",
+    borderRadius:"12px",padding:"12px 22px",fontWeight:600,
+    zIndex:9999,whiteSpace:"nowrap",boxShadow:"var(--shadow-lg)",animation:"fadeIn .3s ease"
+  });
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3200);
+}
+
+// ── CARE TEAM ─────────────────────────────────────────────────────────────
+function renderTeam(){
+  const sec=div("section fade-in");
+  const shr=div("section-header",[h("h2",{class:"page-title"},["Care Team"])]);
+  const invBtn=btn("➕ Invite Specialist","btn-md btn-primary",()=>showInviteModal());
+  shr.appendChild(invBtn);
+  sec.appendChild(shr);
+
+  specialists.forEach(s=>{
+    const hasAccess=(s.permissions[state.activeChild]||[]).length>0;
+    const isPending=s.status==="pending";
+    const card=div("card"+(isPending?" ghost-card":""),[], {display:"flex",alignItems:"center",gap:"15px",marginBottom:"12px",position:"relative"});
+    if(isPending){
+      const pb=h("div",{style:{position:"absolute",top:"-9px",right:"12px"}});
+      pb.appendChild(badge("⏳ Pending Invite","amber"));
+      card.appendChild(pb);
+    }
+    card.appendChild(renderAvatar(s.avatar,46,"#d1fae5"));
+    const info=div("",[
+      div("",[s.name],{fontWeight:700,color:"var(--navy)",fontSize:".92rem"}),
+      div("",[s.role],{fontSize:".8rem",color:"var(--slate)",margin:"2px 0 6px"}),
+      div("",[(s.permissions[state.activeChild]||[]).map(p=>badge(p.toUpperCase(),"teal")),
+        !hasAccess&&!isPending?[badge("No access","slate")]:[]].flat())
+    ],{flex:1});
+    card.appendChild(info);
+    if(!isPending){
+      const acts=div("",[],{display:"flex",gap:"8px"});
+      const consBtn=btn("🤝 Consult","btn-sm btn-secondary",()=>showHandshakeModal(s));
+      const remBtn=btn("Remove","btn-sm btn-danger",()=>confirm("Remove Specialist",`Remove ${s.name}? They'll keep a Legacy Archive of their own notes.`,true,()=>showToast("✅ "+s.name+" removed.")));
+      acts.appendChild(consBtn);acts.appendChild(remBtn);
+      card.appendChild(acts);
+    }
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+function showInviteModal(){
+  const frag=document.createDocumentFragment();
+  const emailI=h("input",{class:"inp",placeholder:"Specialist's email address",type:"email"});
+  const roleI=h("input",{class:"inp",placeholder:"Role (e.g. Speech Therapist)"});
+  const p=h("p",{style:{fontSize:".8rem",color:"var(--slate)",lineHeight:"1.5"}},
+    ["An invite will be sent and a draft profile created. The specialist can also request to join your care team."]);
+  const sendB=btn("Send Invitation","btn-md btn-primary btn-full",()=>{
+    if(!emailI.value)return;
+    ov.remove();showToast("✅ Invitation sent to "+emailI.value+"!");
+  });
+  frag.appendChild(emailI);frag.appendChild(roleI);frag.appendChild(p);frag.appendChild(sendB);
+  const {ov}=makeModal("➕ Invite Specialist",frag,420);
+  ov.querySelector(".modal-body").style.display="flex";
+  ov.querySelector(".modal-body").style.flexDirection="column";
+  ov.querySelector(".modal-body").style.gap="12px";
+  document.body.appendChild(ov);
+}
+
+function showHandshakeModal(spec){
+  const frag=document.createDocumentFragment();
+  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"18px",lineHeight:"1.6"}},
+    [`${spec.name} would like to consult with another specialist. Do you approve?`]));
+  const lbl=h("label",{style:{display:"flex",alignItems:"center",gap:"9px",marginBottom:"18px",cursor:"pointer"}});
+  const cb=h("input",{type:"checkbox"});cb.checked=true;
+  lbl.appendChild(cb);lbl.appendChild(h("span",{style:{fontSize:".88rem",color:"var(--navy)"}},["Include me in the conversation"]));
+  frag.appendChild(lbl);
+  const acts=div("",[],{display:"flex",gap:"12px"});
+  const {ov,close}=makeModal("🤝 Consult Request",frag,400);
+  const denyB=btn("Deny","btn-md btn-danger",close);
+  const appB=btn("Approve ✓","btn-md btn-primary",()=>{
+    close();showToast("✅ Consultation approved!");
+  });
+  acts.appendChild(denyB);acts.appendChild(appB);
+  ov.querySelector(".modal-body").appendChild(acts);
+  document.body.appendChild(ov);
+}
+
+// ── CALENDAR ───────────────────────────────────────────────────────────────
+function renderCalendar(){
+  const childAppts=appointments.filter(a=>a.childId===state.activeChild);
+  const sec=div("section fade-in");
+  const shr=div("section-header",[h("h2",{class:"page-title"},["Calendar"])]);
+  shr.appendChild(btn("📅 Sync with Google","btn-sm btn-ghost",()=>showToast("🔗 Google Calendar sync — coming soon!")));
+  sec.appendChild(shr);
+
+  // Calendar grid
+  const calCard=div("card",[], {marginBottom:"22px",padding:"0",overflow:"hidden"});
+  const calHead=div("",[],{background:"var(--teal)",color:"#fff",padding:"18px 22px"});
+  calHead.innerHTML=`<span class="ff" style="font-size:1.1rem;font-weight:600">March 2025</span>`;
+  calCard.appendChild(calHead);
+  const calBody=div("",[],{padding:"14px"});
+  const grid=div("cal-grid");
+  ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{
+    grid.appendChild(div("cal-day-label",[d]));
+  });
+  // March 2025 starts on Saturday (6 offset)
+  for(let i=0;i<6;i++)grid.appendChild(div("cal-day"));
+  for(let day=1;day<=31;day++){
+    const ds=`2025-03-${String(day).padStart(2,"0")}`;
+    const dayAppts=childAppts.filter(a=>a.date===ds);
+    const cell=div("cal-day");
+    const num=div("cal-num"+(dayAppts.length?" has-event":""),[String(day)]);
+    if(dayAppts.length)num.title=dayAppts.map(a=>a.title).join(", ");
+    cell.appendChild(num);
+    dayAppts.forEach(a=>{
+      const dot=div("cal-dot",[a.title.split(" ")[0]],{background:typeColor[a.type]||"var(--teal)"});
+      cell.appendChild(dot);
+    });
+    grid.appendChild(cell);
+  }
+  calBody.appendChild(grid);
+  calCard.appendChild(calBody);
+  sec.appendChild(calCard);
+
+  h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"13px"}},"Upcoming Appointments");
+  const ul=div("",[]); ul.style.display="flex"; ul.style.flexDirection="column"; ul.style.gap="10px";
+  [...childAppts].sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
+    const child=children.find(c=>c.id===apt.childId);
+    ul.appendChild(div("card",[
+      div("",[
+        div("",["📅"],{width:"44px",height:"44px",borderRadius:"13px",background:(typeColor[apt.type]||"#14b8a6")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.2rem",flexShrink:0}),
+        div("",[
+          div("",[apt.title],{fontWeight:700,color:"var(--navy)"}),
+          div("",[apt.specialist],{fontSize:".8rem",color:"var(--slate)"}),
+          child?div("",[child.avatar+" "+child.name],{fontSize:".75rem",color:"var(--slate-l)"}):null
+        ].filter(Boolean),{flex:1}),
+        div("",[
+          div("",[apt.date],{fontWeight:700,color:"var(--teal)",fontSize:".86rem",textAlign:"right"}),
+          div("",[apt.time],{fontSize:".76rem",color:"var(--slate)",textAlign:"right"})
+        ])
+      ],{display:"flex",gap:"14px",alignItems:"center"})
+    ]));
+  });
+  sec.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"13px"}},["Upcoming Appointments"]));
+  sec.appendChild(ul);
+  return sec;
+}
+
+// ── CHAT ──────────────────────────────────────────────────────────────────
+function renderChat(){
+  const sec=div("section fade-in");
+  const shr=div("section-header",[h("h2",{class:"page-title"},["Messages"])]);
+  if(state.role==="specialist"){
+    shr.appendChild(btn("🤝 Request to Consult","btn-sm btn-primary",()=>showConsultModal()));
+  }
+  sec.appendChild(shr);
+
+  const wrap=div("",[],{display:"grid",gridTemplateColumns:"200px 1fr",gap:"18px",height:"460px"});
+
+  // Chat list
+  const list=div("card",[], {padding:0,overflow:"hidden"});
+  chats.forEach(chat=>{
+    const other=chat.participants.find(p=>p!=="parent");
+    const spec=specialists.find(s=>s.id===other);
+    const child=children.find(c=>c.id===chat.childId);
+    const item=div("",[
+      div("",[spec?.name||"Chat"],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
+      div("",[child?.avatar+" "+child?.name],{fontSize:".73rem",color:"var(--slate)",marginTop:"2px"})
+    ],{padding:"13px 15px",borderBottom:"1px solid var(--border)",cursor:"pointer",
+      background:state.activeChatId===chat.id?"var(--mint-l)":"#fff",transition:"background .15s"});
+    item.onclick=()=>setS({activeChatId:chat.id});
+    list.appendChild(item);
+  });
+  wrap.appendChild(list);
+
+  // Chat window
+  const activeChat=chats.find(c=>c.id===state.activeChatId);
+  const chatWin=div("card",[], {display:"flex",flexDirection:"column",padding:0,overflow:"hidden"});
+
+  if(activeChat){
+    const spec=specialists.find(s=>activeChat.participants.includes(s.id));
+    const chatHead=div("",[
+      renderAvatar("💬",36,"#d1fae5"),
+      div("",[
+        div("",[spec?.name||""],{fontWeight:700,fontSize:".88rem",color:"var(--navy)"}),
+        div("",[" 🔒 Secure · Parent-approved"],{fontSize:".72rem",color:"var(--teal)"})
+      ])
+    ],{padding:"14px 18px",borderBottom:"1px solid var(--border)",display:"flex",gap:"12px",alignItems:"center"});
+    chatWin.appendChild(chatHead);
+
+    const msgArea=div("",[],{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:"11px"});
+    activeChat.messages.forEach(m=>{
+      const isMe=(state.role==="parent"&&m.sender==="parent")||(state.role==="specialist"&&m.sender!=="parent");
+      const bw=div("",[],{display:"flex",justifyContent:isMe?"flex-end":"flex-start"});
+      const bubble=div(isMe?"bubble-me":"bubble-them",[]);
+      if(!isMe){const sn=div("bubble-name",[spec?.name||""]);bubble.appendChild(sn);}
+      bubble.appendChild(h("div",{},[m.text]));
+      bubble.appendChild(div("bubble-time",[m.time]));
+      bw.appendChild(bubble);
+      msgArea.appendChild(bw);
+    });
+    chatWin.appendChild(msgArea);
+
+    const inputRow=div("",[],{padding:"13px 16px",borderTop:"1px solid var(--border)",display:"flex",gap:"9px"});
+    const msgInp=h("input",{class:"inp",placeholder:"Type a message...",style:{flex:"1"}});
+    msgInp.value=state.chatMsg||"";
+    msgInp.oninput=e=>state.chatMsg=e.target.value;
+    const sendB=btn("Send","btn-md btn-primary",()=>{
+      const txt=msgInp.value.trim();if(!txt)return;
+      const newMsg={id:"m_"+Date.now(),sender:state.role==="parent"?"parent":state.specialistId,text:txt,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),date:new Date().toISOString().split("T")[0]};
+      activeChat.messages.push(newMsg);
+      state.chatMsg="";re();
+    });
+    msgInp.onkeydown=e=>{if(e.key==="Enter")sendB.click();};
+    inputRow.appendChild(msgInp);inputRow.appendChild(sendB);
+    chatWin.appendChild(inputRow);
+  } else {
+    chatWin.appendChild(div("",[h("p",{style:{color:"var(--slate)"}},"Select a chat")],{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}));
+  }
+  wrap.appendChild(chatWin);
+  sec.appendChild(wrap);
+
+  // Mobile: stack vertically
+  const mq=window.matchMedia("(max-width:767px)");
+  if(mq.matches)wrap.style.gridTemplateColumns="1fr";
+
+  return sec;
+}
+
+function showConsultModal(){
+  const frag=document.createDocumentFragment();
+  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"16px",lineHeight:"1.6"}},
+    ["Select a specialist to request a consultation. The parent will be notified to approve."]));
+  specialists.filter(s=>s.id!==state.specialistId).forEach(s=>{
+    const row=div("",[
+      renderAvatar(s.avatar,36),
+      div("",[
+        div("",[s.name],{fontWeight:600,fontSize:".86rem"}),
+        div("",[s.role],{fontSize:".76rem",color:"var(--slate)"})
+      ],{flex:1}),
+      btn("Request","btn-sm btn-primary",()=>{ov.remove();showToast("✅ Consultation request sent! The Carter family will be notified.");})
+    ],{display:"flex",alignItems:"center",gap:"12px",padding:"11px",borderRadius:"11px",background:"var(--bg)",border:"1px solid var(--border)",marginBottom:"9px"});
+    frag.appendChild(row);
+  });
+  const {ov}=makeModal("🤝 Request to Consult",frag,420);
+  document.body.appendChild(ov);
+}
+
+// ── SPECIALIST VAULT ──────────────────────────────────────────────────────
+function renderVault(){
+  const child=children.find(c=>c.id===state.activeChild);
+  const myNotes=vaultNotes.filter(n=>n.specialistId===state.specialistId&&n.childId===state.activeChild);
+  const activeNote=myNotes.find(n=>n.id===state.activeVaultNoteId)||null;
+
+  const sec=div("section fade-in");
+  const shr=div("section-header",[
+    div("",[
+      h("h2",{class:"page-title"},["Private Vault"]),
+      div("page-sub",["🔒 Notes hidden from parents until published · "+child?.avatar+" "+child?.name])
+    ])
+  ]);
+  shr.appendChild(btn("✏️ New Note","btn-sm btn-primary",()=>{
+    const nn={id:"v_"+Date.now(),specialistId:state.specialistId,childId:state.activeChild,date:new Date().toISOString().split("T")[0],title:"New Session Notes",content:"",published:false,locked:false,summary:null};
+    vaultNotes.unshift(nn);
+    setS({activeVaultNoteId:nn.id,vaultSummaryText:""});
+  }));
+  sec.appendChild(shr);
+
+  const layout=div("",[],{display:"grid",gridTemplateColumns:activeNote?"260px 1fr":"1fr",gap:"18px"});
+
+  // Note list
+  const noteList=div("",[],{display:"flex",flexDirection:"column",gap:"10px"});
+  if(!myNotes.length)noteList.appendChild(h("p",{style:{color:"var(--slate)"}},"No vault notes yet."));
+  myNotes.forEach(note=>{
+    const nc=div("card clickable",[],{border:state.activeVaultNoteId===note.id?"2px solid var(--teal)":"1px solid var(--border)"});
+    const nh=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"5px"});
+    nh.appendChild(h("span",{style:{fontWeight:700,fontSize:".86rem",color:"var(--navy)",lineHeight:"1.3"}},[note.title]));
+    const flags=div("",[]);
+    if(note.locked)flags.appendChild(h("span",{},"🔒"));
+    if(note.published)flags.appendChild(badge("Published","teal"));
+    nh.appendChild(flags);
+    nc.appendChild(nh);
+    nc.appendChild(div("",[note.date],{fontSize:".74rem",color:"var(--slate)"}));
+    nc.appendChild(div("",[note.content.slice(0,55)+"..."],{fontSize:".76rem",color:"var(--slate-l)",marginTop:"5px"}));
+    nc.onclick=()=>setS({activeVaultNoteId:note.id,vaultSummaryText:note.summary||""});
+    noteList.appendChild(nc);
+  });
+  layout.appendChild(noteList);
+
+  // Note editor
+  if(activeNote){
+    const editor=div("card",[],{display:"flex",flexDirection:"column",gap:"14px"});
+
+    // Title row
+    const titleRow=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"center"});
+    const titleI=h("input",{style:{fontFamily:"'Fraunces',serif",fontSize:"1.05rem",fontWeight:700,border:"none",outline:"none",flex:"1",background:"transparent",color:"var(--navy)"}});
+    titleI.value=activeNote.title;
+    titleI.disabled=activeNote.locked;
+    titleI.oninput=e=>{activeNote.title=e.target.value;};
+    titleRow.appendChild(titleI);
+    const closeB=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",fontSize:"1.1rem"}},["✕"]);
+    closeB.onclick=()=>setS({activeVaultNoteId:null,vaultSummaryText:""});
+    titleRow.appendChild(closeB);
+    editor.appendChild(titleRow);
+
+    // Clinical notes
+    const clinLabel=div("",[],{fontSize:".7rem",fontWeight:700,color:"var(--slate)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"6px"});
+    clinLabel.textContent="Clinical Notes (Private)";
+    editor.appendChild(clinLabel);
+    const ta=h("textarea",{class:"inp",style:{minHeight:"150px"}});
+    ta.value=activeNote.content;
+    ta.disabled=activeNote.locked;
+    ta.oninput=e=>{activeNote.content=e.target.value;};
+    editor.appendChild(ta);
+
+    // Actions
+    const actRow=div("",[],{display:"flex",gap:"9px",flexWrap:"wrap"});
+    if(!activeNote.locked){
+      const aiB=btn("✨ AI Summarize","btn-md btn-secondary",async()=>{
+        aiB.disabled=true;aiB.innerHTML='<span class="spinner"></span> Summarizing...';
+        try{
+          const resp=await fetch("https://api.anthropic.com/v1/messages",{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid jargon. Be positive but honest. Keep to 3-4 sentences.\n\nClinical notes:\n${activeNote.content}`}]})
+          });
+          const data=await resp.json();
+          const text=data.content?.[0]?.text||"Unable to generate summary.";
+          activeNote.summary=text;
+          setS({activeVaultNoteId:activeNote.id,vaultSummaryText:text});
+        }catch(e){
+          setS({activeVaultNoteId:activeNote.id,vaultSummaryText:"AI failed. Please write a summary manually."});
+        }
+      });
+      actRow.appendChild(aiB);
+      actRow.appendChild(btn("🔒 Lock","btn-sm btn-ghost",()=>confirm("Lock Report?","Locking makes this a permanent, uneditable record. This cannot be undone.",true,()=>{activeNote.locked=true;re();})));
+    }
+    editor.appendChild(actRow);
+
+    // Summary block
+    const summaryText=state.vaultSummaryText||activeNote.summary||"";
+    if(summaryText){
+      const ab=div("ai-block");
+      ab.appendChild(div("ai-label",["✨ Parent-Friendly Summary"]));
+      const sta=h("textarea",{class:"inp",style:{minHeight:"90px",background:"white"}});
+      sta.value=summaryText;
+      sta.oninput=e=>{activeNote.summary=e.target.value;state.vaultSummaryText=e.target.value;};
+      ab.appendChild(sta);
+      const pubB=btn("📤 Lock & Publish to Parent","btn-md btn-primary",()=>{
+        confirm("Publish Summary?","This will send the summary to the parent's profile.",false,()=>{
+          activeNote.published=true;
+          notifications.unshift({id:"n_"+Date.now(),type:"report",msg:`Dr. Sarah Okafor published a new summary for ${child?.name}`,time:"Just now",read:false,childId:state.activeChild});
+          re();showToast("🎉 Summary published to parent's profile!");
+        });
+      });
+      pubB.style.marginTop="11px";
+      ab.appendChild(pubB);
+      editor.appendChild(ab);
+    }
+
+    layout.appendChild(editor);
+  }
+
+  sec.appendChild(layout);
+
+  // Mobile stack
+  if(window.innerWidth<768)layout.style.gridTemplateColumns="1fr";
+
+  return sec;
+}
+
+// ── HOMEWORK (SPECIALIST) ─────────────────────────────────────────────────
+function renderHomeworkSpec(){
+  const childHW=homework.filter(h=>h.childId===state.activeChild);
+  const child=children.find(c=>c.id===state.activeChild);
+  const sec=div("section fade-in");
+  const shr=div("section-header",[h("h2",{class:"page-title"},["Homework & Tasks"])]);
+  shr.appendChild(btn("➕ Assign Task","btn-sm btn-primary",()=>showAssignModal()));
+  sec.appendChild(shr);
+
+  if(!childHW.length){sec.appendChild(h("p",{style:{color:"var(--slate)"}},"No tasks assigned yet."));return sec;}
+
+  childHW.forEach(hw=>{
+    const card=div("card",[],{display:"flex",gap:"13px",alignItems:"flex-start",marginBottom:"10px"});
+    const chkbox=div("chk"+(hw.completed?" done":""));
+    chkbox.onclick=()=>{hw.completed=!hw.completed;re();};
+    card.appendChild(chkbox);
+    const info=div("",[
+      div("",[hw.task],{fontWeight:600,color:hw.completed?"var(--slate-l)":"var(--navy)",textDecoration:hw.completed?"line-through":"none",fontSize:".88rem",marginBottom:"5px"}),
+      div("",[
+        badge(hw.category,hw.category==="Speech"?"teal":hw.category==="OT"?"coral":"purple"),
+        h("span",{style:{fontSize:".72rem",color:"var(--slate-l)",marginLeft:"8px"}},["Due "+hw.due]),
+        hw.completed?badge("✅ Completed by parent","green"):h("span",{},{})
+      ])
+    ],{flex:1});
+    card.appendChild(info);
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+function showAssignModal(){
+  const frag=document.createDocumentFragment();
+  const ta=h("textarea",{class:"inp",placeholder:"Describe the task..."});
+  const sel=h("select",{class:"inp"});
+  ["Speech","OT","PT","General"].forEach(c=>{const o=h("option");o.value=c;o.textContent=c;sel.appendChild(o);});
+  const dateI=h("input",{class:"inp",type:"date"});
+  frag.appendChild(ta);frag.appendChild(sel);frag.appendChild(dateI);
+  const {ov,close}=makeModal("➕ Assign Task",frag,420);
+  const addB=btn("Assign Task","btn-md btn-primary btn-full",()=>{
+    if(!ta.value.trim()||!dateI.value)return;
+    homework.unshift({id:"h_"+Date.now(),childId:state.activeChild,task:ta.value.trim(),specialist:"Dr. Sarah Okafor",due:dateI.value,completed:false,category:sel.value});
+    close();re();showToast("✅ Task assigned!");
+  });
+  ov.querySelector(".modal-body").style.cssText="padding:22px 26px;display:flex;flex-direction:column;gap:12px";
+  ov.querySelector(".modal-body").appendChild(addB);
+  document.body.appendChild(ov);
+}
+
+// ── PATIENTS ──────────────────────────────────────────────────────────────
+function renderPatients(){
+  const sec=div("section fade-in");
+  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"16px"}},["My Patients"]));
+  const srch=h("input",{class:"inp",placeholder:"Search by name...",style:{marginBottom:"18px"}});
+  sec.appendChild(srch);
+
+  const list=div("",[],{display:"flex",flexDirection:"column",gap:"11px"});
+  const sorted=[...children].sort((a,b)=>a.name.split(" ").pop().localeCompare(b.name.split(" ").pop()));
+
+  const render_list=filter=>{
+    list.innerHTML="";
+    sorted.filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())).forEach(c=>{
+      const card=div("card clickable",[],{display:"flex",alignItems:"center",gap:"15px",border:state.activeChild===c.id?"2px solid var(--teal)":"1px solid var(--border)"});
+      const icon=div("",[c.avatar],{width:"50px",height:"50px",borderRadius:"13px",background:c.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.7rem",flexShrink:0});
+      const info=div("",[
+        div("",[c.name],{fontWeight:700,color:"var(--navy)"}),
+        div("",[`Age ${c.age} · DOB ${c.dob}`],{fontSize:".8rem",color:"var(--slate)",margin:"2px 0 6px"}),
+        div("",[...c.diagnoses.map(d=>badge(d,"teal"))],{display:"flex",gap:"6px",flexWrap:"wrap"})
+      ],{flex:1});
+      const arr=h("span",{style:{color:"var(--slate-l)",fontSize:"1.1rem"}},["›"]);
+      card.appendChild(icon);card.appendChild(info);card.appendChild(arr);
+      card.onclick=()=>setS({activeChild:c.id,activeTab:"vault"});
+      list.appendChild(card);
+    });
+  };
+  render_list("");
+  srch.oninput=e=>render_list(e.target.value);
+  sec.appendChild(srch);sec.appendChild(list);
+  return sec;
+}
+
+// ── NOTIFICATIONS PAGE ────────────────────────────────────────────────────
+function renderNotifications(){
+  const sec=div("section fade-in");
+  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"20px"}},["All Notifications"]));
+  notifications.forEach(n=>{
+    const card=div("card",[],{display:"flex",gap:"13px",alignItems:"flex-start",marginBottom:"10px",
+      background:n.read?"#fff":"var(--mint-l)",border:n.read?"1px solid var(--border)":"1.5px solid var(--teal-l)"});
+    card.appendChild(h("span",{style:{fontSize:"1.4rem"}},[notifIcon[n.type]]));
+    const info=div("",[
+      div("",[n.msg],{color:"var(--navy)",fontWeight:n.read?400:600,lineHeight:"1.4",marginBottom:"3px"}),
+      div("",[n.time],{fontSize:".74rem",color:"var(--slate-l)"})
+    ],{flex:1});
+    card.appendChild(info);
+    if(!n.read)card.appendChild(badge("New","teal"));
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────
+function renderSettings(){
+  const sec=div("section fade-in");
+  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"20px"}},["Settings"]));
+
+  // Notifications card
+  const nc=div("card",[], {marginBottom:"16px"});
+  nc.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},["🔔 Notification Preferences"]));
+  Object.entries(settings_notifs).forEach(([key,val])=>{
+    const row=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border)"});
+    const label=h("span",{style:{textTransform:"capitalize",color:"var(--navy)"}},[key+" notifications"]);
+    const tog=h("button",{class:"toggle"+(val?" on":"")});
+    tog.onclick=()=>{settings_notifs[key]=!settings_notifs[key];tog.className="toggle"+(settings_notifs[key]?" on":"");};
+    row.appendChild(label);row.appendChild(tog);
+    nc.appendChild(row);
+  });
+  sec.appendChild(nc);
+
+  // Privacy card
+  const pc=div("card");
+  pc.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"12px"}},["🔒 Privacy & Security"]));
+  pc.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".86rem",lineHeight:"1.65"}},
+    ["All data is encrypted end-to-end. Specialists only see files you explicitly share. Files are stored securely in your Dropbox account. Specialists retain a Legacy Archive of their own authored notes if removed from the care team."]));
+  sec.appendChild(pc);
+  return sec;
+}
+
+// ── LOGIN SCREEN ──────────────────────────────────────────────────────────
+function renderLogin(){
+  const scr=div("login-bg",[], {minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px",position:"relative",overflow:"hidden"});
+  scr.appendChild(div("login-orb1"));
+  scr.appendChild(div("login-orb2"));
+
+  if(state.loginStep==="landing"){
+    const card=div("login-card slide-up");
+    card.innerHTML=`<div style="text-align:center;margin-bottom:28px"><div style="font-size:3.5rem;margin-bottom:12px">🤝</div><h1 class="ff" style="font-size:2.6rem;font-weight:700;margin-bottom:9px">Huddledin</h1><p style="color:rgba(255,255,255,.85);font-size:.98rem;line-height:1.65">Collaborative care for children with special needs — all in one place.</p></div>`;
+    const gb=h("button",{class:"landing-btn-white"},["Get Started"]);
+    gb.onclick=()=>setS({loginStep:"role"});
+    const sb=h("button",{class:"landing-btn-ghost"},["Sign In"]);
+    sb.onclick=()=>setS({loginStep:"role"});
+    card.appendChild(gb);card.appendChild(sb);
+    card.appendChild(h("p",{class:"landing-tagline"},["Secure • HIPAA-aware • Parent-first"]));
+    scr.appendChild(card);
+  }
+  else if(state.loginStep==="role"){
+    const card=div("login-plain slide-up");
+    const back=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",marginBottom:"18px",fontSize:".88rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"5px"}},"← Back");
+    back.onclick=()=>setS({loginStep:"landing"});
+    card.appendChild(back);
+    card.innerHTML+=`<h2 class="ff" style="font-size:1.65rem;font-weight:700;margin-bottom:6px;color:var(--navy)">Who are you?</h2><p style="color:var(--slate);margin-bottom:24px">Choose your role to continue.</p>`;
+    card.querySelector("button").onclick=()=>setS({loginStep:"landing"});
+    [{r:"parent",emoji:"👨‍👩‍👧",label:"Parent / Guardian",desc:"Manage your child's care team, files, and appointments"},{r:"specialist",emoji:"🩺",label:"Specialist / Therapist",desc:"View patient notes, publish summaries, assign homework"}].forEach(({r,emoji,label,desc})=>{
+      const rc=div("role-card"+(state.role===r?" selected":""));
+      rc.innerHTML=`<span style="font-size:2.2rem">${emoji}</span><div><div style="font-weight:700;color:var(--navy);margin-bottom:3px">${label}</div><div style="font-size:.8rem;color:var(--slate)">${desc}</div></div>`;
+      rc.onclick=()=>setS({role:r,loginStep:"form"});
+      card.appendChild(rc);
+    });
+    scr.appendChild(card);
+  }
+  else{
+    const card=div("login-plain slide-up");
+    const back=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",marginBottom:"18px",fontSize:".88rem",fontFamily:"inherit"}},["← Back"]);
+    back.onclick=()=>setS({loginStep:"role"});
+    card.appendChild(back);
+    card.appendChild(h("div",{style:{textAlign:"center",marginBottom:"26px"}},[ h("div",{style:{fontSize:"2.8rem",marginBottom:"9px"}},[state.role==="parent"?"👨‍👩‍👧":"🩺"]), h("h2",{class:"ff",style:{fontSize:"1.65rem",fontWeight:700,color:"var(--navy)"}},[state.role==="parent"?"Parent Sign In":"Specialist Sign In"]) ]));
+    const form=div("inp-group");
+    if(state.role==="parent")form.appendChild(h("input",{class:"inp",placeholder:"Full Name"}));
+    form.appendChild(h("input",{class:"inp",placeholder:"Email address",type:"email"}));
+    form.appendChild(h("input",{class:"inp",placeholder:"Password",type:"password"}));
+    const signinB=h("button",{class:"btn btn-primary btn-lg btn-full",style:{marginTop:"8px"}},["Sign In"]);
+    let loading=false;
+    signinB.onclick=()=>{
+      if(loading)return;loading=true;
+      signinB.innerHTML='<span class="spinner"></span> Signing in...';
+      setTimeout(()=>{
+        const firstTab=state.role==="parent"?"dashboard":"patients";
+        setS({screen:"app",activeTab:firstTab,specialistId:"s1"});
+      },1100);
+    };
+    form.appendChild(signinB);
+    card.appendChild(form);
+    card.appendChild(h("p",{style:{textAlign:"center",color:"var(--slate)",fontSize:".8rem",marginTop:"16px"}},["Demo: any credentials work ✨"]));
+    scr.appendChild(card);
+  }
+  return scr;
+}
+
+// ── MAIN APP SHELL ────────────────────────────────────────────────────────
+function renderApp(){
+  const wrap=div("fade-in",[],{display:"flex",flexDirection:"column",minHeight:"100vh"});
+  wrap.appendChild(renderHeader());
+  const body=h("div",{id:"body"});
+  body.appendChild(renderSideNav());
+  const main=h("main",{id:"main"});
+  main.appendChild(renderContent());
+  body.appendChild(main);
+  wrap.appendChild(body);
+  wrap.appendChild(renderBottomNav());
+  return wrap;
+}
+
+function renderContent(){
+  const t=state.activeTab;
+  if(state.role==="parent"){
+    if(t==="dashboard")return renderDashboard();
+    if(t==="files")return renderFiles();
+    if(t==="team")return renderTeam();
+    if(t==="calendar")return renderCalendar();
+    if(t==="chat")return renderChat();
+    if(t==="notifications")return renderNotifications();
+    if(t==="settings")return renderSettings();
+  } else {
+    if(t==="patients")return renderPatients();
+    if(t==="vault")return renderVault();
+    if(t==="homework")return renderHomeworkSpec();
+    if(t==="files")return renderFiles();
+    if(t==="chat")return renderChat();
+    if(t==="notifications")return renderNotifications();
+  }
+  return div("",[h("p",{style:{padding:"30px",color:"var(--slate)"}},"Coming soon...")]);
+}
+
+// ── ROOT RENDER ───────────────────────────────────────────────────────────
+function render(){
+  if(state.screen==="login")return renderLogin();
+  return renderApp();
+}
+
+// Boot
+re();
+</script>
+</body>
+</html>
