@@ -422,6 +422,227 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .header-inner{height:44px}
 }
 @media(-webkit-min-device-pixel-ratio:2),(min-resolution:192dpi){.card,.modal,.inp{border-width:0.5px}}
+
+/* ══════════════════════════════════════════
+   DRAWER NAVIGATION SYSTEM
+══════════════════════════════════════════ */
+
+/* Hamburger trigger */
+.hamburger{
+  width:40px;height:40px;border-radius:14px;border:none;cursor:pointer;
+  background:rgba(255,255,255,.72);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(167,243,208,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;flex-shrink:0;transition:background .15s,transform .12s;
+  box-shadow:0 1px 6px rgba(0,0,0,.07);
+}
+.hamburger:active{transform:scale(.9);background:var(--mint-l)}
+.ham-bar{
+  width:18px;height:2px;border-radius:2px;
+  background:var(--navy);transition:transform .3s,opacity .3s,width .3s;
+  transform-origin:center;
+}
+/* Animated X state */
+.hamburger.open .ham-bar:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.hamburger.open .ham-bar:nth-child(2){opacity:0;transform:scaleX(0)}
+.hamburger.open .ham-bar:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+/* Drawer backdrop */
+.drawer-backdrop{
+  position:fixed;inset:0;z-index:390;
+  background:rgba(15,23,42,.38);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  animation:fadeIn .2s ease;
+}
+
+/* The drawer panel itself */
+.drawer{
+  position:fixed;top:0;left:0;bottom:0;z-index:400;
+  width:min(300px,82vw);
+  background:#fff;
+  box-shadow:6px 0 40px rgba(0,0,0,.18),2px 0 8px rgba(0,0,0,.08);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  /* Slide in from left */
+  transform:translateX(-100%);
+  transition:transform .35s cubic-bezier(.32,.72,0,1);
+  will-change:transform;
+}
+.drawer.open{transform:translateX(0)}
+
+/* Drawer header — user profile area */
+.drawer-profile{
+  padding:calc(var(--safe-top) + 20px) 20px 20px;
+  background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 60%,var(--teal-l) 100%);
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.drawer-profile::before{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1)
+}
+.drawer-profile::after{
+  content:'';position:absolute;bottom:-20px;left:-20px;
+  width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07)
+}
+.drawer-avatar{
+  width:52px;height:52px;border-radius:18px;
+  background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;margin-bottom:12px;
+  box-shadow:0 4px 14px rgba(0,0,0,.15);position:relative;z-index:1;
+}
+.drawer-name{
+  font-family:'Fraunces',serif;font-size:1.05rem;font-weight:800;
+  color:#fff;margin-bottom:3px;position:relative;z-index:1;
+}
+.drawer-role{
+  font-size:.74rem;font-weight:700;color:rgba(255,255,255,.75);
+  position:relative;z-index:1;
+}
+
+/* Drawer scroll area */
+.drawer-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 10px}
+
+/* Section label inside drawer */
+.drawer-section-label{
+  font-size:.62rem;font-weight:900;color:var(--slate-l);
+  text-transform:uppercase;letter-spacing:.09em;
+  padding:14px 12px 6px;
+}
+
+/* Nav items inside drawer */
+.drawer-item{
+  display:flex;align-items:center;gap:13px;
+  padding:13px 14px;border-radius:var(--r);
+  border:none;background:transparent;cursor:pointer;
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:.9rem;
+  color:var(--slate);text-align:left;transition:all .14s;
+  width:100%;min-height:50px;position:relative;
+  -webkit-user-select:none;user-select:none;
+}
+.drawer-item:active{background:var(--mint-l);transform:scale(.98)}
+@media(hover:hover){.drawer-item:hover{background:var(--mint-ll);color:var(--navy)}}
+.drawer-item.active{
+  background:linear-gradient(135deg,var(--mint-l) 0%,var(--lav-l) 100%);
+  color:var(--teal-d);font-weight:800;
+  box-shadow:0 2px 12px rgba(13,148,136,.1);
+}
+.drawer-item.active .di-icon{
+  background:linear-gradient(135deg,var(--teal),var(--teal-l));
+  color:#fff;box-shadow:0 3px 10px rgba(13,148,136,.35);
+}
+.di-icon{
+  width:36px;height:36px;border-radius:12px;
+  background:var(--mint-ll);display:flex;align-items:center;
+  justify-content:center;font-size:1rem;flex-shrink:0;
+  transition:background .14s,box-shadow .14s;
+}
+.di-label{flex:1}
+.di-badge{
+  background:var(--coral);color:#fff;border-radius:99px;
+  min-width:20px;height:20px;font-size:.6rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;padding:0 5px;
+}
+
+/* Danger / sign-out item */
+.drawer-item.danger{color:#be123c}
+.drawer-item.danger .di-icon{background:var(--rose-l);color:#be123c}
+.drawer-item.danger:active{background:var(--rose-l)}
+
+/* Separator inside drawer */
+.drawer-sep{height:1px;background:var(--mint-ll);margin:6px 12px}
+
+/* ══════════════════════════════════════════
+   PREMIUM CHILD SWITCHER IN HEADER
+══════════════════════════════════════════ */
+
+/* Switcher strip — center of header */
+#child-switcher{
+  flex:1;display:flex;gap:6px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:x mandatory;
+  padding:2px 4px;
+  /* Hide scrollbar completely */
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+#child-switcher::-webkit-scrollbar{display:none}
+
+/* Avatar-style pill — premium feel */
+.child-pill{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 8px;border-radius:var(--r);
+  border:1.5px solid transparent;
+  background:transparent;cursor:pointer;
+  transition:all .18s;flex-shrink:0;
+  scroll-snap-align:start;
+  min-height:44px;min-width:48px;
+  -webkit-user-select:none;user-select:none;
+  position:relative;
+}
+.child-pill:active{transform:scale(.92)}
+/* Active state: teal pill background */
+.child-pill.active{
+  background:rgba(13,148,136,.1);
+  border-color:rgba(13,148,136,.25);
+  border-radius:var(--r);
+}
+/* Avatar circle */
+.cp-avatar{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;background:var(--mint-l);
+  border:2px solid transparent;transition:border-color .18s,box-shadow .18s;
+  overflow:hidden;flex-shrink:0;
+}
+.child-pill.active .cp-avatar{
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(13,148,136,.18);
+}
+.cp-avatar img{width:100%;height:100%;object-fit:cover}
+/* Name label under avatar */
+.cp-name{
+  font-size:.58rem;font-weight:800;color:var(--slate);
+  white-space:nowrap;line-height:1;letter-spacing:.01em;
+  transition:color .18s;
+}
+.child-pill.active .cp-name{color:var(--teal-d)}
+
+/* Add-child pill */
+.child-pill-add{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 8px;border-radius:var(--r);
+  border:1.5px dashed var(--slate-ll);
+  background:transparent;cursor:pointer;
+  transition:all .18s;flex-shrink:0;
+  min-height:44px;min-width:48px;
+  -webkit-user-select:none;user-select:none;
+}
+.child-pill-add:active{transform:scale(.92);background:var(--mint-ll)}
+.cp-add-circle{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--mint-ll);border:2px dashed var(--slate-ll);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;color:var(--slate-l);
+}
+.cp-add-label{font-size:.58rem;font-weight:800;color:var(--slate-l);white-space:nowrap}
+
+/* ── Simplified header layout for drawer architecture ── */
+#header-right{display:none} /* moved entirely to drawer */
+
+/* Header: logo left, hamburger right, switcher in middle */
+.header-inner{
+  display:flex;align-items:center;gap:10px;
+  padding:0 14px;height:var(--header-h);width:100%;
+}
+#logo{flex-shrink:0}
+
+/* ══════════════════════════════════════════
+   BOTTOM BAR — only 3 quick-action tabs
+══════════════════════════════════════════ */
+.bnav-icon{font-size:1.35rem;line-height:1;display:block;transition:transform var(--spring)}
+.bnav-btn.active .bnav-icon{transform:scale(1.18) translateY(-2px)}
 </style>
 </style>
 </head>
@@ -584,9 +805,10 @@ let S={
   vaultHasUnsaved:false,
   searchOpen:false,
   searchQuery:'',
-  activeProgressTab:'overview', // overview | milestones | add
+  activeProgressTab:'overview',
   emailOpen:false,
-  activeEmailId:null
+  activeEmailId:null,
+  isDrawerOpen:false   // Navigation drawer state
 };
 
 /* ═══════════════════════════════════════════════
@@ -777,8 +999,19 @@ function renderAuth(){
 function renderShell(){
   const shell=el('div',{id:'app-shell'});
   shell.appendChild(renderHeader());
+
+  // Drawer backdrop — shown when drawer open
+  if(S.isDrawerOpen){
+    const bd=el('div',{class:'drawer-backdrop'});
+    bd.onclick=()=>{S.isDrawerOpen=false;re();};
+    shell.appendChild(bd);
+  }
+
+  // Navigation drawer (always in DOM; CSS transform drives open/close)
+  shell.appendChild(renderDrawer());
+
   const body=el('div',{id:'body'});
-  body.appendChild(renderSidenav());
+  body.appendChild(renderSidenav()); // desktop only
   const main=el('main',{id:'main'});
   main.appendChild(renderContent());
   body.appendChild(main);
@@ -788,53 +1021,59 @@ function renderShell(){
   return shell;
 }
 
-/* ── HEADER ── */
+/* ── HEADER — clean, drawer-first ── */
 function renderHeader(){
   const hd=el('header',{id:'header'});
-  // Inner wrapper aligns content below status bar area
   const inner=el('div',{class:'header-inner'});
+
+  // ── Hamburger (left) ──
+  const ham=el('button',{class:'hamburger'+(S.isDrawerOpen?' open':''),
+    'aria-label':'Open navigation menu','aria-expanded':String(S.isDrawerOpen)});
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+  inner.appendChild(ham);
+
+  // ── Logo (text only, compact) ──
   inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
     el('div',{class:'logo-bubble'},['🤝']),
     el('span',{class:'logo-name ff'},['Huddledin'])
   ]));
 
+  // ── Child / Patient Switcher (centre-right, takes remaining space) ──
   if(session?.role==='parent'){
     const sw=el('div',{id:'child-switcher'});
     DB.children.forEach(c=>{
       const pill=el('button',{class:'child-pill'+(S.activeChild===c.id?' active':'')});
+      // Avatar circle
+      const av=el('div',{class:'cp-avatar'});
       if(c.photo){
-        pill.appendChild(el('img',{class:'child-avatar-img',src:c.photo,alt:c.name}));
+        av.appendChild(el('img',{src:c.photo,alt:c.name}));
       } else {
-        pill.appendChild(el('span',{class:'child-avatar-emoji'},[c.avatar]));
+        av.textContent=c.avatar;
       }
-      pill.appendChild(el('span',{},[c.name.split(' ')[0]]));
+      pill.appendChild(av);
+      pill.appendChild(el('span',{class:'cp-name'},[c.name.split(' ')[0]]));
       pill.onclick=()=>{S.activeChild=c.id;re();};
       sw.appendChild(pill);
     });
-    const addPill=el('button',{class:'child-pill',title:'Add a child profile'});
-    addPill.innerHTML='<span style="font-size:.9rem">➕</span>';
+    // Add-child button
+    const addPill=el('button',{class:'child-pill-add',title:'Add a child profile'});
+    addPill.appendChild(el('div',{class:'cp-add-circle'},['＋']));
+    addPill.appendChild(el('span',{class:'cp-add-label'},['Add']));
     addPill.onclick=()=>showAddChildModal();
     sw.appendChild(addPill);
     inner.appendChild(sw);
+  } else {
+    // Specialist: show name badge in header centre
+    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+    const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}});
+    nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
+      [spec?.role||'Specialist']));
+    inner.appendChild(nameTag);
   }
 
-  const right=el('div',{id:'header-right'});
-  if(session?.role==='specialist'){
-    const srchBtn=mkBtn('🔍','btn-sm btn-slate',()=>{S.searchOpen=true;re();});
-    srchBtn.style.cssText='min-height:36px;padding:7px 11px;border-radius:12px';
-    srchBtn.title='Global Search';
-    right.appendChild(srchBtn);
-  }
-  if(session?.role==='parent'){
-    const unreadEmails=DB.emailInbox.filter(e=>!e.read).length;
-    const emailBtn=el('button',{class:'notif-btn',title:'Email Inbox',style:{position:'relative'}},['📧']);
-    if(unreadEmails>0)emailBtn.appendChild(el('span',{class:'notif-count'},[String(unreadEmails)]));
-    emailBtn.onclick=()=>{S.activeTab='email';re();};
-    right.appendChild(emailBtn);
-  }
-  right.appendChild(renderNotifBell());
-  right.appendChild(mkBtn('Sign Out','btn-sm btn-ghost',()=>{doLogout();re();}));
-  inner.appendChild(right);
   hd.appendChild(inner);
   return hd;
 }
@@ -873,6 +1112,123 @@ function renderNotifBell(){
   wrap.appendChild(btn2);return wrap;
 }
 
+/* ── NAVIGATION DRAWER ── */
+function renderDrawer(){
+  const drawer=el('div',{class:'drawer'+(S.isDrawerOpen?' open':''),
+    id:'nav-drawer','aria-hidden':String(!S.isDrawerOpen)});
+
+  // ── Profile header inside drawer ──
+  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const displayName=session?.role==='parent'
+    ?`${session?.name||'Parent'}`
+    :(spec?.name||session?.name||'Specialist');
+  const displayRole=session?.role==='parent'?'Parent · Managing Care':'🩺 '+( spec?.role||'Specialist');
+  const avatar=session?.role==='parent'?'👨‍👩‍👧':'🩺';
+
+  const prof=el('div',{class:'drawer-profile'});
+  prof.appendChild(el('div',{class:'drawer-avatar'},[avatar]));
+  prof.appendChild(el('div',{class:'drawer-name'},[displayName]));
+  prof.appendChild(el('div',{class:'drawer-role'},[displayRole]));
+  drawer.appendChild(prof);
+
+  // ── Scrollable nav area ──
+  const scroll=el('div',{class:'drawer-scroll'});
+
+  // Helper: build a nav item
+  function drawerItem(icon,label,tabId,badgeCount=0,isDanger=false){
+    const isActive=S.activeTab===tabId;
+    const item=el('button',{
+      class:'drawer-item'+(isActive?' active':'')+(isDanger?' danger':'')
+    });
+    const ic=el('div',{class:'di-icon'},[icon]);
+    item.appendChild(ic);
+    item.appendChild(el('span',{class:'di-label'},[label]));
+    if(badgeCount>0){
+      item.appendChild(el('span',{class:'di-badge'},[badgeCount>9?'9+':String(badgeCount)]));
+    }
+    if(!isDanger){
+      item.onclick=()=>{switchTab(tabId);S.isDrawerOpen=false;};
+    }
+    return item;
+  }
+
+  // ── Core sections ──
+  scroll.appendChild(el('div',{class:'drawer-section-label'},['Navigation']));
+
+  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const unreadEmails=(DB.emailInbox||[]).filter(e=>!e.read).length;
+
+  if(session?.role==='parent'){
+    const coreItems=[
+      {icon:'🏠',label:'Home',id:'dashboard'},
+      {icon:'📁',label:'Files',id:'files'},
+      {icon:'👥',label:'Care Team',id:'team'},
+      {icon:'📅',label:'Calendar',id:'calendar'},
+      {icon:'📈',label:'Progress',id:'progress'},
+      {icon:'💬',label:'Chat',id:'chat'},
+    ];
+    coreItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
+  } else {
+    const specItems=[
+      {icon:'🏠',label:'Home',id:'dashboard'},
+      {icon:'👤',label:'Patients',id:'patients'},
+      {icon:'🔒',label:'Vault',id:'vault'},
+      {icon:'📋',label:'Tasks',id:'homework'},
+      {icon:'📁',label:'Files',id:'files'},
+      {icon:'💬',label:'Chat',id:'chat'},
+    ];
+    specItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
+    // Specialist-only extras
+    scroll.appendChild(el('div',{class:'drawer-sep'}));
+    scroll.appendChild(el('div',{class:'drawer-section-label'},['My Account']));
+    scroll.appendChild(drawerItem('🗂️','My Credentials','credentials'));
+    scroll.appendChild(drawerItem('📨','Join Team','request'));
+    // Search button for specialists
+    const srchItem=el('button',{class:'drawer-item'});
+    srchItem.appendChild(el('div',{class:'di-icon'},['🔍']));
+    srchItem.appendChild(el('span',{class:'di-label'},['Search']));
+    srchItem.onclick=()=>{S.isDrawerOpen=false;S.searchOpen=true;re();};
+    scroll.appendChild(srchItem);
+  }
+
+  // ── Utilities section ──
+  scroll.appendChild(el('div',{class:'drawer-sep'}));
+  scroll.appendChild(el('div',{class:'drawer-section-label'},['Utilities']));
+
+  // Notifications
+  const notifItem=drawerItem('🔔','Notifications','notifications',unreadNotifs);
+  scroll.appendChild(notifItem);
+
+  // Email/Inbox
+  const emailItem=drawerItem('📧',session?.role==='parent'?'Inbox':'Alerts','email',unreadEmails);
+  scroll.appendChild(emailItem);
+
+  // Settings (if in tabs)
+  if(session?.role==='parent'){
+    scroll.appendChild(drawerItem('⚙️','Settings','settings'));
+  }
+
+  // ── Sign Out (bottom, danger) ──
+  scroll.appendChild(el('div',{class:'drawer-sep'}));
+  const signOutItem=el('button',{class:'drawer-item danger'});
+  signOutItem.appendChild(el('div',{class:'di-icon'},['👋']));
+  signOutItem.appendChild(el('span',{class:'di-label'},['Sign Out']));
+  signOutItem.onclick=()=>{S.isDrawerOpen=false;doLogout();re();};
+  scroll.appendChild(signOutItem);
+
+  drawer.appendChild(scroll);
+
+  // Animate open via rAF so CSS transition fires
+  if(S.isDrawerOpen){
+    requestAnimationFrame(()=>{
+      const d=document.getElementById('nav-drawer');
+      if(d){d.style.transform='translateX(0)';}
+    });
+  }
+
+  return drawer;
+}
+
 /* ── SIDENAV ── */
 function renderSidenav(){
   const tabs=getTabs();
@@ -894,35 +1250,63 @@ function renderSidenav(){
 function switchTab(id){
   // Guard unsaved vault changes
   if(S.activeTab==='vault'&&S.vaultHasUnsaved&&id!=='vault'){
-    openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeTab=id;re();});
+    openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{
+      S.vaultHasUnsaved=false;S.activeTab=id;S.isDrawerOpen=false;re();
+    });
     return;
   }
-  S.activeTab=id;re();
+  S.activeTab=id;
+  S.isDrawerOpen=false; // always close drawer on navigation
+  re();
 }
 
-/* ── BOTTOM NAV ── */
+/* ── BOTTOM NAV — 3 quick tabs + menu ── */
 function renderBottomNav(){
-  const tabs=getTabs().slice(0,6);
+  // Only the 3 most-used tabs in the quick bar
+  const QUICK_PARENT=[
+    {id:'dashboard',label:'Home',icon:'🏠'},
+    {id:'chat',label:'Chat',icon:'💬'},
+    {id:'files',label:'Files',icon:'📁'},
+  ];
+  const QUICK_SPEC=[
+    {id:'dashboard',label:'Home',icon:'🏠'},
+    {id:'chat',label:'Chat',icon:'💬'},
+    {id:'vault',label:'Vault',icon:'🔒'},
+  ];
+  const quickTabs=session?.role==='parent'?QUICK_PARENT:QUICK_SPEC;
+  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const unreadEmails=(DB.emailInbox||[]).filter(e=>!e.read).length;
+  const totalBadge=unreadNotifs+unreadEmails;
+
   const nav=el('nav',{id:'bottom-nav'});
   const inner=el('div',{class:'bnav-inner'});
-  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
-  const unreadEmails=session?.role==='parent'?(DB.emailInbox||[]).filter(e=>!e.read).length:0;
-  tabs.forEach(t=>{
+
+  quickTabs.forEach(t=>{
     const b=el('button',{class:'bnav-btn'+(S.activeTab===t.id?' active':'')});
-    const iconWrap=el('span',{class:'bi'},[t.icon]);
-    b.appendChild(iconWrap);
+    b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
     b.appendChild(document.createTextNode(t.label));
-    // Unread badges
-    if(t.id==='notifications'&&unreadNotifs>0){
-      b.appendChild(el('span',{class:'bnav-badge'},[String(unreadNotifs)]));
-    }
-    if(t.id==='email'&&unreadEmails>0){
-      b.appendChild(el('span',{class:'bnav-badge'},[String(unreadEmails)]));
-    }
-    if(S.activeTab===t.id)b.appendChild(el('div',{class:'bnav-dot'}));
     b.onclick=()=>switchTab(t.id);
     inner.appendChild(b);
   });
+
+  // Menu tab — opens drawer
+  const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
+  // Animated hamburger as bottom tab icon
+  const menuIcon=el('span',{class:'bnav-icon',style:{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
+  menuIcon.innerHTML=`<svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/>
+    <rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/>
+    <rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/>
+  </svg>`;
+  menuBtn.appendChild(menuIcon);
+  menuBtn.appendChild(document.createTextNode('Menu'));
+  // Badge for unread items buried in drawer
+  if(totalBadge>0){
+    menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+  }
+  menuBtn.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+  inner.appendChild(menuBtn);
+
   nav.appendChild(inner);
   return nav;
 }
