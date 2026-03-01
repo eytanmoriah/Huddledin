@@ -643,7 +643,281 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 ══════════════════════════════════════════ */
 .bnav-icon{font-size:1.35rem;line-height:1;display:block;transition:transform var(--spring)}
 .bnav-btn.active .bnav-icon{transform:scale(1.18) translateY(-2px)}
-</style>
+
+/* ══════════════════════════════════════════
+   GLOBAL HOME — Level 0 Family Landing Page
+══════════════════════════════════════════ */
+
+/* Full-page home container — no top padding since header exists */
+.global-home{
+  padding:20px 16px calc(var(--bnav-h) + 16px);
+  max-width:680px;margin:0 auto;
+}
+
+/* ── Family greeting strip ── */
+.family-greeting{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:22px;
+}
+.family-greeting-text{}
+.family-greeting-title{
+  font-family:'Fraunces',serif;font-size:1.5rem;font-weight:800;
+  color:var(--navy);line-height:1.1;margin-bottom:2px;
+}
+.family-greeting-sub{font-size:.8rem;color:var(--slate);font-weight:600}
+
+/* ── Child Bubble Row ── */
+.child-bubbles-label{
+  font-size:.68rem;font-weight:900;color:var(--slate-l);
+  text-transform:uppercase;letter-spacing:.09em;margin-bottom:12px;
+}
+.child-bubbles-row{
+  display:flex;gap:14px;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;
+  padding-bottom:6px;scrollbar-width:none;margin-bottom:24px;
+}
+.child-bubbles-row::-webkit-scrollbar{display:none}
+
+/* Each child bubble */
+.child-bubble{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;flex-shrink:0;scroll-snap-align:start;
+  min-width:72px;border:none;background:none;
+  padding:4px;border-radius:var(--r-lg);
+  transition:transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.child-bubble:active{transform:scale(.88)}
+@media(hover:hover){.child-bubble:hover{transform:translateY(-4px)}}
+
+/* The circle itself */
+.cb-circle{
+  width:68px;height:68px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;position:relative;
+  border:3px solid transparent;
+  transition:border-color .18s,box-shadow .18s;
+  box-shadow:var(--s1);
+  background:#fff;
+  overflow:hidden;
+}
+.cb-circle img{width:100%;height:100%;object-fit:cover}
+/* Colored ring matching child color */
+.child-bubble.selected .cb-circle{
+  border-color:var(--cb-color,var(--teal));
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--cb-color,var(--teal)) 18%,transparent),var(--s2);
+}
+/* Online-style dot at bottom-right */
+.cb-circle::after{
+  content:'';position:absolute;bottom:4px;right:4px;
+  width:0;height:0;border-radius:50%;
+  background:var(--cb-color,var(--teal));
+  box-shadow:0 0 0 2px #fff;
+  opacity:0;transition:all .2s;
+}
+.child-bubble.has-events .cb-circle::after{
+  width:10px;height:10px;opacity:1;
+}
+/* Upload placeholder bubble */
+.cb-circle.placeholder{
+  background:var(--mint-ll);border:2.5px dashed var(--mint);
+  font-size:1.6rem;color:var(--teal);
+}
+.cb-circle.placeholder .cb-upload-hint{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(13,148,136,.75);
+  font-size:.5rem;font-weight:800;color:#fff;text-align:center;
+  padding:2px 0;
+}
+.cb-name{
+  font-size:.72rem;font-weight:800;color:var(--navy);
+  text-align:center;line-height:1.2;max-width:72px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.child-bubble.selected .cb-name{color:var(--teal-d)}
+.cb-tasks{
+  font-size:.6rem;font-weight:700;color:var(--slate-l);
+  background:var(--mint-ll);border-radius:99px;
+  padding:1px 7px;white-space:nowrap;
+}
+.child-bubble.selected .cb-tasks{background:var(--mint-l);color:var(--teal)}
+
+/* Add-child bubble */
+.child-bubble-add{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;flex-shrink:0;
+  min-width:72px;border:none;background:none;padding:4px;
+  border-radius:var(--r-lg);transition:transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.child-bubble-add:active{transform:scale(.88)}
+.cba-circle{
+  width:68px;height:68px;border-radius:50%;
+  background:var(--mint-ll);border:2.5px dashed var(--teal-l);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;color:var(--teal);box-shadow:var(--s0);
+  transition:background .15s,border-color .15s;
+}
+.child-bubble-add:active .cba-circle{background:var(--mint-l);border-color:var(--teal)}
+.cba-name{font-size:.72rem;font-weight:800;color:var(--slate-l);text-align:center}
+
+/* ── Unified Family Mini-Calendar ── */
+.mini-cal-card{
+  background:#fff;border-radius:var(--r-xl);
+  box-shadow:var(--s2);border:1px solid rgba(167,243,208,.5);
+  overflow:hidden;margin-bottom:22px;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.mini-cal-card:active{transform:scale(.99)}
+@media(hover:hover){.mini-cal-card:hover{transform:translateY(-2px);box-shadow:var(--s3)}}
+.mini-cal-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px 12px;
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+}
+.mini-cal-hd-left{}
+.mini-cal-month{
+  font-family:'Fraunces',serif;font-size:1.05rem;font-weight:800;
+  color:#fff;margin-bottom:2px;
+}
+.mini-cal-sub{font-size:.74rem;color:rgba(255,255,255,.75);font-weight:600}
+.mini-cal-expand{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);padding:6px 13px;
+  font-size:.74rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito',sans-serif;
+}
+/* Week strip inside mini cal */
+.mini-cal-week{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  padding:12px 12px 14px;gap:4px;
+}
+.mcw-day{display:flex;flex-direction:column;align-items:center;gap:3px}
+.mcw-label{font-size:.6rem;font-weight:800;color:var(--slate-l);text-transform:uppercase;letter-spacing:.04em}
+.mcw-num{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;font-weight:700;color:var(--navy);
+  position:relative;
+}
+.mcw-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
+/* Dot strip for events — one dot per child */
+.mcw-dots{display:flex;gap:2px;justify-content:center;min-height:6px}
+.mcw-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Upcoming events list below week strip */
+.mini-cal-events{padding:0 14px 14px;display:flex;flex-direction:column;gap:7px}
+.mce-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:var(--r);
+  background:var(--mint-ll);
+}
+.mce-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.mce-title{font-size:.82rem;font-weight:700;color:var(--navy);flex:1}
+.mce-when{font-size:.7rem;color:var(--slate);font-weight:600}
+.mce-child-pill{
+  font-size:.62rem;font-weight:800;border-radius:99px;
+  padding:2px 7px;white-space:nowrap;
+}
+
+/* ── Full-screen calendar expansion ── */
+.cal-fullscreen{
+  position:fixed;inset:0;z-index:350;
+  background:var(--bg);display:flex;flex-direction:column;
+  padding-top:var(--safe-top);
+  animation:slideUp .25s ease;
+}
+.cal-fs-hd{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  background:rgba(240,253,249,.95);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--mint-l);flex-shrink:0;
+}
+.cal-fs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ── Global Vault / Unsorted Inbox ── */
+.global-vault-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.global-vault-title{
+  font-family:'Fraunces',serif;font-size:1.1rem;font-weight:800;color:var(--navy);
+}
+.global-vault-sub{font-size:.76rem;color:var(--slate);font-weight:500;margin-top:2px}
+.gv-file-item{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-radius:var(--r);
+  background:#fff;border:1px solid var(--mint-l);
+  box-shadow:var(--s0);margin-bottom:8px;
+  cursor:pointer;transition:all .14s;min-height:56px;
+}
+.gv-file-item:active{background:var(--mint-ll);transform:scale(.98)}
+.gv-file-icon{
+  width:40px;height:40px;border-radius:var(--r-sm);
+  background:var(--mint-ll);display:flex;align-items:center;
+  justify-content:center;font-size:1.3rem;flex-shrink:0;
+}
+.gv-file-name{font-weight:700;color:var(--navy);font-size:.88rem;flex:1;line-height:1.3}
+.gv-file-date{font-size:.7rem;color:var(--slate-l);font-weight:600;margin-top:2px}
+.gv-empty{
+  text-align:center;padding:28px;color:var(--slate);font-weight:600;
+  border:2px dashed var(--mint);border-radius:var(--r-lg);background:var(--mint-ll);
+}
+
+/* ── Child Profile Header (Level 1) ── */
+.child-profile-hd{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  background:rgba(240,253,249,.94);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--mint-l);
+}
+.cpf-back{
+  width:36px;height:36px;border-radius:12px;border:1.5px solid var(--mint);
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;cursor:pointer;color:var(--teal-d);font-weight:800;
+  flex-shrink:0;transition:all .14s;
+}
+.cpf-back:active{background:var(--mint-l);transform:scale(.92)}
+.cpf-avatar{
+  width:36px;height:36px;border-radius:12px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;flex-shrink:0;
+}
+.cpf-name{
+  font-family:'Fraunces',serif;font-size:.95rem;font-weight:800;
+  color:var(--navy);flex:1;line-height:1.2;
+}
+.cpf-diag{font-size:.7rem;color:var(--slate);font-weight:600}
+
+/* Section header with back-to-home context */
+.level-breadcrumb{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px 0;font-size:.72rem;font-weight:700;
+  color:var(--slate-l);
+}
+.level-breadcrumb .bc-sep{color:var(--slate-ll)}
+.level-breadcrumb .bc-home{color:var(--teal);cursor:pointer}
+.level-breadcrumb .bc-home:active{opacity:.7}
+
+/* Process file bottom sheet */
+.process-file-sheet{}
+.pf-option{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 18px;border-radius:var(--r);
+  border:1.5px solid var(--mint-l);background:var(--mint-ll);
+  cursor:pointer;margin-bottom:10px;min-height:60px;
+  transition:all .15s;
+}
+.pf-option:active{background:var(--mint-l);transform:scale(.98)}
+.pf-icon{
+  width:42px;height:42px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+}
+.pf-title{font-weight:800;color:var(--navy);font-size:.9rem}
+.pf-desc{font-size:.76rem;color:var(--slate);margin-top:1px}
 </style>
 </head>
 <body>
@@ -665,6 +939,12 @@ const SEED = {
   children:[
     {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing","Speech Delay"],photo:null},
     {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum"],photo:null}
+  ],
+  // Global unsorted inbox — files not yet assigned to a child/folder
+  globalInboxFiles:[
+    {id:"gi1",name:"Annual_Insurance_Card.pdf",type:"pdf",date:"2025-02-28",size:"142 KB"},
+    {id:"gi2",name:"Occupational_Therapy_Referral.pdf",type:"pdf",date:"2025-03-01",size:"89 KB"},
+    {id:"gi3",name:"School_IEP_Draft_2025.pdf",type:"pdf",date:"2025-02-20",size:"312 KB"}
   ],
   specialists:[
     {id:"s1",name:"Dr. Sarah Okafor",surname:"Okafor",role:"Speech Therapist",email:"sarah@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active",credentials:[]},
@@ -795,8 +1075,11 @@ function doLogout(){session=null;LS.del('session');}
    APP STATE
 ═══════════════════════════════════════════════ */
 let S={
+  // Navigation hierarchy
+  // Level 0 = global home; Level 1 = inside a child's profile
+  navLevel:0,              // 0: Global Home, 1: Child Profile
   activeChild:'c1',
-  activeTab:'dashboard',
+  activeTab:'dashboard',   // used inside Level 1
   activeChatId:'ch1',
   chatMsg:'',
   activeVaultId:null,
@@ -808,7 +1091,8 @@ let S={
   activeProgressTab:'overview',
   emailOpen:false,
   activeEmailId:null,
-  isDrawerOpen:false   // Navigation drawer state
+  isDrawerOpen:false,
+  calFullscreen:false      // unified calendar full-screen expansion
 };
 
 /* ═══════════════════════════════════════════════
@@ -975,8 +1259,15 @@ function renderAuth(){
       if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
       const res=doLogin(email,pass,selRole,name);
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
-      S.activeTab=session.role==='parent'?'dashboard':'dashboard';
-      S.activeChild='c1';re();
+      // Parents land on Global Home (Level 0); specialists go straight to dashboard
+      if(session.role==='parent'){
+        S.navLevel=0;
+        S.activeTab='dashboard';
+      } else {
+        S.navLevel=1;
+        S.activeTab='dashboard';
+      }
+      S.activeChild=DB.children[0]?.id||'c1';re();
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -997,36 +1288,59 @@ function renderAuth(){
    APP SHELL
 ═══════════════════════════════════════════════ */
 function renderShell(){
+  // Full-screen calendar overlay (always on top)
+  if(S.calFullscreen){
+    const shell=el('div',{id:'app-shell'});
+    shell.appendChild(renderCalFullscreen());
+    return shell;
+  }
+
   const shell=el('div',{id:'app-shell'});
   shell.appendChild(renderHeader());
 
-  // Drawer backdrop — shown when drawer open
+  // Drawer backdrop
   if(S.isDrawerOpen){
     const bd=el('div',{class:'drawer-backdrop'});
     bd.onclick=()=>{S.isDrawerOpen=false;re();};
     shell.appendChild(bd);
   }
-
-  // Navigation drawer (always in DOM; CSS transform drives open/close)
   shell.appendChild(renderDrawer());
 
   const body=el('div',{id:'body'});
-  body.appendChild(renderSidenav()); // desktop only
-  const main=el('main',{id:'main'});
-  main.appendChild(renderContent());
-  body.appendChild(main);
+
+  if(session?.role==='parent'){
+    if(S.navLevel===0){
+      // Level 0: Global Family Home — no sidenav, no bottom tab bar content routing
+      const main=el('main',{id:'main'});
+      main.appendChild(renderGlobalHome());
+      body.appendChild(main);
+    } else {
+      // Level 1: Inside a child's profile
+      body.appendChild(renderSidenav());
+      const main=el('main',{id:'main'});
+      main.appendChild(renderContent());
+      body.appendChild(main);
+    }
+  } else {
+    // Specialist — always at Level 1 equivalent
+    body.appendChild(renderSidenav());
+    const main=el('main',{id:'main'});
+    main.appendChild(renderContent());
+    body.appendChild(main);
+  }
+
   shell.appendChild(body);
   shell.appendChild(renderBottomNav());
   if(S.searchOpen)shell.appendChild(renderSearchOverlay());
   return shell;
 }
 
-/* ── HEADER — clean, drawer-first ── */
+/* ── HEADER — adapts to nav level ── */
 function renderHeader(){
   const hd=el('header',{id:'header'});
   const inner=el('div',{class:'header-inner'});
 
-  // ── Hamburger (left) ──
+  // ── Hamburger (always left) ──
   const ham=el('button',{class:'hamburger'+(S.isDrawerOpen?' open':''),
     'aria-label':'Open navigation menu','aria-expanded':String(S.isDrawerOpen)});
   ham.appendChild(el('span',{class:'ham-bar'}));
@@ -1035,40 +1349,54 @@ function renderHeader(){
   ham.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
   inner.appendChild(ham);
 
-  // ── Logo (text only, compact) ──
-  inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
-    el('div',{class:'logo-bubble'},['🤝']),
-    el('span',{class:'logo-name ff'},['Huddledin'])
-  ]));
+  if(session?.role==='parent' && S.navLevel===1){
+    // ── Level 1: Logo acts as HOME button (returns to Global Home) ──
+    const logo=el('button',{style:{
+      display:'flex',alignItems:'center',gap:'8px',background:'none',
+      border:'none',cursor:'pointer',padding:'4px 6px',borderRadius:'12px',
+      transition:'background .14s',flexShrink:0
+    }});
+    logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    logo.onclick=()=>{S.navLevel=0;S.isDrawerOpen=false;re();};
+    logo.title='Back to Family Home';
+    inner.appendChild(logo);
 
-  // ── Child / Patient Switcher (centre-right, takes remaining space) ──
-  if(session?.role==='parent'){
-    const sw=el('div',{id:'child-switcher'});
-    DB.children.forEach(c=>{
-      const pill=el('button',{class:'child-pill'+(S.activeChild===c.id?' active':'')});
-      // Avatar circle
-      const av=el('div',{class:'cp-avatar'});
-      if(c.photo){
-        av.appendChild(el('img',{src:c.photo,alt:c.name}));
-      } else {
-        av.textContent=c.avatar;
-      }
-      pill.appendChild(av);
-      pill.appendChild(el('span',{class:'cp-name'},[c.name.split(' ')[0]]));
-      pill.onclick=()=>{S.activeChild=c.id;re();};
-      sw.appendChild(pill);
-    });
-    // Add-child button
-    const addPill=el('button',{class:'child-pill-add',title:'Add a child profile'});
-    addPill.appendChild(el('div',{class:'cp-add-circle'},['＋']));
-    addPill.appendChild(el('span',{class:'cp-add-label'},['Add']));
-    addPill.onclick=()=>showAddChildModal();
-    sw.appendChild(addPill);
-    inner.appendChild(sw);
+    // ── Centre: Current child name ──
+    const child=DB.children.find(c=>c.id===S.activeChild);
+    if(child){
+      const centre=el('div',{style:{
+        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'
+      }});
+      const av=el('div',{style:{
+        width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',
+        background:child.color+'44',display:'flex',alignItems:'center',
+        justifyContent:'center',fontSize:'1rem',flexShrink:0
+      }});
+      if(child.photo){av.appendChild(el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));}
+      else {av.textContent=child.avatar;}
+      centre.appendChild(av);
+      centre.appendChild(el('span',{style:{
+        fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'
+      }},[child.name.split(' ')[0]]));
+      inner.appendChild(centre);
+    }
+  } else if(session?.role==='parent' && S.navLevel===0){
+    // ── Level 0: Logo is just branding ──
+    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
+      el('div',{class:'logo-bubble'},['🤝']),
+      el('span',{class:'logo-name ff'},['Huddledin'])
+    ]));
+    // No switcher at Level 0 — child selection lives in the home page bubbles
+    inner.appendChild(el('div',{style:{flex:1}})); // spacer
   } else {
-    // Specialist: show name badge in header centre
+    // ── Specialist: logo + role label ──
+    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
+      el('div',{class:'logo-bubble'},['🤝']),
+      el('span',{class:'logo-name ff'},['Huddledin'])
+    ]));
     const spec=DB.specialists.find(s=>s.id===session?.specialistId);
-    const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}});
+    const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
     nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
       [spec?.role||'Specialist']));
     inner.appendChild(nameTag);
@@ -1136,9 +1464,10 @@ function renderDrawer(){
 
   // Helper: build a nav item
   function drawerItem(icon,label,tabId,badgeCount=0,isDanger=false){
-    const isActive=S.activeTab===tabId;
+    const isActive=S.activeTab===tabId && S.navLevel===1;
+    const isHomeActive=tabId==='home' && S.navLevel===0;
     const item=el('button',{
-      class:'drawer-item'+(isActive?' active':'')+(isDanger?' danger':'')
+      class:'drawer-item'+((isActive||isHomeActive)?' active':'')+(isDanger?' danger':'')
     });
     const ic=el('div',{class:'di-icon'},[icon]);
     item.appendChild(ic);
@@ -1147,7 +1476,18 @@ function renderDrawer(){
       item.appendChild(el('span',{class:'di-badge'},[badgeCount>9?'9+':String(badgeCount)]));
     }
     if(!isDanger){
-      item.onclick=()=>{switchTab(tabId);S.isDrawerOpen=false;};
+      item.onclick=()=>{
+        S.isDrawerOpen=false;
+        if(tabId==='home'){
+          // Return to Global Family Home
+          S.navLevel=0;
+          re();
+        } else {
+          // Enter child profile at the correct tab
+          if(session?.role==='parent') S.navLevel=1;
+          switchTab(tabId);
+        }
+      };
     }
     return item;
   }
@@ -1160,7 +1500,8 @@ function renderDrawer(){
 
   if(session?.role==='parent'){
     const coreItems=[
-      {icon:'🏠',label:'Home',id:'dashboard'},
+      {icon:'🏠',label:'Family Home',id:'home'},
+      {icon:'📊',label:'Dashboard',id:'dashboard'},
       {icon:'📁',label:'Files',id:'files'},
       {icon:'👥',label:'Care Team',id:'team'},
       {icon:'📅',label:'Calendar',id:'calendar'},
@@ -1251,56 +1592,66 @@ function switchTab(id){
   // Guard unsaved vault changes
   if(S.activeTab==='vault'&&S.vaultHasUnsaved&&id!=='vault'){
     openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{
-      S.vaultHasUnsaved=false;S.activeTab=id;S.isDrawerOpen=false;re();
+      S.vaultHasUnsaved=false;S.activeTab=id;
+      if(session?.role==='parent')S.navLevel=1;
+      S.isDrawerOpen=false;re();
     });
     return;
   }
   S.activeTab=id;
-  S.isDrawerOpen=false; // always close drawer on navigation
+  if(session?.role==='parent' && id!=='home') S.navLevel=1;
+  S.isDrawerOpen=false;
   re();
 }
 
 /* ── BOTTOM NAV — 3 quick tabs + menu ── */
 function renderBottomNav(){
-  // Only the 3 most-used tabs in the quick bar
-  const QUICK_PARENT=[
-    {id:'dashboard',label:'Home',icon:'🏠'},
-    {id:'chat',label:'Chat',icon:'💬'},
-    {id:'files',label:'Files',icon:'📁'},
-  ];
-  const QUICK_SPEC=[
-    {id:'dashboard',label:'Home',icon:'🏠'},
-    {id:'chat',label:'Chat',icon:'💬'},
-    {id:'vault',label:'Vault',icon:'🔒'},
-  ];
-  const quickTabs=session?.role==='parent'?QUICK_PARENT:QUICK_SPEC;
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
   const unreadEmails=(DB.emailInbox||[]).filter(e=>!e.read).length;
   const totalBadge=unreadNotifs+unreadEmails;
+
+  // Quick tabs depend on level and role
+  let quickTabs;
+  if(session?.role==='parent'){
+    if(S.navLevel===0){
+      quickTabs=[
+        {id:'home',label:'Home',icon:'🏠',action:()=>{S.navLevel=0;re();}},
+        {id:'calendar-global',label:'Calendar',icon:'📅',action:()=>{S.calFullscreen=true;re();}},
+        {id:'chat-global',label:'Chat',icon:'💬',action:()=>{S.navLevel=1;switchTab('chat');}},
+      ];
+    } else {
+      quickTabs=[
+        {id:'home',label:'Home',icon:'🏠',action:()=>{S.navLevel=0;re();}},
+        {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
+        {id:'files',label:'Files',icon:'📁',action:()=>switchTab('files')},
+      ];
+    }
+  } else {
+    quickTabs=[
+      {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
+      {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
+      {id:'vault',label:'Vault',icon:'🔒',action:()=>switchTab('vault')},
+    ];
+  }
 
   const nav=el('nav',{id:'bottom-nav'});
   const inner=el('div',{class:'bnav-inner'});
 
   quickTabs.forEach(t=>{
-    const b=el('button',{class:'bnav-btn'+(S.activeTab===t.id?' active':'')});
+    const isActive=t.id==='home'?(S.navLevel===0&&session?.role==='parent'):(S.activeTab===t.id&&S.navLevel===1)||(t.id==='calendar-global'&&S.calFullscreen);
+    const b=el('button',{class:'bnav-btn'+(isActive?' active':'')});
     b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
     b.appendChild(document.createTextNode(t.label));
-    b.onclick=()=>switchTab(t.id);
+    b.onclick=t.action;
     inner.appendChild(b);
   });
 
-  // Menu tab — opens drawer
+  // Menu tab
   const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
-  // Animated hamburger as bottom tab icon
-  const menuIcon=el('span',{class:'bnav-icon',style:{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
-  menuIcon.innerHTML=`<svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/>
-    <rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/>
-    <rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/>
-  </svg>`;
+  const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
+  menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
   menuBtn.appendChild(menuIcon);
   menuBtn.appendChild(document.createTextNode('Menu'));
-  // Badge for unread items buried in drawer
   if(totalBadge>0){
     menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
   }
@@ -1352,6 +1703,415 @@ function renderSearchOverlay(){
 /* ═══════════════════════════════════════════════
    CONTENT ROUTER
 ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   LEVEL 0 — GLOBAL FAMILY HOME
+═══════════════════════════════════════════════ */
+
+// Per-child brand colors used throughout the home (fallback to child.color)
+const CHILD_COLORS=['#0d9488','#7c3aed','#f97316','#ec4899','#0369a1','#16a34a'];
+function getChildColor(idx){return CHILD_COLORS[idx%CHILD_COLORS.length];}
+
+function renderGlobalHome(){
+  const children=DB.children;
+  const allApts=DB.appointments;
+  const allHW=DB.homework;
+  const sec=el('div',{class:'global-home'});
+
+  // ── Family greeting ──
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const greet=el('div',{class:'family-greeting'});
+  const gt=el('div',{class:'family-greeting-text'});
+  gt.appendChild(el('div',{class:'family-greeting-title'},
+    [`${hour<12?'🌅':hour<17?'☀️':'🌙'} ${greeting}!`]));
+  gt.appendChild(el('div',{class:'family-greeting-sub'},
+    [`${children.length} children · ${allHW.filter(h=>!h.completed).length} pending tasks`]));
+  greet.appendChild(gt);
+  sec.appendChild(greet);
+
+  // ── Child Bubble Row ──
+  sec.appendChild(el('div',{class:'child-bubbles-label'},['Your Children']));
+  const row=el('div',{class:'child-bubbles-row'});
+
+  children.forEach((c,idx)=>{
+    const color=c.color||getChildColor(idx);
+    const childApts=allApts.filter(a=>a.childId===c.id);
+    const childHW=allHW.filter(h=>h.childId===c.id&&!h.completed);
+    const hasEvents=childApts.length>0;
+
+    const bubble=el('button',{
+      class:'child-bubble'+(S.activeChild===c.id&&S.navLevel===1?' selected':''),
+      style:{'--cb-color':color}
+    });
+    if(hasEvents)bubble.classList.add('has-events');
+
+    // Circle
+    const circle=el('div',{class:'cb-circle',style:{background:color+'18',borderColor:color+'33'}});
+    if(c.photo){
+      circle.appendChild(el('img',{src:c.photo,alt:c.name}));
+    } else {
+      // Placeholder with upload hint
+      circle.className='cb-circle placeholder';
+      circle.style.cssText=`background:${color}18`;
+      circle.textContent=c.avatar;
+      const hint=el('div',{class:'cb-upload-hint'},['+ photo']);
+      circle.appendChild(hint);
+    }
+    bubble.appendChild(circle);
+    bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
+    if(childHW.length>0){
+      bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
+    }
+
+    // Click → enter child profile
+    bubble.onclick=()=>{
+      S.activeChild=c.id;
+      S.navLevel=1;
+      S.activeTab='dashboard';
+      re();
+    };
+    // Long-press / right-click → photo upload
+    bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
+
+    row.appendChild(bubble);
+  });
+
+  // Add-child bubble
+  const addBubble=el('button',{class:'child-bubble-add'});
+  addBubble.appendChild(el('div',{class:'cba-circle'},['＋']));
+  addBubble.appendChild(el('div',{class:'cba-name'},['Add Child']));
+  addBubble.onclick=()=>showAddChildModal();
+  row.appendChild(addBubble);
+  sec.appendChild(row);
+
+  // ── Unified Mini Calendar ──
+  sec.appendChild(renderMiniCalendar(children,allApts));
+
+  // ── Global Vault / Unsorted Inbox ──
+  sec.appendChild(renderGlobalVault());
+
+  return sec;
+}
+
+/* ── Mini-Calendar widget (aggregated, color-coded) ── */
+function renderMiniCalendar(children,allApts){
+  const now=new Date();
+  const today=now.toISOString().split('T')[0];
+  // Build 7-day lookahead
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(now);d.setDate(d.getDate()+i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const DAY_LABELS=['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+  // Upcoming apts (next 14 days)
+  const cutoff=new Date(now);cutoff.setDate(cutoff.getDate()+14);
+  const cutoffStr=cutoff.toISOString().split('T')[0];
+  const upcoming=allApts
+    .filter(a=>a.date>=today&&a.date<=cutoffStr)
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+
+  const card=el('div',{class:'mini-cal-card'});
+
+  // Header
+  const hd=el('div',{class:'mini-cal-hd'});
+  const hl=el('div',{class:'mini-cal-hd-left'});
+  hl.appendChild(el('div',{class:'mini-cal-month'},
+    [now.toLocaleDateString('en-US',{month:'long',year:'numeric'})]));
+  hl.appendChild(el('div',{class:'mini-cal-sub'},
+    [`${upcoming.length} event${upcoming.length!==1?'s':''} in next 14 days`]));
+  hd.appendChild(hl);
+  const expandBtn=el('button',{class:'mini-cal-expand'},['See Full ›']);
+  expandBtn.onclick=e=>{e.stopPropagation();S.calFullscreen=true;re();};
+  hd.appendChild(expandBtn);
+  card.appendChild(hd);
+
+  // 7-day strip
+  const week=el('div',{class:'mini-cal-week'});
+  days.forEach(ds=>{
+    const d=new Date(ds+'T12:00');
+    const dayApts=allApts.filter(a=>a.date===ds);
+    const col=el('div',{class:'mcw-day'});
+    col.appendChild(el('div',{class:'mcw-label'},[DAY_LABELS[d.getDay()]]));
+    const num=el('div',{class:'mcw-num'+(ds===today?' today':'')},
+      [String(d.getDate())]);
+    col.appendChild(num);
+    // Dots: one per child color
+    const dots=el('div',{class:'mcw-dots'});
+    const seen=new Set();
+    dayApts.forEach(a=>{
+      if(seen.has(a.childId))return;seen.add(a.childId);
+      const ci=children.findIndex(c=>c.id===a.childId);
+      const color=children[ci]?.color||getChildColor(ci);
+      dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
+    });
+    col.appendChild(dots);
+    week.appendChild(col);
+  });
+  card.appendChild(week);
+
+  // Upcoming list (max 4)
+  if(upcoming.length>0){
+    const evList=el('div',{class:'mini-cal-events'});
+    upcoming.slice(0,4).forEach(a=>{
+      const ci=children.findIndex(c=>c.id===a.childId);
+      const child=children[ci];
+      const color=child?.color||getChildColor(ci);
+      const aptDate=new Date(a.date+'T12:00');
+      const isToday=a.date===today;
+      const dateLabel=isToday?'Today':aptDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+      const row=el('div',{class:'mce-item'});
+      row.appendChild(el('div',{class:'mce-dot',style:{background:color}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{class:'mce-title'},[a.title]));
+      info.appendChild(el('div',{class:'mce-when'},[dateLabel+' · '+a.time]));
+      row.appendChild(info);
+      if(child){
+        row.appendChild(el('span',{class:'mce-child-pill',style:{background:color+'22',color}},
+          [child.avatar+' '+child.name.split(' ')[0]]));
+      }
+      evList.appendChild(row);
+    });
+    card.appendChild(evList);
+  }
+
+  // Tap whole card to expand
+  card.onclick=()=>{S.calFullscreen=true;re();};
+  return card;
+}
+
+/* ── Full-screen calendar (all children, color-coded) ── */
+function renderCalFullscreen(){
+  const children=DB.children;
+  const allApts=DB.appointments;
+  const now=new Date();
+  const year=2025,month=2; // March 2025
+  const daysInMonth=31;
+  const firstDay=new Date(year,month,1).getDay();
+
+  const wrap=el('div',{class:'cal-fullscreen'});
+
+  // Header
+  const hd=el('div',{class:'cal-fs-hd'});
+  const closeBtn=mkBtn('‹ Back','btn-sm btn-slate',()=>{S.calFullscreen=false;re();});
+  hd.appendChild(closeBtn);
+  hd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',flex:1,textAlign:'center'}},['March 2025 — All Children']));
+  // Legend
+  const legend=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
+  children.forEach((c,i)=>{
+    const color=c.color||getChildColor(i);
+    const dot=el('span',{style:{display:'flex',alignItems:'center',gap:'3px',fontSize:'.65rem',fontWeight:800,color:'var(--slate)',whiteSpace:'nowrap'}});
+    dot.appendChild(el('span',{style:{width:'8px',height:'8px',borderRadius:'50%',background:color,display:'inline-block'}}));
+    dot.appendChild(document.createTextNode(c.name.split(' ')[0]));
+    legend.appendChild(dot);
+  });
+  hd.appendChild(legend);
+  wrap.appendChild(hd);
+
+  const body=el('div',{class:'cal-fs-body'});
+  const sec=el('div',{class:'section',style:{paddingTop:'16px'}});
+
+  // Calendar grid
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'20px'}});
+  const calHead=el('div',{class:'cal-hd'});
+  calHead.innerHTML='<span class="ff" style="font-size:1.05rem;font-weight:800">March 2025</span>';
+  calCard.appendChild(calHead);
+
+  const grid=el('div',{class:'cal-grid'});
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
+  for(let i=0;i<firstDay;i++)grid.appendChild(el('div',{class:'cal-day'}));
+  for(let day=1;day<=daysInMonth;day++){
+    const ds=`2025-03-${String(day).padStart(2,'0')}`;
+    const dayApts=allApts.filter(a=>a.date===ds);
+    const cell=el('div',{class:'cal-day'});
+    const num=el('div',{class:'cal-num'+(dayApts.length?' has-event':'')},
+      [String(day)]);
+    if(dayApts.length>0){
+      // Use first child's color for background
+      const ci=children.findIndex(c=>c.id===dayApts[0].childId);
+      const color=children[ci]?.color||getChildColor(ci);
+      if(dayApts.length===1){num.style.background=`linear-gradient(135deg,${color},${color}bb)`;}
+    }
+    if(dayApts.length){
+      num.onclick=()=>{
+        const aptNames=dayApts.map(a=>{
+          const c=children.find(x=>x.id===a.childId);
+          return `${c?.avatar||''} ${a.title} (${c?.name.split(' ')[0]||''}) · ${a.time}`;
+        }).join('\n');
+        alert('📅 March '+day+':\n\n'+aptNames);
+      };
+    }
+    cell.appendChild(num);
+    // Multi-child dots
+    if(dayApts.length>1){
+      const dotsRow=el('div',{class:'cal-dots-row',style:{display:'flex',gap:'2px',justifyContent:'center',marginTop:'2px'}});
+      const seen=new Set();
+      dayApts.forEach(a=>{
+        if(seen.has(a.childId))return;seen.add(a.childId);
+        const ci=children.findIndex(c=>c.id===a.childId);
+        dotsRow.appendChild(el('div',{class:'cal-dot',style:{background:children[ci]?.color||getChildColor(ci)}}));
+      });
+      cell.appendChild(dotsRow);
+    }
+    grid.appendChild(cell);
+  }
+  calCard.appendChild(grid);
+  sec.appendChild(calCard);
+
+  // Upcoming events list
+  const now2=new Date();
+  const todayStr=now2.toISOString().split('T')[0];
+  const upcoming=allApts.filter(a=>a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+  if(upcoming.length>0){
+    sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},['Upcoming Events']));
+    upcoming.forEach(a=>{
+      const ci=children.findIndex(c=>c.id===a.childId);
+      const child=children[ci];
+      const color=child?.color||getChildColor(ci);
+      const card=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px'}});
+      card.appendChild(el('div',{style:{width:'5px',minHeight:'44px',borderRadius:'99px',background:color,flexShrink:0}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[a.title]));
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.date+' · '+a.time]));
+      card.appendChild(info);
+      if(child){
+        card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},
+          [child.avatar+' '+child.name.split(' ')[0]]));
+      }
+      sec.appendChild(card);
+    });
+  }
+
+  body.appendChild(sec);
+  wrap.appendChild(body);
+  return wrap;
+}
+
+/* ── Global Vault — Unsorted Inbox with Process File ── */
+function renderGlobalVault(){
+  const wrap=el('div',{});
+  const hd=el('div',{class:'global-vault-hd'});
+  const left=el('div',{});
+  left.appendChild(el('div',{class:'global-vault-title'},['📥 Global Inbox']));
+  left.appendChild(el('div',{class:'global-vault-sub'},['Unsorted files — tap to process']));
+  hd.appendChild(left);
+  hd.appendChild(mkBtn('➕ Upload','btn-sm btn-secondary',()=>{
+    const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
+    inp.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const files=DB.globalInboxFiles;
+      files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});
+      DB.globalInboxFiles=files;
+      toast('📥 File added to inbox!');re();
+    };
+    document.body.appendChild(inp);inp.click();
+  }));
+  wrap.appendChild(hd);
+
+  const files=DB.globalInboxFiles||[];
+  if(!files.length){
+    wrap.appendChild(el('div',{class:'gv-empty'},['No files in your inbox yet.\nUpload documents to sort them into child profiles.']));
+    return wrap;
+  }
+
+  files.forEach(f=>{
+    const typeIcon={pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',mp4:'🎥',mp3:'🎵',doc:'📝',docx:'📝'}[f.type?.toLowerCase()]||'📎';
+    const item=el('div',{class:'gv-file-item'});
+    item.appendChild(el('div',{class:'gv-file-icon'},[typeIcon]));
+    const info=el('div',{style:{flex:1,minWidth:0}});
+    info.appendChild(el('div',{class:'gv-file-name'},[f.name]));
+    info.appendChild(el('div',{class:'gv-file-date'},[f.date+' · '+(f.size||'')]));
+    item.appendChild(info);
+    item.appendChild(el('span',{style:{color:'var(--slate-l)',fontWeight:800,fontSize:'1.1rem'}},['›']));
+    item.onclick=()=>showProcessFileSheet(f);
+    wrap.appendChild(item);
+  });
+
+  return wrap;
+}
+
+/* ── Process File bottom-sheet ── */
+function showProcessFileSheet(file){
+  const children=DB.children;
+  const folders=DB.folders;
+
+  openModal('📎 Process: '+file.name.slice(0,28)+'…',(mb,close)=>{
+    mb.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},
+      ['Choose what to do with this file:']));
+
+    // Option 1: Move/Copy to Child Folder
+    const opt1=el('div',{class:'pf-option'});
+    opt1.appendChild(el('div',{class:'pf-icon',style:{background:'var(--mint-l)'}},['📂']));
+    const o1t=el('div',{});
+    o1t.appendChild(el('div',{class:'pf-title'},['Move to Child Profile']));
+    o1t.appendChild(el('div',{class:'pf-desc'},['Assign to a specific child and therapy folder']));
+    opt1.appendChild(o1t);
+    opt1.onclick=()=>{
+      mb.innerHTML='';
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Select Child']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;childSel.appendChild(o);});
+      mb.appendChild(childSel);
+
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Select Folder']));
+      const folderSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
+      folders.forEach(f=>{const o=el('option');o.value=f.key;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+      mb.appendChild(folderSel);
+
+      mb.appendChild(mkBtn('✅ Move File','btn-lg btn-primary btn-full',()=>{
+        // Remove from global inbox
+        const gi=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);DB.globalInboxFiles=gi;
+        // Add to target folder
+        const fArr=DB.folders;
+        const fi=fArr.findIndex(f2=>f2.key===folderSel.value);
+        if(fi>-1){
+          fArr[fi].files.push({id:'fl_'+Date.now(),name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:'parent'});
+          DB.folders=fArr;
+        }
+        close();toast('📂 Moved to '+folderSel.options[folderSel.selectedIndex].text+'!');re();
+      }));
+    };
+    mb.appendChild(opt1);
+
+    // Option 2: Share with Specialist
+    const opt2=el('div',{class:'pf-option'});
+    opt2.appendChild(el('div',{class:'pf-icon',style:{background:'var(--lav-l)'}},['🤝']));
+    const o2t=el('div',{});
+    o2t.appendChild(el('div',{class:'pf-title'},['Share with Specialist']));
+    o2t.appendChild(el('div',{class:'pf-desc'},['Grant a specialist direct access to this file']));
+    opt2.appendChild(o2t);
+    opt2.onclick=()=>{
+      mb.innerHTML='';
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Choose Specialist']));
+      const specSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
+      DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+        const o=el('option');o.value=s.id;o.textContent=s.avatar+' '+s.name+' — '+s.role;specSel.appendChild(o);
+      });
+      mb.appendChild(specSel);
+      mb.appendChild(mkBtn('📤 Share File','btn-lg btn-primary btn-full',()=>{
+        const spec=DB.specialists.find(s=>s.id===specSel.value);
+        close();toast('📤 Shared with '+(spec?.name||'specialist')+'!');
+      }));
+    };
+    mb.appendChild(opt2);
+
+    // Option 3: Delete
+    const opt3=el('div',{class:'pf-option',style:{background:'var(--rose-l)',borderColor:'var(--rose)'}});
+    opt3.appendChild(el('div',{class:'pf-icon',style:{background:'rgba(251,113,133,.2)'}},['🗑️']));
+    const o3t=el('div',{});
+    o3t.appendChild(el('div',{class:'pf-title',style:{color:'#be123c'}},['Delete File']));
+    o3t.appendChild(el('div',{class:'pf-desc'},['Remove this file permanently']));
+    opt3.appendChild(o3t);
+    opt3.onclick=()=>openConfirm('Delete File?','This will permanently remove this file from your inbox.',true,()=>{
+      DB.globalInboxFiles=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);
+      close();toast('🗑️ File deleted.');re();
+    });
+    mb.appendChild(opt3);
+  },480);
+}
+
 function renderContent(){
   const t=S.activeTab,r=session?.role;
   if(t==='dashboard')return r==='parent'?renderParentDashboard():renderSpecDashboard();
