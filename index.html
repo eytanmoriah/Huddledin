@@ -299,6 +299,51 @@ select.inp{cursor:pointer}
 /* Permission matrix */
 .perm-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;background:var(--mint-ll);border:2px solid var(--mint-l);margin-bottom:8px}
 
+/* Email simulation inbox */
+.email-inbox{background:var(--mint-ll);border-radius:18px;border:2px solid var(--mint-l);overflow:hidden;margin-bottom:20px}
+.email-item{padding:13px 18px;border-bottom:1px solid var(--mint-l);display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:background .14s}
+.email-item:hover{background:var(--mint-l)}
+.email-item.unread{background:#fff;border-left:4px solid var(--teal)}
+.email-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px}
+
+/* Progress charts */
+.progress-bar-wrap{background:#e2e8f0;border-radius:10px;height:12px;overflow:hidden;margin:6px 0}
+.progress-bar-fill{height:100%;border-radius:10px;transition:width .6s cubic-bezier(.34,1.56,.64,1)}
+.milestone-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;background:var(--mint-ll);border:2px solid var(--mint-l);margin-bottom:8px}
+.milestone-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.milestone-dot.done{background:var(--teal);box-shadow:0 2px 8px rgba(13,148,136,.4)}
+.milestone-dot.pending{background:var(--slate-l)}
+
+/* Group chat badge */
+.group-badge{background:linear-gradient(135deg,var(--lav-d),var(--lav));color:#fff;border-radius:8px;padding:2px 8px;font-size:.64rem;font-weight:800}
+
+/* Photo upload */
+.photo-upload-area{border:3px dashed var(--mint);border-radius:20px;padding:28px;text-align:center;cursor:pointer;transition:all .22s;background:var(--mint-ll)}
+.photo-upload-area:hover{border-color:var(--teal);background:var(--mint-l)}
+.photo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid var(--white);box-shadow:var(--s2);display:block;margin:0 auto 10px}
+
+/* Invite magic link */
+.invite-link-box{background:var(--lav-l);border:2px solid var(--lav);border-radius:16px;padding:14px 18px;font-size:.82rem;font-weight:700;color:var(--lav-d);word-break:break-all;margin-bottom:14px;cursor:pointer;transition:all .2s}
+.invite-link-box:hover{background:var(--lav)}
+
+/* Push notif permission banner */
+.push-banner{background:linear-gradient(135deg,var(--amber-l),#fff);border:2px solid var(--amber);border-radius:18px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px}
+
+/* Delete child zone */
+.danger-zone{background:#fff5f5;border:2px solid #fecdd3;border-radius:18px;padding:18px;margin-top:20px}
+
+/* Specialist request card */
+.spec-request-card{background:linear-gradient(135deg,var(--sky-l),#fff);border:2px solid var(--sky);border-radius:18px;padding:18px;margin-bottom:14px}
+
+/* Progress section tabs */
+.prog-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.prog-tab{padding:8px 18px;border-radius:14px;border:2px solid var(--mint-l);background:var(--mint-ll);cursor:pointer;font-size:.82rem;font-weight:700;color:var(--slate);transition:all .2s}
+.prog-tab.active{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 4px 14px rgba(13,148,136,.28)}
+
+/* Camera capture button */
+.camera-btn{background:linear-gradient(135deg,var(--lav-d),var(--lav));color:#fff;border:none;border-radius:14px;padding:10px 20px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s}
+.camera-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(124,58,237,.3)}
+
 /* Responsive */
 @media(max-width:767px){
   #sidenav{display:none}
@@ -393,7 +438,30 @@ const SEED = {
   ],
   notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
   users:[],
-  legacyArchive:[] // {specialistId, childId, childName, archivedAt, notes:[]}
+  legacyArchive:[], // {specialistId, childId, childName, archivedAt, notes:[]}
+  /* NEW */
+  pushEnabled:false,
+  emailInbox:[
+    {id:"e1",from:"huddledin@app.com",to:"parent@example.com",subject:"🤝 Dr. Sarah Okafor has joined Lily's care team",body:"Dr. Sarah Okafor accepted your invitation and has been added to Lily Carter's care team. She now has access to the Speech Therapy and General folders.",date:"2025-02-20",read:false,type:"invite"},
+    {id:"e2",from:"huddledin@app.com",to:"parent@example.com",subject:"📄 New session summary published for Lily",body:"Dr. Sarah Okafor has published a parent-friendly summary of Session #13. Log in to read it in Lily's profile.",date:"2025-02-10",read:true,type:"report"},
+    {id:"e3",from:"huddledin@app.com",to:"parent@example.com",subject:"✅ James Whitfield requested access to Lily's OT folder",body:"James Whitfield is requesting access to the Occupational Therapy folder for Lily Carter. Please log in to approve or deny.",date:"2025-02-08",read:true,type:"access"},
+    {id:"e4",from:"huddledin@app.com",to:"sarah@clinic.com",subject:"🤝 You've been invited to join Lily Carter's care team",body:"The Carter family has invited you to join Lily Carter's care team on Huddledin. Click below to accept the invitation and access their shared files.",date:"2025-02-19",read:false,type:"invite"}
+  ],
+  progress:[
+    {id:"p1",childId:"c1",category:"Speech",label:"S-blend accuracy",value:78,maxValue:100,unit:"%",date:"2025-02-24",specialistId:"s1"},
+    {id:"p2",childId:"c1",category:"Speech",label:"S-blend accuracy",value:65,maxValue:100,unit:"%",date:"2025-01-15",specialistId:"s1"},
+    {id:"p3",childId:"c1",category:"OT",label:"Sensory tolerance (min)",value:12,maxValue:20,unit:"min",date:"2025-02-20",specialistId:"s2"},
+    {id:"p4",childId:"c2",category:"PT",label:"Balance beam duration",value:45,maxValue:60,unit:"sec",date:"2025-02-22",specialistId:"s3"},
+    {id:"p5",childId:"c2",category:"Speech",label:"Vocabulary score",value:42,maxValue:50,unit:"pts",date:"2025-02-18",specialistId:"s1"}
+  ],
+  milestones:[
+    {id:"ml1",childId:"c1",title:"First successful /s/ blend in conversation",date:"2025-02-01",achieved:true,category:"Speech",specialistId:"s1"},
+    {id:"ml2",childId:"c1",title:"10 minutes sustained focus in OT session",date:"2025-02-15",achieved:true,category:"OT",specialistId:"s2"},
+    {id:"ml3",childId:"c1",title:"Complete IEP annual review",date:"2025-03-30",achieved:false,category:"School",specialistId:null},
+    {id:"ml4",childId:"c2",title:"Maintained eye contact during greeting",date:"2025-02-10",achieved:true,category:"Speech",specialistId:"s1"},
+    {id:"ml5",childId:"c2",title:"Walk balance beam full length",date:"2025-03-15",achieved:false,category:"PT",specialistId:"s3"}
+  ],
+  specialistRequests:[] // {id, specialistName, specialistEmail, role, childId, requestedAt, status:'pending'|'approved'|'denied'}
 };
 
 /* ═══════════════════════════════════════════════
@@ -445,7 +513,10 @@ let S={
   vaultSummarizing:false,
   vaultHasUnsaved:false,
   searchOpen:false,
-  searchQuery:''
+  searchQuery:'',
+  activeProgressTab:'overview', // overview | milestones | add
+  emailOpen:false,
+  activeEmailId:null
 };
 
 /* ═══════════════════════════════════════════════
@@ -520,8 +591,10 @@ const PARENT_TABS=[
   {id:'files',label:'Files',icon:'📁'},
   {id:'team',label:'Team',icon:'👥'},
   {id:'calendar',label:'Calendar',icon:'📅'},
+  {id:'progress',label:'Progress',icon:'📈'},
   {id:'chat',label:'Chat',icon:'💬'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'email',label:'Inbox',icon:'📧'},
   {id:'settings',label:'Settings',icon:'⚙️'}
 ];
 const SPEC_TABS=[
@@ -532,7 +605,8 @@ const SPEC_TABS=[
   {id:'files',label:'Files',icon:'📁'},
   {id:'chat',label:'Chat',icon:'💬'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
-  {id:'credentials',label:'My Folder',icon:'🗂️'}
+  {id:'credentials',label:'My Folder',icon:'🗂️'},
+  {id:'request',label:'Join Team',icon:'📨'}
 ];
 const getTabs=()=>session?.role==='parent'?PARENT_TABS:SPEC_TABS;
 
@@ -547,6 +621,8 @@ function pushNotif(type,msg,childId){
   const ns=DB.notifications;
   ns.unshift({id:'n_'+Date.now(),type,msg,time:'Just now',read:false,childId});
   DB.notifications=ns;
+  // Also fire browser push if permission granted
+  sendPush('Huddledin 🤝',msg);
 }
 
 /* ═══════════════════════════════════════════════
@@ -654,10 +730,21 @@ function renderHeader(){
     const sw=el('div',{id:'child-switcher'});
     DB.children.forEach(c=>{
       const pill=el('button',{class:'child-pill'+(S.activeChild===c.id?' active':'')});
-      pill.innerHTML=`<span class="child-avatar-emoji">${c.avatar}</span><span class="cp-name">${c.name.split(' ')[0]}</span>`;
+      if(c.photo){
+        const img=el('img',{class:'child-avatar-img',src:c.photo,alt:c.name});
+        pill.appendChild(img);
+      } else {
+        pill.appendChild(el('span',{class:'child-avatar-emoji'},[c.avatar]));
+      }
+      pill.appendChild(el('span',{class:'cp-name'},[c.name.split(' ')[0]]));
       pill.onclick=()=>{S.activeChild=c.id;re();};
       sw.appendChild(pill);
     });
+    // Add child button
+    const addPill=el('button',{class:'child-pill',title:'Add a child profile'});
+    addPill.innerHTML='<span style="font-size:1rem">➕</span><span class="cp-name">Add Child</span>';
+    addPill.onclick=()=>showAddChildModal();
+    sw.appendChild(addPill);
     hd.appendChild(sw);
   }
 
@@ -667,6 +754,14 @@ function renderHeader(){
     const srchBtn=mkBtn('🔍','btn-sm btn-slate',()=>{S.searchOpen=true;re();});
     srchBtn.title='Global Search';
     right.appendChild(srchBtn);
+  }
+  // Email inbox badge (parent)
+  if(session?.role==='parent'){
+    const unreadEmails=DB.emailInbox.filter(e=>!e.read).length;
+    const emailBtn=el('button',{class:'notif-btn',title:'Email Inbox',style:{position:'relative'}},['📧']);
+    if(unreadEmails>0)emailBtn.appendChild(el('span',{class:'notif-count'},[String(unreadEmails)]));
+    emailBtn.onclick=()=>{S.activeTab='email';re();};
+    right.appendChild(emailBtn);
   }
   right.appendChild(renderNotifBell());
   right.appendChild(mkBtn('Sign Out','btn-sm btn-ghost',()=>{doLogout();re();}));
@@ -803,6 +898,9 @@ function renderContent(){
   if(t==='vault')return renderVault();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
+  if(t==='progress')return renderProgress();
+  if(t==='email')return renderEmailInbox();
+  if(t==='request')return renderSpecialistRequest();
   return d('section',[p('Coming soon…')]);
 }
 
@@ -816,8 +914,9 @@ function renderParentDashboard(){
   const allPendingHW=allHW.filter(h=>!h.completed);
 
   const sec=el('div',{class:'section'});
-
-  // Welcome banner
+  // Push notification banner
+  const pushBanner=renderPushBanner();
+  if(pushBanner)sec.appendChild(pushBanner);
   const welcome=el('div',{class:'card',style:{background:'linear-gradient(135deg,var(--teal) 0%,var(--teal-l) 60%,#7dd3fc 100%)',border:'none',marginBottom:'22px',padding:'24px 28px'}});
   welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Welcome back</div>
     <div class="ff" style="font-size:1.6rem;font-weight:800;color:#fff;margin-bottom:4px">${session?.name||'Parent'} 👋</div>
@@ -847,12 +946,25 @@ function renderParentDashboard(){
     const section=el('div',{class:'card',style:{marginBottom:'18px'}});
     // Child header
     const cHd=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--mint-ll)'}});
-    cHd.innerHTML=`<div style="width:46px;height:46px;border-radius:14px;background:${child.color}44;display:flex;align-items:center;justify-content:center;font-size:1.7rem">${child.avatar}</div>`;
+    // Show photo if set, otherwise emoji
+    if(child.photo){
+      const img=el('img',{src:child.photo,style:{width:'46px',height:'46px',borderRadius:'14px',objectFit:'cover',border:'2px solid var(--mint-l)',cursor:'pointer'}});
+      img.onclick=()=>showChildPhotoModal(child);
+      cHd.appendChild(img);
+    } else {
+      const emoWrap=el('div',{style:{width:'46px',height:'46px',borderRadius:'14px',background:child.color+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.7rem',cursor:'pointer'},title:'Click to add photo'});
+      emoWrap.textContent=child.avatar;
+      emoWrap.onclick=()=>showChildPhotoModal(child);
+      cHd.appendChild(emoWrap);
+    }
     const cinfo=d('',[], {flex:1});
     cinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[child.name]));
     cinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},[`Age ${child.age} · ${child.diagnoses.join(', ')}`]));
     cHd.appendChild(cinfo);
-    cHd.appendChild(mkBtn('View Profile','btn-sm btn-secondary',()=>{S.activeChild=child.id;S.activeTab='files';re();}));
+    const chBtns=d('',[], {display:'flex',gap:'7px'});
+    chBtns.appendChild(mkBtn('📈 Progress','btn-sm btn-secondary',()=>{S.activeChild=child.id;S.activeTab='progress';re();}));
+    chBtns.appendChild(mkBtn('View Profile','btn-sm btn-slate',()=>{S.activeChild=child.id;S.activeTab='files';re();}));
+    cHd.appendChild(chBtns);
     section.appendChild(cHd);
 
     const grid=el('div',{class:'g2'});
@@ -893,6 +1005,9 @@ function renderParentDashboard(){
     });
     grid.appendChild(aptCard);
     section.appendChild(grid);
+    // Published summaries for this child
+    const pubSummaries=renderPublishedSummaries();
+    if(pubSummaries&&S.activeChild===child.id)section.appendChild(pubSummaries);
     sec.appendChild(section);
   });
   return sec;
@@ -995,10 +1110,17 @@ function renderFiles(){
     el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name} · Dropbox-backed · Granular sharing`])
   ]));
   if(isParent){
-    const fi=el('input',{type:'file',style:{display:'none'}});fi.id='fileInput';
+    // Regular file upload (desktop + file picker)
+    const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
     fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
-    sec.appendChild(fi);
-    hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())]));
+    // Camera capture (mobile)
+    const ci=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});ci.id='cameraInput';
+    ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+    sec.appendChild(fi);sec.appendChild(ci);
+    hd.appendChild(el('div',{class:'sec-hd-right'},[
+      mkBtn('📷 Camera','btn-md btn-slate',()=>document.getElementById('cameraInput')?.click()),
+      mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())
+    ]));
   }
   sec.appendChild(hd);
 
@@ -1250,16 +1372,37 @@ function showInviteModal(){
     });
     mb.appendChild(prows);
 
+    // Magic link preview (shown after send)
+    const linkArea=el('div',{style:{display:'none'}});
+    mb.appendChild(linkArea);
+
     mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.8rem',marginBottom:'16px',lineHeight:'1.6',fontWeight:500}},
-      ['An invite email will be sent. If they\'re new to Huddledin, they\'ll be prompted to register. A draft profile is created immediately.']));
+      ['An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.']));
     mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
       if(!ei.value){toast('⚠️ Email required.','error');return;}
+      // Generate magic link token
+      const token='hd_invite_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+      const child=DB.children.find(c=>c.id===S.activeChild);
+      const magicLink=`${window.location.href.split('?')[0]}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
+      // Save pending specialist
       const specs=DB.specialists;
-      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:{c1:prePerms,c2:[]},status:'pending',credentials:[]});
+      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:{c1:prePerms,c2:[]},status:'pending',credentials:[],inviteToken:token});
       DB.specialists=specs;
-      close();re();toast('✅ Invitation sent to '+ei.value+'!');
+      // Add simulated email to inbox
+      const emails=DB.emailInbox;
+      emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:ei.value,subject:`🤝 You've been invited to join ${child?.name}'s care team`,body:`${session?.name||'The family'} has invited you to join ${child?.name}'s care team on Huddledin as a ${ri.value||'Specialist'}.\n\nClick your magic link to accept:\n${magicLink}\n\nThis link will auto-register you if you're new, or add the patient to your existing account.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite',magicLink});
+      DB.emailInbox=emails;
+      // Show link in UI
+      linkArea.style.display='block';
+      linkArea.innerHTML='';
+      linkArea.appendChild(el('div',{class:'inp-label'},['🔗 Magic Invite Link (click to copy)']));
+      const lb=el('div',{class:'invite-link-box'},[magicLink]);
+      lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast('✅ Link copied to clipboard!'));};
+      linkArea.appendChild(lb);
+      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:500}},['In a real app this would be emailed automatically. For demo, copy the link above.']));
+      re();toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
     }));
-  },480);
+  },500);
 }
 
 function showHandshakeModal(spec){
@@ -1458,7 +1601,8 @@ function renderChat(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('h2',{class:'page-title'},['Messages']));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
-    role==='specialist'?mkBtn('🤝 Request Consult','btn-sm btn-lav',()=>showConsultModal()):el('span')
+    session?.role==='parent'?mkBtn('👥 New Group Chat','btn-sm btn-secondary',()=>showCreateGroupChatModal()):el('span'),
+    session?.role==='specialist'?mkBtn('🤝 Request Consult','btn-sm btn-lav',()=>showConsultModal()):el('span')
   ]));
   sec.appendChild(hd);
 
@@ -1469,15 +1613,17 @@ function renderChat(){
   const list=el('div',{class:'card',style:{padding:0,overflow:'hidden'}});
   visChats.forEach(chat=>{
     const isConsult=chat.type==='specialist-consult';
+    const isGroup=chat.type==='group';
     const lastMsg=chat.messages[chat.messages.length-1];
     const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
     const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
-    const chatName=chat.name||(isConsult?'Specialist Consult':(otherSpec?.name||'Chat'));
+    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
 
     const item=el('div',{style:{padding:'12px 15px',borderBottom:'2px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .14s'}});
     item.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      ${isConsult?'<span style="font-size:.7rem;background:var(--lav-l);color:var(--lav-d);border-radius:6px;padding:1px 7px;font-weight:800">Consult</span>':''}
+      ${isConsult?'<span class="badge badge-lav" style="font-size:.62rem;padding:1px 7px">Consult</span>':''}
+      ${isGroup?'<span class="group-badge">Group</span>':''}
       <span style="font-weight:800;font-size:.83rem;color:var(--navy)">${chatName}</span></div>
       <div style="font-size:.7rem;color:var(--slate)">${childName}</div>
       <div style="font-size:.68rem;color:var(--slate-l);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${lastMsg?.text?.slice(0,32)||''}${lastMsg?.text?.length>32?'...':''}</div>`;
@@ -1495,15 +1641,19 @@ function renderChat(){
 
   if(activeChat){
     const isConsult=activeChat.type==='specialist-consult';
+    const isGroup=activeChat.type==='group';
     const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
     const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
+    const participantNames=isGroup
+      ?activeChat.participants.map(p=>p==='parent'?'You':DB.specialists.find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
+      :null;
 
     const winHd=d('',[], {padding:'13px 17px',borderBottom:'2px solid var(--mint-ll)',display:'flex',gap:'12px',alignItems:'center'});
-    winHd.appendChild(mkAvatar(isConsult?'🔗':'💬',36,'#d1fae5'));
+    winHd.appendChild(mkAvatar(isGroup?'👥':isConsult?'🔗':'💬',36,'#d1fae5'));
     const wi=d('');
     wi.appendChild(el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)'}},[activeChat.name||(otherSpec?.name||'Chat')]));
-    wi.appendChild(el('div',{style:{fontSize:'.7rem',color:isConsult?'var(--lav-d)':'var(--teal)',fontWeight:700}},
-      [isConsult?'🔗 Approved specialist consult':'🔒 Secure · Parent-approved']));
+    wi.appendChild(el('div',{style:{fontSize:'.7rem',color:isGroup?'#0369a1':isConsult?'var(--lav-d)':'var(--teal)',fontWeight:700}},
+      [isGroup?'👥 '+participantNames:isConsult?'🔗 Approved specialist consult':'🔒 Secure · Parent-approved']));
     winHd.appendChild(wi);
     win.appendChild(winHd);
 
@@ -1996,9 +2146,563 @@ function renderNotifications(){
 /* ═══════════════════════════════════════════════
    SETTINGS
 ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   1. SIMULATED EMAIL INBOX
+═══════════════════════════════════════════════ */
+function renderEmailInbox(){
+  const sec=el('div',{class:'section'});
+  const emails=DB.emailInbox;
+  const unread=emails.filter(e=>!e.read).length;
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['📧 Email Inbox']),
+    el('p',{class:'page-sub'},['Simulated notification emails from Huddledin · '+unread+' unread'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('Mark All Read','btn-sm btn-slate',()=>{
+      const em=DB.emailInbox;em.forEach(e=>e.read=true);DB.emailInbox=em;re();
+    })
+  ]));
+  sec.appendChild(hd);
+
+  if(!emails.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No emails yet.']));return sec;}
+
+  // If viewing a specific email
+  if(S.activeEmailId){
+    const email=emails.find(e=>e.id===S.activeEmailId);
+    if(email){
+      // Mark as read
+      const em=DB.emailInbox,i=em.findIndex(e=>e.id===email.id);
+      if(i>-1&&!em[i].read){em[i].read=true;DB.emailInbox=em;}
+      const vc=el('div',{class:'card',style:{marginBottom:'14px'}});
+      vc.appendChild(mkBtn('← Back to Inbox','btn-sm btn-slate',()=>{S.activeEmailId=null;re();}));
+      vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'14px 0'}}));
+      vc.appendChild(el('div',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.15rem',fontWeight:800,color:'var(--navy)',marginBottom:'8px'}},[email.subject]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px',fontWeight:600}},['From: '+email.from]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['To: '+email.to+' · '+email.date]));
+      vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'0 0 16px'}}));
+      const body=el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.75',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[email.body]);
+      vc.appendChild(body);
+      // If it has a magic link, show copy button
+      if(email.magicLink){
+        vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'16px 0'}}));
+        vc.appendChild(el('div',{class:'inp-label'},['🔗 Invite Magic Link']));
+        const lb=el('div',{class:'invite-link-box'},[email.magicLink]);
+        lb.onclick=()=>navigator.clipboard?.writeText(email.magicLink).then(()=>toast('✅ Copied!'));
+        vc.appendChild(lb);
+      }
+      sec.appendChild(vc);
+      return sec;
+    }
+  }
+
+  // Inbox list
+  const inbox=el('div',{class:'email-inbox'});
+  [...emails].sort((a,b)=>b.date.localeCompare(a.date)).forEach(email=>{
+    const row=el('div',{class:'email-item'+(email.read?'':' unread')});
+    if(!email.read)row.appendChild(el('div',{class:'email-dot'}));
+    else row.appendChild(el('div',{style:{width:'8px',flexShrink:0}}));
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:email.read?600:800,color:'var(--navy)',fontSize:'.86rem',marginBottom:'3px'}},[email.subject]));
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginBottom:'2px'}},[email.from+' → '+email.to]));
+    info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[email.date]));
+    row.appendChild(info);
+    row.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate-l)',flexShrink:0}},[email.read?'':'●']));
+    row.onclick=()=>{S.activeEmailId=email.id;re();};
+    inbox.appendChild(row);
+  });
+  sec.appendChild(inbox);
+  sec.appendChild(el('p',{style:{color:'var(--slate-l)',fontSize:'.76rem',textAlign:'center',marginTop:'12px',fontWeight:500}},
+    ['In production these emails would be delivered to real inboxes via SendGrid / Mailgun.']));
+  return sec;
+}
+
+/* ═══════════════════════════════════════════════
+   2. PROGRESS TRACKING (charts + milestones)
+═══════════════════════════════════════════════ */
+function renderProgress(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const progressData=DB.progress.filter(p=>p.childId===S.activeChild);
+  const milestones=DB.milestones.filter(m=>m.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['📈 Progress Tracking']),
+    el('p',{class:'page-sub'},[child?.avatar+' '+child?.name+' · Milestones & measurements'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('➕ Add Milestone','btn-sm btn-primary',()=>showAddMilestoneModal()),
+    mkBtn('📊 Log Measurement','btn-sm btn-secondary',()=>showLogMeasurementModal())
+  ]));
+  sec.appendChild(hd);
+
+  // Tab bar
+  const tabs=el('div',{class:'prog-tabs'});
+  [{id:'overview',label:'📊 Overview'},{id:'milestones',label:'🏆 Milestones'},{id:'history',label:'📅 History'}].forEach(t=>{
+    const tb=el('div',{class:'prog-tab'+(S.activeProgressTab===t.id?' active':'')});
+    tb.textContent=t.label;tb.onclick=()=>{S.activeProgressTab=t.id;re();};
+    tabs.appendChild(tb);
+  });
+  sec.appendChild(tabs);
+
+  if(S.activeProgressTab==='overview'){
+    // Group by category, show latest value as progress bar
+    const cats=[...new Set(progressData.map(p=>p.category))];
+    if(!cats.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No measurements logged yet. Click "Log Measurement" to start!']));return sec;}
+    const g=el('div',{class:'g2'});
+    cats.forEach(cat=>{
+      const catData=progressData.filter(p=>p.category===cat).sort((a,b)=>b.date.localeCompare(a.date));
+      const latest=catData[0];const prev=catData[1];
+      const pct=Math.round((latest.value/latest.maxValue)*100);
+      const trend=prev?latest.value-prev.value:null;
+      const card=el('div',{class:'card hov'});
+      card.appendChild(badge(cat,catBadge(cat)));
+      card.appendChild(el('div',{style:{fontWeight:800,fontSize:'1.3rem',color:'var(--navy)',margin:'10px 0 2px'}},[latest.value+latest.unit+' / '+latest.maxValue+latest.unit]));
+      card.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginBottom:'10px'}},[latest.label+' · '+latest.date]));
+      const bar=el('div',{class:'progress-bar-wrap'});
+      const fill=el('div',{class:'progress-bar-fill',style:{width:pct+'%',background:cat==='Speech'?'var(--teal)':cat==='OT'?'var(--coral)':cat==='PT'?'var(--lav-d)':'var(--slate)'}});
+      bar.appendChild(fill);card.appendChild(bar);
+      if(trend!==null){
+        const trendEl=el('div',{style:{fontSize:'.76rem',marginTop:'7px',fontWeight:700,color:trend>=0?'#166534':'#be123c'}},
+          [(trend>=0?'▲ +':'▼ ')+Math.abs(trend)+latest.unit+' since last session']);
+        card.appendChild(trendEl);
+      }
+      g.appendChild(card);
+    });
+    sec.appendChild(g);
+
+  } else if(S.activeProgressTab==='milestones'){
+    const achieved=milestones.filter(m=>m.achieved);
+    const pending=milestones.filter(m=>!m.achieved);
+    if(!milestones.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No milestones set yet. Click "Add Milestone" to add some!']));return sec;}
+    if(achieved.length){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🏆 Achieved']));
+      achieved.forEach(m=>{
+        const mi=el('div',{class:'milestone-item'});
+        mi.appendChild(el('div',{class:'milestone-dot done'}));
+        const inf=d('',[], {flex:1});
+        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
+        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},['✅ Achieved '+m.date]));
+        mi.appendChild(inf);mi.appendChild(badge(m.category,catBadge(m.category)));
+        sec.appendChild(mi);
+      });
+    }
+    if(pending.length){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'18px 0 12px'}},['🎯 In Progress']));
+      pending.forEach(m=>{
+        const mi=el('div',{class:'milestone-item'});
+        mi.appendChild(el('div',{class:'milestone-dot pending'}));
+        const inf=d('',[], {flex:1});
+        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
+        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'2px'}},['Target: '+m.date]));
+        mi.appendChild(inf);
+        const acts=d('',[], {display:'flex',gap:'7px'});
+        acts.appendChild(badge(m.category,catBadge(m.category)));
+        acts.appendChild(mkBtn('✅ Mark Achieved','btn-sm btn-secondary',()=>{
+          const ms=DB.milestones,i=ms.findIndex(x=>x.id===m.id);
+          if(i>-1){ms[i].achieved=true;ms[i].date=new Date().toISOString().split('T')[0];DB.milestones=ms;}
+          pushNotif('report','🏆 Milestone achieved: "'+m.title+'"',S.activeChild);re();toast('🏆 Milestone marked as achieved!');
+        }));
+        acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Milestone','Remove this milestone?',true,()=>{
+          const ms=DB.milestones;DB.milestones=ms.filter(x=>x.id!==m.id);re();
+        })));
+        mi.appendChild(acts);
+        sec.appendChild(mi);
+      });
+    }
+
+  } else { // history
+    if(!progressData.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No history yet.']));return sec;}
+    const sorted=[...progressData].sort((a,b)=>b.date.localeCompare(a.date));
+    const stack=el('div',{class:'stack'});
+    sorted.forEach(p=>{
+      const spec=DB.specialists.find(s=>s.id===p.specialistId);
+      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
+      const pct=Math.round((p.value/p.maxValue)*100);
+      const circ=el('div',{style:{width:'52px',height:'52px',borderRadius:'50%',background:`conic-gradient(var(--teal) ${pct*3.6}deg,#e2e8f0 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+      circ.appendChild(el('div',{style:{width:'38px',height:'38px',borderRadius:'50%',background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.68rem',fontWeight:900,color:'var(--navy)'}},[pct+'%']));
+      card.appendChild(circ);
+      const inf=d('',[], {flex:1});
+      inf.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[p.label]));
+      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[p.value+p.unit+' / '+p.maxValue+p.unit+' · '+p.date]));
+      if(spec)inf.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[spec.name]));
+      card.appendChild(inf);
+      card.appendChild(badge(p.category,catBadge(p.category)));
+      stack.appendChild(card);
+    });
+    sec.appendChild(stack);
+  }
+  return sec;
+}
+
+function showAddMilestoneModal(){
+  openModal('🏆 Add Milestone',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
+    const catSel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
+    const di=el('input',{class:'inp',type:'date',placeholder:'Target date'});
+    [ti,catSel,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
+      if(!ti.value||!di.value){toast('⚠️ Title and target date required.','error');return;}
+      const ms=DB.milestones;
+      ms.push({id:'ml_'+Date.now(),childId:S.activeChild,title:ti.value.trim(),date:di.value,achieved:false,category:catSel.value,specialistId:session?.specialistId||null});
+      DB.milestones=ms;close();re();toast('✅ Milestone added!');
+    }));
+  },440);
+}
+
+function showLogMeasurementModal(){
+  openModal('📊 Log Measurement',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const lb=el('input',{class:'inp',placeholder:'e.g. S-blend accuracy'});
+    const catSel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
+    const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
+    const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
+    const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
+    const di=el('input',{class:'inp',type:'date'});
+    [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
+      if(!lb.value||!vi.value||!mi2.value||!di.value){toast('⚠️ All fields required.','error');return;}
+      const ps=DB.progress;
+      ps.push({id:'p_'+Date.now(),childId:S.activeChild,category:catSel.value,label:lb.value.trim(),value:parseFloat(vi.value),maxValue:parseFloat(mi2.value),unit:ui.value||'',date:di.value,specialistId:session?.specialistId||null});
+      DB.progress=ps;close();S.activeProgressTab='overview';re();toast('📊 Measurement logged!');
+    }));
+  },460);
+}
+
+/* ═══════════════════════════════════════════════
+   3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
+═══════════════════════════════════════════════ */
+function showAddChildModal(){
+  openModal('➕ Add Child Profile',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
+    const dob=el('input',{class:'inp',type:'date',placeholder:'Date of birth'});
+    const dx=el('input',{class:'inp',placeholder:'Diagnoses (comma separated)'});
+
+    // Emoji avatar picker
+    mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
+    const emojis=['🌸','🚀','⭐','🦋','🐻','🦁','🐬','🌈','🎈','🦄'];
+    let selEmoji=emojis[0];
+    const emoRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'});
+    emojis.forEach(e=>{
+      const eb=el('button',{style:{fontSize:'1.5rem',padding:'6px 10px',borderRadius:'12px',border:'2.5px solid transparent',background:'var(--mint-ll)',cursor:'pointer',transition:'all .18s'}});
+      eb.textContent=e;
+      eb.onclick=()=>{selEmoji=e;emoRow.querySelectorAll('button').forEach(b=>b.style.borderColor='transparent');eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';};
+      if(e===selEmoji){eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';}
+      emoRow.appendChild(eb);
+    });
+    mb.appendChild(emoRow);
+
+    // Photo upload
+    mb.appendChild(el('div',{class:'inp-label'},['Or Upload Photo (optional)']));
+    let photoData=null;
+    const photoWrap=el('div',{class:'photo-upload-area'});
+    photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload a photo</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">Or use camera on mobile</div>';
+    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    photoInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        photoData=ev.target.result;
+        photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700">Photo selected ✓</div>`;
+      };
+      reader.readAsDataURL(f);
+    };
+    photoWrap.onclick=()=>photoInput.click();
+    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    mb.appendChild(el('div',{style:{height:'14px'}}));
+
+    [ni,dob,dx].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Add Child','btn-lg btn-primary btn-full',()=>{
+      if(!ni.value.trim()||!dob.value){toast('⚠️ Name and date of birth required.','error');return;}
+      const dobDate=new Date(dob.value);
+      const age=new Date().getFullYear()-dobDate.getFullYear();
+      const newChild={id:'c_'+Date.now(),name:ni.value.trim(),age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,diagnoses:dx.value.split(',').map(s=>s.trim()).filter(Boolean),photo:photoData||null};
+      const children=DB.children;children.push(newChild);DB.children=children;
+      // Add empty permissions for all specialists
+      const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
+      S.activeChild=newChild.id;close();re();toast('🎉 '+ni.value+' added to your family!');
+    }));
+  },500);
+}
+
+function showChildPhotoModal(child){
+  openModal('📷 Update '+child.name+"'s Photo",(mb,close)=>{
+    let photoData=child.photo||null;
+    const photoWrap=el('div',{class:'photo-upload-area',style:{marginBottom:'16px'}});
+    if(child.photo){
+      photoWrap.innerHTML=`<img src="${child.photo}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Current photo — click to change</div>`;
+    } else {
+      photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
+    }
+    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    photoInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        photoData=ev.target.result;
+        photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">New photo selected ✓</div>`;
+      };
+      reader.readAsDataURL(f);
+    };
+    photoWrap.onclick=()=>photoInput.click();
+    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    const row=d('',[], {display:'flex',gap:'10px'});
+    if(child.photo){
+      row.appendChild(mkBtn('🗑️ Remove Photo','btn-md btn-danger',()=>{
+        const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
+        if(i>-1){ch[i].photo=null;DB.children=ch;}close();re();toast('✅ Photo removed.');
+      }));
+    }
+    row.appendChild(mkBtn('✅ Save Photo','btn-md btn-primary',()=>{
+      const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
+      if(i>-1){ch[i].photo=photoData;DB.children=ch;}close();re();toast('✅ Photo updated!');
+    }));
+    mb.appendChild(row);
+  },420);
+}
+
+function showDeleteChildModal(child){
+  openModal('⚠️ Delete '+child.name+"'s Profile",(mb,close)=>{
+    const warn=el('div',{class:'danger-zone'});
+    warn.appendChild(el('div',{style:{fontWeight:800,color:'#be123c',fontSize:'1rem',marginBottom:'8px'}},['⚠️ This action cannot be undone']));
+    warn.appendChild(el('p',{style:{color:'#be123c',fontSize:'.86rem',lineHeight:'1.7',fontWeight:500}},
+      [`Deleting ${child.name}'s profile will:\n\n• Remove all their appointments and tasks from your dashboard\n• Revoke all specialist access for this child\n• Specialist-authored notes will be archived in each specialist's Legacy Archive\n• The child will be removed from the child switcher\n\nThis does NOT delete the specialists' Huddledin accounts.`]));
+    mb.appendChild(warn);
+    mb.appendChild(el('div',{style:{height:'16px'}}));
+    mb.appendChild(el('div',{class:'inp-label'},['Type the child\'s name to confirm']));
+    const conf=el('input',{class:'inp',placeholder:child.name,style:{marginBottom:'14px'}});
+    mb.appendChild(conf);
+    const delBtn=mkBtn('🗑️ Permanently Delete Profile','btn-lg btn-danger btn-full',()=>{
+      if(conf.value.trim()!==child.name){toast('⚠️ Name does not match.','error');return;}
+      // Archive all specialist notes for this child
+      const archive=DB.legacyArchive;
+      DB.specialists.filter(s=>s.status==='active').forEach(spec=>{
+        const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===child.id);
+        if(specNotes.length){
+          archive.push({specialistId:spec.id,specialistName:spec.name,childId:child.id,childName:child.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes,reason:'Child profile deleted'});
+        }
+      });
+      DB.legacyArchive=archive;
+      // Remove child
+      const ch=DB.children.filter(c=>c.id!==child.id);DB.children=ch;
+      // Remove all data for this child
+      DB.homework=DB.homework.filter(h=>h.childId!==child.id);
+      DB.appointments=DB.appointments.filter(a=>a.childId!==child.id);
+      DB.vaultNotes=DB.vaultNotes.filter(n=>n.childId!==child.id);
+      DB.progress=(DB.progress||[]).filter(p=>p.childId!==child.id);
+      DB.milestones=(DB.milestones||[]).filter(m=>m.childId!==child.id);
+      // Switch to first remaining child or null
+      S.activeChild=ch[0]?.id||null;
+      close();re();toast('✅ '+child.name+"'s profile has been deleted.");
+    });
+    mb.appendChild(delBtn);
+  },480);
+}
+
+/* ═══════════════════════════════════════════════
+   4. PUSH NOTIFICATION PERMISSION
+═══════════════════════════════════════════════ */
+function renderPushBanner(){
+  if(DB.pushEnabled||!('Notification' in window))return null;
+  if(Notification.permission==='granted'){
+    // Already granted — persist state
+    if(!DB.pushEnabled){DB.pushEnabled=true;}
+    return null;
+  }
+  if(Notification.permission==='denied')return null;
+  const banner=el('div',{class:'push-banner'});
+  banner.innerHTML='<span style="font-size:1.6rem">🔔</span><div style="flex:1"><div style="font-weight:800;color:var(--navy)">Enable push notifications</div><div style="font-size:.78rem;color:var(--slate);margin-top:2px">Get instant alerts for new reports, messages and tasks</div></div>';
+  banner.appendChild(mkBtn('Enable','btn-sm btn-primary',()=>{
+    Notification.requestPermission().then(perm=>{
+      if(perm==='granted'){
+        DB.pushEnabled=true;
+        new Notification('Huddledin 🤝',{body:'Push notifications enabled! You\'ll now get real-time alerts.',icon:'https://via.placeholder.com/64'});
+        re();
+      } else {
+        toast('Notifications blocked. You can change this in browser settings.','info');
+      }
+    });
+  }));
+  banner.appendChild(mkBtn('Not now','btn-sm btn-slate',()=>{DB.pushEnabled='dismissed';re();}));
+  return banner;
+}
+
+// Helper: send actual push if permission granted
+function sendPush(title,body){
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    try{new Notification(title,{body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});}catch(e){}
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   5. SPECIALIST-INITIATED PATIENT REQUEST
+═══════════════════════════════════════════════ */
+function renderSpecialistRequest(){
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title'},['📨 Request to Join a Care Team']));
+  sec.appendChild(el('p',{class:'page-sub'},['Send a request to a parent to add you to their child\'s care team. The parent must approve before you gain access.']));
+
+  // Pending requests
+  const myRequests=(DB.specialistRequests||[]).filter(r=>r.specialistId===(session?.specialistId||'s1'));
+  if(myRequests.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
+    myRequests.forEach(r=>{
+      const card=el('div',{class:'spec-request-card'});
+      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div style="font-weight:800;color:var(--navy)">${r.childName||'Unknown child'}</div>${r.status==='pending'?'<span class="badge badge-amber">⏳ Pending</span>':r.status==='approved'?'<span class="badge badge-green">✅ Approved</span>':'<span class="badge badge-rose">✗ Denied</span>'}</div>`;
+      card.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[`Sent to: ${r.parentEmail||'parent'} · ${r.requestedAt}`]));
+      sec.appendChild(card);
+    });
+  }
+
+  // New request form
+  const fc=el('div',{class:'card',style:{marginTop:'20px'}});
+  fc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['➕ Send New Request']));
+  const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+  const pi=el('input',{class:'inp',placeholder:"Parent's email address",type:'email'});
+  const ni=el('input',{class:'inp',placeholder:"Child's name"});
+  const ri=el('input',{class:'inp',placeholder:"Reason / your role (e.g. Speech Therapist for Lily)"});
+  [pi,ni,ri].forEach(i=>ig.appendChild(i));
+  fc.appendChild(ig);
+  fc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
+    ['The parent will receive a notification and email. Once approved, the child\'s profile will appear in your Patients list and you\'ll receive access to the folders they choose to share.']));
+  fc.appendChild(mkBtn('📨 Send Join Request','btn-lg btn-primary btn-full',()=>{
+    if(!pi.value.trim()||!ni.value.trim()){toast('⚠️ Parent email and child name required.','error');return;}
+    const reqs=DB.specialistRequests||[];
+    const specId=session?.specialistId||'s1';
+    const spec=DB.specialists.find(s=>s.id===specId);
+    reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:spec?.name||session?.name,parentEmail:pi.value.trim(),childName:ni.value.trim(),reason:ri.value.trim(),requestedAt:new Date().toISOString().split('T')[0],status:'pending'});
+    DB.specialistRequests=reqs;
+    // Add notification for parent (simulated)
+    pushNotif('invite',`${spec?.name||'A specialist'} has requested to join ${ni.value.trim()}'s care team`,'c1');
+    // Add simulated email
+    const emails=DB.emailInbox;
+    emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:pi.value,subject:`🤝 ${spec?.name||'A specialist'} wants to join ${ni.value.trim()}'s care team`,body:`${spec?.name||'A specialist'} (${spec?.role||'Specialist'}) has requested to join ${ni.value.trim()}'s care team on Huddledin.\n\nReason: ${ri.value||'Not specified'}\n\nPlease log in to approve or deny this request.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite'});
+    DB.emailInbox=emails;
+    re();toast('✅ Request sent! The parent will be notified.');
+  }));
+  sec.appendChild(fc);
+
+  // Show incoming requests on parent side (for demo, show any pending)
+  const incomingReqs=(DB.specialistRequests||[]).filter(r=>r.status==='pending');
+  if(incomingReqs.length&&session?.role==='parent'){
+    const ic=el('div',{class:'card',style:{marginTop:'20px',background:'var(--sky-l)',border:'2px solid var(--sky)'}});
+    ic.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📩 Incoming Specialist Requests']));
+    incomingReqs.forEach(r=>{
+      const row=d('',[], {display:'flex',gap:'12px',alignItems:'center',padding:'10px 0',borderBottom:'1px solid rgba(0,0,0,.06)'});
+      row.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🩺']));
+      const inf=d('',[], {flex:1});
+      inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[r.specialistName+' — '+r.childName]));
+      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[r.reason||r.specialistName]));
+      row.appendChild(inf);
+      const acts=d('',[], {display:'flex',gap:'8px'});
+      acts.appendChild(mkBtn('✓ Approve','btn-sm btn-primary',()=>{
+        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
+        if(i>-1){reqs[i].status='approved';DB.specialistRequests=reqs;}
+        re();toast('✅ Request approved! Specialist added to care team.');
+      }));
+      acts.appendChild(mkBtn('✗ Deny','btn-sm btn-danger',()=>{
+        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
+        if(i>-1){reqs[i].status='denied';DB.specialistRequests=reqs;}
+        re();toast('Request denied.');
+      }));
+      row.appendChild(acts);
+      ic.appendChild(row);
+    });
+    sec.appendChild(ic);
+  }
+  return sec;
+}
+
+/* ═══════════════════════════════════════════════
+   6. PARENT-EDITABLE PUBLISHED SUMMARIES
+      (injected into parent dashboard as a section)
+═══════════════════════════════════════════════ */
+function renderPublishedSummaries(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const published=DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary);
+  if(!published.length)return null;
+
+  const wrap=el('div',{class:'card',style:{marginBottom:'20px'}});
+  wrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📄 Session Summaries from Your Team']));
+  published.forEach(note=>{
+    const spec=DB.specialists.find(s=>s.id===note.specialistId);
+    const nb=el('div',{class:'ai-block',style:{marginBottom:'12px'}});
+    const hdr=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'});
+    hdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.86rem'}},[spec?.name+' · '+note.date]));
+    hdr.appendChild(badge(note.locked?'🔒 Locked':'Published','teal'));
+    nb.appendChild(hdr);
+    // Editable if NOT locked
+    const ta=el('textarea',{class:'inp',style:{background:'white',minHeight:'80px',fontSize:'.85rem'}});
+    ta.value=note.summary;
+    ta.readOnly=note.locked;
+    ta.style.background=note.locked?'#f8fafc':'white';
+    ta.oninput=e=>{
+      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+      if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+    };
+    nb.appendChild(ta);
+    if(!note.locked){
+      nb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['✏️ You can annotate or add notes to this summary']));
+    }
+    wrap.appendChild(nb);
+  });
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════════
+   7. GROUP CHAT (multi-participant)
+═══════════════════════════════════════════════ */
+function showCreateGroupChatModal(){
+  openModal('👥 Create Group Chat',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
+      ['Create a group conversation. As the parent, you\'re included automatically.']));
+    mb.appendChild(el('div',{class:'inp-label'},['Chat name']));
+    const ni=el('input',{class:'inp',placeholder:'e.g. Lily\'s Full Care Team',style:{marginBottom:'14px'}});
+    mb.appendChild(ni);
+    mb.appendChild(el('div',{class:'inp-label'},['Select participants']));
+    const selected=new Set();
+    const activeSpecs=DB.specialists.filter(s=>s.status==='active');
+    activeSpecs.forEach(s=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 13px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.onchange=e=>e.target.checked?selected.add(s.id):selected.delete(s.id);
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
+      mb.appendChild(lbl);
+    });
+    mb.appendChild(el('div',{style:{height:'12px'}}));
+    mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
+      if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
+      const name=ni.value.trim()||'Care Team Group Chat';
+      const participants=['parent',...Array.from(selected)];
+      const chats=DB.chats;
+      const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[]};
+      chats.push(newChat);DB.chats=chats;
+      S.activeChatId=newChat.id;S.activeTab='chat';
+      close();re();toast('✅ Group chat "'+name+'" created!');
+    }));
+  },480);
+}
+
+/* ═══════════════════════════════════════════════
+   SETTINGS PATCH — push, delete child, group chat
+═══════════════════════════════════════════════ */
 function renderSettings(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
+
+  // Push notif banner
+  const banner=renderPushBanner();
+  if(banner)sec.appendChild(banner);
 
   // Notif prefs
   const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
@@ -2016,17 +2720,32 @@ function renderSettings(){
   });
   sec.appendChild(nc);
 
+  // Push status
+  const pc2=el('div',{class:'card',style:{marginBottom:'16px'}});
+  pc2.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['📱 Push Notifications']));
+  const pushStatus=typeof Notification!=='undefined'?Notification.permission:'not-supported';
+  const statusColors={granted:'#166534',denied:'#be123c',default:'var(--slate)'};
+  pc2.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'14px',background:'var(--mint-ll)'}},[
+    el('span',{style:{fontSize:'1.3rem'}},['📱']),
+    el('div',{style:{flex:1}},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?'Push notifications enabled ✅':pushStatus==='denied'?'Push notifications blocked':'Push notifications not yet enabled']),
+      el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},['Browser status: '+pushStatus])
+    ]),
+    pushStatus==='default'?mkBtn('Enable','btn-sm btn-primary',()=>{
+      Notification.requestPermission().then(p=>{if(p==='granted'){DB.pushEnabled=true;re();toast('🔔 Push notifications enabled!');}});
+    }):el('span')
+  ]));
+  sec.appendChild(pc2);
+
   // Calendar sync
   const cc=el('div',{class:'card',style:{marginBottom:'16px'}});
   cc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 Calendar Sync']));
-  cc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6',fontWeight:500}},
-    ['Connect your calendar to sync appointments automatically.']));
+  cc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6',fontWeight:500}},['Connect your calendar to sync appointments automatically.']));
   const calBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
   ['📅 Google Calendar','🍎 Apple iCal','📧 Outlook'].forEach(b=>{
-    calBtns.appendChild(mkBtn(b,'btn-md btn-ghost',()=>toast('🔗 '+b+' sync — coming soon!','info')));
+    calBtns.appendChild(mkBtn(b,'btn-md btn-ghost',()=>showGoogleSyncModal()));
   });
-  cc.appendChild(calBtns);
-  sec.appendChild(cc);
+  cc.appendChild(calBtns);sec.appendChild(cc);
 
   // Account
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
@@ -2035,15 +2754,34 @@ function renderSettings(){
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
   const acBtns=d('',[], {display:'flex',gap:'10px'});
   acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',()=>{doLogout();re();}));
-  ac.appendChild(acBtns);
-  sec.appendChild(ac);
+  ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Manage Children (parent only — photo + delete)
+  if(session?.role==='parent'){
+    const mc=el('div',{class:'card',style:{marginBottom:'16px'}});
+    mc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👶 Manage Children']));
+    DB.children.forEach(child=>{
+      const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+      if(child.photo){
+        row.appendChild(el('img',{src:child.photo,class:'avatar',style:{width:'40px',height:'40px',objectFit:'cover'}}));
+      } else {
+        row.appendChild(el('span',{style:{fontSize:'1.6rem'}},[child.avatar]));
+      }
+      row.appendChild(el('div',{style:{flex:1,fontWeight:700,color:'var(--navy)'}},[child.name]));
+      row.appendChild(mkBtn('📷 Photo','btn-sm btn-slate',()=>showChildPhotoModal(child)));
+      row.appendChild(mkBtn('🗑️ Delete','btn-sm btn-danger',()=>showDeleteChildModal(child)));
+      mc.appendChild(row);
+    });
+    mc.appendChild(el('div',{style:{marginTop:'12px'}},[mkBtn('➕ Add Child','btn-md btn-secondary btn-full',()=>showAddChildModal())]));
+    sec.appendChild(mc);
+  }
 
   // Privacy
-  const pc=el('div',{class:'card'});
-  pc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
-  pc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
-    ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed from a care team, they retain a Legacy Archive of only their own authored notes — all other access is revoked immediately.']));
-  sec.appendChild(pc);
+  const pv=el('div',{class:'card'});
+  pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
+  pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
+    ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
+  sec.appendChild(pv);
   return sec;
 }
 
@@ -2057,6 +2795,29 @@ function re(){
 }
 
 initData();
+// Handle magic link invite on page load
+(function handleInviteLink(){
+  const params=new URLSearchParams(window.location.search);
+  const invite=params.get('invite');
+  const childId=params.get('child');
+  const email=params.get('email');
+  if(invite&&childId&&email){
+    const specs=DB.specialists;
+    const match=specs.find(s=>s.inviteToken===invite);
+    if(match){
+      match.status='active';
+      if(!match.permissions[childId])match.permissions[childId]=[];
+      DB.specialists=specs;
+      // Auto-login as specialist
+      const child=DB.children.find(c=>c.id===childId);
+      setTimeout(()=>{
+        toast(`🎉 Welcome! You've joined ${child?.name||'the child'}'s care team!`,'success',5000);
+      },800);
+    }
+    // Clean URL
+    window.history.replaceState({},'',window.location.pathname);
+  }
+})();
 re();
 </script>
 </body>
