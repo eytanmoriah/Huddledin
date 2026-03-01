@@ -4,676 +4,1017 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Huddledin — Collaborative Care Platform</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
 <style>
 :root{
-  --teal:#0d9488;--teal-l:#14b8a6;--teal-d:#0f766e;
-  --mint:#a7f3d0;--mint-l:#d1fae5;
-  --coral:#f97316;--coral-l:#fed7aa;
-  --amber:#f59e0b;--amber-l:#fef3c7;
-  --navy:#1e293b;--navy-m:#334155;
-  --slate:#64748b;--slate-l:#94a3b8;
-  --bg:#f0fdf9;--bg2:#e6faf4;--white:#ffffff;
-  --border:#d1fae5;--border2:#b2f0d8;
-  --shadow:0 4px 24px rgba(13,148,136,.10);
-  --shadow-lg:0 8px 40px rgba(13,148,136,.18);
-  --r:16px;--r-sm:10px;--r-lg:20px;
+  --teal:#0d9488;--teal-l:#2dd4bf;--teal-d:#0f766e;
+  --mint:#a7f3d0;--mint-l:#d1fae5;--mint-ll:#ecfdf5;
+  --lav:#c4b5fd;--lav-l:#ede9fe;--lav-d:#7c3aed;
+  --coral:#fb923c;--coral-l:#ffedd5;
+  --rose:#fb7185;--rose-l:#ffe4e6;
+  --amber:#fbbf24;--amber-l:#fef3c7;
+  --sky:#38bdf8;--sky-l:#e0f2fe;
+  --navy:#1e293b;--slate:#64748b;--slate-l:#94a3b8;
+  --bg:#f0fdf9;--white:#ffffff;
+  --border:#c7f7e5;
+  --s1:0 4px 20px rgba(13,148,136,.10),0 1px 4px rgba(13,148,136,.06);
+  --s2:0 8px 32px rgba(13,148,136,.16),0 2px 8px rgba(13,148,136,.08);
+  --s3:0 16px 48px rgba(13,148,136,.20),0 4px 16px rgba(13,148,136,.10);
+  --r:22px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--navy);font-size:15px}
+html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--navy);font-size:15px;-webkit-font-smoothing:antialiased}
 .ff{font-family:'Fraunces',serif}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:var(--teal-l);border-radius:4px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--mint);border-radius:10px}
 
-/* ── ANIMATIONS ── */
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{0%{opacity:0;transform:scale(.82) translateY(20px)}65%{transform:scale(1.04) translateY(-4px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes badgePop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+@keyframes badgePop{0%{transform:scale(0)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes bounceIn{0%{opacity:0;transform:scale(.5)}55%{transform:scale(1.12)}75%{transform:scale(.96)}100%{opacity:1;transform:scale(1)}}
 
-.fade-in{animation:fadeIn .38s ease both}
-.slide-up{animation:slideUp .45s cubic-bezier(.16,1,.3,1) both}
+.pop-in{animation:popIn .42s cubic-bezier(.34,1.56,.64,1) both}
+.slide-up{animation:slideUp .35s ease both}
+.fade-in{animation:fadeIn .28s ease both}
+.bounce-in{animation:bounceIn .48s cubic-bezier(.34,1.56,.64,1) both}
 
 /* ── LAYOUT ── */
-#app{display:flex;flex-direction:column;min-height:100vh}
+#app-shell{display:flex;flex-direction:column;min-height:100vh}
 #header{
   position:sticky;top:0;z-index:200;
-  background:var(--white);border-bottom:1px solid var(--border);
-  height:62px;display:flex;align-items:center;
-  padding:0 20px;gap:16px;
-  box-shadow:0 2px 12px rgba(13,148,136,.06)
+  background:rgba(255,255,255,.9);backdrop-filter:blur(20px);
+  border-bottom:2px solid var(--mint-l);
+  height:66px;display:flex;align-items:center;padding:0 22px;gap:12px;
+  box-shadow:0 4px 24px rgba(13,148,136,.07)
 }
-#logo{display:flex;align-items:center;gap:8px;text-decoration:none}
-#logo .icon{font-size:1.5rem}
-#logo .name{font-family:'Fraunces',serif;font-size:1.25rem;font-weight:700;color:var(--teal)}
-#child-switcher{display:flex;gap:6px;margin-left:12px}
-.child-btn{
-  display:flex;align-items:center;gap:6px;padding:5px 10px;
-  border-radius:20px;border:2px solid transparent;background:var(--bg);
-  cursor:pointer;transition:all .2s;font-family:inherit;font-size:.8rem;font-weight:600
-}
-.child-btn.active{border-color:var(--teal);background:var(--mint-l);color:var(--teal-d)}
-.child-btn .emoji{font-size:1rem}
-#header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.sign-out-btn{
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);
-  padding:7px 14px;cursor:pointer;font-family:inherit;font-size:.8rem;
-  color:var(--slate);font-weight:500;transition:all .2s
-}
-.sign-out-btn:hover{background:var(--bg2)}
+#logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
+.logo-bubble{width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,var(--teal),var(--teal-l));display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 4px 12px rgba(13,148,136,.32)}
+.logo-name{font-family:'Fraunces',serif;font-size:1.28rem;font-weight:800;color:var(--teal)}
 
-/* Body area */
-#body{display:flex;flex:1;min-height:0}
+/* Child switcher */
+#child-switcher{display:flex;gap:7px;margin-left:8px}
+.child-pill{
+  display:flex;align-items:center;gap:7px;padding:6px 13px;
+  border-radius:20px;border:2.5px solid transparent;
+  background:var(--mint-ll);cursor:pointer;transition:all .22s;
+  font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;color:var(--slate)
+}
+.child-pill:hover{background:var(--mint-l);transform:translateY(-1px)}
+.child-pill.active{border-color:var(--teal);background:var(--mint-l);color:var(--teal-d);box-shadow:0 4px 14px rgba(13,148,136,.2)}
+.child-avatar-img{width:26px;height:26px;border-radius:50%;object-fit:cover;border:2px solid white}
+.child-avatar-emoji{font-size:1.1rem}
+
+#header-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+
+/* Body */
+#body{display:flex;flex:1}
 #sidenav{
-  width:210px;min-width:210px;background:var(--white);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;padding:16px 10px;gap:3px;overflow-y:auto
+  width:218px;min-width:218px;background:var(--white);
+  border-right:2px solid var(--mint-l);
+  display:flex;flex-direction:column;padding:18px 11px;gap:3px;overflow-y:auto
 }
-.sidenav-user{padding:8px 12px 16px;border-bottom:1px solid var(--border);margin-bottom:8px}
-.sidenav-user .label{font-size:.7rem;color:var(--slate);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-.sidenav-user .uname{font-weight:700;color:var(--navy);font-size:.88rem;margin:2px 0 5px}
+.sidenav-profile{margin-bottom:14px;padding:13px 14px 15px;border-radius:var(--r);background:var(--mint-ll);border:2px solid var(--mint-l)}
+.sp-label{font-size:.67rem;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sp-name{font-weight:800;color:var(--navy);font-size:.88rem;margin:3px 0 6px}
 .nav-btn{
-  display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:12px;
-  border:none;background:transparent;cursor:pointer;font-family:inherit;
-  font-weight:500;font-size:.88rem;color:var(--slate);text-align:left;
-  transition:all .18s;width:100%
+  display:flex;align-items:center;gap:10px;padding:10px 13px;
+  border-radius:16px;border:none;background:transparent;cursor:pointer;
+  font-family:'Nunito',sans-serif;font-weight:600;font-size:.86rem;
+  color:var(--slate);text-align:left;transition:all .18s;width:100%
 }
-.nav-btn:hover{background:var(--bg);color:var(--navy)}
-.nav-btn.active{background:var(--mint-l);color:var(--teal-d);font-weight:700}
-.nav-btn .ni{font-size:1.1rem}
+.nav-btn:hover{background:var(--mint-ll);color:var(--navy);transform:translateX(2px)}
+.nav-btn.active{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));color:var(--teal-d);font-weight:800;box-shadow:0 4px 14px rgba(13,148,136,.14)}
+.nav-btn .ni{font-size:1.1rem;width:20px;text-align:center}
 
-#main{flex:1;overflow-y:auto;padding-bottom:20px}
+#main{flex:1;overflow-y:auto;padding-bottom:24px}
+
 #bottom-nav{
   display:none;position:fixed;bottom:0;left:0;right:0;
-  background:var(--white);border-top:1px solid var(--border);
-  box-shadow:0 -4px 20px rgba(13,148,136,.08);z-index:150
+  background:rgba(255,255,255,.94);backdrop-filter:blur(16px);
+  border-top:2px solid var(--mint-l);box-shadow:0 -8px 32px rgba(13,148,136,.08);z-index:150
 }
-.bnav-btn{
-  flex:1;padding:9px 4px 11px;display:flex;flex-direction:column;align-items:center;
-  gap:2px;border:none;background:none;cursor:pointer;
-  color:var(--slate-l);font-family:inherit;font-size:.58rem;font-weight:600;transition:color .2s
-}
+.bnav-btn{flex:1;padding:9px 2px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.58rem;font-weight:700;transition:all .2s}
 .bnav-btn.active{color:var(--teal)}
-.bnav-btn .bi{font-size:1.2rem}
-.bnav-dot{width:4px;height:4px;border-radius:50%;background:var(--teal);margin-top:1px}
-
-/* Sections */
-.section{padding:22px;max-width:920px;margin:0 auto}
-.page-title{font-family:'Fraunces',serif;font-size:1.55rem;font-weight:700;color:var(--navy);margin-bottom:4px}
-.page-sub{color:var(--slate);font-size:.84rem;margin-bottom:22px}
-.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.bnav-btn .bi{font-size:1.22rem;transition:transform .2s}
+.bnav-btn.active .bi{transform:scale(1.18)}
+.bnav-dot{width:4px;height:4px;border-radius:50%;background:var(--teal);margin-top:2px;animation:badgePop .3s ease}
 
 /* Cards */
-.card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;transition:box-shadow .2s}
-.card.clickable{cursor:pointer}
-.card.clickable:hover{box-shadow:var(--shadow-lg)}
-
-/* Grid layouts */
-.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
-.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
-.grid-folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.card{background:var(--white);border-radius:var(--r);border:2px solid var(--mint-l);box-shadow:var(--s1);padding:20px;transition:all .22s}
+.card.hov:hover{box-shadow:var(--s2);transform:translateY(-2px)}
+.card.click{cursor:pointer}
+.card.click:hover{box-shadow:var(--s2);transform:translateY(-3px)}
+.card.sel{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
 
 /* Buttons */
-.btn{
-  display:inline-flex;align-items:center;gap:7px;border-radius:11px;
-  font-family:inherit;font-weight:600;cursor:pointer;border:none;
-  transition:all .18s;white-space:nowrap;font-size:.86rem
-}
-.btn-sm{padding:7px 14px;font-size:.8rem}
-.btn-md{padding:10px 20px}
-.btn-lg{padding:13px 26px;font-size:.96rem}
-.btn-primary{background:var(--teal);color:#fff;box-shadow:0 2px 12px rgba(13,148,136,.3)}
-.btn-primary:hover{background:var(--teal-d)}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:16px;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;border:none;transition:all .2s;white-space:nowrap}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(0) scale(.97)}
+.btn:disabled{opacity:.52;cursor:not-allowed;transform:none}
+.btn-sm{padding:7px 14px;font-size:.78rem}
+.btn-md{padding:11px 20px;font-size:.86rem}
+.btn-lg{padding:13px 28px;font-size:.95rem}
+.btn-xl{padding:16px 34px;font-size:1rem}
+.btn-primary{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;box-shadow:0 4px 16px rgba(13,148,136,.32)}
+.btn-primary:hover{box-shadow:0 6px 22px rgba(13,148,136,.42)}
 .btn-secondary{background:var(--mint-l);color:var(--teal-d)}
-.btn-secondary:hover{background:var(--mint)}
-.btn-ghost{background:transparent;color:var(--teal);border:1.5px solid var(--teal)}
+.btn-lav{background:var(--lav-l);color:var(--lav-d)}
+.btn-ghost{background:transparent;color:var(--teal);border:2.5px solid var(--teal-l)}
 .btn-ghost:hover{background:var(--mint-l)}
-.btn-danger{background:#fee2e2;color:#dc2626}
-.btn-danger:hover{background:#fecaca}
-.btn-coral{background:var(--coral);color:#fff;box-shadow:0 2px 12px rgba(249,115,22,.3)}
+.btn-danger{background:var(--rose-l);color:#be123c}
+.btn-amber{background:var(--amber-l);color:#92400e}
+.btn-white{background:#fff;color:var(--teal-d);box-shadow:0 4px 18px rgba(0,0,0,.13)}
 .btn-full{width:100%;justify-content:center}
-.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-slate{background:#f1f5f9;color:var(--slate)}
 
 /* Badges */
-.badge{border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:600;white-space:nowrap;display:inline-block}
+.badge{border-radius:20px;padding:3px 11px;font-size:.7rem;font-weight:800;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
 .badge-teal{background:var(--mint-l);color:var(--teal-d)}
 .badge-coral{background:var(--coral-l);color:#c2410c}
 .badge-amber{background:var(--amber-l);color:#92400e}
 .badge-slate{background:#f1f5f9;color:var(--slate)}
-.badge-purple{background:#ede9fe;color:#5b21b6}
-.badge-pink{background:#fce7f3;color:#9d174d}
+.badge-lav{background:var(--lav-l);color:var(--lav-d)}
+.badge-rose{background:var(--rose-l);color:#be123c}
 .badge-green{background:#dcfce7;color:#166534}
-
-/* Avatar */
-.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;font-size:1.2rem}
+.badge-sky{background:var(--sky-l);color:#0369a1}
+.badge-navy{background:#e2e8f0;color:var(--navy)}
 
 /* Inputs */
-.inp{
-  width:100%;padding:11px 15px;border-radius:11px;border:1.5px solid var(--border);
-  font-family:inherit;font-size:.88rem;outline:none;background:var(--bg);
-  transition:border-color .2s;color:var(--navy)
-}
-.inp:focus{border-color:var(--teal)}
-.inp-group{display:flex;flex-direction:column;gap:11px}
-textarea.inp{resize:vertical;min-height:100px;line-height:1.6}
+.inp{width:100%;padding:12px 16px;border-radius:16px;border:2.5px solid var(--mint-l);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:all .2s}
+.inp:focus{border-color:var(--teal);box-shadow:0 0 0 4px rgba(13,148,136,.1)}
+.inp::placeholder{color:var(--slate-l);font-weight:500}
+textarea.inp{resize:vertical;min-height:110px;line-height:1.65}
 select.inp{cursor:pointer}
+.inp-group{display:flex;flex-direction:column;gap:11px}
+.inp-label{font-size:.74rem;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 
-/* Modal overlay */
-.overlay{
-  position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);
-  z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px
-}
-.modal{
-  background:#fff;border-radius:var(--r-lg);width:100%;max-height:90vh;
-  overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.22);animation:slideUp .35s cubic-bezier(.16,1,.3,1) both
-}
-.modal-header{
-  padding:20px 26px 16px;border-bottom:1px solid var(--border);
-  display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1
-}
-.modal-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy)}
-.modal-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--slate);line-height:1;padding:4px}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.44);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#fff;border-radius:26px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.2);border:2px solid var(--mint-l);animation:popIn .42s cubic-bezier(.34,1.56,.64,1) both}
+.modal-hd{padding:20px 26px 16px;border-bottom:2px solid var(--mint-ll);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1;border-radius:26px 26px 0 0}
+.modal-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:800;color:var(--navy)}
+.modal-x{background:var(--mint-ll);border:none;cursor:pointer;width:32px;height:32px;border-radius:50%;font-size:.95rem;display:flex;align-items:center;justify-content:center;color:var(--slate);transition:all .2s}
+.modal-x:hover{background:var(--rose-l);color:#be123c;transform:rotate(90deg)}
 .modal-body{padding:22px 26px}
 
-/* Spinner */
-.spinner{
-  width:18px;height:18px;border:2px solid var(--mint);border-top-color:var(--teal);
-  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0
-}
-
-/* Toggle switch */
-.toggle{width:42px;height:23px;border-radius:12px;background:var(--slate-l);cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0}
-.toggle.on{background:var(--teal)}
-.toggle::after{content:'';width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+/* Toggle */
+.toggle{width:44px;height:25px;border-radius:13px;background:var(--slate-l);cursor:pointer;position:relative;transition:background .22s;border:none;flex-shrink:0}
+.toggle.on{background:linear-gradient(135deg,var(--teal),var(--teal-l))}
+.toggle::after{content:'';width:19px;height:19px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .22s;box-shadow:0 2px 6px rgba(0,0,0,.18)}
 .toggle.on::after{left:22px}
 
 /* Checkbox */
-.chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--slate-l);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;border:none}
-.chk.done{background:var(--teal);border-color:var(--teal)}
-.chk.done::after{content:'✓';color:#fff;font-size:.7rem;font-weight:700}
+.chk{width:23px;height:23px;border-radius:7px;border:2.5px solid var(--mint);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:.7rem;font-weight:900;color:#fff}
+.chk.done{background:linear-gradient(135deg,var(--teal),var(--teal-l));border-color:var(--teal);box-shadow:0 4px 12px rgba(13,148,136,.32)}
 
-/* Folder blur */
-.blur-wrap{position:relative}
-.blur-content{filter:blur(3px);pointer-events:none;user-select:none}
-.blur-lock{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;cursor:pointer;z-index:2
-}
-.blur-lock-icon{font-size:1.6rem}
-.blur-lock-label{font-size:.65rem;color:var(--slate);font-weight:700;margin-top:3px}
+/* Blur/Lock */
+.blur-wrap{position:relative;border-radius:var(--r);overflow:hidden}
+.blur-content{filter:blur(4px);pointer-events:none;user-select:none}
+.blur-lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;z-index:2;background:rgba(255,255,255,.22);backdrop-filter:blur(2px);border-radius:var(--r)}
 
-/* Notification bell */
+/* Notif bell */
 .notif-wrap{position:relative}
-.notif-btn{
-  background:#fff;border:1.5px solid var(--border);border-radius:11px;
-  padding:7px 11px;cursor:pointer;font-size:1rem;position:relative;
-  display:flex;align-items:center
-}
-.notif-count{
-  position:absolute;top:-6px;right:-6px;background:var(--coral);color:#fff;
-  border-radius:50%;width:18px;height:18px;display:flex;align-items:center;
-  justify-content:center;font-size:.62rem;font-weight:700;animation:badgePop .3s ease
-}
-.notif-dropdown{
-  position:absolute;right:0;top:calc(100% + 8px);background:#fff;
-  border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow-lg);
-  width:295px;z-index:500;overflow:hidden;animation:fadeIn .2s ease
-}
-.notif-dd-header{padding:14px 18px 11px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.notif-item{padding:11px 18px;border-bottom:1px solid #f0fdf9;display:flex;gap:11px;align-items:flex-start}
+.notif-btn{background:var(--mint-ll);border:2px solid var(--mint-l);border-radius:14px;padding:8px 12px;cursor:pointer;font-size:1.05rem;position:relative;display:flex;align-items:center;transition:all .2s}
+.notif-btn:hover{background:var(--mint-l);transform:scale(1.06)}
+.notif-count{position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,var(--coral),var(--rose));color:#fff;border-radius:50%;min-width:19px;height:19px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;animation:badgePop .4s cubic-bezier(.34,1.56,.64,1);border:2.5px solid #fff}
+.notif-dropdown{position:absolute;right:0;top:calc(100% + 9px);background:#fff;border-radius:20px;border:2px solid var(--mint-l);box-shadow:var(--s3);width:305px;z-index:500;overflow:hidden;animation:popIn .3s cubic-bezier(.34,1.56,.64,1)}
+.notif-dd-hd{padding:14px 18px 12px;border-bottom:2px solid var(--mint-ll);display:flex;justify-content:space-between;align-items:center}
+.notif-item{padding:12px 18px;border-bottom:1px solid var(--mint-ll);display:flex;gap:11px;align-items:flex-start;transition:background .14s;cursor:pointer}
+.notif-item:hover{background:var(--mint-ll)}
 .notif-item.unread{background:var(--mint-l)}
-.notif-item-text{font-size:.8rem;color:var(--navy);line-height:1.4}
-.notif-item-time{font-size:.7rem;color:var(--slate-l);margin-top:2px}
+
+/* Spinner */
+.spinner{width:18px;height:18px;border:2.5px solid var(--mint);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+
+/* Section */
+.section{padding:26px;max-width:970px;margin:0 auto;animation:fadeIn .28s ease}
+.page-title{font-family:'Fraunces',serif;font-size:1.65rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.page-sub{color:var(--slate);font-size:.83rem;margin-bottom:22px;font-weight:500}
+.sec-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.sec-hd-left{flex:1}
+.sec-hd-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* Grids */
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:15px}
+.g4{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:14px}
+.stack{display:flex;flex-direction:column;gap:11px}
+
+/* Avatar */
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.1);flex-shrink:0;overflow:hidden}
+
+/* File item */
+.file-item{display:flex;align-items:center;gap:12px;padding:12px 15px;border-radius:14px;background:var(--mint-ll);border:2px solid var(--mint-l);transition:all .2s;cursor:pointer}
+.file-item:hover{background:var(--mint-l);transform:translateX(3px)}
+
+/* Chat bubbles */
+.bubble-me{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;border-radius:20px 20px 5px 20px;padding:10px 16px;max-width:70%;font-size:.86rem;line-height:1.55}
+.bubble-them{background:var(--white);color:var(--navy);border-radius:20px 20px 20px 5px;border:2px solid var(--mint-l);padding:10px 16px;max-width:70%;font-size:.86rem;line-height:1.55}
+.bubble-time{font-size:.65rem;opacity:.62;margin-top:4px;text-align:right}
+.bubble-name{font-size:.68rem;font-weight:800;color:var(--teal);margin-bottom:3px}
+
+/* Calendar */
+.cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:18px 22px;border-radius:20px 20px 0 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:14px}
+.cal-dl{text-align:center;font-size:.7rem;font-weight:800;color:var(--slate);padding:6px 0}
+.cal-day{min-height:36px;padding:2px;text-align:center}
+.cal-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600}
+.cal-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
+.cal-num.has-event{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 3px 9px rgba(13,148,136,.28)}
+.cal-num.has-event:hover{transform:scale(1.14)}
+.cal-dot{font-size:.48rem;background:var(--teal);color:#fff;border-radius:3px;padding:1px 3px;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* AI block */
+.ai-block{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));border-radius:18px;padding:18px;border:2.5px solid var(--teal-l);animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+.ai-label{font-size:.7rem;font-weight:900;color:var(--teal);text-transform:uppercase;letter-spacing:.07em;margin-bottom:11px}
 
 /* Stat cards */
 .stat-card{display:flex;align-items:center;gap:15px}
-.stat-icon{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
-.stat-num{font-size:1.7rem;font-weight:700;color:var(--navy);line-height:1}
-.stat-label{font-size:.74rem;color:var(--slate);margin-top:2px}
+.stat-icon{width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.45rem;flex-shrink:0}
+.stat-val{font-size:1.9rem;font-weight:900;color:var(--navy);line-height:1}
+.stat-lbl{font-size:.72rem;color:var(--slate);margin-top:3px;font-weight:600}
 
-/* Chat bubbles */
-.bubble-me{background:var(--teal);color:#fff;border-radius:16px 16px 4px 16px;padding:9px 15px;max-width:68%;font-size:.85rem;line-height:1.5}
-.bubble-them{background:var(--bg);color:var(--navy);border-radius:16px 16px 16px 4px;padding:9px 15px;max-width:68%;font-size:.85rem;line-height:1.5}
-.bubble-time{font-size:.65rem;opacity:.65;margin-top:3px;text-align:right}
-.bubble-name{font-size:.68rem;font-weight:700;color:var(--teal);margin-bottom:3px}
+/* Ghost card */
+.ghost-card{opacity:.65;border-style:dashed !important;border-color:var(--slate-l) !important}
 
-/* Calendar */
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-day-label{text-align:center;font-size:.72rem;font-weight:700;color:var(--slate);padding:8px 0}
-.cal-day{min-height:40px;padding:4px;text-align:center;position:relative}
-.cal-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.82rem;font-weight:400}
-.cal-num.has-event{background:var(--teal);color:#fff;font-weight:700;cursor:pointer}
-.cal-dot{font-size:.52rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:3px;padding:1px 3px;margin-top:1px;color:#fff}
+/* Toast */
+.toast-wrap{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#fff;border:2.5px solid var(--teal);border-radius:18px;padding:12px 24px;font-weight:800;color:var(--teal-d);white-space:nowrap;box-shadow:var(--s3);animation:bounceIn .45s cubic-bezier(.34,1.56,.64,1);pointer-events:auto}
+.toast.error{border-color:var(--rose);color:#be123c}
+.toast.info{border-color:var(--lav);color:var(--lav-d)}
 
-/* Pending ghost card */
-.ghost-card{opacity:.72;border:1.5px dashed var(--slate-l) !important}
+/* Auth */
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;background:linear-gradient(145deg,#0f766e 0%,#14b8a6 42%,#7dd3fc 75%,#c4b5fd 100%)}
+.auth-orb{position:absolute;border-radius:50%;pointer-events:none}
+.auth-card{background:#fff;border-radius:28px;width:100%;max-width:440px;box-shadow:0 32px 80px rgba(0,0,0,.22);position:relative;z-index:1;border:2px solid var(--mint-l);overflow:hidden;animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both}
+.auth-hero{background:linear-gradient(135deg,var(--teal) 0%,var(--teal-l) 50%,#7dd3fc 100%);padding:34px 34px 26px;text-align:center;position:relative;overflow:hidden}
+.auth-hero::before{content:'';position:absolute;top:-28px;right:-28px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.12)}
+.auth-hero::after{content:'';position:absolute;bottom:-18px;left:-18px;width:75px;height:75px;border-radius:50%;background:rgba(255,255,255,.08)}
+.auth-logo-wrap{width:68px;height:68px;border-radius:20px;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.9rem;margin:0 auto 13px;box-shadow:0 8px 22px rgba(0,0,0,.14)}
+.auth-title{font-family:'Fraunces',serif;font-size:2.1rem;font-weight:800;color:#fff;margin-bottom:5px}
+.auth-sub{color:rgba(255,255,255,.8);font-size:.88rem;font-weight:500;line-height:1.5}
+.auth-body{padding:30px}
+.auth-tab-row{display:flex;background:var(--mint-ll);border-radius:14px;padding:4px;margin-bottom:22px}
+.auth-tab{flex:1;padding:9px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.86rem;cursor:pointer;transition:all .2s;color:var(--slate);background:transparent}
+.auth-tab.active{background:#fff;color:var(--teal-d);box-shadow:0 4px 12px rgba(13,148,136,.18)}
+.role-pick{display:flex;gap:10px;margin-bottom:16px}
+.role-opt{flex:1;padding:13px 10px;border-radius:18px;border:2.5px solid var(--mint-l);background:var(--mint-ll);cursor:pointer;transition:all .2s;text-align:center;font-family:'Nunito',sans-serif}
+.role-opt:hover{border-color:var(--teal-l);transform:translateY(-2px)}
+.role-opt.sel{border-color:var(--teal);background:var(--mint-l);box-shadow:0 6px 18px rgba(13,148,136,.2)}
+.role-opt .re{font-size:1.7rem;margin-bottom:4px}
+.role-opt .rl{font-size:.76rem;font-weight:800;color:var(--navy)}
+.auth-error{background:var(--rose-l);border:2px solid var(--rose);border-radius:12px;padding:10px 15px;color:#be123c;font-size:.82rem;font-weight:700;margin-bottom:11px}
+.auth-hint{text-align:center;color:var(--slate);font-size:.76rem;margin-top:11px;font-weight:600}
+.auth-link{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 
-/* Vault AI block */
-.ai-block{
-  background:linear-gradient(135deg,var(--mint-l) 0%,#fff 100%);
-  border-radius:13px;padding:18px;border:1.5px solid var(--teal-l)
-}
-.ai-label{font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+/* Vault unsaved warning */
+.unsaved-banner{background:var(--amber-l);border:2px solid var(--amber);border-radius:14px;padding:11px 18px;color:#92400e;font-weight:700;font-size:.84rem;display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
-/* File item */
-.file-item{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:11px;background:var(--bg);border:1px solid var(--border);margin-bottom:9px}
+/* Draft badge */
+.draft-badge{display:inline-flex;align-items:center;gap:5px;background:var(--sky-l);color:#0369a1;border-radius:10px;padding:3px 11px;font-size:.72rem;font-weight:800}
 
-/* Upload success */
-.upload-success{background:var(--mint-l);border:1px solid var(--teal);border-radius:11px;padding:11px 18px;color:var(--teal-d);font-weight:600;margin-bottom:14px;animation:fadeIn .3s ease}
+/* Locked badge */
+.locked-badge{display:inline-flex;align-items:center;gap:5px;background:var(--amber-l);color:#92400e;border-radius:10px;padding:4px 12px;font-size:.73rem;font-weight:800}
+
+/* Specialist personal folder */
+.personal-folder{background:linear-gradient(135deg,var(--lav-l),#fff);border:2.5px solid var(--lav);border-radius:var(--r)}
+
+/* Global search */
+.search-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(10px);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding-top:80px}
+.search-box{background:#fff;border-radius:22px;width:100%;max-width:560px;box-shadow:var(--s3);border:2px solid var(--mint-l);overflow:hidden;animation:popIn .35s cubic-bezier(.34,1.56,.64,1)}
+.search-inp{width:100%;padding:18px 22px;border:none;font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:600;outline:none;color:var(--navy)}
+.search-results{max-height:380px;overflow-y:auto}
+.search-result-item{padding:13px 22px;border-bottom:1px solid var(--mint-ll);display:flex;align-items:center;gap:13px;cursor:pointer;transition:background .14s}
+.search-result-item:hover{background:var(--mint-ll)}
+
+/* Calendar event chip */
+.event-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:10px;font-size:.76rem;font-weight:700;margin-bottom:5px}
 
 /* Separator */
-.sep{border:none;border-top:1px solid var(--border);margin:14px 0}
+.sep{border:none;border-top:2px solid var(--mint-ll);margin:14px 0}
+
+/* Permission matrix */
+.perm-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;background:var(--mint-ll);border:2px solid var(--mint-l);margin-bottom:8px}
 
 /* Responsive */
 @media(max-width:767px){
   #sidenav{display:none}
   #bottom-nav{display:flex}
-  .section{padding:16px 14px;padding-bottom:80px}
-  .grid-2,.grid-3{grid-template-columns:1fr}
-  #child-switcher .cname{display:none}
+  .section{padding:14px 12px 88px}
+  .g2,.g3{grid-template-columns:1fr}
+  #child-switcher .cp-name{display:none}
 }
-@media(min-width:768px){
-  #bottom-nav{display:none}
-}
-
-/* ── LOGIN SCREEN ── */
-#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
-.login-bg{background:linear-gradient(135deg,#0f766e 0%,#14b8a6 45%,#a7f3d0 100%)}
-.login-orb1{position:absolute;top:-80px;right:-80px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.08)}
-.login-orb2{position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
-.login-card{background:rgba(255,255,255,.12);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.25);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;color:#fff;position:relative;z-index:1}
-.login-plain{background:#fff;border:1px solid var(--border);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;position:relative;z-index:1;box-shadow:var(--shadow-lg)}
-
-/* Selected role */
-.role-card{
-  display:flex;align-items:center;gap:15px;padding:16px;border-radius:14px;
-  border:2px solid var(--border);background:#fff;cursor:pointer;transition:all .2s;margin-bottom:12px
-}
-.role-card:hover{border-color:var(--teal);box-shadow:var(--shadow)}
-.role-card.selected{border-color:var(--teal);background:var(--mint-l)}
-
-/* ── LANDING PAGE SPECIFIC ── */
-.landing-hero{font-size:2.8rem;font-weight:700;line-height:1.1;color:#fff;margin-bottom:10px}
-.landing-sub{color:rgba(255,255,255,.85);font-size:1rem;margin-bottom:36px;line-height:1.6}
-.landing-btn-white{background:#fff;color:var(--teal-d);border-radius:13px;padding:13px 28px;font-family:inherit;font-size:.96rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.15);transition:all .2s;width:100%;margin-bottom:10px}
-.landing-btn-white:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.2)}
-.landing-btn-ghost{background:transparent;color:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.45);border-radius:13px;padding:12px 28px;font-family:inherit;font-size:.96rem;font-weight:600;cursor:pointer;width:100%;transition:all .2s}
-.landing-btn-ghost:hover{background:rgba(255,255,255,.1)}
-.landing-tagline{color:rgba(255,255,255,.55);font-size:.75rem;margin-top:28px;text-align:center}
+@media(min-width:768px){#bottom-nav{display:none !important}}
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="root"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
-// ─── CONFIG ────────────────────────────────────────────────────────────────
+'use strict';
+
+/* ═══════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════ */
 const DROPBOX_TOKEN = "sl.u.AGWlyueCeEoysUJd9wLn-PDIvP9Kd6IL9N_JiW2pLLv7Rc8AZpjfeeOJJ6tqD9yyEOujIXViAMTzofOJUnt7kefUyHcu74iHHedEeOieiyfHXsCmbP-q7tLdtyupRgce1C_NJUrZPZr6VvO3bDHkvxDvq71BiYJkHAL5bZOm4BqdIg6BMFXkyzTJU494JuP-wLTEfzMePwtFHdM_E_qYV2g2QeKKD-jB52SUnPTAAamxmPX5n6cWrChOpF1NPPPw_E6suKI5Bpi8BpLzupIe_rnAApADu_3oxjznYHdikDHLn8RcV76KSeM7bz3A7Eb603LoC509BAR4U46IOaqrlqgoJ59sp5Ps9ZuPPpQtBE2fI3hQ_ymafSsu_-eZisHnvWe5buSe8kI6RWHBfW1yhtKFvzpUogRsaaDWm3iNOgwIjur-qCWs0olxrFlZK9RiaSTFKNpUEJwiT5qYGSANKzav3GiTAX-Dj-b26qk1UpRDiriaS_b0Y2Mklvz6Fr-Wg0SPu5OVxHfErayCoVM4myuvXPO5Tqwx7Hll0TkEUgD_DytZIoOdIgvuKxbNnG8xvRrHfHxdTbOK_j6wKDvZCCoGIzkKmMqqd4Q7VYYhBXsxRKMciv2meAwFxrNoc9I6jENFlnOpXZqB0VtaJibmjbEIcrr9BzQF-e2KhD8wwY8VsEAudevG2Xe6g-RnTT6C2YjNr8HdOP51dFnyup6wQ3A0gQ24_hMocyw-q-ku6brqQ-NgSHDzLIO1PrIVl9ayqzGjjBD6k4DIUSpbx0_NWQLqAIQai7RD5cOTHSnveGBMnEUKVuD_gG4m17XRZdy8kLJcSIvQostHhFjASsu9DpINxNKf2ltl57hcjxlXYHnFOhMSf48FcqGdz1oeKs4XTrM9tupLx5Q5Imy-qoOG2q6NQPAe_cAuFM6ULu-2t6wrHDoHNGIcnUgDmJlcS5XvQqsh1F_lVlnHjneAWaiwmmld3DDbjfm6ZcP-2lZRB9P-H2jFifCl58Jrgvos8eW0m40ODbZhOG_cCdyCHBoGZkaoyEhh2lMEgZNQ0oa1RNci09AbYlcsp7OUV22h73JAsyDjXDEH45Go4tQURSlgiQ51GY5s06-Q2_hu3ZE_1d9ID_736o7lWCnG1JSc7YOlkvuDfu48Tg5xN5rEEupI4pCmDVzg12pTXngrrGlS7VbM8uKEpnE3ABneKkXJpCbLTxwBnVrL-3rPzoBRU2wv8W_Y2dWvFv2-h3b-gOZQV8FRzV2jLu5Np7ut4PLrveGx4dMafygCavmZih60HZz2QaTAOf0fnt2dTzu6KsljRbo9Dg";
 
-// ─── MOCK DATA ─────────────────────────────────────────────────────────────
-const children = [
-  {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing Disorder","Speech Delay"]},
-  {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum Disorder"]}
-];
-const specialists = [
-  {id:"s1",name:"Dr. Sarah Okafor",role:"Speech Therapist",email:"s.okafor@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active"},
-  {id:"s2",name:"James Whitfield",role:"Occupational Therapist",email:"j.whitfield@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active"},
-  {id:"s3",name:"Dr. Priya Nair",role:"Physical Therapist",email:"p.nair@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active"},
-  {id:"s4",name:"Dr. Marcus Webb",role:"Behavioral Therapist",email:"m.webb@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending"}
-];
-const folders = [
-  {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[{name:"Session_Jan.pdf",date:"2025-01-15",locked:true},{name:"Goals_Q1.pdf",date:"2025-02-01",locked:false}]},
-  {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[{name:"OT_Assessment.pdf",date:"2025-01-20",locked:true}]},
-  {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[{name:"PT_Progress.pdf",date:"2025-02-10",locked:false}]},
-  {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[{name:"Annual_Physical.pdf",date:"2024-12-01",locked:true}]},
-  {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[{name:"Med_Schedule.pdf",date:"2025-01-01",locked:true}]},
-  {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[{name:"IEP_2025.pdf",date:"2025-01-08",locked:false}]}
-];
-let homework = [
-  {id:"h1",childId:"c1",task:"Practice 'S' sound blends for 10 min daily",specialist:"Dr. Sarah Okafor",due:"2025-03-01",completed:false,category:"Speech"},
-  {id:"h2",childId:"c1",task:"Sensory bin activity: rice textures (15 min)",specialist:"James Whitfield",due:"2025-02-28",completed:true,category:"OT"},
-  {id:"h3",childId:"c2",task:"Morning balance beam walk before school",specialist:"Dr. Priya Nair",due:"2025-03-02",completed:false,category:"PT"},
-  {id:"h4",childId:"c2",task:"Social story reading — 'Making Friends'",specialist:"Dr. Sarah Okafor",due:"2025-02-27",completed:false,category:"Speech"}
-];
-const appointments = [
-  {id:"a1",childId:"c1",title:"Speech Session",specialist:"Dr. Sarah Okafor",date:"2025-03-03",time:"10:00 AM",type:"speech"},
-  {id:"a2",childId:"c1",title:"OT Session",specialist:"James Whitfield",date:"2025-03-05",time:"2:00 PM",type:"ot"},
-  {id:"a3",childId:"c2",title:"PT Session",specialist:"Dr. Priya Nair",date:"2025-03-04",time:"11:30 AM",type:"pt"},
-  {id:"a4",childId:"c2",title:"Speech Session",specialist:"Dr. Sarah Okafor",date:"2025-03-06",time:"9:00 AM",type:"speech"}
-];
-let vaultNotes = [
-  {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% accuracy on CELF-5 subtest. Observed perseverative behavior during transitions — recommend further OT collaboration. Parent reported increased frustration at home during homework tasks. Consider modifying HEP frequency. Will trial visual schedules next session.",published:false,locked:false,summary:null},
-  {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout. Articulation improving measurably.",published:true,locked:true,summary:"Lily had a great session today! She's making wonderful progress with her speech sounds and showed real improvement during our assessment. Keep encouraging her talking at home!"}
-];
-let notifications = [
-  {id:"n1",type:"report",msg:"Dr. Sarah Okafor published a new summary for Lily",time:"2h ago",read:false,childId:"c1"},
-  {id:"n2",type:"homework",msg:"James Whitfield marked OT homework complete for Lily",time:"1d ago",read:false,childId:"c1"},
-  {id:"n3",type:"chat",msg:"New message from Dr. Sarah Okafor",time:"1d ago",read:true,childId:"c1"},
-  {id:"n4",type:"invite",msg:"Dr. Marcus Webb requested to join Noah's care team",time:"2d ago",read:true,childId:"c2"}
-];
-let chats = [
-  {id:"ch1",participants:["parent","s1"],childId:"c1",approved:true,messages:[
-    {id:"m1",sender:"s1",text:"Hi! Just wanted to share that Lily did wonderfully today 🌟",time:"10:32 AM",date:"2025-02-24"},
-    {id:"m2",sender:"parent",text:"That's so great to hear! She was practicing all week.",time:"11:05 AM",date:"2025-02-24"},
-    {id:"m3",sender:"s1",text:"It really shows. I'll publish the summary shortly.",time:"11:08 AM",date:"2025-02-24"}
-  ]}
-];
-let settings_notifs = {reports:true,chat:true,homework:true,appointments:false};
-
-// ─── STATE ──────────────────────────────────────────────────────────────────
-let state = {
-  screen:"login", // login | app
-  loginStep:"landing", // landing | role | form
-  role:"parent",
-  specialistId:"s1",
-  activeChild:"c1",
-  activeTab:"dashboard",
-  notifOpen:false,
-  selectedFolderId:null,
-  uploadFile:null,
-  uploadSharePerms:{},
-  activeVaultNoteId:null,
-  vaultSummarizing:false,
-  vaultSummaryText:"",
-  activeChatId:"ch1",
-  chatMsg:"",
-  pendingHandshake:null,
-  confirmData:null // {title,msg,danger,onConfirm}
+/* ═══════════════════════════════════════════════
+   SEED DATA
+═══════════════════════════════════════════════ */
+const SEED = {
+  children:[
+    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing","Speech Delay"],photo:null},
+    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum"],photo:null}
+  ],
+  specialists:[
+    {id:"s1",name:"Dr. Sarah Okafor",surname:"Okafor",role:"Speech Therapist",email:"sarah@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active",credentials:[]},
+    {id:"s2",name:"James Whitfield",surname:"Whitfield",role:"Occupational Therapist",email:"james@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active",credentials:[]},
+    {id:"s3",name:"Dr. Priya Nair",surname:"Nair",role:"Physical Therapist",email:"priya@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active",credentials:[]},
+    {id:"s4",name:"Dr. Marcus Webb",surname:"Webb",role:"Behavioral Therapist",email:"marcus@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending",credentials:[]}
+  ],
+  folders:[
+    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[
+      {id:"fl1",name:"Session_Jan.pdf",date:"2025-01-15",locked:true,sharedWith:["s1"],uploadedBy:"s1"},
+      {id:"fl2",name:"Goals_Q1.pdf",date:"2025-02-01",locked:false,sharedWith:["s1","s2"],uploadedBy:"parent"}
+    ]},
+    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[
+      {id:"fl3",name:"OT_Assessment.pdf",date:"2025-01-20",locked:true,sharedWith:["s2"],uploadedBy:"s2"}
+    ]},
+    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[
+      {id:"fl4",name:"PT_Progress.pdf",date:"2025-02-10",locked:false,sharedWith:["s3"],uploadedBy:"s3"}
+    ]},
+    {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[
+      {id:"fl5",name:"Annual_Physical.pdf",date:"2024-12-01",locked:true,sharedWith:["s1","s2","s3"],uploadedBy:"parent"}
+    ]},
+    {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[
+      {id:"fl6",name:"Med_Schedule.pdf",date:"2025-01-01",locked:true,sharedWith:[],uploadedBy:"parent"}
+    ]},
+    {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[
+      {id:"fl7",name:"IEP_2025.pdf",date:"2025-01-08",locked:false,sharedWith:["s1"],uploadedBy:"parent"}
+    ]}
+  ],
+  homework:[
+    {id:"h1",childId:"c1",task:"Practice 'S' sound blends for 10 min daily",specialist:"Dr. Sarah Okafor",specialistId:"s1",due:"2025-03-05",completed:false,category:"Speech"},
+    {id:"h2",childId:"c1",task:"Sensory bin — rice textures (15 min)",specialist:"James Whitfield",specialistId:"s2",due:"2025-02-28",completed:true,category:"OT"},
+    {id:"h3",childId:"c2",task:"Morning balance beam walk before school",specialist:"Dr. Priya Nair",specialistId:"s3",due:"2025-03-06",completed:false,category:"PT"},
+    {id:"h4",childId:"c2",task:"Social story reading — 'Making Friends'",specialist:"Dr. Sarah Okafor",specialistId:"s1",due:"2025-03-04",completed:false,category:"Speech"}
+  ],
+  appointments:[
+    {id:"a1",childId:"c1",title:"Speech Session",specialist:"Dr. Sarah Okafor",specialistId:"s1",date:"2025-03-03",time:"10:00 AM",type:"speech",sharedWith:["s1"]},
+    {id:"a2",childId:"c1",title:"OT Session",specialist:"James Whitfield",specialistId:"s2",date:"2025-03-05",time:"2:00 PM",type:"ot",sharedWith:["s2"]},
+    {id:"a3",childId:"c2",title:"PT Session",specialist:"Dr. Priya Nair",specialistId:"s3",date:"2025-03-04",time:"11:30 AM",type:"pt",sharedWith:["s3"]},
+    {id:"a4",childId:"c2",title:"Speech Session",specialist:"Dr. Sarah Okafor",specialistId:"s1",date:"2025-03-06",time:"9:00 AM",type:"speech",sharedWith:["s1"]}
+  ],
+  vaultNotes:[
+    {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 — Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% on CELF-5 subtest. Perseverative behavior noted during transitions — recommend OT collaboration. Parent reports frustration at home with homework. Consider modifying HEP frequency.",published:false,locked:false,isDraft:true,summary:"",lastSaved:"2025-02-24 14:32"},
+    {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 — Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout. Articulation improving measurably.",published:true,locked:true,isDraft:false,summary:"Lily had a wonderful session today! She's making great progress with her speech sounds and showed real improvement. Keep encouraging her talking at home — it really makes a difference! 🌟",lastSaved:"2025-02-10 16:00"}
+  ],
+  chats:[
+    {id:"ch1",type:"direct",participants:["parent","s1"],childId:"c1",approved:true,name:"",messages:[
+      {id:"m1",sender:"s1",text:"Hi! Lily did wonderfully today 🌟 She really nailed those S blends!",time:"10:32 AM",date:"2025-02-24"},
+      {id:"m2",sender:"parent",text:"That's amazing! She was practising all week 😊",time:"11:05 AM",date:"2025-02-24"},
+      {id:"m3",sender:"s1",text:"It really shows. I'll publish a summary shortly for you to review.",time:"11:08 AM",date:"2025-02-24"}
+    ]},
+    {id:"ch2",type:"specialist-consult",participants:["s1","s2"],childId:"c1",approved:true,name:"OT+Speech Consult — Lily",messages:[
+      {id:"m4",sender:"s1",text:"James, wanted to loop you in re: Lily's transitions — she's showing perseverative behaviour that I think overlaps with sensory needs.",time:"9:00 AM",date:"2025-02-25"},
+      {id:"m5",sender:"s2",text:"Totally agree — I've been seeing the same. Let's coordinate our HEP recommendations.",time:"9:22 AM",date:"2025-02-25"}
+    ]}
+  ],
+  notifications:[
+    {id:"n1",type:"report",msg:"Dr. Sarah Okafor published a new session summary for Lily",time:"2h ago",read:false,childId:"c1"},
+    {id:"n2",type:"homework",msg:"Sensory bin task marked complete by parent ✅",time:"1d ago",read:false,childId:"c1"},
+    {id:"n3",type:"chat",msg:"New message from Dr. Sarah Okafor",time:"1d ago",read:true,childId:"c1"},
+    {id:"n4",type:"invite",msg:"Dr. Marcus Webb requested to join Noah's care team",time:"2d ago",read:true,childId:"c2"},
+    {id:"n5",type:"consult",msg:"Dr. Sarah Okafor requested a specialist consult for Lily — approved ✅",time:"3d ago",read:true,childId:"c1"}
+  ],
+  notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
+  users:[],
+  legacyArchive:[] // {specialistId, childId, childName, archivedAt, notes:[]}
 };
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
-const typeColor={speech:"#0d9488",ot:"#f97316",pt:"#8b5cf6",general:"#64748b",meds:"#f59e0b",school:"#ec4899"};
-const notifIcon={report:"📄",homework:"✅",chat:"💬",invite:"🤝"};
-const catColor=c=>c==="Speech"?"badge-teal":c==="OT"?"badge-coral":c==="PT"?"badge-purple":"badge-slate";
-
-function h(tag,attrs={},children=[]){
-  const el=document.createElement(tag);
-  for(const[k,v] of Object.entries(attrs)){
-    if(k==="class")el.className=v;
-    else if(k==="style"&&typeof v==="object")Object.assign(el.style,v);
-    else if(k.startsWith("on"))el.addEventListener(k.slice(2).toLowerCase(),v);
-    else el.setAttribute(k,v);
+/* ═══════════════════════════════════════════════
+   PERSISTENCE
+═══════════════════════════════════════════════ */
+const LS={
+  get(k,d){try{const v=localStorage.getItem('hd3_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
+  set(k,v){try{localStorage.setItem('hd3_'+k,JSON.stringify(v));}catch{}},
+  del(k){localStorage.removeItem('hd3_'+k);}
+};
+function initData(){
+  if(!LS.get('seeded',false)){
+    Object.entries(SEED).forEach(([k,v])=>LS.set(k,v));
+    LS.set('seeded',true);
   }
-  for(const c of children){
-    if(c==null)continue;
-    el.appendChild(typeof c==="string"?document.createTextNode(c):c);
+}
+const DB=new Proxy({},{
+  get(_,k){return LS.get(k,SEED[k]);},
+  set(_,k,v){LS.set(k,v);return true;}
+});
+
+/* ═══════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════ */
+let session=LS.get('session',null);
+function doLogin(email,password,role,name=''){
+  const users=DB.users;
+  let user=users.find(u=>u.email===email&&u.role===role);
+  if(!user){
+    user={email,password,role,name:name||email.split('@')[0],specialistId:role==='specialist'?'s1':null};
+    DB.users=[...users,user];
+  } else if(user.password!==password){return{error:'Incorrect password.'};}
+  session={email,role,name:user.name,specialistId:user.specialistId};
+  LS.set('session',session);
+  return{ok:true};
+}
+function doLogout(){session=null;LS.del('session');}
+
+/* ═══════════════════════════════════════════════
+   APP STATE
+═══════════════════════════════════════════════ */
+let S={
+  activeChild:'c1',
+  activeTab:'dashboard',
+  activeChatId:'ch1',
+  chatMsg:'',
+  activeVaultId:null,
+  vaultSummary:'',
+  vaultSummarizing:false,
+  vaultHasUnsaved:false,
+  searchOpen:false,
+  searchQuery:''
+};
+
+/* ═══════════════════════════════════════════════
+   DOM HELPERS
+═══════════════════════════════════════════════ */
+function el(tag,attrs={},kids=[]){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs)){
+    if(k==='class')e.className=v;
+    else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='html')e.innerHTML=v;
+    else e.setAttribute(k,v);
   }
-  return el;
+  for(const k of kids){if(k==null)continue;e.appendChild(typeof k==='string'?document.createTextNode(k):k);}
+  return e;
 }
-function div(cls,children=[],style={}){return h("div",{class:cls,style},children)}
-function btn(text,cls,onClick,attrs={}){const b=h("button",{class:"btn "+cls,...attrs});b.innerHTML=text;b.onclick=onClick;return b;}
-function badge(text,color="teal"){return h("span",{class:`badge badge-${color}`},[text])}
-function spinner(){return h("span",{class:"spinner"})}
+const d=(cls,kids=[],s={})=>el('div',{class:cls,style:s},kids);
+const p=(t,s={})=>el('p',{style:{color:'var(--slate)',lineHeight:'1.65',fontSize:'.86rem',fontWeight:500,...s}},[t]);
+function mkBtn(label,cls,onClick,attrs={}){
+  const b=el('button',{class:'btn '+cls,...attrs});
+  if(typeof label==='string')b.innerHTML=label;else b.appendChild(label);
+  b.addEventListener('click',onClick);return b;
+}
+function badge(t,c='teal'){return el('span',{class:`badge badge-${c}`},[t]);}
+function mkAvatar(emoji,sz=40,bg='#d1fae5'){
+  return el('div',{class:'avatar',style:{width:sz+'px',height:sz+'px',background:bg,fontSize:(sz*.42)+'px'}},[emoji]);
+}
+function spinner(){return el('span',{class:'spinner'});}
 
-function re(){
-  const app=document.getElementById("app");
-  app.innerHTML="";
-  app.appendChild(render());
+function toast(msg,type='success',ms=3200){
+  const w=document.getElementById('toast-wrap');
+  if(!w)return;
+  const t=el('div',{class:'toast'+(type==='error'?' error':type==='info'?' info':'')},[msg]);
+  w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(()=>t.remove(),400);},ms);
 }
 
-function setS(patch,doRe=true){Object.assign(state,patch);if(doRe)re();}
-
-// ─── MODAL HELPERS ──────────────────────────────────────────────────────────
-function makeModal(title,body,maxW=480){
-  const ov=div("overlay");
-  const mo=div("modal",[],(maxW!==480)?{maxWidth:maxW+"px"}:{maxWidth:"480px"});
-  const mh=div("modal-header",[
-    h("span",{class:"modal-title"},[title]),
-    h("button",{class:"modal-close"},["✕"])
+/* ═══════════════════════════════════════════════
+   MODAL ENGINE
+═══════════════════════════════════════════════ */
+function openModal(title,buildFn,maxW=490){
+  const ov=el('div',{class:'overlay'});
+  const mo=el('div',{class:'modal',style:{maxWidth:maxW+'px'}});
+  const mh=el('div',{class:'modal-hd'},[
+    el('span',{class:'modal-title'},[title]),
+    el('button',{class:'modal-x',html:'✕'})
   ]);
-  mh.querySelector(".modal-close").onclick=()=>ov.remove();
-  const mb=div("modal-body",[body]);
+  mh.querySelector('.modal-x').onclick=()=>ov.remove();
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const mb=el('div',{class:'modal-body'});
+  buildFn(mb,()=>ov.remove());
   mo.appendChild(mh);mo.appendChild(mb);ov.appendChild(mo);
-  ov.onclick=e=>{if(e.target===ov)ov.remove()};
-  return {ov,close:()=>ov.remove()};
-}
-function confirm(title,msg,danger,onConfirm){
-  const {ov,close}=makeModal(title,document.createDocumentFragment(),380);
-  const body=div("",[ 
-    h("p",{style:{color:"var(--slate)",marginBottom:"22px",lineHeight:"1.6"}},[msg]),
-    div("",[
-      btn("Cancel","btn-md btn-secondary",close),
-      btn("Confirm","btn-md "+(danger?"btn-danger":"btn-primary"),()=>{onConfirm();close()})
-    ],{display:"flex",gap:"12px",justifyContent:"flex-end"})
-  ]);
-  ov.querySelector(".modal-body").appendChild(body);
   document.body.appendChild(ov);
+  return ()=>ov.remove();
+}
+function openConfirm(title,msg,danger,onOk){
+  openModal(title,(mb,close)=>{
+    mb.appendChild(p(msg,{marginBottom:'20px'}));
+    const row=d('',[], {display:'flex',gap:'11px',justifyContent:'flex-end'});
+    row.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    row.appendChild(mkBtn('Confirm','btn-md '+(danger?'btn-danger':'btn-primary'),()=>{onOk();close();}));
+    mb.appendChild(row);
+  },380);
 }
 
-// ─── COMPONENTS ─────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+const PARENT_TABS=[
+  {id:'dashboard',label:'Home',icon:'🏠'},
+  {id:'files',label:'Files',icon:'📁'},
+  {id:'team',label:'Team',icon:'👥'},
+  {id:'calendar',label:'Calendar',icon:'📅'},
+  {id:'chat',label:'Chat',icon:'💬'},
+  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'settings',label:'Settings',icon:'⚙️'}
+];
+const SPEC_TABS=[
+  {id:'dashboard',label:'Home',icon:'🏠'},
+  {id:'patients',label:'Patients',icon:'👤'},
+  {id:'vault',label:'Vault',icon:'🔒'},
+  {id:'homework',label:'Tasks',icon:'📋'},
+  {id:'files',label:'Files',icon:'📁'},
+  {id:'chat',label:'Chat',icon:'💬'},
+  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'credentials',label:'My Folder',icon:'🗂️'}
+];
+const getTabs=()=>session?.role==='parent'?PARENT_TABS:SPEC_TABS;
 
-// Notif bell dropdown
-function renderNotifBell(){
-  const unread=notifications.filter(n=>!n.read).length;
-  const wrap=div("notif-wrap");
-  const bellBtn=h("button",{class:"notif-btn"},["🔔"]);
-  if(unread>0){const cnt=div("notif-count",[String(unread)]);bellBtn.appendChild(cnt);}
-  let dd=null;
-  bellBtn.onclick=()=>{
-    if(dd){dd.remove();dd=null;return;}
-    dd=div("notif-dropdown fade-in");
-    const ddh=div("notif-dd-header",[
-      h("span",{style:{fontWeight:700,color:"var(--navy)"}},"Notifications"),
-      btn("See all","btn-sm btn-ghost",()=>{dd.remove();dd=null;setS({activeTab:"notifications",notifOpen:false});})
-    ]);
-    dd.appendChild(ddh);
-    notifications.slice(0,5).forEach(n=>{
-      const ni=div("notif-item"+(n.read?"":" unread"),[
-        h("span",{},[notifIcon[n.type]]),
-        div("",[
-          div("notif-item-text",[n.msg]),
-          div("notif-item-time",[n.time])
-        ])
-      ]);
-      dd.appendChild(ni);
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f59e0b',school:'#ec4899'};
+const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
+const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗'};
+
+function pushNotif(type,msg,childId){
+  const ns=DB.notifications;
+  ns.unshift({id:'n_'+Date.now(),type,msg,time:'Just now',read:false,childId});
+  DB.notifications=ns;
+}
+
+/* ═══════════════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════════════ */
+function renderAuth(){
+  const root=el('div',{id:'auth-screen'});
+  [{top:'-80px',right:'-80px',w:'250px',bg:'rgba(255,255,255,.10)'},
+   {bottom:'-60px',left:'-60px',w:'170px',bg:'rgba(255,255,255,.07)'},
+   {top:'40%',left:'8%',w:'110px',bg:'rgba(196,181,253,.14)'}
+  ].forEach(o=>{root.appendChild(el('div',{class:'auth-orb',style:{...o,width:o.w,height:o.w,background:o.bg}}));});
+
+  const card=el('div',{class:'auth-card'});
+  const hero=el('div',{class:'auth-hero'});
+  hero.appendChild(el('div',{class:'auth-logo-wrap'},['🤝']));
+  hero.appendChild(el('h1',{class:'auth-title ff'},['Huddledin']));
+  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children with special needs']));
+  card.appendChild(hero);
+
+  const body=el('div',{class:'auth-body'});
+  let mode='signin',selRole='parent';
+
+  const tabRow=el('div',{class:'auth-tab-row'});
+  const t1=el('button',{class:'auth-tab active'},['Sign In']);
+  const t2=el('button',{class:'auth-tab'},['Create Account']);
+  const setMode=m=>{mode=m;t1.className='auth-tab'+(m==='signin'?' active':'');t2.className='auth-tab'+(m==='signup'?' active':'');buildForm();};
+  t1.onclick=()=>setMode('signin');t2.onclick=()=>setMode('signup');
+  tabRow.appendChild(t1);tabRow.appendChild(t2);
+  body.appendChild(tabRow);
+
+  const formArea=el('div');body.appendChild(formArea);
+
+  function buildForm(){
+    formArea.innerHTML='';
+    const rp=el('div',{class:'role-pick'});
+    [{r:'parent',e:'👨‍👩‍👧',l:'Parent'},{r:'specialist',e:'🩺',l:'Specialist'}].forEach(({r,e,l})=>{
+      const o=el('div',{class:'role-opt'+(selRole===r?' sel':'')});
+      o.innerHTML=`<div class="re">${e}</div><div class="rl">${l}</div>`;
+      o.onclick=()=>{selRole=r;buildForm();};
+      rp.appendChild(o);
     });
-    wrap.appendChild(dd);
-    setTimeout(()=>document.addEventListener("click",function outside(e){if(!wrap.contains(e.target)){dd&&dd.remove();dd=null;document.removeEventListener("click",outside);}},{once:false}),10);
-  };
-  wrap.appendChild(bellBtn);
-  return wrap;
+    formArea.appendChild(rp);
+
+    const errBox=el('div');formArea.appendChild(errBox);
+    const ig=el('div',{class:'inp-group'});
+
+    if(mode==='signup'){
+      const ni=el('input',{class:'inp',placeholder:'Your full name',type:'text'});ni.id='auth-name';ig.appendChild(ni);
+    }
+    const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
+    const pi=el('input',{class:'inp',placeholder:'Password',type:'password'});pi.id='auth-pass';
+    ig.appendChild(ei);ig.appendChild(pi);
+
+    const sb=mkBtn(mode==='signin'?'Sign In ✨':'Create Account 🎉','btn-lg btn-primary btn-full',()=>{
+      const email=ei.value.trim(),pass=pi.value.trim();
+      const name=mode==='signup'?(formArea.querySelector('#auth-name')?.value.trim()||''):'';
+      errBox.innerHTML='';
+      if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
+      const res=doLogin(email,pass,selRole,name);
+      if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
+      S.activeTab=session.role==='parent'?'dashboard':'dashboard';
+      S.activeChild='c1';re();
+    });
+    ig.appendChild(sb);
+    formArea.appendChild(ig);
+    formArea.appendChild(el('p',{class:'auth-hint'},[
+      mode==='signin'?'No account? ':'Have an account? ',
+      el('span',{class:'auth-link',onclick:()=>setMode(mode==='signin'?'signup':'signin')},
+        [mode==='signin'?'Create one free':'Sign in instead'])
+    ]));
+    formArea.appendChild(el('p',{class:'auth-hint',style:{marginTop:'7px',color:'#94a3b8'}},
+      ['Demo: any email + password works!']));
+  }
+  buildForm();
+  card.appendChild(body);root.appendChild(card);
+  return root;
 }
 
-// Avatar
-function renderAvatar(emoji,size=40,color="#d1fae5"){
-  return h("div",{class:"avatar",style:{width:size+"px",height:size+"px",background:color,fontSize:(size*0.42)+"px"}},[emoji||"?"])
+/* ═══════════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════════ */
+function renderShell(){
+  const shell=el('div',{id:'app-shell'});
+  shell.appendChild(renderHeader());
+  const body=el('div',{id:'body'});
+  body.appendChild(renderSidenav());
+  const main=el('main',{id:'main'});
+  main.appendChild(renderContent());
+  body.appendChild(main);
+  shell.appendChild(body);
+  shell.appendChild(renderBottomNav());
+  if(S.searchOpen)shell.appendChild(renderSearchOverlay());
+  return shell;
 }
 
-// Header
+/* ── HEADER ── */
 function renderHeader(){
-  const hd=h("header",{id:"header"});
-  const logo=h("a",{id:"logo",href:"#"},[ h("span",{class:"icon"},["🤝"]), h("span",{class:"name"},["Huddledin"]) ]);
-  logo.onclick=e=>e.preventDefault();
-  hd.appendChild(logo);
+  const hd=el('header',{id:'header'});
+  hd.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
+    el('div',{class:'logo-bubble'},['🤝']),
+    el('span',{class:'logo-name ff'},['Huddledin'])
+  ]));
 
-  if(state.role==="parent"){
-    const sw=div("",[]); sw.id="child-switcher";
-    children.forEach(c=>{
-      const cb=h("button",{class:"child-btn"+(state.activeChild===c.id?" active":"")});
-      cb.innerHTML=`<span class="emoji">${c.avatar}</span><span class="cname">${c.name.split(" ")[0]}</span>`;
-      cb.onclick=()=>setS({activeChild:c.id});
-      sw.appendChild(cb);
+  if(session?.role==='parent'){
+    const sw=el('div',{id:'child-switcher'});
+    DB.children.forEach(c=>{
+      const pill=el('button',{class:'child-pill'+(S.activeChild===c.id?' active':'')});
+      pill.innerHTML=`<span class="child-avatar-emoji">${c.avatar}</span><span class="cp-name">${c.name.split(' ')[0]}</span>`;
+      pill.onclick=()=>{S.activeChild=c.id;re();};
+      sw.appendChild(pill);
     });
     hd.appendChild(sw);
   }
 
-  const right=div("",[]); right.id="header-right";
+  const right=el('div',{id:'header-right'});
+  // Global search button for specialists
+  if(session?.role==='specialist'){
+    const srchBtn=mkBtn('🔍','btn-sm btn-slate',()=>{S.searchOpen=true;re();});
+    srchBtn.title='Global Search';
+    right.appendChild(srchBtn);
+  }
   right.appendChild(renderNotifBell());
-  const so=h("button",{class:"sign-out-btn"},["Sign Out"]);
-  so.onclick=()=>setS({screen:"login",loginStep:"landing",role:"parent",activeTab:"dashboard"});
-  right.appendChild(so);
+  right.appendChild(mkBtn('Sign Out','btn-sm btn-ghost',()=>{doLogout();re();}));
   hd.appendChild(right);
   return hd;
 }
 
-// Side nav
-function renderSideNav(){
-  const tabs=state.role==="parent"?parentTabs():specialistTabs();
-  const nav=h("nav",{id:"sidenav"});
-  const spec=specialists.find(s=>s.id===state.specialistId);
-  const ublock=div("sidenav-user",[
-    div("label",["Signed in as"]),
-    div("uname",[state.role==="parent"?"The Carter Family":(spec?.name||"Dr. Sarah Okafor")]),
-    badge(state.role==="parent"?"Parent":"Specialist","teal")
-  ]);
-  nav.appendChild(ublock);
+/* ── NOTIF BELL ── */
+function renderNotifBell(){
+  const notifs=DB.notifications;
+  const unread=notifs.filter(n=>!n.read).length;
+  const wrap=el('div',{class:'notif-wrap'});
+  const btn2=el('button',{class:'notif-btn'},['🔔']);
+  if(unread>0)btn2.appendChild(el('span',{class:'notif-count'},[String(unread)]));
+  let dd=null;
+  btn2.onclick=e=>{
+    e.stopPropagation();
+    if(dd){dd.remove();dd=null;return;}
+    dd=el('div',{class:'notif-dropdown'});
+    const dh=el('div',{class:'notif-dd-hd'},[
+      el('span',{style:{fontWeight:800,color:'var(--navy)'}},['Notifications']),
+      mkBtn('See all','btn-sm btn-lav',()=>{dd.remove();dd=null;S.activeTab='notifications';re();})
+    ]);
+    dd.appendChild(dh);
+    (notifs.slice(0,6)).forEach(n=>{
+      const ni=el('div',{class:'notif-item'+(n.read?'':" unread")});
+      ni.innerHTML=`<span style="font-size:1.25rem">${notifIcon[n.type]||'📢'}</span><div><div style="font-size:.79rem;font-weight:700;color:var(--navy);line-height:1.4">${n.msg}</div><div style="font-size:.68rem;color:var(--slate-l);margin-top:2px">${n.time}</div></div>`;
+      ni.onclick=()=>{
+        const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
+        if(i>-1){ns[i].read=true;DB.notifications=ns;}
+        dd.remove();dd=null;S.activeTab='notifications';re();
+      };
+      dd.appendChild(ni);
+    });
+    wrap.appendChild(dd);
+    const out=e2=>{if(!wrap.contains(e2.target)){dd?.remove();dd=null;document.removeEventListener('click',out);}};
+    setTimeout(()=>document.addEventListener('click',out),10);
+  };
+  wrap.appendChild(btn2);return wrap;
+}
+
+/* ── SIDENAV ── */
+function renderSidenav(){
+  const tabs=getTabs();
+  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const nav=el('nav',{id:'sidenav'});
+  const prof=el('div',{class:'sidenav-profile'});
+  prof.innerHTML=`<div class="sp-label">Signed in as</div><div class="sp-name">${session?.role==='parent'?'The Carter Family':(spec?.name||session?.name||'Specialist')}</div>`;
+  prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 Specialist','teal'));
+  nav.appendChild(prof);
   tabs.forEach(t=>{
-    const b=h("button",{class:"nav-btn"+(state.activeTab===t.id?" active":"")});
+    const b=el('button',{class:'nav-btn'+(S.activeTab===t.id?' active':'')});
     b.innerHTML=`<span class="ni">${t.icon}</span>${t.label}`;
-    b.onclick=()=>setS({activeTab:t.id});
+    b.onclick=()=>switchTab(t.id);
     nav.appendChild(b);
   });
   return nav;
 }
 
-// Bottom nav
+function switchTab(id){
+  // Guard unsaved vault changes
+  if(S.activeTab==='vault'&&S.vaultHasUnsaved&&id!=='vault'){
+    openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeTab=id;re();});
+    return;
+  }
+  S.activeTab=id;re();
+}
+
+/* ── BOTTOM NAV ── */
 function renderBottomNav(){
-  const tabs=state.role==="parent"?parentTabs():specialistTabs();
-  const nav=h("nav",{id:"bottom-nav"});
+  const tabs=getTabs().slice(0,6);
+  const nav=el('nav',{id:'bottom-nav'});
   tabs.forEach(t=>{
-    const b=h("button",{class:"bnav-btn"+(state.activeTab===t.id?" active":"")});
+    const b=el('button',{class:'bnav-btn'+(S.activeTab===t.id?' active':'')});
     b.innerHTML=`<span class="bi">${t.icon}</span>${t.label}`;
-    if(state.activeTab===t.id)b.appendChild(div("bnav-dot"));
-    b.onclick=()=>setS({activeTab:t.id});
+    if(S.activeTab===t.id)b.appendChild(el('div',{class:'bnav-dot'}));
+    b.onclick=()=>switchTab(t.id);
     nav.appendChild(b);
   });
   return nav;
 }
 
-function parentTabs(){return[
-  {id:"dashboard",label:"Home",icon:"🏠"},{id:"files",label:"Files",icon:"📁"},
-  {id:"team",label:"Team",icon:"👥"},{id:"calendar",label:"Calendar",icon:"📅"},
-  {id:"chat",label:"Chat",icon:"💬"},{id:"notifications",label:"Alerts",icon:"🔔"},
-  {id:"settings",label:"Settings",icon:"⚙️"}
-];}
-function specialistTabs(){return[
-  {id:"patients",label:"Patients",icon:"👤"},{id:"vault",label:"Vault",icon:"🔒"},
-  {id:"homework",label:"Tasks",icon:"📋"},{id:"files",label:"Files",icon:"📁"},
-  {id:"chat",label:"Chat",icon:"💬"},{id:"notifications",label:"Alerts",icon:"🔔"}
-];}
+/* ── GLOBAL SEARCH OVERLAY ── */
+function renderSearchOverlay(){
+  const ov=el('div',{class:'search-overlay'});
+  ov.onclick=e=>{if(e.target===ov){S.searchOpen=false;re();}};
+  const box=el('div',{class:'search-box'});
+  const si=el('input',{class:'search-inp',placeholder:'🔍 Search patients, notes, files...',type:'text'});
+  si.value=S.searchQuery||'';
+  box.appendChild(si);
+  const results=el('div',{class:'search-results'});
+  const doSearch=q=>{
+    results.innerHTML='';
+    if(!q.trim())return;
+    // Search patients
+    DB.children.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
+      const item=el('div',{class:'search-result-item'});
+      item.innerHTML=`<span style="font-size:1.5rem">${c.avatar}</span><div><div style="font-weight:700;color:var(--navy)">${c.name}</div><div style="font-size:.76rem;color:var(--slate)">Patient · Age ${c.age}</div></div>`;
+      item.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';S.searchOpen=false;S.searchQuery='';re();};
+      results.appendChild(item);
+    });
+    // Search notes
+    DB.vaultNotes.filter(n=>n.title.toLowerCase().includes(q.toLowerCase())||n.content.toLowerCase().includes(q.toLowerCase())).forEach(n=>{
+      const c=DB.children.find(x=>x.id===n.childId);
+      const item=el('div',{class:'search-result-item'});
+      item.innerHTML=`<span style="font-size:1.5rem">📝</span><div><div style="font-weight:700;color:var(--navy)">${n.title}</div><div style="font-size:.76rem;color:var(--slate)">${c?.avatar} ${c?.name} · ${n.date}</div></div>`;
+      item.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
+      results.appendChild(item);
+    });
+    if(!results.children.length){
+      results.appendChild(el('div',{style:{padding:'20px',color:'var(--slate)',textAlign:'center',fontWeight:600}},['No results found.']));
+    }
+  };
+  si.oninput=e=>{S.searchQuery=e.target.value;doSearch(e.target.value);};
+  doSearch(S.searchQuery||'');
+  box.appendChild(results);ov.appendChild(box);
+  setTimeout(()=>si.focus(),50);
+  return ov;
+}
 
-// ── PARENT DASHBOARD ────────────────────────────────────────────────────────
-function renderDashboard(){
-  const child=children.find(c=>c.id===state.activeChild);
-  const childHW=homework.filter(h=>h.childId===state.activeChild);
-  const childAppts=appointments.filter(a=>a.childId===state.activeChild);
-  const pending=childHW.filter(h=>!h.completed).length;
+/* ═══════════════════════════════════════════════
+   CONTENT ROUTER
+═══════════════════════════════════════════════ */
+function renderContent(){
+  const t=S.activeTab,r=session?.role;
+  if(t==='dashboard')return r==='parent'?renderParentDashboard():renderSpecDashboard();
+  if(t==='files')return renderFiles();
+  if(t==='team'&&r==='parent')return renderTeam();
+  if(t==='calendar')return renderCalendar();
+  if(t==='chat')return renderChat();
+  if(t==='notifications')return renderNotifications();
+  if(t==='settings')return renderSettings();
+  if(t==='patients')return renderPatients();
+  if(t==='vault')return renderVault();
+  if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
+  if(t==='credentials')return renderCredentials();
+  return d('section',[p('Coming soon…')]);
+}
 
-  const sec=div("section fade-in");
+/* ═══════════════════════════════════════════════
+   PARENT DASHBOARD (Global cross-children view)
+═══════════════════════════════════════════════ */
+function renderParentDashboard(){
+  const allChildren=DB.children;
+  const allHW=DB.homework;
+  const allApts=DB.appointments;
+  const allPendingHW=allHW.filter(h=>!h.completed);
 
-  // Child header
-  const ch=div("",[
-    h("span",{style:{fontSize:"2rem"}},[child.avatar]),
-    div("",[
-      h("h2",{class:"ff",style:{fontSize:"1.55rem",fontWeight:700,color:"var(--navy)"}},[child.name+"'s Dashboard"]),
-      div("",[...child.diagnoses.map(d=>badge(d,"teal"))],{display:"flex",gap:"7px",flexWrap:"wrap",marginTop:"5px"})
-    ])
-  ],{display:"flex",alignItems:"center",gap:"13px",marginBottom:"24px"});
-  sec.appendChild(ch);
+  const sec=el('div',{class:'section'});
 
-  // Stats
-  const stats=div("grid-3",[
-    makeStatCard("📅","#14b8a6",String(childAppts.length),"Upcoming Appointments"),
-    makeStatCard("📋","#f97316",String(pending),"Pending Tasks"),
-    makeStatCard("👥","#8b5cf6",String(specialists.filter(s=>s.status==="active").length),"Care Team Members")
-  ]);
-  stats.style.marginBottom="24px";
+  // Welcome banner
+  const welcome=el('div',{class:'card',style:{background:'linear-gradient(135deg,var(--teal) 0%,var(--teal-l) 60%,#7dd3fc 100%)',border:'none',marginBottom:'22px',padding:'24px 28px'}});
+  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Welcome back</div>
+    <div class="ff" style="font-size:1.6rem;font-weight:800;color:#fff;margin-bottom:4px">${session?.name||'Parent'} 👋</div>
+    <div style="color:rgba(255,255,255,.8);font-size:.88rem;font-weight:500">Managing ${allChildren.length} children · ${allPendingHW.length} pending tasks across all</div>`;
+  sec.appendChild(welcome);
+
+  // Global stats
+  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
+  const allUpcoming=allApts.filter(a=>a.date>='2025-03-01');
+  [{icon:'📅',color:'#0d9488',val:String(allUpcoming.length),lbl:'All Upcoming Appointments'},
+   {icon:'📋',color:'#f97316',val:String(allPendingHW.length),lbl:'Pending Tasks (All Children)'},
+   {icon:'👥',color:'#7c3aed',val:String(DB.specialists.filter(s=>s.status==='active').length),lbl:'Active Specialists'}
+  ].forEach(({icon,color,val,lbl})=>{
+    const sc=el('div',{class:'card hov'});
+    sc.appendChild(d('stat-card',[
+      d('stat-icon',[icon],{background:color+'22'}),
+      d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])
+    ]));
+    stats.appendChild(sc);
+  });
   sec.appendChild(stats);
 
-  // HW + Appts
-  const grid=div("grid-2");
+  // Per-child sections
+  allChildren.forEach(child=>{
+    const childHW=allHW.filter(h=>h.childId===child.id);
+    const childApts=allApts.filter(a=>a.childId===child.id);
+    const section=el('div',{class:'card',style:{marginBottom:'18px'}});
+    // Child header
+    const cHd=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--mint-ll)'}});
+    cHd.innerHTML=`<div style="width:46px;height:46px;border-radius:14px;background:${child.color}44;display:flex;align-items:center;justify-content:center;font-size:1.7rem">${child.avatar}</div>`;
+    const cinfo=d('',[], {flex:1});
+    cinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[child.name]));
+    cinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},[`Age ${child.age} · ${child.diagnoses.join(', ')}`]));
+    cHd.appendChild(cinfo);
+    cHd.appendChild(mkBtn('View Profile','btn-sm btn-secondary',()=>{S.activeChild=child.id;S.activeTab='files';re();}));
+    section.appendChild(cHd);
 
-  // Homework card
-  const hwCard=div("card",[h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},"📋 Homework & Tasks")]);
-  if(!childHW.length)hwCard.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".88rem"}},"No tasks assigned yet."));
-  childHW.forEach(hw=>{
-    const row=div("",[],{display:"flex",gap:"11px",padding:"10px 0",borderBottom:"1px solid #f0fdf9",alignItems:"flex-start"});
-    const chk=div("chk"+(hw.completed?" done":""));
-    chk.onclick=()=>{hw.completed=!hw.completed;re();};
-    const info=div("",[
-      div("",[hw.task],{fontSize:".86rem",color:hw.completed?"var(--slate-l)":"var(--navy)",textDecoration:hw.completed?"line-through":"none",lineHeight:"1.4",marginBottom:"4px"}),
-      div("",[badge(hw.category,catColor(hw.category).replace("badge-","").replace("-teal","teal").replace("-coral","coral").replace("-purple","purple")),
-        h("span",{style:{fontSize:".72rem",color:"var(--slate-l)",marginLeft:"7px"}},["Due "+hw.due])])
-    ],{flex:"1"});
-    row.appendChild(chk);row.appendChild(info);
-    hwCard.appendChild(row);
-  });
-  grid.appendChild(hwCard);
+    const grid=el('div',{class:'g2'});
 
-  // Appointments card
-  const aptCard=div("card",[h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},"📅 Upcoming Appointments")]);
-  if(!childAppts.length)aptCard.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".88rem"}},"No appointments scheduled."));
-  childAppts.forEach(apt=>{
-    const row=div("",[],{display:"flex",gap:"12px",padding:"10px 0",borderBottom:"1px solid #f0fdf9",alignItems:"center"});
-    const icon=div("",[apt.title[0]],{width:"40px",height:"40px",borderRadius:"12px",background:(typeColor[apt.type]||"#14b8a6")+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem",flexShrink:0});
-    icon.textContent="📅";
-    const info=div("",[
-      div("",[apt.title],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
-      div("",[apt.specialist],{fontSize:".76rem",color:"var(--slate)"}),
-      div("",[apt.date+" · "+apt.time],{fontSize:".73rem",color:"var(--teal)",fontWeight:600,marginTop:"2px"})
-    ],{flex:1});
-    row.appendChild(icon);row.appendChild(info);
-    aptCard.appendChild(row);
+    // HW
+    const hwCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+    hwCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📋 Tasks'));
+    if(!childHW.length)hwCard.appendChild(p('No tasks yet.'));
+    childHW.slice(0,3).forEach(hw=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'flex-start'}});
+      const chk=el('div',{class:'chk'+(hw.completed?' done':'')},hw.completed?['✓']:[]);
+      chk.onclick=()=>{
+        const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
+        if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;
+          if(!hw.completed)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);
+        }re();
+      };
+      const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},
+        [hw.task]);
+      row.appendChild(chk);row.appendChild(info);
+      hwCard.appendChild(row);
+    });
+    if(childHW.length>3)hwCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'8px',fontWeight:600}},[`+${childHW.length-3} more tasks`]));
+    grid.appendChild(hwCard);
+
+    // Upcoming apts
+    const aptCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+    aptCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📅 Next Appointments'));
+    if(!childApts.length)aptCard.appendChild(p('No appointments scheduled.'));
+    childApts.slice(0,3).forEach(apt=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
+      const chip=el('div',{style:{width:'6px',height:'36px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}});
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[apt.title]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'1px'}},[apt.date+' · '+apt.time]));
+      row.appendChild(chip);row.appendChild(info);
+      aptCard.appendChild(row);
+    });
+    grid.appendChild(aptCard);
+    section.appendChild(grid);
+    sec.appendChild(section);
   });
-  grid.appendChild(aptCard);
-  sec.appendChild(grid);
   return sec;
 }
 
-function makeStatCard(icon,color,value,label){
-  return div("card",[
-    div("stat-card",[
-      div("stat-icon",[icon],{background:color+"22"}),
-      div("",[div("stat-num",[value]),div("stat-label",[label])])
-    ])
-  ]);
+/* ═══════════════════════════════════════════════
+   SPECIALIST DASHBOARD (own calendar + stats)
+═══════════════════════════════════════════════ */
+function renderSpecDashboard(){
+  const specId=session?.specialistId||'s1';
+  const spec=DB.specialists.find(s=>s.id===specId)||DB.specialists[0];
+  const myPatients=DB.children; // all patients assigned
+  const myApts=DB.appointments.filter(a=>a.specialistId===specId||a.sharedWith?.includes(specId));
+  const myTasks=DB.homework.filter(h=>h.specialistId===specId);
+  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId);
+
+  const sec=el('div',{class:'section'});
+
+  // Welcome
+  const welcome=el('div',{class:'card',style:{background:'linear-gradient(135deg,var(--lav-d) 0%,var(--lav) 60%,#7dd3fc 100%)',border:'none',marginBottom:'22px',padding:'24px 28px'}});
+  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Welcome back</div>
+    <div class="ff" style="font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:4px">${spec?.name||'Specialist'} 👋</div>
+    <div style="color:rgba(255,255,255,.8);font-size:.88rem;font-weight:500">${spec?.role} · ${myPatients.length} patients · ${myNotes.filter(n=>n.isDraft).length} drafts in vault</div>`;
+  sec.appendChild(welcome);
+
+  // Stats
+  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
+  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients'},
+   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Upcoming Appointments'},
+   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Unpublished Notes'}
+  ].forEach(({icon,color,val,lbl})=>{
+    const sc=el('div',{class:'card hov'});
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
+    stats.appendChild(sc);
+  });
+  sec.appendChild(stats);
+
+  // Specialist's own calendar
+  const calTitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 My Schedule — March 2025']);
+  sec.appendChild(calTitle);
+
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
+  const calHd2=el('div',{class:'cal-hd',style:{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}});
+  calHd2.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">March 2025</span><span style="font-size:.82rem;opacity:.8;margin-left:10px">${myApts.length} sessions booked</span>`;
+  calCard.appendChild(calHd2);
+  const cg=el('div',{class:'cal-grid'});
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
+  for(let i=0;i<6;i++)cg.appendChild(el('div',{class:'cal-day'}));
+  for(let day=1;day<=31;day++){
+    const ds=`2025-03-${String(day).padStart(2,'0')}`;
+    const da=myApts.filter(a=>a.date===ds);
+    const cell=el('div',{class:'cal-day'});
+    const num=el('div',{class:'cal-num'+(da.length?' has-event':''),style:da.length?{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}:{}},[String(day)]);
+    if(da.length){num.title=da.map(a=>a.title).join(', ');num.onclick=()=>toast('📅 '+da.map(a=>a.title+' '+a.time).join(' | '));}
+    cell.appendChild(num);
+    da.slice(0,1).forEach(a=>{
+      const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--lav-d)'}},[a.title.split(' ')[0]]);
+      cell.appendChild(dot);
+    });
+    cg.appendChild(cell);
+  }
+  calCard.appendChild(cg);
+  sec.appendChild(calCard);
+
+  // Recent patient activity
+  const rtitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🕐 Recent Patient Activity']);
+  sec.appendChild(rtitle);
+  const stack=el('div',{class:'stack'});
+  [...myNotes].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).forEach(n=>{
+    const ch=DB.children.find(c=>c.id===n.childId);
+    const card=el('div',{class:'card hov click',style:{display:'flex',gap:'13px',alignItems:'center'}});
+    card.innerHTML=`<span style="font-size:1.6rem">${ch?.avatar||'👤'}</span>`;
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
+    card.appendChild(info);
+    card.appendChild(n.locked?el('span',{class:'locked-badge'},['🔒 Locked']):n.isDraft?el('span',{class:'draft-badge'},['Draft']):badge('Published','green'));
+    card.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
+    stack.appendChild(card);
+  });
+  sec.appendChild(stack);
+  return sec;
 }
 
-// ── FILE MANAGER ──────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   FILE MANAGER
+═══════════════════════════════════════════════ */
 function renderFiles(){
-  const isParent=state.role==="parent";
-  const spec=specialists.find(s=>s.id===state.specialistId);
-  const perms=spec?.permissions[state.activeChild]||[];
+  const isParent=session?.role==='parent';
+  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const perms=spec?.permissions[S.activeChild]||[];
   const canAccess=key=>isParent||perms.includes(key);
+  const folders=DB.folders;
+  const child=DB.children.find(c=>c.id===S.activeChild);
 
-  const sec=div("section fade-in");
-  const shr=div("section-header",[
-    div("",[
-      h("h2",{class:"page-title"},["File Manager"]),
-      div("page-sub",["Dropbox-backed records & reports"])
-    ])
-  ]);
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['File Manager']),
+    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name} · Dropbox-backed · Granular sharing`])
+  ]));
   if(isParent){
-    const upBtn=btn("📤 Upload to Dropbox","btn-md btn-primary",()=>triggerUpload());
-    shr.appendChild(upBtn);
+    const fi=el('input',{type:'file',style:{display:'none'}});fi.id='fileInput';
+    fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+    sec.appendChild(fi);
+    hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())]));
   }
-  sec.appendChild(shr);
+  sec.appendChild(hd);
 
-  // Hidden file input
-  const fi=h("input",{type:"file",style:{display:"none"}});
-  fi.id="file-input";
-  fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
-  sec.appendChild(fi);
-
-  const grid=div("grid-folders");
+  const grid=el('div',{class:'g4'});
   folders.forEach(folder=>{
     const acc=canAccess(folder.key);
-    const wrap=div("blur-wrap");
-    const inner=div("card clickable",[
-      h("div",{style:{fontSize:"2.2rem",marginBottom:"8px",textAlign:"center"}},[folder.icon]),
-      h("div",{style:{fontWeight:600,color:"var(--navy)",textAlign:"center",fontSize:".86rem"}},[folder.name]),
-      h("div",{style:{fontSize:".73rem",color:"var(--slate)",textAlign:"center",marginTop:"4px"}},[folder.files.length+" files"])
-    ]);
+    const wrap=el('div',{class:'blur-wrap'});
+    const inner=el('div',{class:'card'+(acc?' click':''),style:{textAlign:'center',padding:'22px 14px'}});
+    inner.innerHTML=`<div class="${acc?'':'blur-content'}"><div style="font-size:2.1rem;margin-bottom:8px">${folder.icon}</div><div style="font-weight:800;color:var(--navy);font-size:.84rem">${folder.name}</div><div style="font-size:.72rem;color:var(--slate);margin-top:4px">${folder.files.length} files</div></div>`;
     if(!acc){
-      inner.classList.add("blur-content");
-      const lock=div("blur-lock",[
-        h("span",{class:"blur-lock-icon"},["🔒"]),
-        h("span",{class:"blur-lock-label"},["Request Access"])
-      ]);
-      lock.onclick=()=>showRequestAccessModal(folder);
+      const lock=el('div',{class:'blur-lock'});
+      lock.innerHTML='<span style="font-size:1.8rem">🔒</span><span style="font-size:.68rem;color:var(--slate);font-weight:800;margin-top:5px">Request Access</span>';
+      lock.onclick=()=>showAccessRequest(folder);
       wrap.appendChild(inner);wrap.appendChild(lock);
     } else {
-      inner.onclick=()=>showFolderModal(folder);
+      inner.onclick=()=>showFolderModal(folder,isParent);
       wrap.appendChild(inner);
     }
     grid.appendChild(wrap);
@@ -682,686 +1023,1040 @@ function renderFiles(){
   return sec;
 }
 
-function triggerUpload(){document.getElementById("file-input")?.click();}
-
 function showShareModal(file){
-  const frag=document.createDocumentFragment();
-  const p=h("p",{style:{color:"var(--slate)",marginBottom:"16px"}},[`Choose who can view "${file.name}":`]);
-  frag.appendChild(p);
-  const permsState={};
-  specialists.filter(s=>s.status==="active").forEach(s=>{permsState[s.id]=true;});
-  const rows=div("inp-group");
-  specialists.filter(s=>s.status==="active").forEach(s=>{
-    const lbl=h("label",{style:{display:"flex",alignItems:"center",gap:"11px",cursor:"pointer"}});
-    const cb=h("input",{type:"checkbox",checked:"true"});
-    cb.checked=true;
-    lbl.appendChild(cb);
-    lbl.appendChild(renderAvatar(s.avatar,32,"#d1fae5"));
-    lbl.appendChild(div("",[
-      div("",[s.name],{fontWeight:600,fontSize:".86rem"}),
-      div("",[s.role],{fontSize:".76rem",color:"var(--slate)"})
-    ]));
-    rows.appendChild(lbl);
-  });
-  frag.appendChild(rows);
-  const btns=div("",[],{display:"flex",gap:"12px",marginTop:"20px"});
-  const {ov,close}=makeModal("📤 Share Settings",frag);
-  const cancelB=btn("Cancel","btn-md btn-ghost",close);
-  const upB=btn('<span class="spinner" style="display:none"></span> Upload & Share',"btn-md btn-primary",async()=>{
-    const sp=upB.querySelector(".spinner");sp.style.display="inline-block";
-    upB.disabled=true;
-    try{
-      const ab=await file.arrayBuffer();
-      const child=children.find(c=>c.id===state.activeChild);
-      const resp=await fetch("https://content.dropboxapi.com/2/files/upload",{
-        method:"POST",
-        headers:{
-          "Authorization":"Bearer "+DROPBOX_TOKEN,
-          "Content-Type":"application/octet-stream",
-          "Dropbox-API-Arg":JSON.stringify({path:`/Huddledin/${child?.name||"General"}/${file.name}`,mode:"add",autorename:true})
-        },body:ab
-      });
-      const data=await resp.json();
-      close();
-      showToast("✅ \""+( data.name||file.name)+"\" uploaded to Dropbox!");
-    }catch(e){close();showToast("❌ Upload failed: "+e.message,true);}
-  });
-  btns.appendChild(cancelB);btns.appendChild(upB);
-  ov.querySelector(".modal-body").appendChild(btns);
-  document.body.appendChild(ov);
+  openModal('📤 Upload & Share',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[`Who can view "${file.name}"?`]));
+    const permsMap={};
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'18px'}});
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      permsMap[s.id]=false;
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const cb=el('input',{type:'checkbox'});cb.checked=false;
+      cb.onchange=e=>permsMap[s.id]=e.target.checked;
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+
+    // Which folder
+    mb.appendChild(el('div',{class:'inp-label'},['Save to folder']));
+    const folderSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
+    DB.folders.forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+    mb.appendChild(folderSel);
+
+    const row2=d('',[], {display:'flex',gap:'10px'});
+    row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    const upBtn=mkBtn('','btn-md btn-primary btn-full',async()=>{
+      upBtn.innerHTML='<span class="spinner"></span> Uploading...';upBtn.disabled=true;
+      try{
+        const ab=await file.arrayBuffer();
+        const child=DB.children.find(c=>c.id===S.activeChild);
+        const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
+          method:'POST',
+          headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
+            'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/${child?.name}/${file.name}`,mode:'add',autorename:true})},body:ab
+        });
+        const data=await resp.json();
+        const fls=DB.folders;
+        const fi2=fls.find(f=>f.id===folderSel.value)||fls[0];
+        fi2.files.push({id:'fl_'+Date.now(),name:data.name||file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k),uploadedBy:'parent'});
+        DB.folders=fls;
+        close();toast('✅ "'+( data.name||file.name)+'" uploaded to Dropbox!');
+      }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
+    });
+    upBtn.innerHTML='📤 Upload & Share';
+    row2.appendChild(upBtn);
+    mb.appendChild(row2);
+  },520);
 }
 
-function showFolderModal(folder){
-  const frag=document.createDocumentFragment();
-  folder.files.forEach(f=>{
-    frag.appendChild(div("file-item",[
-      h("span",{style:{fontSize:"1.3rem"}},["📄"]),
-      div("",[
-        div("",[f.name],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
-        div("",[f.date],{fontSize:".73rem",color:"var(--slate)"})
-      ],{flex:1}),
-      f.locked?badge("🔒 Locked","amber"):h("span",{},[])
-    ]));
-  });
-  if(state.role==="parent"){
-    const ub=btn("📤 Upload File Here","btn-md btn-primary btn-full",()=>{ov.remove();triggerUpload();});
-    ub.style.marginTop="10px";
-    frag.appendChild(ub);
-  }
-  const {ov}=makeModal(folder.icon+" "+folder.name,frag);
-  document.body.appendChild(ov);
-}
-
-function showRequestAccessModal(folder){
-  const frag=document.createDocumentFragment();
-  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"20px",lineHeight:"1.6"}},
-    [`You don't have access to the ${folder.name} folder. Send an access request to the Carter family?`]));
-  const {ov,close}=makeModal("🔒 Request Access",frag,380);
-  frag.appendChild(btn("Send Request","btn-md btn-primary btn-full",()=>{
-    close();showToast("✅ Access request sent to parent!");
-  }));
-  ov.querySelector(".modal-body").appendChild(btn("Send Request","btn-md btn-primary btn-full",()=>{close();showToast("✅ Access request sent to parent!");}));
-  document.body.appendChild(ov);
-}
-
-function showToast(msg,err=false){
-  const t=div("",[msg],{
-    position:"fixed",bottom:"90px",left:"50%",transform:"translateX(-50%)",
-    background:err?"#fca5a5":typeof msg==="string"&&msg.startsWith("✅")?"var(--mint-l)":"var(--mint-l)",
-    border:"1px solid "+(err?"#f87171":"var(--teal)"),
-    color:err?"#991b1b":"var(--teal-d)",
-    borderRadius:"12px",padding:"12px 22px",fontWeight:600,
-    zIndex:9999,whiteSpace:"nowrap",boxShadow:"var(--shadow-lg)",animation:"fadeIn .3s ease"
-  });
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),3200);
-}
-
-// ── CARE TEAM ─────────────────────────────────────────────────────────────
-function renderTeam(){
-  const sec=div("section fade-in");
-  const shr=div("section-header",[h("h2",{class:"page-title"},["Care Team"])]);
-  const invBtn=btn("➕ Invite Specialist","btn-md btn-primary",()=>showInviteModal());
-  shr.appendChild(invBtn);
-  sec.appendChild(shr);
-
-  specialists.forEach(s=>{
-    const hasAccess=(s.permissions[state.activeChild]||[]).length>0;
-    const isPending=s.status==="pending";
-    const card=div("card"+(isPending?" ghost-card":""),[], {display:"flex",alignItems:"center",gap:"15px",marginBottom:"12px",position:"relative"});
-    if(isPending){
-      const pb=h("div",{style:{position:"absolute",top:"-9px",right:"12px"}});
-      pb.appendChild(badge("⏳ Pending Invite","amber"));
-      card.appendChild(pb);
+function showFolderModal(folder,isParent){
+  openModal(folder.icon+' '+folder.name,(mb,close)=>{
+    const stack=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    folder.files.forEach(f=>{
+      const fi=el('div',{class:'file-item'});
+      fi.innerHTML=`<span style="font-size:1.35rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${f.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${f.date}</div></div>`;
+      if(f.locked)fi.appendChild(el('span',{class:'locked-badge'},['🔒 Locked']));
+      // Per-file share management (parent only)
+      if(isParent&&!f.locked){
+        const mgBtn=mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder));
+        fi.appendChild(mgBtn);
+      }
+      stack.appendChild(fi);
+    });
+    mb.appendChild(stack);
+    if(isParent){
+      mb.appendChild(mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
     }
-    card.appendChild(renderAvatar(s.avatar,46,"#d1fae5"));
-    const info=div("",[
-      div("",[s.name],{fontWeight:700,color:"var(--navy)",fontSize:".92rem"}),
-      div("",[s.role],{fontSize:".8rem",color:"var(--slate)",margin:"2px 0 6px"}),
-      div("",[(s.permissions[state.activeChild]||[]).map(p=>badge(p.toUpperCase(),"teal")),
-        !hasAccess&&!isPending?[badge("No access","slate")]:[]].flat())
-    ],{flex:1});
+  },540);
+}
+
+function showFilePermModal(file,folder){
+  openModal('⚙️ File Permissions — '+file.name,(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Choose which specialists can access this file:']));
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.checked=(file.sharedWith||[]).includes(s.id);
+      cb.onchange=e=>{
+        const fls=DB.folders;
+        const fo=fls.find(f=>f.id===folder.id);
+        if(!fo)return;
+        const fi2=fo.files.find(x=>x.id===file.id);
+        if(!fi2)return;
+        if(e.target.checked){if(!fi2.sharedWith.includes(s.id))fi2.sharedWith.push(s.id);}
+        else{fi2.sharedWith=fi2.sharedWith.filter(x=>x!==s.id);}
+        DB.folders=fls;
+      };
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',()=>{close();toast('✅ Permissions updated!');re();}));
+  },500);
+}
+
+function showAccessRequest(folder){
+  openModal('🔒 Request Access',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
+      [`You don't have access to ${folder.name}. Send a request to the parent?`]));
+    mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',()=>{
+      close();toast('✅ Access request sent to parent!');
+    }));
+  },400);
+}
+
+/* ═══════════════════════════════════════════════
+   CARE TEAM
+═══════════════════════════════════════════════ */
+function renderTeam(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Care Team']),
+    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s specialists`])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Invite Specialist','btn-md btn-primary',()=>showInviteModal())]));
+  sec.appendChild(hd);
+
+  DB.specialists.forEach(s=>{
+    const isPending=s.status==='pending';
+    const perms=(s.permissions[S.activeChild]||[]);
+    const hasAccess=perms.length>0;
+    const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'center',gap:'15px',marginBottom:'12px',position:'relative'}});
+    if(isPending){
+      const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+      pb.appendChild(badge('⏳ Pending Invite','amber'));card.appendChild(pb);
+    }
+    card.appendChild(mkAvatar(s.avatar,48,'#d1fae5'));
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+' · '+s.email]));
+    const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
+    perms.forEach(p=>pr.appendChild(badge(p.toUpperCase(),'teal')));
+    if(!hasAccess&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+    info.appendChild(pr);
     card.appendChild(info);
     if(!isPending){
-      const acts=div("",[],{display:"flex",gap:"8px"});
-      const consBtn=btn("🤝 Consult","btn-sm btn-secondary",()=>showHandshakeModal(s));
-      const remBtn=btn("Remove","btn-sm btn-danger",()=>confirm("Remove Specialist",`Remove ${s.name}? They'll keep a Legacy Archive of their own notes.`,true,()=>showToast("✅ "+s.name+" removed.")));
-      acts.appendChild(consBtn);acts.appendChild(remBtn);
+      const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap'});
+      acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
+      acts.appendChild(mkBtn('🤝 Consult','btn-sm btn-lav',()=>showHandshakeModal(s)));
+      acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
+        `Remove ${s.name} from ${child?.name}'s care team? Their authored notes will remain in their Legacy Archive.`,true,()=>removeSpecialist(s))));
       card.appendChild(acts);
     }
     sec.appendChild(card);
   });
+
+  // Legacy Archive section
+  const archive=DB.legacyArchive;
+  if(archive.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},['🗄️ Legacy Archives']));
+    archive.forEach(a=>{
+      const ac=el('div',{class:'card',style:{background:'#f8fafc',border:'2px dashed var(--slate-l)',display:'flex',gap:'12px',alignItems:'center',marginBottom:'10px'}});
+      ac.innerHTML=`<span style="font-size:1.4rem">🗄️</span><div style="flex:1"><div style="font-weight:700;color:var(--slate)">${a.specialistName}</div><div style="font-size:.76rem;color:var(--slate-l)">${a.childName} · Archived ${a.archivedAt} · ${a.notes.length} note(s) retained</div></div>`;
+      ac.appendChild(badge('Legacy','slate'));
+      sec.appendChild(ac);
+    });
+  }
   return sec;
+}
+
+function removeSpecialist(spec){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  // Create legacy archive entry
+  const archive=DB.legacyArchive;
+  const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===S.activeChild);
+  archive.push({specialistId:spec.id,specialistName:spec.name,childId:S.activeChild,childName:child?.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes});
+  DB.legacyArchive=archive;
+  // Revoke permissions
+  const specs=DB.specialists;
+  const i=specs.findIndex(s=>s.id===spec.id);
+  if(i>-1){specs[i].permissions[S.activeChild]=[];}
+  DB.specialists=specs;
+  re();toast('✅ '+spec.name+' removed. Their notes are in the Legacy Archive.');
+}
+
+function showPermModal(spec){
+  openModal('⚙️ Permissions — '+spec.name,(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Which areas can '+spec.name+' access?']));
+    const folderKeys=['speech','ot','pt','general','meds','school'];
+    const curPerms=[...(spec.permissions[S.activeChild]||[])];
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
+    folderKeys.forEach(key=>{
+      const folder=DB.folders.find(f=>f.key===key);
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const cb=el('input',{type:'checkbox'});cb.checked=curPerms.includes(key);
+      cb.onchange=e=>{if(e.target.checked){if(!curPerms.includes(key))curPerms.push(key);}else{const i=curPerms.indexOf(key);if(i>-1)curPerms.splice(i,1);}};
+      lbl.appendChild(cb);
+      lbl.appendChild(el('span',{style:{fontSize:'1.1rem'}},[folder?.icon||'📁']));
+      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.86rem'}},[folder?.name||key]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',()=>{
+      const specs=DB.specialists,i=specs.findIndex(s=>s.id===spec.id);
+      if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
+      close();re();toast('✅ Permissions updated for '+spec.name+'!');
+    }));
+  },480);
 }
 
 function showInviteModal(){
-  const frag=document.createDocumentFragment();
-  const emailI=h("input",{class:"inp",placeholder:"Specialist's email address",type:"email"});
-  const roleI=h("input",{class:"inp",placeholder:"Role (e.g. Speech Therapist)"});
-  const p=h("p",{style:{fontSize:".8rem",color:"var(--slate)",lineHeight:"1.5"}},
-    ["An invite will be sent and a draft profile created. The specialist can also request to join your care team."]);
-  const sendB=btn("Send Invitation","btn-md btn-primary btn-full",()=>{
-    if(!emailI.value)return;
-    ov.remove();showToast("✅ Invitation sent to "+emailI.value+"!");
-  });
-  frag.appendChild(emailI);frag.appendChild(roleI);frag.appendChild(p);frag.appendChild(sendB);
-  const {ov}=makeModal("➕ Invite Specialist",frag,420);
-  ov.querySelector(".modal-body").style.display="flex";
-  ov.querySelector(".modal-body").style.flexDirection="column";
-  ov.querySelector(".modal-body").style.gap="12px";
-  document.body.appendChild(ov);
+  openModal('➕ Invite a Specialist',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    const ni=el('input',{class:'inp',placeholder:"Specialist's full name",type:'text'});
+    const ei=el('input',{class:'inp',placeholder:"Specialist's email address",type:'email'});
+    const ri=el('input',{class:'inp',placeholder:'Role (e.g. Speech Therapist)'});
+    [ni,ei,ri].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+
+    // Pre-assign permissions
+    mb.appendChild(el('div',{class:'inp-label'},['Pre-assign folder access']));
+    const folderKeys=['speech','ot','pt','general'];
+    const prePerms=[];
+    const prows=el('div',{class:'inp-group',style:{marginBottom:'18px'}});
+    folderKeys.forEach(key=>{
+      const folder=DB.folders.find(f=>f.key===key);
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.onchange=e=>{if(e.target.checked)prePerms.push(key);else{const i=prePerms.indexOf(key);if(i>-1)prePerms.splice(i,1);}};
+      lbl.appendChild(cb);lbl.appendChild(el('span',{},[folder?.icon+' '+folder?.name]));
+      prows.appendChild(lbl);
+    });
+    mb.appendChild(prows);
+
+    mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.8rem',marginBottom:'16px',lineHeight:'1.6',fontWeight:500}},
+      ['An invite email will be sent. If they\'re new to Huddledin, they\'ll be prompted to register. A draft profile is created immediately.']));
+    mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
+      if(!ei.value){toast('⚠️ Email required.','error');return;}
+      const specs=DB.specialists;
+      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:{c1:prePerms,c2:[]},status:'pending',credentials:[]});
+      DB.specialists=specs;
+      close();re();toast('✅ Invitation sent to '+ei.value+'!');
+    }));
+  },480);
 }
 
 function showHandshakeModal(spec){
-  const frag=document.createDocumentFragment();
-  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"18px",lineHeight:"1.6"}},
-    [`${spec.name} would like to consult with another specialist. Do you approve?`]));
-  const lbl=h("label",{style:{display:"flex",alignItems:"center",gap:"9px",marginBottom:"18px",cursor:"pointer"}});
-  const cb=h("input",{type:"checkbox"});cb.checked=true;
-  lbl.appendChild(cb);lbl.appendChild(h("span",{style:{fontSize:".88rem",color:"var(--navy)"}},["Include me in the conversation"]));
-  frag.appendChild(lbl);
-  const acts=div("",[],{display:"flex",gap:"12px"});
-  const {ov,close}=makeModal("🤝 Consult Request",frag,400);
-  const denyB=btn("Deny","btn-md btn-danger",close);
-  const appB=btn("Approve ✓","btn-md btn-primary",()=>{
-    close();showToast("✅ Consultation approved!");
-  });
-  acts.appendChild(denyB);acts.appendChild(appB);
-  ov.querySelector(".modal-body").appendChild(acts);
-  document.body.appendChild(ov);
+  openModal('🤝 Consultation Request',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',lineHeight:'1.65'}},
+      [`${spec.name} is requesting permission to consult with another specialist about your child's care.`]));
+    // Pick who to consult with
+    mb.appendChild(el('div',{class:'inp-label'},['Select specialist to consult']));
+    const others=DB.specialists.filter(s=>s.id!==spec.id&&s.status==='active');
+    let selectedConsult=others[0]?.id||null;
+    const cRows=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    others.forEach(o=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const rb=el('input',{type:'radio',name:'consult-pick'});rb.value=o.id;rb.checked=(o.id===selectedConsult);
+      rb.onchange=()=>selectedConsult=o.id;
+      lbl.appendChild(rb);lbl.appendChild(mkAvatar(o.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[o.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[o.role])]));
+      cRows.appendChild(lbl);
+    });
+    mb.appendChild(cRows);
+
+    const inclLbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px',cursor:'pointer',padding:'11px 14px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+    const inclCb=el('input',{type:'checkbox'});inclCb.checked=false;
+    inclLbl.appendChild(inclCb);inclLbl.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)'}},['Include me in the conversation']));
+    mb.appendChild(inclLbl);
+
+    const row2=d('',[], {display:'flex',gap:'11px'});
+    row2.appendChild(mkBtn('✗ Deny','btn-md btn-danger',close));
+    row2.appendChild(mkBtn('✓ Approve','btn-md btn-primary',()=>{
+      // Create specialist chat
+      const other=DB.specialists.find(s=>s.id===selectedConsult);
+      if(other){
+        const newChat={id:'ch_'+Date.now(),type:'specialist-consult',
+          participants:inclCb.checked?['parent',spec.id,selectedConsult]:[spec.id,selectedConsult],
+          childId:S.activeChild,approved:true,
+          name:`${spec.name.split(' ')[0]} + ${other.name.split(' ')[0]} Consult`,
+          messages:[]};
+        const cs=DB.chats;cs.push(newChat);DB.chats=cs;
+      }
+      close();re();toast('✅ Consultation approved! Secure chat created.');
+    }));
+    mb.appendChild(row2);
+  },480);
 }
 
-// ── CALENDAR ───────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   CALENDAR
+═══════════════════════════════════════════════ */
 function renderCalendar(){
-  const childAppts=appointments.filter(a=>a.childId===state.activeChild);
-  const sec=div("section fade-in");
-  const shr=div("section-header",[h("h2",{class:"page-title"},["Calendar"])]);
-  shr.appendChild(btn("📅 Sync with Google","btn-sm btn-ghost",()=>showToast("🔗 Google Calendar sync — coming soon!")));
-  sec.appendChild(shr);
+  const isParent=session?.role==='parent';
+  const childApts=isParent
+    ?DB.appointments.filter(a=>a.childId===S.activeChild)
+    :DB.appointments.filter(a=>a.specialistId===(session?.specialistId)||a.sharedWith?.includes(session?.specialistId));
+  const child=DB.children.find(c=>c.id===S.activeChild);
 
-  // Calendar grid
-  const calCard=div("card",[], {marginBottom:"22px",padding:"0",overflow:"hidden"});
-  const calHead=div("",[],{background:"var(--teal)",color:"#fff",padding:"18px 22px"});
-  calHead.innerHTML=`<span class="ff" style="font-size:1.1rem;font-weight:600">March 2025</span>`;
-  calCard.appendChild(calHead);
-  const calBody=div("",[],{padding:"14px"});
-  const grid=div("cal-grid");
-  ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d=>{
-    grid.appendChild(div("cal-day-label",[d]));
-  });
-  // March 2025 starts on Saturday (6 offset)
-  for(let i=0;i<6;i++)grid.appendChild(div("cal-day"));
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Calendar']),
+    el('p',{class:'page-sub'},[isParent?`${child?.avatar} ${child?.name} — March 2025`:'My Schedule — March 2025'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
+    mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())
+  ]));
+  sec.appendChild(hd);
+
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
+  const calHd2=el('div',{class:'cal-hd'});
+  calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">March 2025</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
+  calCard.appendChild(calHd2);
+  const cg=el('div',{class:'cal-grid'});
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
+  for(let i=0;i<6;i++)cg.appendChild(el('div',{class:'cal-day'}));
   for(let day=1;day<=31;day++){
-    const ds=`2025-03-${String(day).padStart(2,"0")}`;
-    const dayAppts=childAppts.filter(a=>a.date===ds);
-    const cell=div("cal-day");
-    const num=div("cal-num"+(dayAppts.length?" has-event":""),[String(day)]);
-    if(dayAppts.length)num.title=dayAppts.map(a=>a.title).join(", ");
+    const ds=`2025-03-${String(day).padStart(2,'0')}`;
+    const da=childApts.filter(a=>a.date===ds);
+    const cell=el('div',{class:'cal-day'});
+    const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===1?' today':'')},
+      [String(day)]);
+    if(da.length){
+      num.title=da.map(a=>a.title).join(', ');
+      num.onclick=()=>openModal('📅 Events on March '+day,(mb)=>{
+        da.forEach(apt=>{
+          const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
+          chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${apt.title}</div><div style="font-size:.8rem;color:var(--slate)">${apt.specialist} · ${apt.time}</div>`;
+          mb.appendChild(chip);
+        });
+      },380);
+    }
     cell.appendChild(num);
-    dayAppts.forEach(a=>{
-      const dot=div("cal-dot",[a.title.split(" ")[0]],{background:typeColor[a.type]||"var(--teal)"});
+    da.forEach(a=>{
+      const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
       cell.appendChild(dot);
     });
-    grid.appendChild(cell);
+    cg.appendChild(cell);
   }
-  calBody.appendChild(grid);
-  calCard.appendChild(calBody);
+  calCard.appendChild(cg);
   sec.appendChild(calCard);
 
-  h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"13px"}},"Upcoming Appointments");
-  const ul=div("",[]); ul.style.display="flex"; ul.style.flexDirection="column"; ul.style.gap="10px";
-  [...childAppts].sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
-    const child=children.find(c=>c.id===apt.childId);
-    ul.appendChild(div("card",[
-      div("",[
-        div("",["📅"],{width:"44px",height:"44px",borderRadius:"13px",background:(typeColor[apt.type]||"#14b8a6")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.2rem",flexShrink:0}),
-        div("",[
-          div("",[apt.title],{fontWeight:700,color:"var(--navy)"}),
-          div("",[apt.specialist],{fontSize:".8rem",color:"var(--slate)"}),
-          child?div("",[child.avatar+" "+child.name],{fontSize:".75rem",color:"var(--slate-l)"}):null
-        ].filter(Boolean),{flex:1}),
-        div("",[
-          div("",[apt.date],{fontWeight:700,color:"var(--teal)",fontSize:".86rem",textAlign:"right"}),
-          div("",[apt.time],{fontSize:".76rem",color:"var(--slate)",textAlign:"right"})
-        ])
-      ],{display:"flex",gap:"14px",alignItems:"center"})
-    ]));
+  sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['Upcoming Events']));
+  const stack=el('div',{class:'stack'});
+  [...childApts].sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
+    const ch=DB.children.find(c=>c.id===apt.childId);
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
+    const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}});
+    card.appendChild(bar);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[apt.title]));
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[apt.specialist]));
+    if(ch&&isParent)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)'}},[ch.avatar+' '+ch.name]));
+    card.appendChild(info);
+    const right=d('',[], {textAlign:'right'});
+    right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
+    right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
+    card.appendChild(right);
+    if(isParent){
+      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Appointment','Remove this appointment?',true,()=>{
+        const apts=DB.appointments;DB.appointments=apts.filter(a=>a.id!==apt.id);re();toast('✅ Appointment removed.');
+      })));
+    }
+    stack.appendChild(card);
   });
-  sec.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"13px"}},["Upcoming Appointments"]));
-  sec.appendChild(ul);
+  sec.appendChild(stack);
   return sec;
 }
 
-// ── CHAT ──────────────────────────────────────────────────────────────────
-function renderChat(){
-  const sec=div("section fade-in");
-  const shr=div("section-header",[h("h2",{class:"page-title"},["Messages"])]);
-  if(state.role==="specialist"){
-    shr.appendChild(btn("🤝 Request to Consult","btn-sm btn-primary",()=>showConsultModal()));
-  }
-  sec.appendChild(shr);
+function showGoogleSyncModal(){
+  openModal('📅 Calendar Sync',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
+      ['Sync Huddledin appointments with your external calendar. Choose a provider:']));
+    const opts=[{name:'Google Calendar',icon:'📅',color:'var(--coral)'},{name:'Apple iCal',icon:'🍎',color:'var(--slate)'},{name:'Outlook',icon:'📧',color:'#0078d4'}];
+    opts.forEach(opt=>{
+      const btn2=el('div',{class:'card hov click',style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'10px',padding:'14px 18px'}});
+      btn2.innerHTML=`<span style="font-size:1.6rem">${opt.icon}</span><div><div style="font-weight:800;color:var(--navy)">${opt.name}</div><div style="font-size:.78rem;color:var(--slate)">Sync all appointments to ${opt.name}</div></div>`;
+      btn2.onclick=()=>{close();toast(`🔗 ${opt.name} sync — coming soon!`,'info');};
+      mb.appendChild(btn2);
+    });
+  },420);
+}
 
-  const wrap=div("",[],{display:"grid",gridTemplateColumns:"200px 1fr",gap:"18px",height:"460px"});
+function showAddEventModal(){
+  openModal('➕ Add Appointment',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
+    const si=el('input',{class:'inp',placeholder:'Specialist name'});
+    const di=el('input',{class:'inp',type:'date'});
+    const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
+    const typeSel=el('select',{class:'inp'});
+    ['speech','ot','pt','general'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v.toUpperCase();typeSel.appendChild(o);});
+
+    // Share with specialists
+    mb.appendChild(el('div',{class:'inp-label'},['Event type & sharing']));
+    [ti,si,di,tmi,typeSel].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+
+    const sharedWith=[];
+    const shr=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    mb.appendChild(el('div',{class:'inp-label'},['Visible to specialists']));
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
+      lbl.appendChild(cb);lbl.appendChild(el('span',{},[s.avatar+' '+s.name]));
+      shr.appendChild(lbl);
+    });
+    mb.appendChild(shr);
+
+    mb.appendChild(mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
+      if(!ti.value||!di.value){toast('⚠️ Title and date required.','error');return;}
+      const apts=DB.appointments;
+      const specId=session?.specialistId||null;
+      apts.push({id:'a_'+Date.now(),childId:S.activeChild,title:ti.value,specialist:si.value||session?.name||'TBD',specialistId:specId,date:di.value,time:tmi.value||'TBD',type:typeSel.value,sharedWith});
+      DB.appointments=apts;
+      if(DB.notifPrefs.appointments)pushNotif('report',`New appointment added: ${ti.value} on ${di.value}`,S.activeChild);
+      close();re();toast('✅ Appointment added!');
+    }));
+  },500);
+}
+
+/* ═══════════════════════════════════════════════
+   CHAT
+═══════════════════════════════════════════════ */
+function renderChat(){
+  const allChats=DB.chats;
+  const role=session?.role;
+  const specId=session?.specialistId;
+
+  // Filter visible chats
+  const visChats=allChats.filter(c=>{
+    if(role==='parent')return c.participants.includes('parent');
+    return c.participants.includes(specId||'s1');
+  });
+
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('h2',{class:'page-title'},['Messages']));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    role==='specialist'?mkBtn('🤝 Request Consult','btn-sm btn-lav',()=>showConsultModal()):el('span')
+  ]));
+  sec.appendChild(hd);
+
+  const isMobile=window.innerWidth<768;
+  const wrap=el('div',{style:{display:'grid',gridTemplateColumns:isMobile?'1fr':'200px 1fr',gap:'16px',height:isMobile?'auto':'470px'}});
 
   // Chat list
-  const list=div("card",[], {padding:0,overflow:"hidden"});
-  chats.forEach(chat=>{
-    const other=chat.participants.find(p=>p!=="parent");
-    const spec=specialists.find(s=>s.id===other);
-    const child=children.find(c=>c.id===chat.childId);
-    const item=div("",[
-      div("",[spec?.name||"Chat"],{fontWeight:600,fontSize:".86rem",color:"var(--navy)"}),
-      div("",[child?.avatar+" "+child?.name],{fontSize:".73rem",color:"var(--slate)",marginTop:"2px"})
-    ],{padding:"13px 15px",borderBottom:"1px solid var(--border)",cursor:"pointer",
-      background:state.activeChatId===chat.id?"var(--mint-l)":"#fff",transition:"background .15s"});
-    item.onclick=()=>setS({activeChatId:chat.id});
+  const list=el('div',{class:'card',style:{padding:0,overflow:'hidden'}});
+  visChats.forEach(chat=>{
+    const isConsult=chat.type==='specialist-consult';
+    const lastMsg=chat.messages[chat.messages.length-1];
+    const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
+    const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
+    const chatName=chat.name||(isConsult?'Specialist Consult':(otherSpec?.name||'Chat'));
+    const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
+
+    const item=el('div',{style:{padding:'12px 15px',borderBottom:'2px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .14s'}});
+    item.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      ${isConsult?'<span style="font-size:.7rem;background:var(--lav-l);color:var(--lav-d);border-radius:6px;padding:1px 7px;font-weight:800">Consult</span>':''}
+      <span style="font-weight:800;font-size:.83rem;color:var(--navy)">${chatName}</span></div>
+      <div style="font-size:.7rem;color:var(--slate)">${childName}</div>
+      <div style="font-size:.68rem;color:var(--slate-l);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${lastMsg?.text?.slice(0,32)||''}${lastMsg?.text?.length>32?'...':''}</div>`;
+    item.onclick=()=>{S.activeChatId=chat.id;re();};
     list.appendChild(item);
   });
+  if(!visChats.length){
+    list.appendChild(el('div',{style:{padding:'20px',color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['No chats yet.']));
+  }
   wrap.appendChild(list);
 
   // Chat window
-  const activeChat=chats.find(c=>c.id===state.activeChatId);
-  const chatWin=div("card",[], {display:"flex",flexDirection:"column",padding:0,overflow:"hidden"});
+  const activeChat=allChats.find(c=>c.id===S.activeChatId);
+  const win=el('div',{class:'card',style:{display:'flex',flexDirection:'column',padding:0,overflow:'hidden',minHeight:isMobile?'350px':'auto'}});
 
   if(activeChat){
-    const spec=specialists.find(s=>activeChat.participants.includes(s.id));
-    const chatHead=div("",[
-      renderAvatar("💬",36,"#d1fae5"),
-      div("",[
-        div("",[spec?.name||""],{fontWeight:700,fontSize:".88rem",color:"var(--navy)"}),
-        div("",[" 🔒 Secure · Parent-approved"],{fontSize:".72rem",color:"var(--teal)"})
-      ])
-    ],{padding:"14px 18px",borderBottom:"1px solid var(--border)",display:"flex",gap:"12px",alignItems:"center"});
-    chatWin.appendChild(chatHead);
+    const isConsult=activeChat.type==='specialist-consult';
+    const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
+    const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
 
-    const msgArea=div("",[],{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:"11px"});
+    const winHd=d('',[], {padding:'13px 17px',borderBottom:'2px solid var(--mint-ll)',display:'flex',gap:'12px',alignItems:'center'});
+    winHd.appendChild(mkAvatar(isConsult?'🔗':'💬',36,'#d1fae5'));
+    const wi=d('');
+    wi.appendChild(el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)'}},[activeChat.name||(otherSpec?.name||'Chat')]));
+    wi.appendChild(el('div',{style:{fontSize:'.7rem',color:isConsult?'var(--lav-d)':'var(--teal)',fontWeight:700}},
+      [isConsult?'🔗 Approved specialist consult':'🔒 Secure · Parent-approved']));
+    winHd.appendChild(wi);
+    win.appendChild(winHd);
+
+    const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',padding:'15px 17px',display:'flex',flexDirection:'column',gap:'11px'}});
     activeChat.messages.forEach(m=>{
-      const isMe=(state.role==="parent"&&m.sender==="parent")||(state.role==="specialist"&&m.sender!=="parent");
-      const bw=div("",[],{display:"flex",justifyContent:isMe?"flex-end":"flex-start"});
-      const bubble=div(isMe?"bubble-me":"bubble-them",[]);
-      if(!isMe){const sn=div("bubble-name",[spec?.name||""]);bubble.appendChild(sn);}
-      bubble.appendChild(h("div",{},[m.text]));
-      bubble.appendChild(div("bubble-time",[m.time]));
-      bw.appendChild(bubble);
-      msgArea.appendChild(bw);
+      const myId=role==='parent'?'parent':(specId||'s1');
+      const isMe=m.sender===myId;
+      const senderSpec=DB.specialists.find(s=>s.id===m.sender);
+      const row=d('',[], {display:'flex',justifyContent:isMe?'flex-end':'flex-start'});
+      const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
+      if(!isMe)bub.appendChild(el('div',{class:'bubble-name'},[senderSpec?.name||(m.sender==='parent'?'Parent':'Unknown')]));
+      bub.appendChild(el('div',{},[m.text]));
+      bub.appendChild(el('div',{class:'bubble-time'},[m.time]));
+      row.appendChild(bub);msgArea.appendChild(row);
     });
-    chatWin.appendChild(msgArea);
+    win.appendChild(msgArea);
+    setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;},60);
 
-    const inputRow=div("",[],{padding:"13px 16px",borderTop:"1px solid var(--border)",display:"flex",gap:"9px"});
-    const msgInp=h("input",{class:"inp",placeholder:"Type a message...",style:{flex:"1"}});
-    msgInp.value=state.chatMsg||"";
-    msgInp.oninput=e=>state.chatMsg=e.target.value;
-    const sendB=btn("Send","btn-md btn-primary",()=>{
-      const txt=msgInp.value.trim();if(!txt)return;
-      const newMsg={id:"m_"+Date.now(),sender:state.role==="parent"?"parent":state.specialistId,text:txt,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),date:new Date().toISOString().split("T")[0]};
-      activeChat.messages.push(newMsg);
-      state.chatMsg="";re();
+    const inputRow=d('',[], {padding:'12px 15px',borderTop:'2px solid var(--mint-ll)',display:'flex',gap:'9px'});
+    const mi=el('input',{class:'inp',placeholder:'Type a message...',style:{flex:'1'}});
+    mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
+    const sb2=mkBtn('Send 💬','btn-md btn-primary',()=>{
+      const txt=mi.value.trim();if(!txt)return;
+      const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
+      if(ci>-1){
+        const senderKey=role==='parent'?'parent':(specId||'s1');
+        all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});
+        DB.chats=all;
+      }
+      S.chatMsg='';re();
+      setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;},60);
     });
-    msgInp.onkeydown=e=>{if(e.key==="Enter")sendB.click();};
-    inputRow.appendChild(msgInp);inputRow.appendChild(sendB);
-    chatWin.appendChild(inputRow);
+    mi.onkeydown=e=>{if(e.key==='Enter')sb2.click();};
+    inputRow.appendChild(mi);inputRow.appendChild(sb2);
+    win.appendChild(inputRow);
   } else {
-    chatWin.appendChild(div("",[h("p",{style:{color:"var(--slate)"}},"Select a chat")],{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}));
+    win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600}},['Select a conversation to begin']));
   }
-  wrap.appendChild(chatWin);
+  wrap.appendChild(win);
   sec.appendChild(wrap);
-
-  // Mobile: stack vertically
-  const mq=window.matchMedia("(max-width:767px)");
-  if(mq.matches)wrap.style.gridTemplateColumns="1fr";
-
   return sec;
 }
 
 function showConsultModal(){
-  const frag=document.createDocumentFragment();
-  frag.appendChild(h("p",{style:{color:"var(--slate)",marginBottom:"16px",lineHeight:"1.6"}},
-    ["Select a specialist to request a consultation. The parent will be notified to approve."]));
-  specialists.filter(s=>s.id!==state.specialistId).forEach(s=>{
-    const row=div("",[
-      renderAvatar(s.avatar,36),
-      div("",[
-        div("",[s.name],{fontWeight:600,fontSize:".86rem"}),
-        div("",[s.role],{fontSize:".76rem",color:"var(--slate)"})
-      ],{flex:1}),
-      btn("Request","btn-sm btn-primary",()=>{ov.remove();showToast("✅ Consultation request sent! The Carter family will be notified.");})
-    ],{display:"flex",alignItems:"center",gap:"12px",padding:"11px",borderRadius:"11px",background:"var(--bg)",border:"1px solid var(--border)",marginBottom:"9px"});
-    frag.appendChild(row);
-  });
-  const {ov}=makeModal("🤝 Request to Consult",frag,420);
-  document.body.appendChild(ov);
+  openModal('🤝 Request to Consult',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
+      ['Request parent approval to consult with another specialist:']));
+    DB.specialists.filter(s=>s.id!==session?.specialistId&&s.status==='active').forEach(s=>{
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'11px 14px',borderRadius:'14px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)',marginBottom:'9px'}});
+      row.appendChild(mkAvatar(s.avatar,34));
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
+      row.appendChild(info);
+      row.appendChild(mkBtn('Request','btn-sm btn-primary',()=>{
+        pushNotif('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild);
+        close();toast('✅ Request sent! Parent will be notified to approve.');
+      }));
+      mb.appendChild(row);
+    });
+    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  },460);
 }
 
-// ── SPECIALIST VAULT ──────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   VAULT (with draft + unsaved guard)
+═══════════════════════════════════════════════ */
 function renderVault(){
-  const child=children.find(c=>c.id===state.activeChild);
-  const myNotes=vaultNotes.filter(n=>n.specialistId===state.specialistId&&n.childId===state.activeChild);
-  const activeNote=myNotes.find(n=>n.id===state.activeVaultNoteId)||null;
+  const specId=session?.specialistId||'s1';
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild);
+  const activeNote=myNotes.find(n=>n.id===S.activeVaultId)||null;
 
-  const sec=div("section fade-in");
-  const shr=div("section-header",[
-    div("",[
-      h("h2",{class:"page-title"},["Private Vault"]),
-      div("page-sub",["🔒 Notes hidden from parents until published · "+child?.avatar+" "+child?.name])
-    ])
-  ]);
-  shr.appendChild(btn("✏️ New Note","btn-sm btn-primary",()=>{
-    const nn={id:"v_"+Date.now(),specialistId:state.specialistId,childId:state.activeChild,date:new Date().toISOString().split("T")[0],title:"New Session Notes",content:"",published:false,locked:false,summary:null};
-    vaultNotes.unshift(nn);
-    setS({activeVaultNoteId:nn.id,vaultSummaryText:""});
-  }));
-  sec.appendChild(shr);
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Private Vault']),
+    el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('✏️ New Note','btn-md btn-primary',()=>{
+      const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:new Date().toISOString().split('T')[0],title:'New Session Notes',content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
+      const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
+      S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=true;re();
+    })
+  ]));
+  sec.appendChild(hd);
 
-  const layout=div("",[],{display:"grid",gridTemplateColumns:activeNote?"260px 1fr":"1fr",gap:"18px"});
+  // Unsaved banner
+  if(S.vaultHasUnsaved){
+    const banner=el('div',{class:'unsaved-banner'});
+    banner.innerHTML='⚠️ You have unsaved changes in this note.';
+    sec.appendChild(banner);
+  }
+
+  const isMobile=window.innerWidth<768;
+  const layout=el('div',{style:{display:'grid',gridTemplateColumns:activeNote&&!isMobile?'255px 1fr':'1fr',gap:'18px'}});
 
   // Note list
-  const noteList=div("",[],{display:"flex",flexDirection:"column",gap:"10px"});
-  if(!myNotes.length)noteList.appendChild(h("p",{style:{color:"var(--slate)"}},"No vault notes yet."));
+  const noteList=el('div',{class:'stack'});
+  if(!myNotes.length)noteList.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},["No vault notes yet. Click 'New Note' to start!"]));
   myNotes.forEach(note=>{
-    const nc=div("card clickable",[],{border:state.activeVaultNoteId===note.id?"2px solid var(--teal)":"1px solid var(--border)"});
-    const nh=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"5px"});
-    nh.appendChild(h("span",{style:{fontWeight:700,fontSize:".86rem",color:"var(--navy)",lineHeight:"1.3"}},[note.title]));
-    const flags=div("",[]);
-    if(note.locked)flags.appendChild(h("span",{},"🔒"));
-    if(note.published)flags.appendChild(badge("Published","teal"));
+    const nc=el('div',{class:'card click',style:{border:S.activeVaultId===note.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
+    const nh=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'});
+    nh.appendChild(el('span',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)',lineHeight:'1.3',flex:1}},[note.title]));
+    const flags=d('',[], {display:'flex',gap:'4px',flexShrink:0,marginLeft:'6px'});
+    if(note.locked)flags.appendChild(el('span',{},'🔒'));
+    if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},['Draft']));
+    if(note.published&&!note.locked)flags.appendChild(badge('Published','green'));
     nh.appendChild(flags);
     nc.appendChild(nh);
-    nc.appendChild(div("",[note.date],{fontSize:".74rem",color:"var(--slate)"}));
-    nc.appendChild(div("",[note.content.slice(0,55)+"..."],{fontSize:".76rem",color:"var(--slate-l)",marginTop:"5px"}));
-    nc.onclick=()=>setS({activeVaultNoteId:note.id,vaultSummaryText:note.summary||""});
+    nc.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'4px'}},[note.date+(note.lastSaved?' · Saved '+note.lastSaved.split(' ')[1]:'')]));
+    nc.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[note.content.slice(0,52)+'…']));
+    nc.onclick=()=>{
+      if(S.vaultHasUnsaved&&S.activeVaultId!==note.id){
+        openConfirm('Unsaved Changes','You have unsaved changes. Switch note without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
+        return;
+      }
+      S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();
+    };
     noteList.appendChild(nc);
   });
   layout.appendChild(noteList);
 
   // Note editor
   if(activeNote){
-    const editor=div("card",[],{display:"flex",flexDirection:"column",gap:"14px"});
+    const ed=el('div',{class:'card',style:{display:'flex',flexDirection:'column',gap:'14px'}});
 
     // Title row
-    const titleRow=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"center"});
-    const titleI=h("input",{style:{fontFamily:"'Fraunces',serif",fontSize:"1.05rem",fontWeight:700,border:"none",outline:"none",flex:"1",background:"transparent",color:"var(--navy)"}});
-    titleI.value=activeNote.title;
-    titleI.disabled=activeNote.locked;
-    titleI.oninput=e=>{activeNote.title=e.target.value;};
-    titleRow.appendChild(titleI);
-    const closeB=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",fontSize:"1.1rem"}},["✕"]);
-    closeB.onclick=()=>setS({activeVaultNoteId:null,vaultSummaryText:""});
-    titleRow.appendChild(closeB);
-    editor.appendChild(titleRow);
+    const titleRow=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'});
+    const ti=el('input',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.02rem',fontWeight:800,border:'none',outline:'none',flex:'1',background:'transparent',color:'var(--navy)'}});
+    ti.value=activeNote.title;
+    ti.disabled=activeNote.locked;
+    ti.oninput=e=>{
+      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+      if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
+      S.vaultHasUnsaved=true;
+    };
+    titleRow.appendChild(ti);
+    const closeBtn=el('button',{style:{background:'var(--mint-ll)',border:'none',cursor:'pointer',width:'30px',height:'30px',borderRadius:'50%',fontSize:'.88rem',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
+    closeBtn.onclick=()=>{
+      if(S.vaultHasUnsaved){
+        openConfirm('Unsaved Changes','Close without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
+        return;
+      }
+      S.activeVaultId=null;S.vaultSummary='';re();
+    };
+    titleRow.appendChild(closeBtn);
+    ed.appendChild(titleRow);
 
-    // Clinical notes
-    const clinLabel=div("",[],{fontSize:".7rem",fontWeight:700,color:"var(--slate)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"6px"});
-    clinLabel.textContent="Clinical Notes (Private)";
-    editor.appendChild(clinLabel);
-    const ta=h("textarea",{class:"inp",style:{minHeight:"150px"}});
+    if(activeNote.locked){
+      ed.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},['🔒 This record is permanently locked and read-only']));
+    }
+
+    // Clinical notes area
+    const clinLbl=el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']);
+    ed.appendChild(clinLbl);
+    const ta=el('textarea',{class:'inp'});
     ta.value=activeNote.content;
-    ta.disabled=activeNote.locked;
-    ta.oninput=e=>{activeNote.content=e.target.value;};
-    editor.appendChild(ta);
+    ta.readOnly=activeNote.locked;
+    ta.style.background=activeNote.locked?'#f8fafc':'';
+    ta.oninput=e=>{
+      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+      if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
+      S.vaultHasUnsaved=true;
+    };
+    ed.appendChild(ta);
 
-    // Actions
-    const actRow=div("",[],{display:"flex",gap:"9px",flexWrap:"wrap"});
+    // Action buttons
     if(!activeNote.locked){
-      const aiB=btn("✨ AI Summarize","btn-md btn-secondary",async()=>{
-        aiB.disabled=true;aiB.innerHTML='<span class="spinner"></span> Summarizing...';
+      const actRow=d('',[], {display:'flex',gap:'9px',flexWrap:'wrap'});
+
+      // Save draft
+      const saveDraftBtn=mkBtn('💾 Save Draft','btn-sm btn-slate',()=>{
+        const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+        if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
+        S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
+      });
+
+      // AI Summarize
+      const aiBtn=mkBtn('✨ AI Summarize','btn-sm btn-secondary',async()=>{
+        if(!ta.value.trim()){toast('⚠️ Write some notes first!','error');return;}
+        aiBtn.innerHTML='<span class="spinner"></span> AI is thinking…';aiBtn.disabled=true;
+        S.vaultSummarizing=true;
         try{
-          const resp=await fetch("https://api.anthropic.com/v1/messages",{
-            method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid jargon. Be positive but honest. Keep to 3-4 sentences.\n\nClinical notes:\n${activeNote.content}`}]})
+          const resp=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid all clinical jargon. Be positive, supportive and specific. Keep to 3-4 sentences.\n\nClinical notes:\n${ta.value}`}]})
           });
           const data=await resp.json();
-          const text=data.content?.[0]?.text||"Unable to generate summary.";
-          activeNote.summary=text;
-          setS({activeVaultNoteId:activeNote.id,vaultSummaryText:text});
-        }catch(e){
-          setS({activeVaultNoteId:activeNote.id,vaultSummaryText:"AI failed. Please write a summary manually."});
-        }
+          const text=data.content?.[0]?.text||'Unable to generate summary — please write one manually.';
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+          if(i>-1){ns[i].summary=text;DB.vaultNotes=ns;}
+          S.vaultSummary=text;S.vaultSummarizing=false;re();
+        }catch(e){S.vaultSummarizing=false;S.vaultSummary='AI unavailable — please write a summary manually.';re();}
       });
-      actRow.appendChild(aiB);
-      actRow.appendChild(btn("🔒 Lock","btn-sm btn-ghost",()=>confirm("Lock Report?","Locking makes this a permanent, uneditable record. This cannot be undone.",true,()=>{activeNote.locked=true;re();})));
+
+      // Lock report
+      const lockBtn=mkBtn('🔒 Lock Report','btn-sm btn-ghost',()=>openConfirm('Lock Report?',
+        'Locking makes this a permanent, uneditable record. This cannot be undone.',true,()=>{
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+          if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+          S.vaultHasUnsaved=false;re();toast('🔒 Report locked permanently!');
+        }));
+
+      actRow.appendChild(saveDraftBtn);actRow.appendChild(aiBtn);actRow.appendChild(lockBtn);
+      ed.appendChild(actRow);
     }
-    editor.appendChild(actRow);
 
     // Summary block
-    const summaryText=state.vaultSummaryText||activeNote.summary||"";
-    if(summaryText){
-      const ab=div("ai-block");
-      ab.appendChild(div("ai-label",["✨ Parent-Friendly Summary"]));
-      const sta=h("textarea",{class:"inp",style:{minHeight:"90px",background:"white"}});
-      sta.value=summaryText;
-      sta.oninput=e=>{activeNote.summary=e.target.value;state.vaultSummaryText=e.target.value;};
+    const sumTxt=S.vaultSummary||(activeNote.summary||'');
+    if(S.vaultSummarizing){
+      const lb=el('div',{class:'ai-block'});
+      lb.appendChild(el('div',{class:'ai-label'},['✨ AI is thinking…']));
+      const ld=d('',[], {display:'flex',gap:'11px',alignItems:'center',color:'var(--slate)',fontWeight:600});
+      ld.appendChild(spinner());ld.appendChild(el('span',{},'Generating parent-friendly summary…'));
+      lb.appendChild(ld);
+      ed.appendChild(lb);
+    } else if(sumTxt){
+      const ab=el('div',{class:'ai-block'});
+      ab.appendChild(el('div',{class:'ai-label'},['✨ Parent-Friendly Summary']));
+      const sta=el('textarea',{class:'inp',style:{background:'white',minHeight:'88px'}});
+      sta.value=sumTxt;
+      sta.readOnly=activeNote.locked;
+      sta.oninput=e=>{
+        S.vaultSummary=e.target.value;
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+      };
       ab.appendChild(sta);
-      const pubB=btn("📤 Lock & Publish to Parent","btn-md btn-primary",()=>{
-        confirm("Publish Summary?","This will send the summary to the parent's profile.",false,()=>{
-          activeNote.published=true;
-          notifications.unshift({id:"n_"+Date.now(),type:"report",msg:`Dr. Sarah Okafor published a new summary for ${child?.name}`,time:"Just now",read:false,childId:state.activeChild});
-          re();showToast("🎉 Summary published to parent's profile!");
+      if(!activeNote.locked&&!activeNote.published){
+        const pubBtn=mkBtn('📤 Lock & Publish to Parent','btn-md btn-primary',()=>{
+          openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,()=>{
+            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+            if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+            pushNotif('report',`${DB.specialists.find(s=>s.id===specId)?.name||'Specialist'} published a new session summary for ${child?.name}`,S.activeChild);
+            S.vaultHasUnsaved=false;re();toast('🎉 Summary published!');
+          });
         });
-      });
-      pubB.style.marginTop="11px";
-      ab.appendChild(pubB);
-      editor.appendChild(ab);
+        pubBtn.style.marginTop='12px';
+        ab.appendChild(pubBtn);
+      }
+      ed.appendChild(ab);
     }
-
-    layout.appendChild(editor);
+    layout.appendChild(ed);
   }
-
   sec.appendChild(layout);
-
-  // Mobile stack
-  if(window.innerWidth<768)layout.style.gridTemplateColumns="1fr";
-
   return sec;
 }
 
-// ── HOMEWORK (SPECIALIST) ─────────────────────────────────────────────────
-function renderHomeworkSpec(){
-  const childHW=homework.filter(h=>h.childId===state.activeChild);
-  const child=children.find(c=>c.id===state.activeChild);
-  const sec=div("section fade-in");
-  const shr=div("section-header",[h("h2",{class:"page-title"},["Homework & Tasks"])]);
-  shr.appendChild(btn("➕ Assign Task","btn-sm btn-primary",()=>showAssignModal()));
-  sec.appendChild(shr);
+/* ═══════════════════════════════════════════════
+   HOMEWORK — PARENT VIEW
+═══════════════════════════════════════════════ */
+function renderHomeworkParent(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
+  sec.appendChild(el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assigned tasks`]));
 
-  if(!childHW.length){sec.appendChild(h("p",{style:{color:"var(--slate)"}},"No tasks assigned yet."));return sec;}
-
-  childHW.forEach(hw=>{
-    const card=div("card",[],{display:"flex",gap:"13px",alignItems:"flex-start",marginBottom:"10px"});
-    const chkbox=div("chk"+(hw.completed?" done":""));
-    chkbox.onclick=()=>{hw.completed=!hw.completed;re();};
-    card.appendChild(chkbox);
-    const info=div("",[
-      div("",[hw.task],{fontWeight:600,color:hw.completed?"var(--slate-l)":"var(--navy)",textDecoration:hw.completed?"line-through":"none",fontSize:".88rem",marginBottom:"5px"}),
-      div("",[
-        badge(hw.category,hw.category==="Speech"?"teal":hw.category==="OT"?"coral":"purple"),
-        h("span",{style:{fontSize:".72rem",color:"var(--slate-l)",marginLeft:"8px"}},["Due "+hw.due]),
-        hw.completed?badge("✅ Completed by parent","green"):h("span",{},{})
-      ])
-    ],{flex:1});
+  if(!hw.length){sec.appendChild(p('No tasks assigned yet. Your care team will add them here!'));return sec;}
+  hw.forEach(task=>{
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
+    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+    chk.onclick=()=>{
+      const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
+      if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;
+        if(!task.completed)pushNotif('homework',`"${task.task.slice(0,38)}…" marked complete ✅`,S.activeChild);
+      }re();
+    };
+    card.appendChild(chk);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',lineHeight:'1.4',marginBottom:'5px'}},[task.task]));
+    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
+    meta.appendChild(badge(task.category,catBadge(task.category)));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},['by '+task.specialist]));
+    if(task.completed)meta.appendChild(badge('✅ Complete','green'));
+    info.appendChild(meta);
     card.appendChild(info);
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+/* ═══════════════════════════════════════════════
+   HOMEWORK — SPECIALIST VIEW
+═══════════════════════════════════════════════ */
+function renderHomeworkSpec(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Homework & Tasks']),
+    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assignments`])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Assign Task','btn-md btn-primary',()=>showAssignModal())]));
+  sec.appendChild(hd);
+
+  if(!hw.length){sec.appendChild(p("No tasks assigned yet. Click 'Assign Task' to add one!"));return sec;}
+  hw.forEach(task=>{
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
+    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+    chk.onclick=()=>{
+      const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
+      if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;}re();
+    };
+    card.appendChild(chk);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',marginBottom:'5px'}},[task.task]));
+    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
+    meta.appendChild(badge(task.category,catBadge(task.category)));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
+    if(task.completed)meta.appendChild(badge('✅ Completed by parent','green'));
+    info.appendChild(meta);
+    card.appendChild(info);
+    if(!task.completed){
+      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
+        const all=DB.homework;DB.homework=all.filter(h=>h.id!==task.id);re();
+      })));
+    }
     sec.appendChild(card);
   });
   return sec;
 }
 
 function showAssignModal(){
-  const frag=document.createDocumentFragment();
-  const ta=h("textarea",{class:"inp",placeholder:"Describe the task..."});
-  const sel=h("select",{class:"inp"});
-  ["Speech","OT","PT","General"].forEach(c=>{const o=h("option");o.value=c;o.textContent=c;sel.appendChild(o);});
-  const dateI=h("input",{class:"inp",type:"date"});
-  frag.appendChild(ta);frag.appendChild(sel);frag.appendChild(dateI);
-  const {ov,close}=makeModal("➕ Assign Task",frag,420);
-  const addB=btn("Assign Task","btn-md btn-primary btn-full",()=>{
-    if(!ta.value.trim()||!dateI.value)return;
-    homework.unshift({id:"h_"+Date.now(),childId:state.activeChild,task:ta.value.trim(),specialist:"Dr. Sarah Okafor",due:dateI.value,completed:false,category:sel.value});
-    close();re();showToast("✅ Task assigned!");
-  });
-  ov.querySelector(".modal-body").style.cssText="padding:22px 26px;display:flex;flex-direction:column;gap:12px";
-  ov.querySelector(".modal-body").appendChild(addB);
-  document.body.appendChild(ov);
+  openModal('➕ Assign Homework Task',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
+    const sel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
+    const di=el('input',{class:'inp',type:'date'});
+    [ta,sel,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
+      if(!ta.value.trim()||!di.value){toast('⚠️ Task and due date required.','error');return;}
+      const all=DB.homework;
+      const specId=session?.specialistId||'s1';
+      const spec=DB.specialists.find(s=>s.id===specId);
+      all.unshift({id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value});
+      DB.homework=all;
+      pushNotif('homework',`New task: "${ta.value.slice(0,42)}…"`,S.activeChild);
+      close();re();toast('✅ Task assigned!');
+    }));
+  },460);
 }
 
-// ── PATIENTS ──────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   PATIENTS LIST (Specialist)
+═══════════════════════════════════════════════ */
 function renderPatients(){
-  const sec=div("section fade-in");
-  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"16px"}},["My Patients"]));
-  const srch=h("input",{class:"inp",placeholder:"Search by name...",style:{marginBottom:"18px"}});
-  sec.appendChild(srch);
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},['My Patients']));
+  sec.appendChild(el('p',{class:'page-sub'},['Click a patient to view their vault & files']));
+  const si=el('input',{class:'inp',placeholder:'🔍 Search by name or diagnosis…',style:{marginBottom:'18px'}});
+  sec.appendChild(si);
 
-  const list=div("",[],{display:"flex",flexDirection:"column",gap:"11px"});
-  const sorted=[...children].sort((a,b)=>a.name.split(" ").pop().localeCompare(b.name.split(" ").pop()));
+  const stack=el('div',{class:'stack'});
+  const sorted=[...DB.children].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
 
-  const render_list=filter=>{
-    list.innerHTML="";
-    sorted.filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())).forEach(c=>{
-      const card=div("card clickable",[],{display:"flex",alignItems:"center",gap:"15px",border:state.activeChild===c.id?"2px solid var(--teal)":"1px solid var(--border)"});
-      const icon=div("",[c.avatar],{width:"50px",height:"50px",borderRadius:"13px",background:c.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.7rem",flexShrink:0});
-      const info=div("",[
-        div("",[c.name],{fontWeight:700,color:"var(--navy)"}),
-        div("",[`Age ${c.age} · DOB ${c.dob}`],{fontSize:".8rem",color:"var(--slate)",margin:"2px 0 6px"}),
-        div("",[...c.diagnoses.map(d=>badge(d,"teal"))],{display:"flex",gap:"6px",flexWrap:"wrap"})
-      ],{flex:1});
-      const arr=h("span",{style:{color:"var(--slate-l)",fontSize:"1.1rem"}},["›"]);
-      card.appendChild(icon);card.appendChild(info);card.appendChild(arr);
-      card.onclick=()=>setS({activeChild:c.id,activeTab:"vault"});
-      list.appendChild(card);
+  const doFilter=q=>{
+    stack.innerHTML='';
+    sorted.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.diagnoses.some(d=>d.toLowerCase().includes(q.toLowerCase()))).forEach(c=>{
+      const card=el('div',{class:'card click',style:{display:'flex',alignItems:'center',gap:'15px',border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
+      card.innerHTML=`<div style="width:52px;height:52px;border-radius:15px;background:${c.color}44;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">${c.avatar}</div>`;
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'2px'}},[c.name]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+c.age+' · DOB '+c.dob]));
+      const dxRow=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
+      c.diagnoses.forEach(dx=>dxRow.appendChild(badge(dx,'teal')));
+      info.appendChild(dxRow);
+      card.appendChild(info);
+      card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
+      card.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';re();};
+      stack.appendChild(card);
     });
   };
-  render_list("");
-  srch.oninput=e=>render_list(e.target.value);
-  sec.appendChild(srch);sec.appendChild(list);
+  doFilter('');
+  si.oninput=e=>doFilter(e.target.value);
+  sec.appendChild(si);sec.appendChild(stack);
   return sec;
 }
 
-// ── NOTIFICATIONS PAGE ────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   CREDENTIALS / PERSONAL FOLDER (Specialist only)
+═══════════════════════════════════════════════ */
+function renderCredentials(){
+  const specId=session?.specialistId||'s1';
+  const spec=DB.specialists.find(s=>s.id===specId)||{credentials:[]};
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['🗂️ My Credentials Folder']),
+    el('p',{class:'page-sub'},['Private storage for your licenses and professional documents — not visible to parents or other specialists'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('📤 Upload Document','btn-md btn-primary',()=>showCredentialUpload(spec,specId))]));
+  sec.appendChild(hd);
+
+  const card=el('div',{class:'card personal-folder'});
+  card.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'11px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--lav-l)'}},
+    [el('span',{style:{fontSize:'1.6rem'}},['🔐']),el('div',{},[
+      el('div',{style:{fontWeight:800,color:'var(--navy)'}},['Secure Personal Storage']),
+      el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},['Only you can see these documents'])
+    ])]));
+
+  const creds=(spec.credentials||[]);
+  if(!creds.length){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,textAlign:'center',padding:'20px 0'}},['No documents uploaded yet.\nUpload your license, certifications, and professional documents here.']));
+  } else {
+    creds.forEach(cr=>{
+      const fi=el('div',{class:'file-item'});
+      fi.innerHTML=`<span style="font-size:1.3rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${cr.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${cr.date} · ${cr.type}</div></div>`;
+      fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Document','Remove this document permanently?',true,()=>{
+        const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
+        if(i>-1){specs[i].credentials=specs[i].credentials.filter(c=>c.id!==cr.id);DB.specialists=specs;}
+        re();toast('✅ Document removed.');
+      })));
+      card.appendChild(fi);
+    });
+  }
+  sec.appendChild(card);
+
+  // Categories
+  const cats=['Professional License','CPD Certificate','Insurance','Registration','Other'];
+  sec.appendChild(el('div',{style:{marginTop:'20px'}},[el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Document Categories']),
+    el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}},cats.map(c=>badge(c,'lav')))]));
+  return sec;
+}
+
+function showCredentialUpload(spec,specId){
+  const fi=el('input',{type:'file',style:{display:'none'}});
+  fi.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    openModal('📤 Upload Credential',(mb,close)=>{
+      mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:600}},['Uploading: '+file.name]));
+      const typeSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      ['Professional License','CPD Certificate','Insurance','Registration','Other'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;typeSel.appendChild(o);});
+      mb.appendChild(typeSel);
+      const upBtn=mkBtn('📤 Upload','btn-lg btn-primary btn-full',async()=>{
+        upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
+        try{
+          const ab=await file.arrayBuffer();
+          const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
+            method:'POST',
+            headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
+              'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/Specialists/${spec.name}/Credentials/${file.name}`,mode:'add',autorename:true})},body:ab
+          });
+          const data=await resp.json();
+          const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
+          if(i>-1){
+            if(!specs[i].credentials)specs[i].credentials=[];
+            specs[i].credentials.push({id:'cr_'+Date.now(),name:data.name||file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value});
+            DB.specialists=specs;
+          }
+          close();re();toast('✅ Credential uploaded to your private folder!');
+        }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
+      });
+      mb.appendChild(upBtn);
+    },440);
+  };
+  document.body.appendChild(fi);fi.click();
+}
+
+/* ═══════════════════════════════════════════════
+   NOTIFICATIONS
+═══════════════════════════════════════════════ */
 function renderNotifications(){
-  const sec=div("section fade-in");
-  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"20px"}},["All Notifications"]));
-  notifications.forEach(n=>{
-    const card=div("card",[],{display:"flex",gap:"13px",alignItems:"flex-start",marginBottom:"10px",
-      background:n.read?"#fff":"var(--mint-l)",border:n.read?"1px solid var(--border)":"1.5px solid var(--teal-l)"});
-    card.appendChild(h("span",{style:{fontSize:"1.4rem"}},[notifIcon[n.type]]));
-    const info=div("",[
-      div("",[n.msg],{color:"var(--navy)",fontWeight:n.read?400:600,lineHeight:"1.4",marginBottom:"3px"}),
-      div("",[n.time],{fontSize:".74rem",color:"var(--slate-l)"})
-    ],{flex:1});
-    card.appendChild(info);
-    if(!n.read)card.appendChild(badge("New","teal"));
-    sec.appendChild(card);
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'20px'}},['Notifications']));
+  const notifs=DB.notifications;
+  if(!notifs.length){sec.appendChild(p('All caught up! 🎉'));return sec;}
+  const stack=el('div',{class:'stack'});
+  notifs.forEach(n=>{
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'flex-start',background:n.read?'#fff':'var(--mint-l)',border:n.read?'2px solid var(--mint-l)':'2.5px solid var(--teal-l)',cursor:'pointer'}});
+    card.innerHTML=`<span style="font-size:1.45rem">${notifIcon[n.type]||'📢'}</span><div style="flex:1"><div style="font-weight:${n.read?600:800};color:var(--navy);line-height:1.4;margin-bottom:3px">${n.msg}</div><div style="font-size:.72rem;color:var(--slate-l)">${n.time}</div></div>`;
+    if(!n.read)card.appendChild(badge('New','teal'));
+    card.onclick=()=>{
+      const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
+      if(i>-1){ns[i].read=true;DB.notifications=ns;re();}
+    };
+    stack.appendChild(card);
   });
+  sec.appendChild(stack);
   return sec;
 }
 
-// ── SETTINGS ─────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════════ */
 function renderSettings(){
-  const sec=div("section fade-in");
-  sec.appendChild(h("h2",{class:"page-title",style:{marginBottom:"20px"}},["Settings"]));
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
 
-  // Notifications card
-  const nc=div("card",[], {marginBottom:"16px"});
-  nc.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"16px"}},["🔔 Notification Preferences"]));
-  Object.entries(settings_notifs).forEach(([key,val])=>{
-    const row=div("",[],{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--border)"});
-    const label=h("span",{style:{textTransform:"capitalize",color:"var(--navy)"}},[key+" notifications"]);
-    const tog=h("button",{class:"toggle"+(val?" on":"")});
-    tog.onclick=()=>{settings_notifs[key]=!settings_notifs[key];tog.className="toggle"+(settings_notifs[key]?" on":"");};
-    row.appendChild(label);row.appendChild(tog);
-    nc.appendChild(row);
+  // Notif prefs
+  const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['🔔 Notification Preferences']));
+  const prefs=DB.notifPrefs;
+  Object.entries(prefs).forEach(([key,val])=>{
+    const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)',textTransform:'capitalize'}},[key+' notifications']),
+      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},['Alerts for '+key+' activity'])
+    ]));
+    const tog=el('button',{class:'toggle'+(val?' on':'')});
+    tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
+    row.appendChild(tog);nc.appendChild(row);
   });
   sec.appendChild(nc);
 
-  // Privacy card
-  const pc=div("card");
-  pc.appendChild(h("h3",{style:{fontWeight:700,color:"var(--navy)",marginBottom:"12px"}},["🔒 Privacy & Security"]));
-  pc.appendChild(h("p",{style:{color:"var(--slate)",fontSize:".86rem",lineHeight:"1.65"}},
-    ["All data is encrypted end-to-end. Specialists only see files you explicitly share. Files are stored securely in your Dropbox account. Specialists retain a Legacy Archive of their own authored notes if removed from the care team."]));
+  // Calendar sync
+  const cc=el('div',{class:'card',style:{marginBottom:'16px'}});
+  cc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 Calendar Sync']));
+  cc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6',fontWeight:500}},
+    ['Connect your calendar to sync appointments automatically.']));
+  const calBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
+  ['📅 Google Calendar','🍎 Apple iCal','📧 Outlook'].forEach(b=>{
+    calBtns.appendChild(mkBtn(b,'btn-md btn-ghost',()=>toast('🔗 '+b+' sync — coming soon!','info')));
+  });
+  cc.appendChild(calBtns);
+  sec.appendChild(cc);
+
+  // Account
+  const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
+  ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👤 Account']));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
+  const acBtns=d('',[], {display:'flex',gap:'10px'});
+  acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',()=>{doLogout();re();}));
+  ac.appendChild(acBtns);
+  sec.appendChild(ac);
+
+  // Privacy
+  const pc=el('div',{class:'card'});
+  pc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
+  pc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
+    ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed from a care team, they retain a Legacy Archive of only their own authored notes — all other access is revoked immediately.']));
   sec.appendChild(pc);
   return sec;
 }
 
-// ── LOGIN SCREEN ──────────────────────────────────────────────────────────
-function renderLogin(){
-  const scr=div("login-bg",[], {minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px",position:"relative",overflow:"hidden"});
-  scr.appendChild(div("login-orb1"));
-  scr.appendChild(div("login-orb2"));
-
-  if(state.loginStep==="landing"){
-    const card=div("login-card slide-up");
-    card.innerHTML=`<div style="text-align:center;margin-bottom:28px"><div style="font-size:3.5rem;margin-bottom:12px">🤝</div><h1 class="ff" style="font-size:2.6rem;font-weight:700;margin-bottom:9px">Huddledin</h1><p style="color:rgba(255,255,255,.85);font-size:.98rem;line-height:1.65">Collaborative care for children with special needs — all in one place.</p></div>`;
-    const gb=h("button",{class:"landing-btn-white"},["Get Started"]);
-    gb.onclick=()=>setS({loginStep:"role"});
-    const sb=h("button",{class:"landing-btn-ghost"},["Sign In"]);
-    sb.onclick=()=>setS({loginStep:"role"});
-    card.appendChild(gb);card.appendChild(sb);
-    card.appendChild(h("p",{class:"landing-tagline"},["Secure • HIPAA-aware • Parent-first"]));
-    scr.appendChild(card);
-  }
-  else if(state.loginStep==="role"){
-    const card=div("login-plain slide-up");
-    const back=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",marginBottom:"18px",fontSize:".88rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"5px"}},"← Back");
-    back.onclick=()=>setS({loginStep:"landing"});
-    card.appendChild(back);
-    card.innerHTML+=`<h2 class="ff" style="font-size:1.65rem;font-weight:700;margin-bottom:6px;color:var(--navy)">Who are you?</h2><p style="color:var(--slate);margin-bottom:24px">Choose your role to continue.</p>`;
-    card.querySelector("button").onclick=()=>setS({loginStep:"landing"});
-    [{r:"parent",emoji:"👨‍👩‍👧",label:"Parent / Guardian",desc:"Manage your child's care team, files, and appointments"},{r:"specialist",emoji:"🩺",label:"Specialist / Therapist",desc:"View patient notes, publish summaries, assign homework"}].forEach(({r,emoji,label,desc})=>{
-      const rc=div("role-card"+(state.role===r?" selected":""));
-      rc.innerHTML=`<span style="font-size:2.2rem">${emoji}</span><div><div style="font-weight:700;color:var(--navy);margin-bottom:3px">${label}</div><div style="font-size:.8rem;color:var(--slate)">${desc}</div></div>`;
-      rc.onclick=()=>setS({role:r,loginStep:"form"});
-      card.appendChild(rc);
-    });
-    scr.appendChild(card);
-  }
-  else{
-    const card=div("login-plain slide-up");
-    const back=h("button",{style:{background:"none",border:"none",cursor:"pointer",color:"var(--slate)",marginBottom:"18px",fontSize:".88rem",fontFamily:"inherit"}},["← Back"]);
-    back.onclick=()=>setS({loginStep:"role"});
-    card.appendChild(back);
-    card.appendChild(h("div",{style:{textAlign:"center",marginBottom:"26px"}},[ h("div",{style:{fontSize:"2.8rem",marginBottom:"9px"}},[state.role==="parent"?"👨‍👩‍👧":"🩺"]), h("h2",{class:"ff",style:{fontSize:"1.65rem",fontWeight:700,color:"var(--navy)"}},[state.role==="parent"?"Parent Sign In":"Specialist Sign In"]) ]));
-    const form=div("inp-group");
-    if(state.role==="parent")form.appendChild(h("input",{class:"inp",placeholder:"Full Name"}));
-    form.appendChild(h("input",{class:"inp",placeholder:"Email address",type:"email"}));
-    form.appendChild(h("input",{class:"inp",placeholder:"Password",type:"password"}));
-    const signinB=h("button",{class:"btn btn-primary btn-lg btn-full",style:{marginTop:"8px"}},["Sign In"]);
-    let loading=false;
-    signinB.onclick=()=>{
-      if(loading)return;loading=true;
-      signinB.innerHTML='<span class="spinner"></span> Signing in...';
-      setTimeout(()=>{
-        const firstTab=state.role==="parent"?"dashboard":"patients";
-        setS({screen:"app",activeTab:firstTab,specialistId:"s1"});
-      },1100);
-    };
-    form.appendChild(signinB);
-    card.appendChild(form);
-    card.appendChild(h("p",{style:{textAlign:"center",color:"var(--slate)",fontSize:".8rem",marginTop:"16px"}},["Demo: any credentials work ✨"]));
-    scr.appendChild(card);
-  }
-  return scr;
+/* ═══════════════════════════════════════════════
+   ROOT RENDER
+═══════════════════════════════════════════════ */
+function re(){
+  const root=document.getElementById('root');
+  root.innerHTML='';
+  root.appendChild(session?renderShell():renderAuth());
 }
 
-// ── MAIN APP SHELL ────────────────────────────────────────────────────────
-function renderApp(){
-  const wrap=div("fade-in",[],{display:"flex",flexDirection:"column",minHeight:"100vh"});
-  wrap.appendChild(renderHeader());
-  const body=h("div",{id:"body"});
-  body.appendChild(renderSideNav());
-  const main=h("main",{id:"main"});
-  main.appendChild(renderContent());
-  body.appendChild(main);
-  wrap.appendChild(body);
-  wrap.appendChild(renderBottomNav());
-  return wrap;
-}
-
-function renderContent(){
-  const t=state.activeTab;
-  if(state.role==="parent"){
-    if(t==="dashboard")return renderDashboard();
-    if(t==="files")return renderFiles();
-    if(t==="team")return renderTeam();
-    if(t==="calendar")return renderCalendar();
-    if(t==="chat")return renderChat();
-    if(t==="notifications")return renderNotifications();
-    if(t==="settings")return renderSettings();
-  } else {
-    if(t==="patients")return renderPatients();
-    if(t==="vault")return renderVault();
-    if(t==="homework")return renderHomeworkSpec();
-    if(t==="files")return renderFiles();
-    if(t==="chat")return renderChat();
-    if(t==="notifications")return renderNotifications();
-  }
-  return div("",[h("p",{style:{padding:"30px",color:"var(--slate)"}},"Coming soon...")]);
-}
-
-// ── ROOT RENDER ───────────────────────────────────────────────────────────
-function render(){
-  if(state.screen==="login")return renderLogin();
-  return renderApp();
-}
-
-// Boot
+initData();
 re();
 </script>
 </body>
