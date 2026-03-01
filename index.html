@@ -918,6 +918,241 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 .pf-title{font-weight:800;color:var(--navy);font-size:.9rem}
 .pf-desc{font-size:.76rem;color:var(--slate);margin-top:1px}
+
+/* ══════════════════════════════════════════════════
+   ONBOARDING GUIDED TOUR — Floating Bubbles
+══════════════════════════════════════════════════ */
+
+/* Spotlight overlay — dims everything except the target */
+.tour-overlay{
+  position:fixed;inset:0;z-index:800;
+  pointer-events:none; /* clicks pass through to highlighted elements */
+}
+/* The cutout spotlight — animated ring on target */
+.tour-spotlight{
+  position:fixed;z-index:801;
+  border-radius:inherit;
+  box-shadow:0 0 0 4000px rgba(15,23,42,.62);
+  pointer-events:none;
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  border:2.5px solid var(--teal-l);
+  animation:tourPulse 2s ease infinite;
+}
+@keyframes tourPulse{
+  0%,100%{box-shadow:0 0 0 4000px rgba(15,23,42,.62),0 0 0 0 rgba(45,212,191,.4);}
+  50%{box-shadow:0 0 0 4000px rgba(15,23,42,.62),0 0 0 10px rgba(45,212,191,.0);}
+}
+
+/* The floating instruction bubble */
+.tour-bubble{
+  position:fixed;z-index:802;
+  width:min(310px,88vw);
+  background:#fff;
+  border-radius:var(--r-xl);
+  box-shadow:0 20px 60px rgba(0,0,0,.22),0 6px 20px rgba(0,0,0,.10);
+  padding:20px;
+  animation:bubbleIn .4s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:all;
+}
+@keyframes bubbleIn{
+  0%{opacity:0;transform:scale(.7) translateY(20px);}
+  100%{opacity:1;transform:scale(1) translateY(0);}
+}
+
+/* Tail / arrow pointing to the target */
+.tour-bubble::before{
+  content:'';position:absolute;
+  width:0;height:0;
+}
+.tour-bubble.arrow-bottom::before{
+  bottom:-10px;left:50%;transform:translateX(-50%);
+  border-left:10px solid transparent;border-right:10px solid transparent;
+  border-top:10px solid #fff;
+}
+.tour-bubble.arrow-top::before{
+  top:-10px;left:50%;transform:translateX(-50%);
+  border-left:10px solid transparent;border-right:10px solid transparent;
+  border-bottom:10px solid #fff;
+}
+.tour-bubble.arrow-left::before{
+  left:-10px;top:50%;transform:translateY(-50%);
+  border-top:10px solid transparent;border-bottom:10px solid transparent;
+  border-right:10px solid #fff;
+}
+.tour-bubble.arrow-right::before{
+  right:-10px;top:50%;transform:translateY(-50%);
+  border-top:10px solid transparent;border-bottom:10px solid transparent;
+  border-left:10px solid #fff;
+}
+
+/* Bubble internals */
+.tour-step-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--mint-l);color:var(--teal-d);
+  border-radius:99px;padding:3px 10px;
+  font-size:.66rem;font-weight:900;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:10px;
+}
+.tour-bubble-title{
+  font-family:'Fraunces',serif;font-size:1rem;font-weight:800;
+  color:var(--navy);margin-bottom:6px;line-height:1.25;
+}
+.tour-bubble-body{
+  font-size:.82rem;color:var(--slate);font-weight:500;
+  line-height:1.6;margin-bottom:14px;
+}
+.tour-bubble-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.tour-btn-next{
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+  color:#fff;border:none;border-radius:var(--r-full);
+  padding:9px 18px;font-size:.82rem;font-weight:800;
+  cursor:pointer;font-family:'Nunito',sans-serif;
+  transition:transform var(--spring),box-shadow .15s;
+  box-shadow:0 4px 14px rgba(13,148,136,.35);
+}
+.tour-btn-next:active{transform:scale(.94)}
+.tour-btn-skip{
+  background:none;border:none;color:var(--slate-l);
+  font-size:.78rem;font-weight:700;cursor:pointer;
+  font-family:'Nunito',sans-serif;padding:6px;
+  border-radius:var(--r-full);transition:color .14s;
+}
+.tour-btn-skip:hover{color:var(--slate)}
+.tour-progress-dots{
+  display:flex;gap:5px;align-items:center;
+}
+.tour-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--mint);transition:all .22s;
+}
+.tour-dot.active{
+  width:18px;border-radius:4px;background:var(--teal);
+}
+.tour-dsa-row{
+  margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--mint-l);
+  display:flex;align-items:center;gap:8px;
+}
+.tour-dsa-row label{
+  font-size:.74rem;font-weight:600;color:var(--slate);
+  display:flex;align-items:center;gap:7px;cursor:pointer;flex:1;
+}
+.tour-dsa-row input[type=checkbox]{
+  width:16px;height:16px;accent-color:var(--teal);
+}
+
+/* ══════════════════════════════════════════════════
+   ZERO-STATE / EMPTY STATE COMPONENTS
+══════════════════════════════════════════════════ */
+
+/* Full empty-state card */
+.empty-state{
+  text-align:center;padding:40px 24px;
+  border:2px dashed var(--mint);border-radius:var(--r-xl);
+  background:linear-gradient(135deg,var(--mint-ll),rgba(237,233,254,.4));
+  margin:8px 0;
+}
+.empty-state-icon{
+  font-size:3rem;margin-bottom:14px;display:block;
+  animation:springIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+.empty-state-title{
+  font-family:'Fraunces',serif;font-size:1.15rem;font-weight:800;
+  color:var(--navy);margin-bottom:7px;
+}
+.empty-state-body{
+  font-size:.84rem;color:var(--slate);font-weight:500;
+  line-height:1.65;max-width:280px;margin:0 auto 20px;
+}
+.empty-state-actions{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+}
+
+/* Inline mini empty state (inside cards) */
+.empty-inline{
+  padding:18px;text-align:center;color:var(--slate);
+  font-size:.82rem;font-weight:600;border-radius:var(--r);
+  background:var(--mint-ll);border:1.5px dashed var(--mint);
+}
+
+/* ══════════════════════════════════════════════════
+   CONNECTION / INVITE SYSTEM
+══════════════════════════════════════════════════ */
+
+/* Connection code display card */
+.conn-code-card{
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+  border-radius:var(--r-xl);padding:24px;
+  text-align:center;position:relative;overflow:hidden;
+}
+.conn-code-card::before{
+  content:'🔗';position:absolute;top:-10px;right:-10px;
+  font-size:5rem;opacity:.08;
+}
+.conn-code-label{
+  font-size:.72rem;font-weight:800;color:rgba(255,255,255,.75);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;
+}
+.conn-code-value{
+  font-family:'Fraunces',serif;font-size:2.2rem;font-weight:800;
+  color:#fff;letter-spacing:.18em;margin-bottom:14px;
+  text-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.conn-code-expiry{
+  font-size:.72rem;color:rgba(255,255,255,.65);font-weight:600;
+}
+.conn-code-btns{
+  display:flex;gap:10px;justify-content:center;margin-top:16px;
+}
+.conn-code-btn{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);padding:8px 16px;
+  font-size:.78rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito',sans-serif;
+  transition:background .15s;
+}
+.conn-code-btn:active{background:rgba(255,255,255,.35)}
+
+/* Connection step in specialist onboarding */
+.conn-enter-wrap{
+  background:var(--lav-l);border-radius:var(--r-xl);padding:22px;
+  border:2px dashed var(--lav);text-align:center;
+}
+
+/* New user welcome banner shown before first action */
+.welcome-banner{
+  background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 60%,#38bdf8 100%);
+  border-radius:var(--r-xl);padding:26px 22px;
+  position:relative;overflow:hidden;margin-bottom:22px;
+}
+.welcome-banner::after{
+  content:'🤝';position:absolute;right:16px;top:50%;
+  transform:translateY(-50%);font-size:4rem;opacity:.15;
+}
+.welcome-banner h2{
+  font-family:'Fraunces',serif;font-size:1.35rem;font-weight:800;
+  color:#fff;margin-bottom:6px;line-height:1.2;
+}
+.welcome-banner p{
+  font-size:.84rem;color:rgba(255,255,255,.85);font-weight:500;
+  line-height:1.55;margin-bottom:16px;
+}
+.welcome-banner-actions{
+  display:flex;flex-wrap:wrap;gap:10px;
+}
+.wb-btn{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);
+  padding:10px 18px;font-size:.82rem;font-weight:800;
+  cursor:pointer;font-family:'Nunito',sans-serif;
+  transition:background .15s,transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.wb-btn:active{transform:scale(.94);background:rgba(255,255,255,.35)}
+.wb-btn.primary{background:#fff;color:var(--teal-d);}
+.wb-btn.primary:active{background:rgba(255,255,255,.9)}
 </style>
 </head>
 <body>
@@ -933,24 +1168,55 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 const DROPBOX_TOKEN = "sl.u.AGWlyueCeEoysUJd9wLn-PDIvP9Kd6IL9N_JiW2pLLv7Rc8AZpjfeeOJJ6tqD9yyEOujIXViAMTzofOJUnt7kefUyHcu74iHHedEeOieiyfHXsCmbP-q7tLdtyupRgce1C_NJUrZPZr6VvO3bDHkvxDvq71BiYJkHAL5bZOm4BqdIg6BMFXkyzTJU494JuP-wLTEfzMePwtFHdM_E_qYV2g2QeKKD-jB52SUnPTAAamxmPX5n6cWrChOpF1NPPPw_E6suKI5Bpi8BpLzupIe_rnAApADu_3oxjznYHdikDHLn8RcV76KSeM7bz3A7Eb603LoC509BAR4U46IOaqrlqgoJ59sp5Ps9ZuPPpQtBE2fI3hQ_ymafSsu_-eZisHnvWe5buSe8kI6RWHBfW1yhtKFvzpUogRsaaDWm3iNOgwIjur-qCWs0olxrFlZK9RiaSTFKNpUEJwiT5qYGSANKzav3GiTAX-Dj-b26qk1UpRDiriaS_b0Y2Mklvz6Fr-Wg0SPu5OVxHfErayCoVM4myuvXPO5Tqwx7Hll0TkEUgD_DytZIoOdIgvuKxbNnG8xvRrHfHxdTbOK_j6wKDvZCCoGIzkKmMqqd4Q7VYYhBXsxRKMciv2meAwFxrNoc9I6jENFlnOpXZqB0VtaJibmjbEIcrr9BzQF-e2KhD8wwY8VsEAudevG2Xe6g-RnTT6C2YjNr8HdOP51dFnyup6wQ3A0gQ24_hMocyw-q-ku6brqQ-NgSHDzLIO1PrIVl9ayqzGjjBD6k4DIUSpbx0_NWQLqAIQai7RD5cOTHSnveGBMnEUKVuD_gG4m17XRZdy8kLJcSIvQostHhFjASsu9DpINxNKf2ltl57hcjxlXYHnFOhMSf48FcqGdz1oeKs4XTrM9tupLx5Q5Imy-qoOG2q6NQPAe_cAuFM6ULu-2t6wrHDoHNGIcnUgDmJlcS5XvQqsh1F_lVlnHjneAWaiwmmld3DDbjfm6ZcP-2lZRB9P-H2jFifCl58Jrgvos8eW0m40ODbZhOG_cCdyCHBoGZkaoyEhh2lMEgZNQ0oa1RNci09AbYlcsp7OUV22h73JAsyDjXDEH45Go4tQURSlgiQ51GY5s06-Q2_hu3ZE_1d9ID_736o7lWCnG1JSc7YOlkvuDfu48Tg5xN5rEEupI4pCmDVzg12pTXngrrGlS7VbM8uKEpnE3ABneKkXJpCbLTxwBnVrL-3rPzoBRU2wv8W_Y2dWvFv2-h3b-gOZQV8FRzV2jLu5Np7ut4PLrveGx4dMafygCavmZih60HZz2QaTAOf0fnt2dTzu6KsljRbo9Dg";
 
 /* ═══════════════════════════════════════════════
-   SEED DATA
+   SEED DATA — Production zero-state defaults
+   All arrays are empty for new users.
+   DEMO_SEED is loaded only if user opts in.
 ═══════════════════════════════════════════════ */
 const SEED = {
+  children:[],
+  globalInboxFiles:[],
+  specialists:[],
+  folders:[
+    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[]},
+    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[]},
+    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[]},
+    {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[]},
+    {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[]},
+    {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[]}
+  ],
+  homework:[],
+  appointments:[],
+  vaultNotes:[],
+  chats:[],
+  notifications:[],
+  notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
+  users:[],
+  legacyArchive:[],
+  pushEnabled:false,
+  emailInbox:[],
+  progress:[],
+  milestones:[],
+  specialistRequests:[],
+  connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
+  linkedSpecialists:[]  // [{specialistEmail, specialistName, role, childId, linkedAt}]
+};
+
+// Demo data loaded when user clicks "Try Demo"
+const DEMO_SEED={
   children:[
     {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing","Speech Delay"],photo:null},
     {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum"],photo:null}
   ],
-  // Global unsorted inbox — files not yet assigned to a child/folder
   globalInboxFiles:[
     {id:"gi1",name:"Annual_Insurance_Card.pdf",type:"pdf",date:"2025-02-28",size:"142 KB"},
-    {id:"gi2",name:"Occupational_Therapy_Referral.pdf",type:"pdf",date:"2025-03-01",size:"89 KB"},
+    {id:"gi2",name:"OT_Referral_Letter.pdf",type:"pdf",date:"2025-03-01",size:"89 KB"},
     {id:"gi3",name:"School_IEP_Draft_2025.pdf",type:"pdf",date:"2025-02-20",size:"312 KB"}
   ],
   specialists:[
-    {id:"s1",name:"Dr. Sarah Okafor",surname:"Okafor",role:"Speech Therapist",email:"sarah@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active",credentials:[]},
-    {id:"s2",name:"James Whitfield",surname:"Whitfield",role:"Occupational Therapist",email:"james@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active",credentials:[]},
-    {id:"s3",name:"Dr. Priya Nair",surname:"Nair",role:"Physical Therapist",email:"priya@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active",credentials:[]},
-    {id:"s4",name:"Dr. Marcus Webb",surname:"Webb",role:"Behavioral Therapist",email:"marcus@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending",credentials:[]}
+    {id:"s1",name:"Dr. Sarah Okafor",role:"Speech Therapist",email:"sarah@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active",credentials:[]},
+    {id:"s2",name:"James Whitfield",role:"Occupational Therapist",email:"james@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active",credentials:[]},
+    {id:"s3",name:"Dr. Priya Nair",role:"Physical Therapist",email:"priya@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active",credentials:[]},
+    {id:"s4",name:"Dr. Marcus Webb",role:"Behavioral Therapist",email:"marcus@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending",credentials:[]}
   ],
   folders:[
     {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[
@@ -986,71 +1252,62 @@ const SEED = {
     {id:"a4",childId:"c2",title:"Speech Session",specialist:"Dr. Sarah Okafor",specialistId:"s1",date:"2025-03-06",time:"9:00 AM",type:"speech",sharedWith:["s1"]}
   ],
   vaultNotes:[
-    {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 — Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% on CELF-5 subtest. Perseverative behavior noted during transitions — recommend OT collaboration. Parent reports frustration at home with homework. Consider modifying HEP frequency.",published:false,locked:false,isDraft:true,summary:"",lastSaved:"2025-02-24 14:32"},
-    {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 — Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout. Articulation improving measurably.",published:true,locked:true,isDraft:false,summary:"Lily had a wonderful session today! She's making great progress with her speech sounds and showed real improvement. Keep encouraging her talking at home — it really makes a difference! 🌟",lastSaved:"2025-02-10 16:00"}
+    {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 — Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% on CELF-5 subtest.",published:false,locked:false,isDraft:true,summary:"",lastSaved:"2025-02-24 14:32"},
+    {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 — Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout.",published:true,locked:true,isDraft:false,summary:"Lily had a wonderful session today! She's making great progress. 🌟",lastSaved:"2025-02-10 16:00"}
   ],
   chats:[
     {id:"ch1",type:"direct",participants:["parent","s1"],childId:"c1",approved:true,name:"",messages:[
       {id:"m1",sender:"s1",text:"Hi! Lily did wonderfully today 🌟 She really nailed those S blends!",time:"10:32 AM",date:"2025-02-24"},
-      {id:"m2",sender:"parent",text:"That's amazing! She was practising all week 😊",time:"11:05 AM",date:"2025-02-24"},
-      {id:"m3",sender:"s1",text:"It really shows. I'll publish a summary shortly for you to review.",time:"11:08 AM",date:"2025-02-24"}
-    ]},
-    {id:"ch2",type:"specialist-consult",participants:["s1","s2"],childId:"c1",approved:true,name:"OT+Speech Consult — Lily",messages:[
-      {id:"m4",sender:"s1",text:"James, wanted to loop you in re: Lily's transitions — she's showing perseverative behaviour that I think overlaps with sensory needs.",time:"9:00 AM",date:"2025-02-25"},
-      {id:"m5",sender:"s2",text:"Totally agree — I've been seeing the same. Let's coordinate our HEP recommendations.",time:"9:22 AM",date:"2025-02-25"}
+      {id:"m2",sender:"parent",text:"That's amazing! She was practising all week 😊",time:"11:05 AM",date:"2025-02-24"}
     ]}
   ],
   notifications:[
     {id:"n1",type:"report",msg:"Dr. Sarah Okafor published a new session summary for Lily",time:"2h ago",read:false,childId:"c1"},
-    {id:"n2",type:"homework",msg:"Sensory bin task marked complete by parent ✅",time:"1d ago",read:false,childId:"c1"},
-    {id:"n3",type:"chat",msg:"New message from Dr. Sarah Okafor",time:"1d ago",read:true,childId:"c1"},
-    {id:"n4",type:"invite",msg:"Dr. Marcus Webb requested to join Noah's care team",time:"2d ago",read:true,childId:"c2"},
-    {id:"n5",type:"consult",msg:"Dr. Sarah Okafor requested a specialist consult for Lily — approved ✅",time:"3d ago",read:true,childId:"c1"}
+    {id:"n2",type:"homework",msg:"Sensory bin task marked complete ✅",time:"1d ago",read:false,childId:"c1"}
   ],
   notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
-  users:[],
-  legacyArchive:[], // {specialistId, childId, childName, archivedAt, notes:[]}
-  /* NEW */
-  pushEnabled:false,
   emailInbox:[
-    {id:"e1",from:"huddledin@app.com",to:"parent@example.com",subject:"🤝 Dr. Sarah Okafor has joined Lily's care team",body:"Dr. Sarah Okafor accepted your invitation and has been added to Lily Carter's care team. She now has access to the Speech Therapy and General folders.",date:"2025-02-20",read:false,type:"invite"},
-    {id:"e2",from:"huddledin@app.com",to:"parent@example.com",subject:"📄 New session summary published for Lily",body:"Dr. Sarah Okafor has published a parent-friendly summary of Session #13. Log in to read it in Lily's profile.",date:"2025-02-10",read:true,type:"report"},
-    {id:"e3",from:"huddledin@app.com",to:"parent@example.com",subject:"✅ James Whitfield requested access to Lily's OT folder",body:"James Whitfield is requesting access to the Occupational Therapy folder for Lily Carter. Please log in to approve or deny.",date:"2025-02-08",read:true,type:"access"},
-    {id:"e4",from:"huddledin@app.com",to:"sarah@clinic.com",subject:"🤝 You've been invited to join Lily Carter's care team",body:"The Carter family has invited you to join Lily Carter's care team on Huddledin. Click below to accept the invitation and access their shared files.",date:"2025-02-19",read:false,type:"invite"}
+    {id:"e1",from:"huddledin@app.com",to:"parent@example.com",subject:"🤝 Dr. Sarah Okafor joined Lily's care team",body:"Dr. Sarah Okafor accepted your invitation.",date:"2025-02-20",read:false,type:"invite"}
   ],
   progress:[
     {id:"p1",childId:"c1",category:"Speech",label:"S-blend accuracy",value:78,maxValue:100,unit:"%",date:"2025-02-24",specialistId:"s1"},
-    {id:"p2",childId:"c1",category:"Speech",label:"S-blend accuracy",value:65,maxValue:100,unit:"%",date:"2025-01-15",specialistId:"s1"},
-    {id:"p3",childId:"c1",category:"OT",label:"Sensory tolerance (min)",value:12,maxValue:20,unit:"min",date:"2025-02-20",specialistId:"s2"},
-    {id:"p4",childId:"c2",category:"PT",label:"Balance beam duration",value:45,maxValue:60,unit:"sec",date:"2025-02-22",specialistId:"s3"},
-    {id:"p5",childId:"c2",category:"Speech",label:"Vocabulary score",value:42,maxValue:50,unit:"pts",date:"2025-02-18",specialistId:"s1"}
+    {id:"p2",childId:"c1",category:"Speech",label:"S-blend accuracy",value:65,maxValue:100,unit:"%",date:"2025-01-15",specialistId:"s1"}
   ],
   milestones:[
-    {id:"ml1",childId:"c1",title:"First successful /s/ blend in conversation",date:"2025-02-01",achieved:true,category:"Speech",specialistId:"s1"},
-    {id:"ml2",childId:"c1",title:"10 minutes sustained focus in OT session",date:"2025-02-15",achieved:true,category:"OT",specialistId:"s2"},
-    {id:"ml3",childId:"c1",title:"Complete IEP annual review",date:"2025-03-30",achieved:false,category:"School",specialistId:null},
-    {id:"ml4",childId:"c2",title:"Maintained eye contact during greeting",date:"2025-02-10",achieved:true,category:"Speech",specialistId:"s1"},
-    {id:"ml5",childId:"c2",title:"Walk balance beam full length",date:"2025-03-15",achieved:false,category:"PT",specialistId:"s3"}
+    {id:"ml1",childId:"c1",title:"First successful /s/ blend in conversation",date:"2025-02-01",achieved:true,category:"Speech",specialistId:"s1"}
   ],
-  specialistRequests:[] // {id, specialistName, specialistEmail, role, childId, requestedAt, status:'pending'|'approved'|'denied'}
+  specialistRequests:[],
+  connectionCodes:[],
+  linkedSpecialists:[]
 };
 
 /* ═══════════════════════════════════════════════
    PERSISTENCE
 ═══════════════════════════════════════════════ */
 const LS={
-  get(k,d){try{const v=localStorage.getItem('hd3_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
-  set(k,v){try{localStorage.setItem('hd3_'+k,JSON.stringify(v));}catch{}},
-  del(k){localStorage.removeItem('hd3_'+k);}
+  get(k,d){try{const v=localStorage.getItem('hd9_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
+  set(k,v){try{localStorage.setItem('hd9_'+k,JSON.stringify(v));}catch{}},
+  del(k){localStorage.removeItem('hd9_'+k);}
 };
+
 function initData(){
-  if(!LS.get('seeded',false)){
+  // Only seed the structural defaults (empty arrays) once
+  if(!LS.get('seeded_v9',false)){
     Object.entries(SEED).forEach(([k,v])=>LS.set(k,v));
-    LS.set('seeded',true);
+    LS.set('seeded_v9',true);
   }
 }
+
+// Load demo data (called when user clicks "Try Demo")
+function loadDemoData(){
+  Object.entries(DEMO_SEED).forEach(([k,v])=>LS.set(k,v));
+  toast('🎉 Demo data loaded! Explore Lily & Noah\'s profiles.','success',4000);
+  S.activeChild=DEMO_SEED.children[0].id;
+  re();
+}
+
 const DB=new Proxy({},{
-  get(_,k){return LS.get(k,SEED[k]);},
+  get(_,k){return LS.get(k,SEED[k]??[]);},
   set(_,k,v){LS.set(k,v);return true;}
 });
 
@@ -1059,28 +1316,41 @@ const DB=new Proxy({},{
 ═══════════════════════════════════════════════ */
 let session=LS.get('session',null);
 function doLogin(email,password,role,name=''){
-  const users=DB.users;
+  const users=LS.get('users',[]);
   let user=users.find(u=>u.email===email&&u.role===role);
+  const isNew=!user;
   if(!user){
-    user={email,password,role,name:name||email.split('@')[0],specialistId:role==='specialist'?'s1':null};
-    DB.users=[...users,user];
+    // New user — create with empty profile
+    const uid='u_'+Date.now();
+    user={id:uid,email,password,role,name:name||email.split('@')[0],
+      specialistId:null, // specialists get their own ID
+      isNew:true,createdAt:new Date().toISOString()
+    };
+    if(role==='specialist'){
+      // Create a specialist record for them
+      const sid='s_'+Date.now();
+      user.specialistId=sid;
+      const specs=LS.get('specialists',[]);
+      specs.push({id:sid,name:user.name,role:'Specialist',email,avatar:'🩺',
+        permissions:{},status:'active',credentials:[],isNew:true});
+      LS.set('specialists',specs);
+    }
+    LS.set('users',[...users,user]);
   } else if(user.password!==password){return{error:'Incorrect password.'};}
-  session={email,role,name:user.name,specialistId:user.specialistId};
+  session={email,role,name:user.name,specialistId:user.specialistId,isNew:!!isNew};
   LS.set('session',session);
-  return{ok:true};
+  return{ok:true,isNew};
 }
-function doLogout(){session=null;LS.del('session');}
+function doLogout(){session=null;LS.del('session');LS.del('tourStep');}
 
 /* ═══════════════════════════════════════════════
    APP STATE
 ═══════════════════════════════════════════════ */
 let S={
-  // Navigation hierarchy
-  // Level 0 = global home; Level 1 = inside a child's profile
-  navLevel:0,              // 0: Global Home, 1: Child Profile
-  activeChild:'c1',
-  activeTab:'dashboard',   // used inside Level 1
-  activeChatId:'ch1',
+  navLevel:0,
+  activeChild:null,       // null until a child is added
+  activeTab:'dashboard',
+  activeChatId:null,
   chatMsg:'',
   activeVaultId:null,
   vaultSummary:'',
@@ -1092,8 +1362,377 @@ let S={
   emailOpen:false,
   activeEmailId:null,
   isDrawerOpen:false,
-  calFullscreen:false      // unified calendar full-screen expansion
+  calFullscreen:false,
+  tourActive:false,       // is guided tour running?
+  tourStep:0              // current step index
 };
+
+/* ═══════════════════════════════════════════════
+   ONBOARDING TOUR ENGINE
+═══════════════════════════════════════════════ */
+
+// Tour steps — each targets a CSS selector or a position
+const TOUR_STEPS_PARENT=[
+  {
+    id:'welcome',
+    title:'Welcome to Huddledin! 🤝',
+    body:'This quick tour will show you the key features. You can skip it any time or restart it from Settings.',
+    target:null, // modal-style, no spotlight
+    arrow:'',
+    action:null
+  },
+  {
+    id:'add-child',
+    title:'Add Your First Child',
+    body:'Tap the ＋ Add Child bubble to create a profile. Upload their photo, diagnoses, and date of birth.',
+    target:'.child-bubble-add',
+    arrow:'arrow-bottom',
+    action:null
+  },
+  {
+    id:'connect-specialist',
+    title:'Connect a Specialist',
+    body:'Generate a Connection Code and share it with a therapist. They enter the code to instantly join your care team.',
+    target:'#tour-target-team',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=1;S.activeTab='team';re();}
+  },
+  {
+    id:'files',
+    title:'Organise Reports & Files',
+    body:'Each therapy folder holds reports and documents. Parents can upload files; specialists can access only the folders you permit.',
+    target:'#tour-target-files',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=1;S.activeTab='files';re();}
+  },
+  {
+    id:'global-inbox',
+    title:'Global Inbox',
+    body:'Drop any document here first — then use "Process File" to move it into the right child\'s folder or share it with a specialist.',
+    target:'.global-vault-hd',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=0;re();}
+  },
+  {
+    id:'settings',
+    title:'Settings & Notifications',
+    body:'Customise notification preferences, manage your account, and restart this tour any time from the Settings menu.',
+    target:'#tour-target-settings',
+    arrow:'arrow-top',
+    action:()=>{S.navLevel=1;S.activeTab='settings';re();}
+  }
+];
+
+const TOUR_STEPS_SPEC=[
+  {
+    id:'welcome',
+    title:'Welcome, Specialist! 🩺',
+    body:'Huddledin connects you with the families you serve. Let\'s get you set up.',
+    target:null,arrow:'',action:null
+  },
+  {
+    id:'enter-code',
+    title:'Connect to a Patient',
+    body:'Ask the family for their Connection Code, then enter it here to join their care team and access permitted folders.',
+    target:'#tour-target-patients',
+    arrow:'arrow-bottom',
+    action:null
+  },
+  {
+    id:'vault',
+    title:'Clinical Notes & Vault',
+    body:'Write session notes here. Use AI to generate a parent-friendly summary — then publish when ready.',
+    target:'#tour-target-vault',
+    arrow:'arrow-bottom',
+    action:()=>{S.activeTab='vault';re();}
+  },
+  {
+    id:'credentials',
+    title:'Your Professional Profile',
+    body:'Upload your credentials and qualifications here. Parents can view these to verify your expertise.',
+    target:'#tour-target-creds',
+    arrow:'arrow-bottom',
+    action:()=>{S.activeTab='credentials';re();}
+  }
+];
+
+function getTourSteps(){
+  return session?.role==='parent'?TOUR_STEPS_PARENT:TOUR_STEPS_SPEC;
+}
+
+function shouldShowTour(){
+  if(LS.get('tourDismissed',false))return false;
+  return LS.get('tourNeedsShow',false);
+}
+
+function startTour(){
+  S.tourActive=true;
+  S.tourStep=0;
+  S.navLevel=0;
+  re();
+}
+
+function advanceTour(){
+  const steps=getTourSteps();
+  const next=S.tourStep+1;
+  if(next>=steps.length){
+    // Tour complete
+    S.tourActive=false;
+    LS.set('tourNeedsShow',false);
+    toast('🎉 Tour complete! You\'re all set.','success',3500);
+    re();
+    return;
+  }
+  const nextStep=steps[next];
+  S.tourStep=next;
+  if(nextStep.action)nextStep.action();
+  else re();
+}
+
+function closeTour(dismiss=false){
+  S.tourActive=false;
+  if(dismiss){
+    LS.set('tourDismissed',true);
+    LS.set('tourNeedsShow',false);
+  }
+  re();
+}
+
+function renderTour(){
+  const steps=getTourSteps();
+  const step=steps[S.tourStep];
+  if(!step)return null;
+
+  const frag=document.createDocumentFragment();
+
+  // Spotlight the target element
+  if(step.target){
+    const targetEl=document.querySelector(step.target);
+    if(targetEl){
+      const rect=targetEl.getBoundingClientRect();
+      const pad=8;
+      const spot=el('div',{class:'tour-spotlight',style:{
+        top:(rect.top-pad)+'px',left:(rect.left-pad)+'px',
+        width:(rect.width+pad*2)+'px',height:(rect.height+pad*2)+'px',
+        borderRadius: getComputedStyle(targetEl).borderRadius||'14px'
+      }});
+      frag.appendChild(spot);
+    }
+  } else {
+    // Dim overlay only, no spotlight
+    const overlay=el('div',{class:'tour-overlay',style:{background:'rgba(15,23,42,.65)',pointerEvents:'all'}});
+    overlay.onclick=()=>{}; // block clicks
+    frag.appendChild(overlay);
+  }
+
+  // Build bubble
+  const bubble=el('div',{class:'tour-bubble '+(step.arrow||'')});
+  // Position the bubble
+  const positionBubble=()=>{
+    if(!step.target){
+      // Centre of screen
+      bubble.style.top='50%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+      return;
+    }
+    const targetEl=document.querySelector(step.target);
+    if(!targetEl){
+      bubble.style.top='30%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+      return;
+    }
+    const rect=targetEl.getBoundingClientRect();
+    const bw=310,bh=220;
+    const vw=window.innerWidth,vh=window.innerHeight;
+
+    if(step.arrow==='arrow-bottom'){
+      // Bubble above target
+      let top=rect.top-bh-24;
+      let left=rect.left+(rect.width/2)-(bw/2);
+      if(top<10)top=rect.bottom+24;
+      if(left<10)left=10;
+      if(left+bw>vw-10)left=vw-bw-10;
+      bubble.style.top=top+'px';bubble.style.left=left+'px';
+    } else if(step.arrow==='arrow-top'){
+      let top=rect.bottom+24;
+      let left=rect.left+(rect.width/2)-(bw/2);
+      if(top+bh>vh-10)top=rect.top-bh-24;
+      if(left<10)left=10;
+      if(left+bw>vw-10)left=vw-bw-10;
+      bubble.style.top=top+'px';bubble.style.left=left+'px';
+    } else {
+      bubble.style.top='30%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+    }
+  };
+
+  // Step badge
+  bubble.appendChild(el('div',{class:'tour-step-badge'},
+    ['✦ Step '+(S.tourStep+1)+' of '+steps.length]));
+  bubble.appendChild(el('div',{class:'tour-bubble-title'},[step.title]));
+  bubble.appendChild(el('div',{class:'tour-bubble-body'},[step.body]));
+
+  // Progress dots
+  const actions=el('div',{class:'tour-bubble-actions'});
+  const dots=el('div',{class:'tour-progress-dots'});
+  steps.forEach((_,i)=>{
+    dots.appendChild(el('div',{class:'tour-dot'+(i===S.tourStep?' active':'')}));
+  });
+  actions.appendChild(dots);
+
+  const isLast=S.tourStep===steps.length-1;
+  const nextBtn=el('button',{class:'tour-btn-next'},
+    [isLast?'Finish Tour ✓':'Next →']);
+  nextBtn.onclick=()=>advanceTour();
+  actions.appendChild(nextBtn);
+  bubble.appendChild(actions);
+
+  // Skip link
+  const skipRow=el('div',{class:'tour-dsa-row'});
+  const skipBtn=el('button',{class:'tour-btn-skip'},['Skip tour']);
+  skipBtn.onclick=()=>closeTour(false);
+  skipRow.appendChild(skipBtn);
+  const dsaLabel=el('label',{});
+  const dsaCb=el('input',{type:'checkbox'});
+  dsaCb.onchange=e=>{if(e.target.checked)LS.set('tourDismissed',true);};
+  dsaLabel.appendChild(dsaCb);
+  dsaLabel.appendChild(document.createTextNode(" Don't show again"));
+  skipRow.appendChild(dsaLabel);
+  bubble.appendChild(skipRow);
+
+  frag.appendChild(bubble);
+
+  // Position after appending (so we can measure)
+  requestAnimationFrame(positionBubble);
+
+  return frag;
+}
+
+/* ═══════════════════════════════════════════════
+   CONNECTION CODE SYSTEM
+═══════════════════════════════════════════════ */
+
+function generateCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function createConnectionCode(childId){
+  const code=generateCode();
+  const now=new Date();
+  const exp=new Date(now);exp.setHours(exp.getHours()+48);
+  const codes=DB.connectionCodes||[];
+  codes.push({code,childId,createdAt:now.toISOString(),expiresAt:exp.toISOString(),used:false});
+  DB.connectionCodes=codes;
+  return code;
+}
+
+function redeemConnectionCode(code,specialistId,specialistName,role){
+  const codes=DB.connectionCodes||[];
+  const idx=codes.findIndex(c=>c.code===code.toUpperCase()&&!c.used&&new Date(c.expiresAt)>new Date());
+  if(idx===-1)return{error:'Invalid or expired code. Please check with the family for a new one.'};
+  codes[idx].used=true;
+  DB.connectionCodes=codes;
+  const childId=codes[idx].childId;
+  // Grant specialist access to general and their role folder
+  const specs=DB.specialists||[];
+  const existingIdx=specs.findIndex(s=>s.id===specialistId);
+  const roleKey=role.toLowerCase().includes('speech')?'speech':
+    role.toLowerCase().includes('occupational')||role.toLowerCase().includes(' ot')?'ot':
+    role.toLowerCase().includes('physical')||role.toLowerCase().includes(' pt')?'pt':'general';
+  if(existingIdx>-1){
+    if(!specs[existingIdx].permissions[childId])specs[existingIdx].permissions[childId]=[];
+    if(!specs[existingIdx].permissions[childId].includes(roleKey))specs[existingIdx].permissions[childId].push(roleKey);
+    if(!specs[existingIdx].permissions[childId].includes('general'))specs[existingIdx].permissions[childId].push('general');
+    DB.specialists=specs;
+  }
+  // Record linked specialist for parent view
+  const linked=DB.linkedSpecialists||[];
+  linked.push({specialistId,specialistName,role,childId,linkedAt:new Date().toISOString()});
+  DB.linkedSpecialists=linked;
+  const child=DB.children.find(c=>c.id===childId);
+  pushNotif('invite',`${specialistName} joined ${child?.name||'your child'}'s care team via connection code!`,childId);
+  return{ok:true,childId,child};
+}
+
+function showConnectionCodeModal(childId){
+  const child=DB.children.find(c=>c.id===childId);
+  openModal('🔗 Connection Code — '+child?.name,(mb,close)=>{
+    // Check for an existing valid code
+    const existing=(DB.connectionCodes||[]).find(c=>c.childId===childId&&!c.used&&new Date(c.expiresAt)>new Date());
+    const code=existing?existing.code:createConnectionCode(childId);
+
+    const card=el('div',{class:'conn-code-card',style:{marginBottom:'18px'}});
+    card.appendChild(el('div',{class:'conn-code-label'},['Share this code with the specialist']));
+    card.appendChild(el('div',{class:'conn-code-value'},[code]));
+    const exp=existing?existing.expiresAt:(DB.connectionCodes||[]).find(c=>c.code===code)?.expiresAt;
+    if(exp){
+      const d=new Date(exp);
+      card.appendChild(el('div',{class:'conn-code-expiry'},
+        ['Expires '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})]));
+    }
+    const btns=el('div',{class:'conn-code-btns'});
+    const copyBtn=el('button',{class:'conn-code-btn'},['📋 Copy Code']);
+    copyBtn.onclick=()=>{
+      navigator.clipboard?.writeText(code).then(()=>toast('✅ Code copied!'))
+        .catch(()=>{toast('Code: '+code,'info',6000);});
+    };
+    btns.appendChild(copyBtn);
+    const newBtn=el('button',{class:'conn-code-btn'},['🔄 New Code']);
+    newBtn.onclick=()=>{createConnectionCode(childId);close();showConnectionCodeModal(childId);};
+    btns.appendChild(newBtn);
+    card.appendChild(btns);
+    mb.appendChild(card);
+
+    mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.6',fontWeight:500}},
+      ['The specialist enters this 6-character code in their app. They\'ll instantly gain access to '+child?.name+'\'s permitted folders. Codes expire after 48 hours.']));
+  },440);
+}
+
+function showEnterCodeModal(){
+  const specId=session?.specialistId;
+  const spec=DB.specialists.find(s=>s.id===specId);
+  openModal('🔗 Enter Connection Code',(mb,close)=>{
+    const wrap=el('div',{class:'conn-enter-wrap',style:{marginBottom:'18px'}});
+    wrap.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'10px'}},['🏥']));
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'6px',fontSize:'.95rem'}},['Join a Family\'s Care Team']));
+    wrap.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.55'}},
+      ['Ask the parent to generate a code from their Family Home screen. Enter it below to instantly connect.']));
+    mb.appendChild(wrap);
+
+    const codeInp=el('input',{class:'inp',placeholder:'Enter 6-character code (e.g. A3KF9X)',
+      style:{textAlign:'center',fontSize:'1.4rem',fontWeight:800,letterSpacing:'.18em',
+        textTransform:'uppercase',marginBottom:'8px'}});
+    codeInp.oninput=e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);};
+    mb.appendChild(codeInp);
+
+    const roleSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
+    ['Speech Therapist','Occupational Therapist','Physical Therapist','Behavioral Therapist','Psychologist','Other Specialist']
+      .forEach(r=>{const o=el('option');o.value=r;o.textContent=r;roleSel.appendChild(o);});
+    // Pre-set role if specialist already has one
+    if(spec?.role){
+      const idx=[...roleSel.options].findIndex(o=>o.value===spec.role);
+      if(idx>-1)roleSel.selectedIndex=idx;
+    }
+    mb.appendChild(roleSel);
+
+    const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'20px'}});
+    mb.appendChild(errDiv);
+
+    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',()=>{
+      const code=codeInp.value.trim();
+      if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
+      const result=redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',roleSel.value);
+      if(result.error){errDiv.textContent=result.error;return;}
+      close();
+      toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
+      S.activeChild=result.childId;
+      S.activeTab='dashboard';
+      re();
+    }));
+  },440);
+}
 
 /* ═══════════════════════════════════════════════
    DOM HELPERS
@@ -1263,11 +1902,23 @@ function renderAuth(){
       if(session.role==='parent'){
         S.navLevel=0;
         S.activeTab='dashboard';
+        const children=LS.get('children',[]);
+        S.activeChild=children[0]?.id||null;
       } else {
         S.navLevel=1;
         S.activeTab='dashboard';
+        const myPatients=DB.children;
+        S.activeChild=myPatients[0]?.id||null;
       }
-      S.activeChild=DB.children[0]?.id||'c1';re();
+      // Schedule guided tour for new users (or returning users who haven't dismissed it)
+      if(res.isNew){
+        LS.set('tourNeedsShow',true);
+        LS.del('tourDismissed');
+        S.tourActive=true;S.tourStep=0;
+      } else if(shouldShowTour()){
+        S.tourActive=true;S.tourStep=0;
+      }
+      re();
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -1278,6 +1929,24 @@ function renderAuth(){
     ]));
     formArea.appendChild(el('p',{class:'auth-hint',style:{marginTop:'7px',color:'#94a3b8'}},
       ['Demo: any email + password works!']));
+    // Demo mode quick button
+    const demoDiv=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)',textAlign:'center'}});
+    demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},['Or explore with sample data:']));
+    const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},['👀 Try Demo Mode']);
+    demoBtn2.onclick=()=>{
+      // Quick demo login + load data
+      const r=doLogin('demo@huddledin.com','demo','parent','Demo Parent');
+      if(r.ok){
+        S.navLevel=0;S.activeTab='dashboard';
+        loadDemoData();
+        // Don't show tour in demo mode
+        LS.set('tourDismissed',true);
+        LS.del('tourNeedsShow');
+        re();
+      }
+    };
+    demoDiv.appendChild(demoBtn2);
+    formArea.appendChild(demoDiv);
   }
   buildForm();
   card.appendChild(body);root.appendChild(card);
@@ -1332,6 +2001,11 @@ function renderShell(){
   shell.appendChild(body);
   shell.appendChild(renderBottomNav());
   if(S.searchOpen)shell.appendChild(renderSearchOverlay());
+  // Tour overlay — always rendered on top
+  if(S.tourActive){
+    const tourEl=renderTour();
+    if(tourEl)shell.appendChild(tourEl);
+  }
   return shell;
 }
 
@@ -1546,7 +2220,15 @@ function renderDrawer(){
 
   // Settings (if in tabs)
   if(session?.role==='parent'){
-    scroll.appendChild(drawerItem('⚙️','Settings','settings'));
+    const settingsItem=drawerItem('⚙️','Settings','settings');
+    settingsItem.id='tour-target-settings';
+    scroll.appendChild(settingsItem);
+    // Quick tour restart in drawer
+    const tourItem=el('button',{class:'drawer-item'});
+    tourItem.appendChild(el('div',{class:'di-icon'},['🗺️']));
+    tourItem.appendChild(el('span',{class:'di-label'},['Restart Tour']));
+    tourItem.onclick=()=>{S.isDrawerOpen=false;startTour();};
+    scroll.appendChild(tourItem);
   }
 
   // ── Sign Out (bottom, danger) ──
@@ -1579,8 +2261,10 @@ function renderSidenav(){
   prof.innerHTML=`<div class="sp-label">Signed in as</div><div class="sp-name">${session?.role==='parent'?'The Carter Family':(spec?.name||session?.name||'Specialist')}</div>`;
   prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 Specialist','teal'));
   nav.appendChild(prof);
+  const tourTargets={files:'tour-target-files',team:'tour-target-team',vault:'tour-target-vault',credentials:'tour-target-creds',patients:'tour-target-patients',settings:'tour-target-settings'};
   tabs.forEach(t=>{
     const b=el('button',{class:'nav-btn'+(S.activeTab===t.id?' active':'')});
+    if(tourTargets[t.id])b.id=tourTargets[t.id];
     b.innerHTML=`<span class="ni">${t.icon}</span>${t.label}`;
     b.onclick=()=>switchTab(t.id);
     nav.appendChild(b);
@@ -1715,21 +2399,85 @@ function renderGlobalHome(){
   const children=DB.children;
   const allApts=DB.appointments;
   const allHW=DB.homework;
+  const hasChildren=children.length>0;
   const sec=el('div',{class:'global-home'});
 
-  // ── Family greeting ──
+  // ── If no children yet: full welcome zero-state ──
+  if(!hasChildren){
+    const banner=el('div',{class:'welcome-banner'});
+    banner.appendChild(el('h2',{},[`Welcome, ${session?.name||'there'}! 👋`]));
+    banner.appendChild(el('p',{},[
+      'Huddledin is your family\'s care coordination hub. Start by adding your first child, then invite their specialists to collaborate.'
+    ]));
+    const bannerBtns=el('div',{class:'welcome-banner-actions'});
+    const addBtn=el('button',{class:'wb-btn primary'},['＋ Add First Child']);
+    addBtn.onclick=()=>showAddChildModal();
+    bannerBtns.appendChild(addBtn);
+    const demoBtn=el('button',{class:'wb-btn'},['👀 Try Demo Mode']);
+    demoBtn.onclick=()=>openConfirm('Load Demo Data','This will populate the app with sample data for Lily & Noah Carter so you can explore all features. You can clear it from Settings.',false,()=>loadDemoData());
+    bannerBtns.appendChild(demoBtn);
+    banner.appendChild(bannerBtns);
+    sec.appendChild(banner);
+
+    // Quick action cards
+    const howTitle=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem',marginBottom:'14px',marginTop:'4px'}},['How it works']);
+    sec.appendChild(howTitle);
+
+    const steps=[
+      {icon:'👶',title:'Add a Child',desc:'Create a profile with their name, date of birth, and diagnoses.',btn:'＋ Add Child',action:()=>showAddChildModal()},
+      {icon:'🔗',title:'Invite Specialists',desc:'Generate a Connection Code and share it with their therapists.',btn:'Generate Code (add child first)',action:null},
+      {icon:'📁',title:'Upload Reports',desc:'Drop documents into the Global Inbox and sort them into folders.',btn:'Upload File',action:()=>{
+        const inp=el('input',{type:'file',style:{display:'none'}});
+        inp.onchange=e=>{
+          const f=e.target.files[0];if(!f)return;
+          const files=DB.globalInboxFiles||[];
+          files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});
+          DB.globalInboxFiles=files;toast('📥 File added to inbox!');re();
+        };
+        document.body.appendChild(inp);inp.click();
+      }}
+    ];
+    steps.forEach(s=>{
+      const card=el('div',{class:'card',style:{display:'flex',gap:'14px',alignItems:'flex-start',marginBottom:'11px'}});
+      card.appendChild(el('div',{style:{fontSize:'1.8rem',flexShrink:0}},s.icon?[s.icon]:[s.icon]));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[s.title]));
+      info.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.55',marginBottom:'10px'}},[s.desc]));
+      const sb=el('button',{class:'btn btn-sm '+(s.action?'btn-primary':'btn-slate'),
+        disabled:!s.action,
+        style:{opacity:s.action?1:.5,cursor:s.action?'pointer':'default'}
+      },[s.btn]);
+      if(s.action)sb.onclick=s.action;
+      info.appendChild(sb);
+      card.appendChild(info);
+      sec.appendChild(card);
+    });
+
+    return sec;
+  }
+
+  // ── Normal home with children ──
+  // Time-aware greeting
   const hour=new Date().getHours();
   const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   const greet=el('div',{class:'family-greeting'});
   const gt=el('div',{class:'family-greeting-text'});
   gt.appendChild(el('div',{class:'family-greeting-title'},
     [`${hour<12?'🌅':hour<17?'☀️':'🌙'} ${greeting}!`]));
+  const pendingCount=allHW.filter(h=>!h.completed).length;
   gt.appendChild(el('div',{class:'family-greeting-sub'},
-    [`${children.length} children · ${allHW.filter(h=>!h.completed).length} pending tasks`]));
+    [`${children.length} child${children.length!==1?'ren':''} · ${pendingCount} pending task${pendingCount!==1?'s':''}`]));
   greet.appendChild(gt);
+  // Tour restart button (subtle)
+  const tourBtn=el('button',{
+    style:{background:'var(--mint-l)',border:'none',borderRadius:'99px',padding:'6px 12px',
+      fontSize:'.7rem',fontWeight:800,color:'var(--teal-d)',cursor:'pointer',flexShrink:0}
+  },['🗺️ Tour']);
+  tourBtn.onclick=()=>startTour();
+  greet.appendChild(tourBtn);
   sec.appendChild(greet);
 
-  // ── Child Bubble Row ──
+  // Child Bubbles
   sec.appendChild(el('div',{class:'child-bubbles-label'},['Your Children']));
   const row=el('div',{class:'child-bubbles-row'});
 
@@ -1745,34 +2493,21 @@ function renderGlobalHome(){
     });
     if(hasEvents)bubble.classList.add('has-events');
 
-    // Circle
-    const circle=el('div',{class:'cb-circle',style:{background:color+'18',borderColor:color+'33'}});
+    const circle=el('div',{class:'cb-circle'+(c.photo?'':' placeholder'),style:{background:color+'18'}});
     if(c.photo){
+      circle.className='cb-circle';
       circle.appendChild(el('img',{src:c.photo,alt:c.name}));
     } else {
-      // Placeholder with upload hint
-      circle.className='cb-circle placeholder';
-      circle.style.cssText=`background:${color}18`;
       circle.textContent=c.avatar;
-      const hint=el('div',{class:'cb-upload-hint'},['+ photo']);
-      circle.appendChild(hint);
+      circle.appendChild(el('div',{class:'cb-upload-hint'},['+ photo']));
     }
     bubble.appendChild(circle);
     bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
     if(childHW.length>0){
       bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
     }
-
-    // Click → enter child profile
-    bubble.onclick=()=>{
-      S.activeChild=c.id;
-      S.navLevel=1;
-      S.activeTab='dashboard';
-      re();
-    };
-    // Long-press / right-click → photo upload
+    bubble.onclick=()=>{S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
-
     row.appendChild(bubble);
   });
 
@@ -1784,10 +2519,32 @@ function renderGlobalHome(){
   row.appendChild(addBubble);
   sec.appendChild(row);
 
-  // ── Unified Mini Calendar ──
+  // Connection code shortcut strip (when children exist but no specialists yet)
+  const specialists=DB.specialists||[];
+  const activeSpecs=specialists.filter(s=>s.status==='active');
+  if(activeSpecs.length===0 && children.length>0){
+    const connBanner=el('div',{style:{
+      background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+      borderRadius:'var(--r-lg)',padding:'14px 16px',
+      border:'1.5px solid var(--lav)',marginBottom:'20px',
+      display:'flex',alignItems:'center',gap:'12px'
+    }});
+    connBanner.appendChild(el('div',{style:{fontSize:'1.6rem'}},'🔗'));
+    const connInfo=el('div',{style:{flex:1}});
+    connInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'3px'}},
+      ['Invite a specialist to collaborate']));
+    connInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
+      ['Share a Connection Code with a therapist so they can join your care team.']));
+    connBanner.appendChild(connInfo);
+    const connBtn=mkBtn('Get Code','btn-sm btn-secondary',()=>showConnectionCodeModal(children[0].id));
+    connBanner.appendChild(connBtn);
+    sec.appendChild(connBanner);
+  }
+
+  // Mini Calendar
   sec.appendChild(renderMiniCalendar(children,allApts));
 
-  // ── Global Vault / Unsorted Inbox ──
+  // Global Vault
   sec.appendChild(renderGlobalVault());
 
   return sec;
@@ -2132,164 +2889,74 @@ function renderContent(){
 }
 
 /* ═══════════════════════════════════════════════
-   PARENT DASHBOARD (Global cross-children view)
+   PARENT DASHBOARD — Level 1 (child-specific)
 ═══════════════════════════════════════════════ */
 function renderParentDashboard(){
-  const allChildren=DB.children;
-  const allHW=DB.homework;
-  const allApts=DB.appointments;
-  const allPendingHW=allHW.filter(h=>!h.completed);
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  if(!child){
+    // No child selected / child deleted
+    const sec=el('div',{class:'section'});
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👶']),
+      el('div',{class:'empty-state-title'},['No child selected']),
+      el('div',{class:'empty-state-body'},['Go back to Family Home and tap a child\'s bubble to view their profile.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('← Family Home','btn-md btn-primary',()=>{S.navLevel=0;re();})
+      ])
+    ]));
+    return sec;
+  }
+
+  const childHW=DB.homework.filter(h=>h.childId===child.id);
+  const childApts=DB.appointments.filter(a=>a.childId===child.id);
+  const specialists=DB.specialists.filter(s=>s.status==='active');
+  const childSpecs=specialists.filter(s=>s.permissions[child.id]?.length>0);
 
   const sec=el('div',{class:'section'});
+
   // Push notification banner
   const pushBanner=renderPushBanner();
   if(pushBanner)sec.appendChild(pushBanner);
 
-  // ── PULL-TO-REFRESH visual indicator ──
+  // PTR
   const ptr=el('div',{class:'ptr-indicator',id:'ptr-indicator'});
   ptr.innerHTML='<span class="ptr-spinner">🔄</span> <span>Refreshing…</span>';
   sec.appendChild(ptr);
-  // Activate PTR on scroll up past top
   let ptrStart=0;
-  sec.addEventListener('touchstart',e=>{ptrStart=e.touches[0].clientY;},{ passive:true });
+  sec.addEventListener('touchstart',e=>{ptrStart=e.touches[0].clientY;},{passive:true});
   sec.addEventListener('touchmove',e=>{
     const scrollEl=document.getElementById('main');
-    if(scrollEl&&scrollEl.scrollTop===0&&e.touches[0].clientY-ptrStart>60){
-      ptr.classList.add('visible');
-    }
-  },{ passive:true });
+    if(scrollEl&&scrollEl.scrollTop===0&&e.touches[0].clientY-ptrStart>60)ptr.classList.add('visible');
+  },{passive:true});
   sec.addEventListener('touchend',()=>{
     if(ptr.classList.contains('visible')){
       setTimeout(()=>{ptr.classList.remove('visible');toast('✅ Dashboard refreshed!');},900);
     }
   });
 
-  // Welcome card using new .welcome-card class
-  const welcome=el('div',{class:'welcome-card'});
-  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Welcome back</div>
-    <div class="ff" style="font-size:1.55rem;font-weight:800;color:#fff;margin-bottom:6px">${session?.name||'Parent'} 👋</div>
-    <div style="color:rgba(255,255,255,.8);font-size:.86rem;font-weight:500;line-height:1.5">Managing <strong style="color:#fff">${allChildren.length}</strong> children · <strong style="color:#fff">${allPendingHW.length}</strong> pending task${allPendingHW.length!==1?'s':''}</div>`;
-  sec.appendChild(welcome);
-
-  // Global stats
-  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  const allUpcoming=allApts.filter(a=>a.date>='2025-03-01');
-  [{icon:'📅',color:'#0d9488',val:String(allUpcoming.length),lbl:'All Upcoming Appointments'},
-   {icon:'📋',color:'#f97316',val:String(allPendingHW.length),lbl:'Pending Tasks (All Children)'},
-   {icon:'👥',color:'#7c3aed',val:String(DB.specialists.filter(s=>s.status==='active').length),lbl:'Active Specialists'}
-  ].forEach(({icon,color,val,lbl})=>{
-    const sc=el('div',{class:'card hov'});
-    sc.appendChild(d('stat-card',[
-      d('stat-icon',[icon],{background:color+'22'}),
-      d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])
-    ]));
-    stats.appendChild(sc);
-  });
-  sec.appendChild(stats);
-
-  // Per-child sections
-  allChildren.forEach(child=>{
-    const childHW=allHW.filter(h=>h.childId===child.id);
-    const childApts=allApts.filter(a=>a.childId===child.id);
-    const section=el('div',{class:'card',style:{marginBottom:'18px'}});
-    // Child header
-    const cHd=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--mint-ll)'}});
-    // Show photo if set, otherwise emoji
-    if(child.photo){
-      const img=el('img',{src:child.photo,style:{width:'46px',height:'46px',borderRadius:'14px',objectFit:'cover',border:'2px solid var(--mint-l)',cursor:'pointer'}});
-      img.onclick=()=>showChildPhotoModal(child);
-      cHd.appendChild(img);
-    } else {
-      const emoWrap=el('div',{style:{width:'46px',height:'46px',borderRadius:'14px',background:child.color+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.7rem',cursor:'pointer'},title:'Click to add photo'});
-      emoWrap.textContent=child.avatar;
-      emoWrap.onclick=()=>showChildPhotoModal(child);
-      cHd.appendChild(emoWrap);
-    }
-    const cinfo=d('',[], {flex:1});
-    cinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[child.name]));
-    cinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},[`Age ${child.age} · ${child.diagnoses.join(', ')}`]));
-    cHd.appendChild(cinfo);
-    const chBtns=d('',[], {display:'flex',gap:'7px'});
-    chBtns.appendChild(mkBtn('📈 Progress','btn-sm btn-secondary',()=>{S.activeChild=child.id;S.activeTab='progress';re();}));
-    chBtns.appendChild(mkBtn('View Profile','btn-sm btn-slate',()=>{S.activeChild=child.id;S.activeTab='files';re();}));
-    cHd.appendChild(chBtns);
-    section.appendChild(cHd);
-
-    const grid=el('div',{class:'g2'});
-
-    // HW
-    const hwCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
-    hwCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📋 Tasks'));
-    if(!childHW.length)hwCard.appendChild(p('No tasks yet.'));
-    childHW.slice(0,3).forEach(hw=>{
-      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'flex-start'}});
-      const chk=el('div',{class:'chk'+(hw.completed?' done':'')},hw.completed?['✓']:[]);
-      chk.onclick=()=>{
-        const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
-        if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;
-          if(!hw.completed)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);
-        }
-        // Spring animation — simulates haptic "bounce" feedback
-        chk.classList.add('spring');
-        setTimeout(()=>chk.classList.remove('spring'),500);
-        re();
-      };
-      const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},
-        [hw.task]);
-      row.appendChild(chk);row.appendChild(info);
-      hwCard.appendChild(row);
-    });
-    if(childHW.length>3)hwCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'8px',fontWeight:600}},[`+${childHW.length-3} more tasks`]));
-    grid.appendChild(hwCard);
-
-    // Upcoming apts
-    const aptCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
-    aptCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📅 Next Appointments'));
-    if(!childApts.length)aptCard.appendChild(p('No appointments scheduled.'));
-    childApts.slice(0,3).forEach(apt=>{
-      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
-      const chip=el('div',{style:{width:'6px',height:'36px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}});
-      const info=el('div',{style:{flex:1}});
-      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[apt.title]));
-      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'1px'}},[apt.date+' · '+apt.time]));
-      row.appendChild(chip);row.appendChild(info);
-      aptCard.appendChild(row);
-    });
-    grid.appendChild(aptCard);
-    section.appendChild(grid);
-    // Published summaries for this child
-    const pubSummaries=renderPublishedSummaries();
-    if(pubSummaries&&S.activeChild===child.id)section.appendChild(pubSummaries);
-    sec.appendChild(section);
-  });
-  return sec;
-}
-
-/* ═══════════════════════════════════════════════
-   SPECIALIST DASHBOARD (own calendar + stats)
-═══════════════════════════════════════════════ */
-function renderSpecDashboard(){
-  const specId=session?.specialistId||'s1';
-  const spec=DB.specialists.find(s=>s.id===specId)||DB.specialists[0];
-  const myPatients=DB.children; // all patients assigned
-  const myApts=DB.appointments.filter(a=>a.specialistId===specId||a.sharedWith?.includes(specId));
-  const myTasks=DB.homework.filter(h=>h.specialistId===specId);
-  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId);
-
-  const sec=el('div',{class:'section'});
-
   // Welcome card
-  const welcome=el('div',{class:'welcome-card',style:{background:'linear-gradient(135deg,var(--lav-d) 0%,var(--lav) 60%,#7dd3fc 100%)'}});
-  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Welcome back</div>
-    <div class="ff" style="font-size:1.55rem;font-weight:800;color:#fff;margin-bottom:6px">${spec?.name||'Specialist'} 👋</div>
-    <div style="color:rgba(255,255,255,.8);font-size:.86rem;font-weight:500">${spec?.role} · <strong style="color:#fff">${myPatients.length}</strong> patients · <strong style="color:#fff">${myNotes.filter(n=>n.isDraft).length}</strong> drafts</div>`;
+  const welcome=el('div',{class:'welcome-card'});
+  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${child.avatar} ${child.name}'s Profile</div>
+    <div class="ff" style="font-size:1.45rem;font-weight:800;color:#fff;margin-bottom:5px">${session?.name||'Parent'} 👋</div>
+    <div style="color:rgba(255,255,255,.8);font-size:.84rem;font-weight:500">Age ${child.age} · ${child.diagnoses.length?child.diagnoses.join(', '):'No diagnoses added'}</div>`;
+  // Quick action buttons in welcome card
+  const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
+  [
+    ['📈 Progress',()=>{S.activeTab='progress';re();}],
+    ['📁 Files',()=>{S.activeTab='files';re();}],
+    ['🔗 Invite Specialist',()=>showConnectionCodeModal(child.id)]
+  ].forEach(([label,fn])=>{
+    const b=el('button',{style:{background:'rgba(255,255,255,.2)',border:'1.5px solid rgba(255,255,255,.3)',color:'#fff',borderRadius:'99px',padding:'7px 13px',fontSize:'.76rem',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}},[label]);
+    b.onclick=fn;wBtns.appendChild(b);
+  });
+  welcome.appendChild(wBtns);
   sec.appendChild(welcome);
 
-  // Stats
+  // Stats row
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients'},
-   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Upcoming Appointments'},
-   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Unpublished Notes'}
+  [{icon:'📅',color:'#0d9488',val:String(childApts.filter(a=>a.date>=new Date().toISOString().split('T')[0]).length),lbl:'Upcoming Apts'},
+   {icon:'📋',color:'#f97316',val:String(childHW.filter(h=>!h.completed).length),lbl:'Pending Tasks'},
+   {icon:'👥',color:'#7c3aed',val:String(childSpecs.length),lbl:'Specialists'}
   ].forEach(({icon,color,val,lbl})=>{
     const sc=el('div',{class:'card hov'});
     sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
@@ -2297,50 +2964,190 @@ function renderSpecDashboard(){
   });
   sec.appendChild(stats);
 
-  // Specialist's own calendar
-  const calTitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 My Schedule — March 2025']);
-  sec.appendChild(calTitle);
-
-  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
-  const calHd2=el('div',{class:'cal-hd',style:{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}});
-  calHd2.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">March 2025</span><span style="font-size:.82rem;opacity:.8;margin-left:10px">${myApts.length} sessions booked</span>`;
-  calCard.appendChild(calHd2);
-  const cg=el('div',{class:'cal-grid'});
-  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
-  for(let i=0;i<6;i++)cg.appendChild(el('div',{class:'cal-day'}));
-  for(let day=1;day<=31;day++){
-    const ds=`2025-03-${String(day).padStart(2,'0')}`;
-    const da=myApts.filter(a=>a.date===ds);
-    const cell=el('div',{class:'cal-day'});
-    const num=el('div',{class:'cal-num'+(da.length?' has-event':''),style:da.length?{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}:{}},[String(day)]);
-    if(da.length){num.title=da.map(a=>a.title).join(', ');num.onclick=()=>toast('📅 '+da.map(a=>a.title+' '+a.time).join(' | '));}
-    cell.appendChild(num);
-    da.slice(0,1).forEach(a=>{
-      const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--lav-d)'}},[a.title.split(' ')[0]]);
-      cell.appendChild(dot);
-    });
-    cg.appendChild(cell);
+  // Empty state if truly new
+  const hasAnyData=childHW.length||childApts.length||childSpecs.length;
+  if(!hasAnyData){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['🌱']),
+      el('div',{class:'empty-state-title'},["Let's get "+child.name.split(' ')[0]+" set up!"]),
+      el('div',{class:'empty-state-body'},['Add specialists to the care team, schedule appointments, and upload files — all in one place.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Invite Specialist','btn-md btn-primary',()=>showConnectionCodeModal(child.id)),
+        mkBtn('📅 Add Appointment','btn-md btn-secondary',()=>{S.activeTab='calendar';re();})
+      ])
+    ]));
+    return sec;
   }
-  calCard.appendChild(cg);
-  sec.appendChild(calCard);
 
-  // Recent patient activity
-  const rtitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🕐 Recent Patient Activity']);
-  sec.appendChild(rtitle);
-  const stack=el('div',{class:'stack'});
-  [...myNotes].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).forEach(n=>{
-    const ch=DB.children.find(c=>c.id===n.childId);
-    const card=el('div',{class:'card hov click',style:{display:'flex',gap:'13px',alignItems:'center'}});
-    card.innerHTML=`<span style="font-size:1.6rem">${ch?.avatar||'👤'}</span>`;
-    const info=d('',[], {flex:1});
-    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
-    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
-    card.appendChild(info);
-    card.appendChild(n.locked?el('span',{class:'locked-badge'},['🔒 Locked']):n.isDraft?el('span',{class:'draft-badge'},['Draft']):badge('Published','green'));
-    card.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
-    stack.appendChild(card);
+  const grid=el('div',{class:'g2'});
+
+  // Tasks card
+  const hwCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+  hwCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📋 Tasks'));
+  if(!childHW.length){
+    hwCard.appendChild(el('div',{class:'empty-inline'},['No tasks yet. Specialists will assign homework here.']));
+  } else {
+    childHW.slice(0,3).forEach(hw=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'flex-start'}});
+      const chk=el('div',{class:'chk'+(hw.completed?' done':'')},hw.completed?['✓']:[]);
+      chk.onclick=()=>{
+        const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
+        if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;
+          if(!hw.completed)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);}
+        re();
+      };
+      const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},[hw.task]);
+      row.appendChild(chk);row.appendChild(info);
+      hwCard.appendChild(row);
+    });
+    if(childHW.length>3)hwCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'8px',fontWeight:600}},[`+${childHW.length-3} more tasks`]));
+  }
+  grid.appendChild(hwCard);
+
+  // Appointments card
+  const aptCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+  aptCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📅 Appointments'));
+  if(!childApts.length){
+    aptCard.appendChild(el('div',{class:'empty-inline'},['No appointments yet. Add one in Calendar.']));
+  } else {
+    childApts.slice(0,3).forEach(apt=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
+      row.appendChild(el('div',{style:{width:'5px',height:'36px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[apt.title]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'1px'}},[apt.date+' · '+apt.time]));
+      row.appendChild(info);
+      aptCard.appendChild(row);
+    });
+  }
+  grid.appendChild(aptCard);
+  sec.appendChild(grid);
+
+  // Published summaries
+  const pubSummaries=renderPublishedSummaries();
+  if(pubSummaries)sec.appendChild(pubSummaries);
+
+  return sec;
+}
+
+/* ═══════════════════════════════════════════════
+   SPECIALIST DASHBOARD — zero-state aware
+═══════════════════════════════════════════════ */
+function renderSpecDashboard(){
+  const specId=session?.specialistId;
+  const spec=DB.specialists.find(s=>s.id===specId);
+  const myPatients=DB.children.filter(c=>{
+    const perm=spec?.permissions?.[c.id];
+    return perm&&perm.length>0;
   });
-  sec.appendChild(stack);
+  const myApts=DB.appointments.filter(a=>a.specialistId===specId||a.sharedWith?.includes(specId));
+  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId);
+
+  const sec=el('div',{class:'section'});
+
+  // Welcome card
+  const welcome=el('div',{class:'welcome-card',style:{background:'linear-gradient(135deg,var(--lav-d) 0%,var(--lav) 60%,#7dd3fc 100%)'}});
+  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Welcome back</div>
+    <div class="ff" style="font-size:1.45rem;font-weight:800;color:#fff;margin-bottom:5px">${spec?.name||session?.name||'Specialist'} 👋</div>
+    <div style="color:rgba(255,255,255,.8);font-size:.84rem;font-weight:500">${spec?.role||'Specialist'} · <strong style="color:#fff">${myPatients.length}</strong> patient${myPatients.length!==1?'s':''}</div>`;
+  const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
+  [
+    ['🔗 Enter Patient Code',()=>showEnterCodeModal()],
+    ['📝 New Note',()=>{S.activeTab='vault';re();}]
+  ].forEach(([label,fn])=>{
+    const b=el('button',{style:{background:'rgba(255,255,255,.2)',border:'1.5px solid rgba(255,255,255,.3)',color:'#fff',borderRadius:'99px',padding:'7px 13px',fontSize:'.76rem',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}},[label]);
+    b.onclick=fn;wBtns.appendChild(b);
+  });
+  welcome.appendChild(wBtns);
+  sec.appendChild(welcome);
+
+  // Zero state — no patients yet
+  if(myPatients.length===0){
+    sec.appendChild(el('div',{class:'empty-state',style:{marginTop:'4px'}},[
+      el('span',{class:'empty-state-icon'},['🏥']),
+      el('div',{class:'empty-state-title'},['No patients connected yet']),
+      el('div',{class:'empty-state-body'},['Ask a family for their Connection Code, then enter it to join their care team and access permitted files.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Enter Connection Code','btn-md btn-primary',()=>showEnterCodeModal())
+      ])
+    ]));
+
+    // How-it-works for specialists
+    const howCard=el('div',{class:'card',style:{marginTop:'16px'}});
+    howCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['How connecting works']));
+    [
+      ['1️⃣','Family generates a code','They tap "Invite Specialist" in their Family Home.'],
+      ['2️⃣','You enter the code','Use the button above to enter the 6-character code.'],
+      ['3️⃣','Instant access','You\'ll see the child\'s permitted folders and can write notes.']
+    ].forEach(([n,title,desc])=>{
+      const row=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'12px'}});
+      row.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},[n]));
+      const info=el('div',{});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'2px'}},[title]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:500}},[desc]));
+      row.appendChild(info);
+      howCard.appendChild(row);
+    });
+    sec.appendChild(howCard);
+    return sec;
+  }
+
+  // Stats
+  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
+  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients'},
+   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments'},
+   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes'}
+  ].forEach(({icon,color,val,lbl})=>{
+    const sc=el('div',{class:'card hov'});
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
+    stats.appendChild(sc);
+  });
+  sec.appendChild(stats);
+
+  // Calendar
+  const calTitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 My Schedule']);
+  sec.appendChild(calTitle);
+  if(!myApts.length){
+    sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'22px'}},['No appointments scheduled yet.']));
+  } else {
+    const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
+    const calHd2=el('div',{class:'cal-hd',style:{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}});
+    calHd2.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">Upcoming</span><span style="font-size:.82rem;opacity:.8;margin-left:10px">${myApts.length} sessions</span>`;
+    calCard.appendChild(calHd2);
+    const list=el('div',{style:{padding:'12px'}});
+    myApts.slice(0,5).forEach(a=>{
+      const ch=DB.children.find(c=>c.id===a.childId);
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
+      row.appendChild(el('div',{style:{width:'5px',height:'36px',borderRadius:'3px',background:TC[a.type]||'var(--lav-d)',flexShrink:0}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[a.title+(ch?' — '+ch.name.split(' ')[0]:'')]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--lav-d)',fontWeight:700,marginTop:'1px'}},[a.date+' · '+a.time]));
+      row.appendChild(info);
+      list.appendChild(row);
+    });
+    calCard.appendChild(list);
+    sec.appendChild(calCard);
+  }
+
+  // Recent notes
+  if(myNotes.length>0){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🕐 Recent Notes']));
+    const stack=el('div',{class:'stack'});
+    [...myNotes].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).forEach(n=>{
+      const ch=DB.children.find(c=>c.id===n.childId);
+      const card=el('div',{class:'card hov click',style:{display:'flex',gap:'13px',alignItems:'center'}});
+      card.innerHTML=`<span style="font-size:1.6rem">${ch?.avatar||'👤'}</span>`;
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
+      card.appendChild(info);
+      card.appendChild(n.locked?el('span',{class:'locked-badge'},['🔒 Locked']):n.isDraft?el('span',{class:'draft-badge'},['Draft']):badge('Published','green'));
+      card.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
+      stack.appendChild(card);
+    });
+    sec.appendChild(stack);
+  }
+
   return sec;
 }
 
@@ -2578,41 +3385,83 @@ function renderTeam(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Care Team']),
-    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s specialists`])
+    el('p',{class:'page-sub'},[child?`${child.avatar} ${child.name}'s specialists`:'No child selected'])
   ]));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Invite Specialist','btn-md btn-primary',()=>showInviteModal())]));
+
+  // Two invite actions
+  const actRow=el('div',{class:'sec-hd-right',style:{display:'flex',gap:'8px',flexWrap:'wrap'}});
+  actRow.appendChild(mkBtn('🔗 Share Code','btn-md btn-primary',()=>{
+    if(!child){toast('Select a child first.','error');return;}
+    showConnectionCodeModal(child.id);
+  }));
+  actRow.appendChild(mkBtn('📧 Email Invite','btn-md btn-secondary',()=>showInviteModal()));
+  hd.appendChild(actRow);
   sec.appendChild(hd);
 
-  DB.specialists.forEach(s=>{
-    const isPending=s.status==='pending';
-    const perms=(s.permissions[S.activeChild]||[]);
-    const hasAccess=perms.length>0;
-    const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
-    if(isPending){
-      const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
-      pb.appendChild(badge('⏳ Pending Invite','amber'));card.appendChild(pb);
-    }
-    card.appendChild(mkAvatar(s.avatar,48,'#d1fae5'));
-    const info=d('',[], {flex:1});
-    info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
-    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+' · '+s.email]));
-    const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
-    perms.forEach(p=>pr.appendChild(badge(p.toUpperCase(),'teal')));
-    if(!hasAccess&&!isPending)pr.appendChild(badge('No access for this child','slate'));
-    info.appendChild(pr);
-    card.appendChild(info);
-    if(!isPending){
-      const acts=d('team-card-actions',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
-      acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
-      acts.appendChild(mkBtn('🤝 Consult','btn-sm btn-lav',()=>showHandshakeModal(s)));
-      acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
-        `Remove ${s.name} from ${child?.name}'s care team? Their authored notes will remain in their Legacy Archive.`,true,()=>removeSpecialist(s))));
-      card.appendChild(acts);
-    }
-    sec.appendChild(card);
-  });
+  // Connection code banner at top of team page
+  if(child){
+    const connBanner=el('div',{style:{
+      background:'linear-gradient(135deg,var(--mint-l),var(--lav-l))',
+      border:'1.5px solid var(--mint)',borderRadius:'var(--r-lg)',
+      padding:'14px 16px',marginBottom:'18px',
+      display:'flex',alignItems:'center',gap:'12px'
+    }});
+    connBanner.appendChild(el('div',{style:{fontSize:'1.8rem'}},'🔗'));
+    const ci=el('div',{style:{flex:1}});
+    ci.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}},
+      ['Connection Codes — the fastest way to invite']));
+    ci.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
+      ['Generate a 6-character code and share it with a therapist. They enter it in their app to instantly join.']));
+    connBanner.appendChild(ci);
+    connBanner.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
+    sec.appendChild(connBanner);
+  }
 
-  // Legacy Archive section
+  // Existing team members
+  const specialists=DB.specialists.filter(s=>
+    child?(s.permissions[child.id]?.length>0||s.status==='pending'):true
+  );
+
+  if(!specialists.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👥']),
+      el('div',{class:'empty-state-title'},['No specialists yet']),
+      el('div',{class:'empty-state-body'},['Invite a therapist using a Connection Code or email invite. They\'ll join '+(child?.name||'this profile')+'\'s care team.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Generate Connection Code','btn-md btn-primary',()=>{if(child)showConnectionCodeModal(child.id);}),
+      ])
+    ]));
+  } else {
+    specialists.forEach(s=>{
+      const isPending=s.status==='pending';
+      const perms=child?(s.permissions[child.id]||[]):[];
+      const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
+      if(isPending){
+        const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+        pb.appendChild(badge('⏳ Pending','amber'));card.appendChild(pb);
+      }
+      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
+      const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
+      perms.forEach(p2=>pr.appendChild(badge(p2.toUpperCase(),'teal')));
+      if(!perms.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+      info.appendChild(pr);
+      card.appendChild(info);
+      if(!isPending&&child){
+        const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
+        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
+        acts.appendChild(mkBtn('🤝 Consult','btn-sm btn-lav',()=>showHandshakeModal(s)));
+        acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
+          `Remove ${s.name} from ${child.name}'s care team?`,true,()=>removeSpecialist(s))));
+        card.appendChild(acts);
+      }
+      sec.appendChild(card);
+    });
+  }
+
+  // Legacy Archive
   const archive=DB.legacyArchive;
   if(archive.length){
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},['🗄️ Legacy Archives']));
@@ -4150,6 +4999,42 @@ function renderSettings(){
   pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
     ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
   sec.appendChild(pv);
+
+  // Onboarding & Demo
+  const od=el('div',{class:'card',style:{marginTop:'16px'}});
+  od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🗺️ Onboarding & Demo']));
+  const tourDismissed=LS.get('tourDismissed',false);
+  const odRows=[
+    {
+      icon:'🗺️',title:'Guided Tour',desc:tourDismissed?'Tour dismissed. Click to restart it.':'Restart the step-by-step onboarding tour.',
+      btn:'Restart Tour',action:()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}
+    },
+    {
+      icon:'🎭',title:'Load Demo Data',desc:'Populate with sample data for Lily & Noah Carter to explore all features.',
+      btn:'Load Demo',action:()=>openConfirm('Load Demo Data','This replaces your current data with demo data. Are you sure?',true,()=>loadDemoData())
+    },
+    {
+      icon:'🗑️',title:'Clear All Data',desc:'Reset everything to a clean slate. This cannot be undone.',
+      btn:'Clear Data',danger:true,
+      action:()=>openConfirm('Clear All Data','This will permanently delete all your data including children, files, and connections. Are you sure?',true,()=>{
+        // Clear all hd9_ keys
+        Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+        doLogout();re();toast('All data cleared.','info');
+      })
+    }
+  ];
+  odRows.forEach(({icon,title,desc,btn,action,danger})=>{
+    const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},[icon]));
+    const info=el('div',{style:{flex:1}});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem'}},[title]));
+    info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginTop:'2px'}},[desc]));
+    row.appendChild(info);
+    row.appendChild(mkBtn(btn,'btn-sm '+(danger?'btn-danger':'btn-secondary'),action));
+    od.appendChild(row);
+  });
+  sec.appendChild(od);
+
   return sec;
 }
 
