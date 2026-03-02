@@ -1423,7 +1423,6 @@ async function _loadSessionFromSupabase(s){
     }
     if(event==='SIGNED_OUT'){session=null;re();}
   });
-  re(); // initial render
 })();
 
 async function doGoogleSignIn(){
@@ -5438,21 +5437,50 @@ function re(){
 }
 
 initData();
-// Handle magic link invite on page load (now via Supabase invites table)
-(async function handleInviteLink(){
+
+// Handle invite links
+(async function(){
   const params=new URLSearchParams(window.location.search);
   const token=params.get('invite');
   if(token){
     const result=await SB.acceptInvite(token).catch(()=>null);
     if(result&&!result.expired){
       setTimeout(()=>toast('🎉 Welcome! You have joined the care team!','success',5000),800);
-    } else if(result?.expired){
-      setTimeout(()=>toast('⚠️ This invite link has expired. Ask the family for a new one.','error',5000),800);
     } else {
       setTimeout(()=>toast('⚠️ This invite link is invalid or already used.','error',5000),800);
     }
     window.history.replaceState({},'',window.location.pathname);
   }
+})();
+
+// Boot sequence — restore Supabase session then render
+(async function boot(){
+  try {
+    const {data:{session:s}} = await _supa.auth.getSession();
+    if(s){
+      await _loadSessionFromSupabase(s);
+    }
+  } catch(e){
+    console.warn('Supabase session restore failed:', e);
+  }
+
+  // Always render regardless of session state
+  re();
+
+  // Listen for auth changes (Google OAuth redirect, sign out, etc.)
+  _supa.auth.onAuthStateChange(async(event,s)=>{
+    if(event==='SIGNED_IN'&&s){
+      await _loadSessionFromSupabase(s);
+      if(session){
+        S.navLevel=session.role==='parent'?0:1;
+        S.activeChild=LS.get('children',[])[0]?.id||null;
+      }
+    }
+    if(event==='SIGNED_OUT'){
+      session=null;
+    }
+    re();
+  });
 })();
 // Note: re() is called inside the async Supabase session boot above
 </script>
