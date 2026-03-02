@@ -890,8 +890,6 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   font-family:'Fraunces',serif;font-size:.95rem;font-weight:800;
   color:var(--navy);flex:1;line-height:1.2;
 }
-.cpf-diag{font-size:.7rem;color:var(--slate);font-weight:600}
-
 /* Section header with back-to-home context */
 .level-breadcrumb{
   display:flex;align-items:center;gap:8px;
@@ -1167,9 +1165,32 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
    ⚠️  SECURITY WARNING (QA-SEC-1 / OWASP A02):
    Client-side API tokens are visible to all users via DevTools.
    In production, ALL API calls (Dropbox, Anthropic) MUST be
-   proxied through a secure backend server. The token below
+   proxied through a secure backend server. The tokens below
    should be rotated immediately if this file was shared publicly.
-   Replace with window.DROPBOX_TOKEN injected server-side.
+
+   ── HOW TO INJECT TOKENS ──────────────────────
+   Add a <script> block in the <head> BEFORE this file loads,
+   or have your server template render it inline:
+
+     <script>
+       window.DROPBOX_TOKEN  = "sl.u.AGVi4w7hoi2vdR1HnoQKghdn94Asex0BWMX8PVpR10LtV8RBwIpG4bB_NmudJjKhhOz4VBaJIL6IrR8viwOsodguwsLJ4IaUVeHWAM_Gk6ygEcQkpbPyKG0Mo2DIoh2Fb_WFUFq-IvnkM995Yr81ynV30YyG1eWDRTYF-maXzWumZM-SoAMgu7BBu4fl9t7wwhFOVqb_aDNh59uVb4O4Kkk9hViYK9ek5ZvmExs49OlMoP7jLP0nGx70_chkj5xznry4vBKgD9IvPggrnMCCC9cOA9PYidJtDnnBxv989CNe5oa6or3Rc-tAGTJlH59ereHFSxEWDUfph1oPCAF3G9-9h95ob-QDXH245mcDNOaN9a4QHjsp-Ir3Nkc4giTg5eGSn7sw_z8muHF2847REFByhFWufyCxUDD1Z9YnJL2otRXvUfqMS-1hoFhDqkm5PjX1qG1KZ6xZ8CKGOJVHRiK4Tl2P7rz93uEd9pV6iLxId2tetHke_bCIa7fC33TmXR84L20i113vPCeuuxTkcUadvf7lR7WJ1XGHEM_jkLlKN9SrUN0zs-TsUlEjFNjta-DI_AERkAW0EeIdqYPsBcAzpmJv8rRV4rE7KOvUeqpk-6VrOJ1ZZuPF78bCyNPspDjbcV1xAY2TSmWdxUKCPltiGeWUHBwGe-9f-Z9RUsBC08LYIKyFOX1oeKCUMjmhfq4gKijPZuuvu3NgiQ4_nricFH7k7AzF49qUxYgrBtocGTpg-3Hyd9Hj6E_otuJb0-4kBVkoPvx8OyxGl3wp8cJBYj3bZKTedqssVQOzwLeVLtZUK8iRLjCO2vQmBfHVYAhNDgXPiqDDMl6aqbd9MFImCZ6WDGG42N3rj5gsjZb9eUIxsQDNGU5dTJyh1ZbXCyY2QeftjwWf8DruimJVlXqV3DGpGjlwu5OVxwVyiIlJRd-0MIcFfaQ7w-aMcw_3fk3XiBI_Mg18wtnGfid_Gm4K1sSiw_qjA-V1xdp-pmy9VpyMv988Hq47F75iByiitbGIeiTb0O8H2gx8raaiIlPFUMt7hrRMc0JpM4xkK0vrcylrGDYsmC7He-TGkK3Pjb9X4DoOM2Szb__xkbFXkf3M9EUmLNdEjWDD8YuocvhyoxJCnhcgvj41_2wxBEG8uo24eRP0KaB9XiQy4RW7DbbtU6zGuW6fNfBUXU4KhHbdtFaz4TvgJoaE5pANunDb5m-ok_8S7NEYo84QiSDJSYCqLGnZwnJ7V-pM8A1I5dmedXTfwtLx-fhMBOgww_DAXZtUqBFwFmcp5AgBgoj6Q1S4twvUDFzE5l612-ep0C1SrA";
+       window.ANTHROPIC_API_KEY = "sk-ant-YOUR_ANTHROPIC_KEY";
+     </script>
+
+   For Dropbox specifically:
+     • App key / App secret are used ONLY in the OAuth flow
+       (server-side) to exchange an authorization code for the
+       access token. They should NEVER appear in client JS.
+     • Generate a long-lived (offline) access token at
+       https://www.dropbox.com/developers/apps → your app →
+       OAuth 2 → Generated access token.
+     • Assign that access token to window.DROPBOX_TOKEN above.
+
+   For local development only (never commit this):
+     Open the file in a text editor, find the <head> tag, and
+     paste the <script> block above with your real token.
+     Keep a .gitignore'd copy of the file with tokens injected,
+     and always distribute the token-free version.
 ═══════════════════════════════════════════════ */
 const DROPBOX_TOKEN = typeof window.DROPBOX_TOKEN !== 'undefined'
   ? window.DROPBOX_TOKEN
@@ -1206,14 +1227,15 @@ const SEED = {
   milestones:[],
   specialistRequests:[],
   connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
-  linkedSpecialists:[]  // [{specialistEmail, specialistName, role, childId, linkedAt}]
+  linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
+  specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
 
 // Demo data loaded when user clicks "Try Demo"
 const DEMO_SEED={
   children:[
-    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",diagnoses:["Sensory Processing","Speech Delay"],photo:null},
-    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",diagnoses:["Autism Spectrum"],photo:null}
+    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",photo:null},
+    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",photo:null}
   ],
   globalInboxFiles:[
     {id:"gi1",name:"Annual_Insurance_Card.pdf",type:"pdf",date:"2025-02-28",size:"142 KB"},
@@ -1323,7 +1345,7 @@ const DB=new Proxy({},{
    AUTH
 ═══════════════════════════════════════════════ */
 let session=LS.get('session',null);
-function doLogin(email,password,role,name=''){
+function doLogin(email,password,role,name='',profession=''){
   // ⚠️ QA-SEC-4: passwords are stored in plain text in localStorage for this demo.
   // Production builds must hash passwords server-side (bcrypt/argon2) and use
   // session tokens, never store raw credentials client-side.
@@ -1335,6 +1357,7 @@ function doLogin(email,password,role,name=''){
     const uid='u_'+Date.now();
     user={id:uid,email,password,role,name:name||email.split('@')[0],
       specialistId:null, // specialists get their own ID
+      profession:profession||'',
       isNew:true,createdAt:new Date().toISOString()
     };
     if(role==='specialist'){
@@ -1342,7 +1365,7 @@ function doLogin(email,password,role,name=''){
       const sid='s_'+Date.now();
       user.specialistId=sid;
       const specs=LS.get('specialists',[]);
-      specs.push({id:sid,name:user.name,role:'Specialist',email,avatar:'🩺',
+      specs.push({id:sid,name:user.name,role:profession||'Specialist',email,avatar:'🩺',
         permissions:{},status:'active',credentials:[],isNew:true});
       LS.set('specialists',specs);
     }
@@ -1395,7 +1418,7 @@ const TOUR_STEPS_PARENT=[
   {
     id:'add-child',
     title:'Add Your First Child',
-    body:'Tap the ＋ Add Child bubble to create a profile. Upload their photo, diagnoses, and date of birth.',
+    body:'Tap the ＋ Add Child bubble to create a profile. Upload their photo and date of birth.',
     target:'.child-bubble-add',
     arrow:'arrow-bottom',
     action:null
@@ -1648,25 +1671,66 @@ function redeemConnectionCode(code,specialistId,specialistName,role){
   codes[idx].used=true;
   DB.connectionCodes=codes;
   const childId=codes[idx].childId;
-  // Grant specialist access to general and their role folder
+  const child=DB.children.find(c=>c.id===childId);
+  // Task 3 — Opt-in: do NOT auto-grant folder access.
+  // Instead, create a pending approval request for the parent to review.
+  const requests=DB.specialistRequests||[];
+  // Avoid duplicate pending requests for the same specialist+child
+  const alreadyPending=requests.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
+  if(!alreadyPending){
+    requests.push({
+      id:'req_'+Date.now(),
+      specialistId,specialistName,role,childId,
+      requestedAt:new Date().toISOString(),
+      status:'pending'
+    });
+    DB.specialistRequests=requests;
+  }
+  pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team — approval required.`,childId);
+  return{ok:true,childId,child};
+}
+
+function approveSpecialistRequest(requestId,selectedFolders){
+  const requests=DB.specialistRequests||[];
+  const reqIdx=requests.findIndex(r=>r.id===requestId);
+  if(reqIdx===-1)return;
+  const req=requests[reqIdx];
+  requests[reqIdx].status='approved';
+  DB.specialistRequests=requests;
+  // Now grant the selected folder permissions
   const specs=DB.specialists||[];
-  const existingIdx=specs.findIndex(s=>s.id===specialistId);
-  const roleKey=role.toLowerCase().includes('speech')?'speech':
-    role.toLowerCase().includes('occupational')||role.toLowerCase().includes(' ot')?'ot':
-    role.toLowerCase().includes('physical')||role.toLowerCase().includes(' pt')?'pt':'general';
-  if(existingIdx>-1){
-    if(!specs[existingIdx].permissions[childId])specs[existingIdx].permissions[childId]=[];
-    if(!specs[existingIdx].permissions[childId].includes(roleKey))specs[existingIdx].permissions[childId].push(roleKey);
-    if(!specs[existingIdx].permissions[childId].includes('general'))specs[existingIdx].permissions[childId].push('general');
+  const specIdx=specs.findIndex(s=>s.id===req.specialistId);
+  if(specIdx>-1){
+    if(!specs[specIdx].permissions[req.childId])specs[specIdx].permissions[req.childId]=[];
+    selectedFolders.forEach(key=>{
+      if(!specs[specIdx].permissions[req.childId].includes(key))
+        specs[specIdx].permissions[req.childId].push(key);
+    });
     DB.specialists=specs;
   }
-  // Record linked specialist for parent view
+  // Record linked specialist
   const linked=DB.linkedSpecialists||[];
-  linked.push({specialistId,specialistName,role,childId,linkedAt:new Date().toISOString()});
+  linked.push({specialistId:req.specialistId,specialistName:req.specialistName,role:req.role,childId:req.childId,linkedAt:new Date().toISOString()});
   DB.linkedSpecialists=linked;
-  const child=DB.children.find(c=>c.id===childId);
-  pushNotif('invite',`${specialistName} joined ${child?.name||'your child'}'s care team via connection code!`,childId);
-  return{ok:true,childId,child};
+  // Task 4 — create a personal Vault folder for this specialist+child (hard-locked to others)
+  const vaults=DB.specialistVaults||[];
+  const vaultExists=vaults.some(v=>v.specialistId===req.specialistId&&v.childId===req.childId);
+  if(!vaultExists){
+    vaults.push({vaultId:'vault_'+Date.now(),specialistId:req.specialistId,specialistName:req.specialistName,childId:req.childId,authorizedSpecialistIds:[],createdAt:new Date().toISOString()});
+    DB.specialistVaults=vaults;
+  }
+  const child=DB.children.find(c=>c.id===req.childId);
+  pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
+  re();
+  toast('Access granted to '+req.specialistName+'!');
+}
+
+function denySpecialistRequest(requestId){
+  const requests=DB.specialistRequests||[];
+  const idx=requests.findIndex(r=>r.id===requestId);
+  if(idx>-1){requests[idx].status='denied';DB.specialistRequests=requests;}
+  re();
+  toast('Request declined.');
 }
 
 function showConnectionCodeModal(childId){
@@ -1720,15 +1784,10 @@ function showEnterCodeModal(){
     codeInp.oninput=e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);};
     mb.appendChild(codeInp);
 
-    const roleSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
-    ['Speech Therapist','Occupational Therapist','Physical Therapist','Behavioral Therapist','Psychologist','Other Specialist']
-      .forEach(r=>{const o=el('option');o.value=r;o.textContent=r;roleSel.appendChild(o);});
-    // Pre-set role if specialist already has one
-    if(spec?.role){
-      const idx=[...roleSel.options].findIndex(o=>o.value===spec.role);
-      if(idx>-1)roleSel.selectedIndex=idx;
-    }
-    mb.appendChild(roleSel);
+    // Show profession read-only (auto-filled from specialist profile)
+    const profDisplay=el('div',{style:{background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',padding:'12px 16px',marginBottom:'16px',fontSize:'.88rem',fontWeight:700,color:'var(--navy)'}});
+    profDisplay.textContent='Profession: '+(spec?.role||'Specialist');
+    mb.appendChild(profDisplay);
 
     const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'20px'}});
     mb.appendChild(errDiv);
@@ -1736,7 +1795,7 @@ function showEnterCodeModal(){
     mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',()=>{
       const code=codeInp.value.trim();
       if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
-      const result=redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',roleSel.value);
+      const result=redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
       if(result.error){errDiv.textContent=result.error;return;}
       close();
       toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
@@ -1899,6 +1958,9 @@ function renderAuth(){
 
     if(mode==='signup'){
       const ni=el('input',{class:'inp',placeholder:'Your full name',type:'text'});ni.id='auth-name';ig.appendChild(ni);
+      if(selRole==='specialist'){
+        const pi2=el('input',{class:'inp',placeholder:'Your profession (e.g. Speech Therapist)',type:'text'});pi2.id='auth-profession';ig.appendChild(pi2);
+      }
     }
     const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
     const pi=el('input',{class:'inp',placeholder:'Password',type:'password'});pi.id='auth-pass';
@@ -1907,9 +1969,11 @@ function renderAuth(){
     const sb=mkBtn(mode==='signin'?'Sign In ✨':'Create Account 🎉','btn-lg btn-primary btn-full',()=>{
       const email=ei.value.trim(),pass=pi.value.trim();
       const name=mode==='signup'?(formArea.querySelector('#auth-name')?.value.trim()||''):'';
+      const profession=mode==='signup'&&selRole==='specialist'?(formArea.querySelector('#auth-profession')?.value.trim()||''):'';
       errBox.innerHTML='';
       if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
-      const res=doLogin(email,pass,selRole,name);
+      if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},['Please enter your profession.']));return;}
+      const res=doLogin(email,pass,selRole,name,profession);
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
       // Parents land on Global Home (Level 0); specialists go straight to dashboard
       if(session.role==='parent'){
@@ -2382,7 +2446,14 @@ function renderSearchOverlay(){
       results.appendChild(item);
     });
     // Search notes
-    DB.vaultNotes.filter(n=>n.title.toLowerCase().includes(q.toLowerCase())||n.content.toLowerCase().includes(q.toLowerCase())).forEach(n=>{
+    const specId=session?.specialistId||null;
+    DB.vaultNotes.filter(n=>{
+      if(!n.title.toLowerCase().includes(q.toLowerCase())&&!n.content.toLowerCase().includes(q.toLowerCase()))return false;
+      if(!specId)return false; // parents have no vault tab — skip vault notes in search
+      if(n.specialistId===specId)return true; // own notes always visible
+      const vault=(DB.specialistVaults||[]).find(v=>v.specialistId===n.specialistId&&v.childId===n.childId);
+      return vault&&(vault.authorizedSpecialistIds||[]).includes(specId); // explicitly authorized only
+    }).forEach(n=>{
       const c=DB.children.find(x=>x.id===n.childId);
       const item=el('div',{class:'search-result-item'});
       item.innerHTML=`<span style="font-size:1.5rem">📝</span><div><div style="font-weight:700;color:var(--navy)">${n.title}</div><div style="font-size:.76rem;color:var(--slate)">${c?.avatar} ${c?.name} · ${n.date}</div></div>`;
@@ -2440,7 +2511,7 @@ function renderGlobalHome(){
     sec.appendChild(howTitle);
 
     const steps=[
-      {icon:'👶',title:'Add a Child',desc:'Create a profile with their name, date of birth, and diagnoses.',btn:'＋ Add Child',action:()=>showAddChildModal()},
+      {icon:'👶',title:'Add a Child',desc:'Create a profile with their name and date of birth.',btn:'＋ Add Child',action:()=>showAddChildModal()},
       {icon:'🔗',title:'Invite Specialists',desc:'Generate a Connection Code and share it with their therapists.',btn:'Generate Code (add child first)',action:null},
       {icon:'📁',title:'Upload Reports',desc:'Drop documents into the Global Inbox and sort them into folders.',btn:'Upload File',action:()=>{
         const inp=el('input',{type:'file',style:{display:'none'}});
@@ -2597,9 +2668,22 @@ function renderMiniCalendar(children,allApts){
   hl.appendChild(el('div',{class:'mini-cal-sub'},
     [`${upcoming.length} event${upcoming.length!==1?'s':''} in next 14 days`]));
   hd.appendChild(hl);
+  const calHdRight=el('div',{style:{display:'flex',gap:'7px',alignItems:'center'}});
+  // Add Event shortcut for parents (Task 5 — editable calendar)
+  if(session?.role==='parent'){
+    const miniAddBtn=el('button',{class:'mini-cal-expand',style:{background:'rgba(255,255,255,.35)',marginRight:'4px'}},['+ Event']);
+    miniAddBtn.onclick=e=>{
+      e.stopPropagation();
+      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      if(!S.activeChild){toast('Add a child profile first.','error');return;}
+      showAddEventModal();
+    };
+    calHdRight.appendChild(miniAddBtn);
+  }
   const expandBtn=el('button',{class:'mini-cal-expand'},['See Full ›']);
   expandBtn.onclick=e=>{e.stopPropagation();S.calFullscreen=true;re();};
-  hd.appendChild(expandBtn);
+  calHdRight.appendChild(expandBtn);
+  hd.appendChild(calHdRight);
   card.appendChild(hd);
 
   // 7-day strip
@@ -2677,6 +2761,16 @@ function renderCalFullscreen(){
   // FIX B4: dynamic month label
   const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+' — All Children';
   hd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',flex:1,textAlign:'center'}},[calFsMonthLabel]));
+  // Add Event button for parents (Task 5 — editable calendar)
+  if(session?.role==='parent'){
+    const addEvtBtn=mkBtn('+ Add','btn-sm btn-primary',()=>{
+      // If no child is selected, use the first available child
+      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      if(!S.activeChild){toast('Add a child profile first.','error');return;}
+      showAddEventModal();
+    });
+    hd.appendChild(addEvtBtn);
+  }
   // Legend
   const legend=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
   children.forEach((c,i)=>{
@@ -2973,7 +3067,7 @@ function renderParentDashboard(){
   const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
     [(session?.name||'Parent')+' 👋']);
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
-    ['Age '+child.age+' · '+(child.diagnoses.length?child.diagnoses.join(', '):'No diagnoses added')]);
+    ['Age '+child.age+' · DOB '+child.dob]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   // Quick action buttons in welcome card
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
@@ -3140,6 +3234,19 @@ function renderSpecDashboard(){
   });
   sec.appendChild(stats);
 
+  // Promotion block — shown when specialist has at least 1 patient
+  if(myPatients.length>=1){
+    const promoCard=el('div',{class:'card',style:{background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',border:'1.5px solid var(--lav)',marginBottom:'22px',display:'flex',gap:'14px',alignItems:'flex-start'}});
+    promoCard.appendChild(el('div',{style:{fontSize:'1.8rem',flexShrink:0}},['🌟']));
+    const promoInfo=el('div',{style:{flex:1}});
+    promoInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px',fontSize:'.92rem'}},['Grow Your Practice']));
+    promoInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.55',marginBottom:'10px'}},
+      ['You have '+myPatients.length+' patient'+(myPatients.length!==1?'s':'')+' on Huddledin. Share your profile link to connect with more families.']));
+    promoInfo.appendChild(mkBtn('Share Profile','btn-sm btn-lav',()=>toast('Profile link copied — coming soon!','info')));
+    promoCard.appendChild(promoInfo);
+    sec.appendChild(promoCard);
+  }
+
   // Calendar
   const calTitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 My Schedule']);
   sec.appendChild(calTitle);
@@ -3194,6 +3301,8 @@ function renderFiles(){
   const isParent=session?.role==='parent';
   const spec=DB.specialists.find(s=>s.id===session?.specialistId);
   const perms=spec?.permissions[S.activeChild]||[];
+  // Task 4 — vault-aware permission check
+  // Standard folders: parent always access, specialist needs permission key
   const canAccess=key=>isParent||perms.includes(key);
   const folders=DB.folders;
   const child=DB.children.find(c=>c.id===S.activeChild);
@@ -3303,6 +3412,71 @@ function renderFiles(){
     }
   });
   sec.appendChild(grid);
+
+  // Task 4 — Specialist Vault folders (hard-locked personal storage per specialist)
+  if(S.activeChild){
+    const vaults=(DB.specialistVaults||[]).filter(v=>v.childId===S.activeChild);
+    if(vaults.length>0){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',margin:'22px 0 12px',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--slate)'}},[' Personal Vaults']));
+      const vaultGrid=el('div',{class:'g-folder'});
+      vaults.forEach(vault=>{
+        const isOwner=!isParent&&session?.specialistId===vault.specialistId;
+        const isAuthorized=!isParent&&(vault.authorizedSpecialistIds||[]).includes(session?.specialistId);
+        const canViewVault=isOwner||isAuthorized;
+        const vaultSpec=DB.specialists.find(s=>s.id===vault.specialistId);
+        const wrap=el('div',{class:'folder-card',style:{background:'linear-gradient(135deg,var(--lav-l),#fff)',border:'1.5px solid var(--lav)'}});
+        const iw=el('div',{class:'folder-icon-wrap',style:{background:'var(--lav-l)'}},['🔐']);
+        wrap.appendChild(iw);
+        wrap.appendChild(el('div',{class:'folder-name'},[vaultSpec?.name||vault.specialistName]));
+        wrap.appendChild(el('div',{class:'folder-count'},['Personal Vault']));
+        if(canViewVault){
+          // Owner or authorized: show normal open state
+          wrap.appendChild(badge('Your Vault','lav'));
+          wrap.onclick=()=>openModal('🔐 '+vaultSpec?.name+"'s Vault",(mb,close)=>{
+            mb.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,marginBottom:'16px'}},['This is your private vault. Files uploaded here are not visible to other specialists.']));
+            // Authorize another specialist
+            const otherSpecs=(DB.specialists||[]).filter(s=>s.status==='active'&&s.id!==vault.specialistId&&(s.permissions[vault.childId]||[]).length>0);
+            if(otherSpecs.length>0&&isOwner){
+              mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Authorize another specialist to view:']));
+              otherSpecs.forEach(os=>{
+                const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 12px',borderRadius:'11px',background:'var(--mint-ll)',marginBottom:'7px'}});
+                const cb=el('input',{type:'checkbox'});
+                cb.checked=(vault.authorizedSpecialistIds||[]).includes(os.id);
+                cb.onchange=e=>{
+                  const vs=DB.specialistVaults||[];
+                  const vi=vs.findIndex(v=>v.vaultId===vault.vaultId);
+                  if(vi===-1)return;
+                  if(e.target.checked){if(!vs[vi].authorizedSpecialistIds.includes(os.id))vs[vi].authorizedSpecialistIds.push(os.id);}
+                  else{vs[vi].authorizedSpecialistIds=vs[vi].authorizedSpecialistIds.filter(x=>x!==os.id);}
+                  DB.specialistVaults=vs;
+                  toast('Authorization updated for '+os.name+'!');
+                };
+                lbl.appendChild(cb);
+                lbl.appendChild(mkAvatar(os.avatar||'🩺',30,'#d1fae5'));
+                lbl.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:700}},[os.name]));
+                mb.appendChild(lbl);
+              });
+            }
+            mb.appendChild(mkBtn('Close','btn-md btn-ghost btn-full',close));
+          },440);
+        } else {
+          // Hard-locked — all other users see blurred, cannot open
+          const lockBadge=el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},['Locked']);
+          wrap.appendChild(lockBadge);
+          const blur=el('div',{class:'blur-lock',style:{borderRadius:'var(--r-lg)'}});
+          blur.appendChild(el('div',{style:{fontSize:'1.6rem',marginBottom:'6px'}},['🔒']));
+          blur.appendChild(el('div',{style:{fontSize:'.74rem',fontWeight:800,color:'var(--navy)',textAlign:'center'}},['Private Vault']));
+          blur.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',textAlign:'center',marginTop:'3px'}},['Owner must grant access']));
+          wrap.appendChild(blur);
+          // Clicking a locked vault does nothing
+          wrap.onclick=e=>e.stopPropagation();
+        }
+        vaultGrid.appendChild(wrap);
+      });
+      sec.appendChild(vaultGrid);
+    }
+  }
+
   return sec;
 }
 
@@ -3455,6 +3629,47 @@ function renderTeam(){
     connBanner.appendChild(ci);
     connBanner.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
     sec.appendChild(connBanner);
+  }
+
+  // Pending access requests (opt-in approval section)
+  if(child){
+    const pendingReqs=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
+    if(pendingReqs.length>0){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['Pending Access Requests']));
+      pendingReqs.forEach(req=>{
+        const reqCard=el('div',{class:'spec-request-card'});
+        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
+        topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · Requested '+new Date(req.requestedAt).toLocaleDateString()]));
+        topRow.appendChild(info);
+        reqCard.appendChild(topRow);
+        // Folder selection for approval
+        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Choose which folders to grant access:']));
+        const folderKeys=['speech','ot','pt','general','meds','school'];
+        const selFolders=[];
+        const fRows=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'12px'}});
+        folderKeys.forEach(key=>{
+          const folder=DB.folders.find(f=>f.key===key);
+          const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',padding:'7px 11px',borderRadius:'11px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',fontSize:'.8rem',fontWeight:700}});
+          const cb=el('input',{type:'checkbox'});
+          cb.onchange=e=>{if(e.target.checked){if(!selFolders.includes(key))selFolders.push(key);}else{const fi=selFolders.indexOf(key);if(fi>-1)selFolders.splice(fi,1);}};
+          lbl.appendChild(cb);lbl.appendChild(document.createTextNode((folder?.icon||'📁')+' '+(folder?.name||key)));
+          fRows.appendChild(lbl);
+        });
+        reqCard.appendChild(fRows);
+        const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
+        btnRow.appendChild(mkBtn('Approve & Grant Access','btn-sm btn-primary',()=>{
+          if(!selFolders.length){toast('Select at least one folder to grant.','error');return;}
+          approveSpecialistRequest(req.id,selFolders);
+        }));
+        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        reqCard.appendChild(btnRow);
+        sec.appendChild(reqCard);
+      });
+      sec.appendChild(el('div',{class:'sep'}));
+    }
   }
 
   // Existing team members
@@ -3772,6 +3987,16 @@ function showGoogleSyncModal(){
 function showAddEventModal(){
   openModal('➕ Add Appointment',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    // Child selector — shown when called from multi-child fullscreen calendar
+    const children=DB.children;
+    if(children.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===S.activeChild)o.selected=true;childSel.appendChild(o);});
+      childSel.onchange=e=>{S.activeChild=e.target.value;};
+      if(!S.activeChild)S.activeChild=children[0].id;
+      mb.appendChild(childSel);
+    }
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
     const di=el('input',{class:'inp',type:'date'});
@@ -4302,7 +4527,7 @@ function renderPatients(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},['My Patients']));
   sec.appendChild(el('p',{class:'page-sub'},['Click a patient to view their vault & files']));
-  const si=el('input',{class:'inp',placeholder:'🔍 Search by name or diagnosis…',style:{marginBottom:'18px'}});
+  const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'18px'}});
   sec.appendChild(si);
 
   const stack=el('div',{class:'stack'});
@@ -4310,15 +4535,12 @@ function renderPatients(){
 
   const doFilter=q=>{
     stack.innerHTML='';
-    sorted.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.diagnoses.some(d=>d.toLowerCase().includes(q.toLowerCase()))).forEach(c=>{
+    sorted.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
       const card=el('div',{class:'card click',style:{display:'flex',alignItems:'center',gap:'15px',border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
       card.innerHTML=`<div style="width:52px;height:52px;border-radius:15px;background:${c.color}44;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">${c.avatar}</div>`;
       const info=d('',[], {flex:1});
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'2px'}},[c.name]));
       info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+c.age+' · DOB '+c.dob]));
-      const dxRow=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
-      c.diagnoses.forEach(dx=>dxRow.appendChild(badge(dx,'teal')));
-      info.appendChild(dxRow);
       card.appendChild(info);
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
       card.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';re();};
@@ -4678,7 +4900,6 @@ function showAddChildModal(){
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
     const dob=el('input',{class:'inp',type:'date',placeholder:'Date of birth'});
-    const dx=el('input',{class:'inp',placeholder:'Diagnoses (comma separated)'});
 
     // Emoji avatar picker
     mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
@@ -4713,13 +4934,13 @@ function showAddChildModal(){
     mb.appendChild(photoWrap);mb.appendChild(photoInput);
     mb.appendChild(el('div',{style:{height:'14px'}}));
 
-    [ni,dob,dx].forEach(i=>ig.appendChild(i));
+    [ni,dob].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Add Child','btn-lg btn-primary btn-full',()=>{
       if(!ni.value.trim()||!dob.value){toast('⚠️ Name and date of birth required.','error');return;}
       const dobDate=new Date(dob.value);
       const age=new Date().getFullYear()-dobDate.getFullYear();
-      const newChild={id:'c_'+Date.now(),name:ni.value.trim(),age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,diagnoses:dx.value.split(',').map(s=>s.trim()).filter(Boolean),photo:photoData||null};
+      const newChild={id:'c_'+Date.now(),name:ni.value.trim(),age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:photoData||null};
       const children=DB.children;children.push(newChild);DB.children=children;
       // Add empty permissions for all specialists
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
