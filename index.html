@@ -83,8 +83,8 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .logo-bubble{width:34px;height:34px;border-radius:12px;background:linear-gradient(135deg,var(--teal),var(--teal-l));display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 3px 10px rgba(13,148,136,.35)}
 .logo-name{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:800;color:var(--teal-d);letter-spacing:-.01em}
 
-/* Child switcher — glassmorphism pills */
-#child-switcher{display:flex;gap:7px;flex-shrink:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:2px 0}
+/* FIX F8: removed first #child-switcher declaration — it was overridden by the second one below
+   (the second declaration is authoritative and complete) */
 .child-pill{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-full);border:1.5px solid transparent;background:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:.78rem;font-weight:700;color:var(--slate);white-space:nowrap;flex-shrink:0;scroll-snap-align:start;min-height:36px;-webkit-user-select:none;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .child-pill:active{transform:scale(.92);background:var(--mint-l)}
 .child-pill.active{border-color:var(--teal);background:var(--teal);color:#fff;box-shadow:0 4px 14px rgba(13,148,136,.35)}
@@ -1164,8 +1164,16 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* ═══════════════════════════════════════════════
    TOKENS
+   ⚠️  SECURITY WARNING (QA-SEC-1 / OWASP A02):
+   Client-side API tokens are visible to all users via DevTools.
+   In production, ALL API calls (Dropbox, Anthropic) MUST be
+   proxied through a secure backend server. The token below
+   should be rotated immediately if this file was shared publicly.
+   Replace with window.DROPBOX_TOKEN injected server-side.
 ═══════════════════════════════════════════════ */
-const DROPBOX_TOKEN = "sl.u.AGWlyueCeEoysUJd9wLn-PDIvP9Kd6IL9N_JiW2pLLv7Rc8AZpjfeeOJJ6tqD9yyEOujIXViAMTzofOJUnt7kefUyHcu74iHHedEeOieiyfHXsCmbP-q7tLdtyupRgce1C_NJUrZPZr6VvO3bDHkvxDvq71BiYJkHAL5bZOm4BqdIg6BMFXkyzTJU494JuP-wLTEfzMePwtFHdM_E_qYV2g2QeKKD-jB52SUnPTAAamxmPX5n6cWrChOpF1NPPPw_E6suKI5Bpi8BpLzupIe_rnAApADu_3oxjznYHdikDHLn8RcV76KSeM7bz3A7Eb603LoC509BAR4U46IOaqrlqgoJ59sp5Ps9ZuPPpQtBE2fI3hQ_ymafSsu_-eZisHnvWe5buSe8kI6RWHBfW1yhtKFvzpUogRsaaDWm3iNOgwIjur-qCWs0olxrFlZK9RiaSTFKNpUEJwiT5qYGSANKzav3GiTAX-Dj-b26qk1UpRDiriaS_b0Y2Mklvz6Fr-Wg0SPu5OVxHfErayCoVM4myuvXPO5Tqwx7Hll0TkEUgD_DytZIoOdIgvuKxbNnG8xvRrHfHxdTbOK_j6wKDvZCCoGIzkKmMqqd4Q7VYYhBXsxRKMciv2meAwFxrNoc9I6jENFlnOpXZqB0VtaJibmjbEIcrr9BzQF-e2KhD8wwY8VsEAudevG2Xe6g-RnTT6C2YjNr8HdOP51dFnyup6wQ3A0gQ24_hMocyw-q-ku6brqQ-NgSHDzLIO1PrIVl9ayqzGjjBD6k4DIUSpbx0_NWQLqAIQai7RD5cOTHSnveGBMnEUKVuD_gG4m17XRZdy8kLJcSIvQostHhFjASsu9DpINxNKf2ltl57hcjxlXYHnFOhMSf48FcqGdz1oeKs4XTrM9tupLx5Q5Imy-qoOG2q6NQPAe_cAuFM6ULu-2t6wrHDoHNGIcnUgDmJlcS5XvQqsh1F_lVlnHjneAWaiwmmld3DDbjfm6ZcP-2lZRB9P-H2jFifCl58Jrgvos8eW0m40ODbZhOG_cCdyCHBoGZkaoyEhh2lMEgZNQ0oa1RNci09AbYlcsp7OUV22h73JAsyDjXDEH45Go4tQURSlgiQ51GY5s06-Q2_hu3ZE_1d9ID_736o7lWCnG1JSc7YOlkvuDfu48Tg5xN5rEEupI4pCmDVzg12pTXngrrGlS7VbM8uKEpnE3ABneKkXJpCbLTxwBnVrL-3rPzoBRU2wv8W_Y2dWvFv2-h3b-gOZQV8FRzV2jLu5Np7ut4PLrveGx4dMafygCavmZih60HZz2QaTAOf0fnt2dTzu6KsljRbo9Dg";
+const DROPBOX_TOKEN = typeof window.DROPBOX_TOKEN !== 'undefined'
+  ? window.DROPBOX_TOKEN
+  : '';
 
 /* ═══════════════════════════════════════════════
    SEED DATA — Production zero-state defaults
@@ -1316,6 +1324,9 @@ const DB=new Proxy({},{
 ═══════════════════════════════════════════════ */
 let session=LS.get('session',null);
 function doLogin(email,password,role,name=''){
+  // ⚠️ QA-SEC-4: passwords are stored in plain text in localStorage for this demo.
+  // Production builds must hash passwords server-side (bcrypt/argon2) and use
+  // session tokens, never store raw credentials client-side.
   const users=LS.get('users',[]);
   let user=users.find(u=>u.email===email&&u.role===role);
   const isNew=!user;
@@ -1602,8 +1613,10 @@ function renderTour(){
 
   frag.appendChild(bubble);
 
-  // Position after appending (so we can measure)
-  requestAnimationFrame(positionBubble);
+  // FIX F2: use setTimeout(0) to ensure the fragment has been appended to the DOM
+  // before measuring target element positions for bubble placement.
+  // requestAnimationFrame fires before the fragment is actually in the document.
+  setTimeout(positionBubble,0);
 
   return frag;
 }
@@ -1938,11 +1951,11 @@ function renderAuth(){
       const r=doLogin('demo@huddledin.com','demo','parent','Demo Parent');
       if(r.ok){
         S.navLevel=0;S.activeTab='dashboard';
-        loadDemoData();
         // Don't show tour in demo mode
         LS.set('tourDismissed',true);
         LS.del('tourNeedsShow');
-        re();
+        // FIX F6: loadDemoData() already calls re() internally — do not call re() again here
+        loadDemoData();
       }
     };
     demoDiv.appendChild(demoBtn2);
@@ -2258,7 +2271,10 @@ function renderSidenav(){
   const spec=DB.specialists.find(s=>s.id===session?.specialistId);
   const nav=el('nav',{id:'sidenav'});
   const prof=el('div',{class:'sidenav-profile'});
-  prof.innerHTML=`<div class="sp-label">Signed in as</div><div class="sp-name">${session?.role==='parent'?'The Carter Family':(spec?.name||session?.name||'Specialist')}</div>`;
+  // FIX F9/QA-SEC-2: avoid innerHTML with user-controlled data to prevent XSS
+  prof.appendChild(el('div',{class:'sp-label'},['Signed in as']));
+  const profName=session?.role==='parent'?(session?.name||'Parent'):(spec?.name||session?.name||'Specialist');
+  prof.appendChild(el('div',{class:'sp-name'},[profName]));
   prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 Specialist','teal'));
   nav.appendChild(prof);
   const tourTargets={files:'tour-target-files',team:'tour-target-team',vault:'tour-target-vault',credentials:'tour-target-creds',patients:'tour-target-patients',settings:'tour-target-settings'};
@@ -2443,10 +2459,12 @@ function renderGlobalHome(){
       const info=el('div',{style:{flex:1}});
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[s.title]));
       info.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.55',marginBottom:'10px'}},[s.desc]));
+      // FIX FS4: setAttribute('disabled','false') still disables the button in HTML.
+      // Set .disabled property directly after element creation instead.
       const sb=el('button',{class:'btn btn-sm '+(s.action?'btn-primary':'btn-slate'),
-        disabled:!s.action,
         style:{opacity:s.action?1:.5,cursor:s.action?'pointer':'default'}
       },[s.btn]);
+      if(!s.action)sb.disabled=true;
       if(s.action)sb.onclick=s.action;
       info.appendChild(sb);
       card.appendChild(info);
@@ -2644,8 +2662,10 @@ function renderCalFullscreen(){
   const children=DB.children;
   const allApts=DB.appointments;
   const now=new Date();
-  const year=2025,month=2; // March 2025
-  const daysInMonth=31;
+  // FIX B4: use current month/year dynamically instead of hardcoded March 2025
+  const year=now.getFullYear();
+  const month=now.getMonth();
+  const daysInMonth=new Date(year,month+1,0).getDate();
   const firstDay=new Date(year,month,1).getDay();
 
   const wrap=el('div',{class:'cal-fullscreen'});
@@ -2654,7 +2674,9 @@ function renderCalFullscreen(){
   const hd=el('div',{class:'cal-fs-hd'});
   const closeBtn=mkBtn('‹ Back','btn-sm btn-slate',()=>{S.calFullscreen=false;re();});
   hd.appendChild(closeBtn);
-  hd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',flex:1,textAlign:'center'}},['March 2025 — All Children']));
+  // FIX B4: dynamic month label
+  const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+' — All Children';
+  hd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',flex:1,textAlign:'center'}},[calFsMonthLabel]));
   // Legend
   const legend=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
   children.forEach((c,i)=>{
@@ -2673,14 +2695,16 @@ function renderCalFullscreen(){
   // Calendar grid
   const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'20px'}});
   const calHead=el('div',{class:'cal-hd'});
-  calHead.innerHTML='<span class="ff" style="font-size:1.05rem;font-weight:800">March 2025</span>';
+  // FIX B4: dynamic month header
+  calHead.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span>`;
   calCard.appendChild(calHead);
 
   const grid=el('div',{class:'cal-grid'});
   ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
   for(let i=0;i<firstDay;i++)grid.appendChild(el('div',{class:'cal-day'}));
   for(let day=1;day<=daysInMonth;day++){
-    const ds=`2025-03-${String(day).padStart(2,'0')}`;
+    // FIX B4: build date string dynamically from current year/month
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const dayApts=allApts.filter(a=>a.date===ds);
     const cell=el('div',{class:'cal-day'});
     const num=el('div',{class:'cal-num'+(dayApts.length?' has-event':'')},
@@ -2697,7 +2721,9 @@ function renderCalFullscreen(){
           const c=children.find(x=>x.id===a.childId);
           return `${c?.avatar||''} ${a.title} (${c?.name.split(' ')[0]||''}) · ${a.time}`;
         }).join('\n');
-        alert('📅 March '+day+':\n\n'+aptNames);
+        // FIX B4: use dynamic month label
+        const aptMonthLabel=now.toLocaleDateString('en-US',{month:'long'})+' '+day;
+        alert('📅 '+aptMonthLabel+':\n\n'+aptNames);
       };
     }
     cell.appendChild(num);
@@ -2769,7 +2795,12 @@ function renderGlobalVault(){
 
   const files=DB.globalInboxFiles||[];
   if(!files.length){
-    wrap.appendChild(el('div',{class:'gv-empty'},['No files in your inbox yet.\nUpload documents to sort them into child profiles.']));
+    // FIX F4: \n does not render in HTML; use two separate text nodes with a <br>
+    const emptyMsg=el('div',{class:'gv-empty'});
+    emptyMsg.appendChild(document.createTextNode('No files in your inbox yet.'));
+    emptyMsg.appendChild(el('br'));
+    emptyMsg.appendChild(document.createTextNode('Upload documents to sort them into child profiles.'));
+    wrap.appendChild(emptyMsg);
     return wrap;
   }
 
@@ -2936,9 +2967,14 @@ function renderParentDashboard(){
 
   // Welcome card
   const welcome=el('div',{class:'welcome-card'});
-  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${child.avatar} ${child.name}'s Profile</div>
-    <div class="ff" style="font-size:1.45rem;font-weight:800;color:#fff;margin-bottom:5px">${session?.name||'Parent'} 👋</div>
-    <div style="color:rgba(255,255,255,.8);font-size:.84rem;font-weight:500">Age ${child.age} · ${child.diagnoses.length?child.diagnoses.join(', '):'No diagnoses added'}</div>`;
+  // FIX QA-SEC-2: build welcome card with safe text nodes to avoid XSS from user-controlled data
+  const wc1=el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:'700',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},
+    [child.avatar+' '+child.name+"'s Profile"]);
+  const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
+    [(session?.name||'Parent')+' 👋']);
+  const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
+    ['Age '+child.age+' · '+(child.diagnoses.length?child.diagnoses.join(', '):'No diagnoses added')]);
+  welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   // Quick action buttons in welcome card
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
   [
@@ -3299,10 +3335,14 @@ function showShareModal(file){
       try{
         const ab=await file.arrayBuffer();
         const child=DB.children.find(c=>c.id===S.activeChild);
+        // FIX FS1: sanitize path segments to remove characters that are invalid in Dropbox paths
+        const sanitizePath=s=>(s||'unknown').replace(/[\\/:*?"<>|]/g,'_').trim()||'unnamed';
+        const safeChildName=sanitizePath(child?.name);
+        const safeFileName=sanitizePath(file.name);
         const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
           method:'POST',
           headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
-            'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/${child?.name}/${file.name}`,mode:'add',autorename:true})},body:ab
+            'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/${safeChildName}/${safeFileName}`,mode:'add',autorename:true})},body:ab
         });
         const data=await resp.json();
         const fls=DB.folders;
@@ -3553,7 +3593,10 @@ function showInviteModal(){
       const magicLink=`${window.location.href.split('?')[0]}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
       // Save pending specialist
       const specs=DB.specialists;
-      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:{c1:prePerms,c2:[]},status:'pending',credentials:[],inviteToken:token});
+      // FIX B8: build permissions keyed to actual child IDs, not hardcoded 'c1'/'c2'
+      const invitePermsObj={};
+      DB.children.forEach(ch=>{invitePermsObj[ch.id]=ch.id===S.activeChild?prePerms:[];});
+      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:invitePermsObj,status:'pending',credentials:[],inviteToken:token});
       DB.specialists=specs;
       // Add simulated email to inbox
       const emails=DB.emailInbox;
@@ -3567,7 +3610,9 @@ function showInviteModal(){
       lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast('✅ Link copied to clipboard!'));};
       linkArea.appendChild(lb);
       linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:500}},['In a real app this would be emailed automatically. For demo, copy the link above.']));
-      re();toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
+      // FIX FS2: do NOT call re() here — it destroys the open modal and breaks the close button.
+      // The modal already shows the link; re() is deferred until the modal is closed.
+      toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
     }));
   },500);
 }
@@ -3629,7 +3674,8 @@ function renderCalendar(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Calendar']),
-    el('p',{class:'page-sub'},[isParent?`${child?.avatar} ${child?.name} — March 2025`:'My Schedule — March 2025'])
+    // FIX B4: dynamic month label in calendar subtitle
+    el('p',{class:'page-sub'},[isParent?`${child?.avatar} ${child?.name} — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`:`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
@@ -3637,22 +3683,34 @@ function renderCalendar(){
   ]));
   sec.appendChild(hd);
 
+  // FIX B4/B9/F1: compute dynamic year/month/firstDay and today
+  const calNow=new Date();
+  const calYear=calNow.getFullYear();
+  const calMonth=calNow.getMonth();
+  const calDaysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const calFirstDay=new Date(calYear,calMonth,1).getDay();
+  const calTodayStr=calNow.toISOString().split('T')[0];
+  const calTodayDay=calNow.getDate();
+
   const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
   const calHd2=el('div',{class:'cal-hd'});
-  calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">March 2025</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
+  calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">${calNow.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
   calCard.appendChild(calHd2);
   const cg=el('div',{class:'cal-grid'});
   ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
-  for(let i=0;i<6;i++)cg.appendChild(el('div',{class:'cal-day'}));
-  for(let day=1;day<=31;day++){
-    const ds=`2025-03-${String(day).padStart(2,'0')}`;
+  for(let i=0;i<calFirstDay;i++)cg.appendChild(el('div',{class:'cal-day'}));
+  for(let day=1;day<=calDaysInMonth;day++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const da=childApts.filter(a=>a.date===ds);
     const cell=el('div',{class:'cal-day'});
-    const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===1?' today':'')},
+    // FIX F1: use actual today's day number, not hardcoded day===1
+    const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
       [String(day)]);
     if(da.length){
       num.title=da.map(a=>a.title).join(', ');
-      num.onclick=()=>openModal('📅 Events on March '+day,(mb)=>{
+      // FIX B4: dynamic month in event modal title
+      const evtMonthLabel=calNow.toLocaleDateString('en-US',{month:'long'})+' '+day;
+      num.onclick=()=>openModal('📅 Events on '+evtMonthLabel,(mb)=>{
         da.forEach(apt=>{
           const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
           chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${apt.title}</div><div style="font-size:.8rem;color:var(--slate)">${apt.specialist} · ${apt.time}</div>`;
@@ -3759,9 +3817,11 @@ function renderChat(){
   const specId=session?.specialistId;
 
   // Filter visible chats
+  // FIX FS5: removed hardcoded 's1' fallback — a new specialist should only see their own chats
   const visChats=allChats.filter(c=>{
     if(role==='parent')return c.participants.includes('parent');
-    return c.participants.includes(specId||'s1');
+    if(!specId)return false; // no specialist ID means no accessible chats
+    return c.participants.includes(specId);
   });
 
   const sec=el('div',{class:'section'});
@@ -3826,7 +3886,8 @@ function renderChat(){
 
     const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'14px 16px',display:'flex',flexDirection:'column',gap:'11px',minHeight:'200px'}});
     activeChat.messages.forEach(m=>{
-      const myId=role==='parent'?'parent':(specId||'s1');
+      // FIX FS5: use actual specId; if null, no messages should appear as "mine"
+      const myId=role==='parent'?'parent':(specId||'');
       const isMe=m.sender===myId;
       const senderSpec=DB.specialists.find(s=>s.id===m.sender);
       const row=d('',[], {display:'flex',justifyContent:isMe?'flex-end':'flex-start'});
@@ -3837,7 +3898,8 @@ function renderChat(){
       row.appendChild(bub);msgArea.appendChild(row);
     });
     win.appendChild(msgArea);
-    setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;},60);
+    // FIX F7: scroll after paint, not after an arbitrary timeout
+    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
 
     const inputRow=el('div',{class:'chat-input-row'});
     const mi=el('input',{class:'inp',placeholder:'Type a message…',style:{flex:'1',fontSize:'16px'}});
@@ -3847,12 +3909,14 @@ function renderChat(){
       const txt=mi.value.trim();if(!txt)return;
       const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
       if(ci>-1){
-        const senderKey=role==='parent'?'parent':(specId||'s1');
+        // FIX FS5: use actual specId; no fallback to 's1'
+        const senderKey=role==='parent'?'parent':(specId||session?.email||'unknown');
         all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});
         DB.chats=all;
       }
       S.chatMsg='';re();
-      setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;},60);
+      // FIX F7: use requestAnimationFrame instead of setTimeout to scroll after DOM is rebuilt
+      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
     };
     mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
     inputRow.appendChild(mi);inputRow.appendChild(sb2);
@@ -3867,6 +3931,8 @@ function renderChat(){
 
 function showConsultModal(){
   openModal('🤝 Request to Consult',(mb,close)=>{
+    // FIX B3: declare spec before it is referenced in the click handler closure
+    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
       ['Request parent approval to consult with another specialist:']));
     DB.specialists.filter(s=>s.id!==session?.specialistId&&s.status==='active').forEach(s=>{
@@ -3882,7 +3948,6 @@ function showConsultModal(){
       }));
       mb.appendChild(row);
     });
-    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
   },460);
 }
 
@@ -4031,8 +4096,17 @@ function renderVault(){
 
         S.vaultSummarizing=true;
         try{
+          // FIX B2: Anthropic API requires x-api-key and anthropic-version headers.
+          // NOTE: In a production app, API calls must be proxied through a server to avoid exposing keys.
+          // The ANTHROPIC_API_KEY constant should be configured server-side; this is a client-side demo placeholder.
+          const ANTHROPIC_API_KEY = typeof window.ANTHROPIC_API_KEY !== 'undefined' ? window.ANTHROPIC_API_KEY : '';
           const resp=await fetch('https://api.anthropic.com/v1/messages',{
-            method:'POST',headers:{'Content-Type':'application/json'},
+            method:'POST',headers:{
+              'Content-Type':'application/json',
+              'x-api-key': ANTHROPIC_API_KEY,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
             body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid all clinical jargon. Be positive, supportive and specific. Keep to 3-4 sentences.\n\nClinical notes:\n${ta.value}`}]})
           });
           const data=await resp.json();
@@ -4253,7 +4327,8 @@ function renderPatients(){
   };
   doFilter('');
   si.oninput=e=>doFilter(e.target.value);
-  sec.appendChild(si);sec.appendChild(stack);
+  // FIX B10: si was already appended above; only append stack here
+  sec.appendChild(stack);
   return sec;
 }
 
@@ -4316,10 +4391,12 @@ function showCredentialUpload(spec,specId){
         upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
         try{
           const ab=await file.arrayBuffer();
+          // FIX FS1: sanitize path segments for credential uploads too
+          const sanitizeCredPath=s=>(s||'unknown').replace(/[\\/:*?"<>|]/g,'_').trim()||'unnamed';
           const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
             method:'POST',
             headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
-              'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/Specialists/${spec.name}/Credentials/${file.name}`,mode:'add',autorename:true})},body:ab
+              'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/Specialists/${sanitizeCredPath(spec.name)}/Credentials/${sanitizeCredPath(file.name)}`,mode:'add',autorename:true})},body:ab
           });
           const data=await resp.json();
           const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
@@ -4729,10 +4806,12 @@ function showDeleteChildModal(child){
    4. PUSH NOTIFICATION PERMISSION
 ═══════════════════════════════════════════════ */
 function renderPushBanner(){
-  if(DB.pushEnabled||!('Notification' in window))return null;
+  // FIX B7: use a separate 'pushDismissed' key so pushEnabled stays a clean boolean
+  if(DB.pushEnabled===true||!('Notification' in window))return null;
+  if(LS.get('pushDismissed',false))return null;
   if(Notification.permission==='granted'){
     // Already granted — persist state
-    if(!DB.pushEnabled){DB.pushEnabled=true;}
+    DB.pushEnabled=true;
     return null;
   }
   if(Notification.permission==='denied')return null;
@@ -4742,14 +4821,15 @@ function renderPushBanner(){
     Notification.requestPermission().then(perm=>{
       if(perm==='granted'){
         DB.pushEnabled=true;
-        new Notification('Huddledin 🤝',{body:'Push notifications enabled! You\'ll now get real-time alerts.',icon:'https://via.placeholder.com/64'});
+        new Notification('Huddledin 🤝',{body:'Push notifications enabled! You\'ll now get real-time alerts.',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});
         re();
       } else {
         toast('Notifications blocked. You can change this in browser settings.','info');
       }
     });
   }));
-  banner.appendChild(mkBtn('Not now','btn-sm btn-slate',()=>{DB.pushEnabled='dismissed';re();}));
+  // FIX B7: store dismissed state separately, keep pushEnabled as boolean
+  banner.appendChild(mkBtn('Not now','btn-sm btn-slate',()=>{LS.set('pushDismissed',true);re();}));
   return banner;
 }
 
@@ -5061,13 +5141,17 @@ initData();
       match.status='active';
       if(!match.permissions[childId])match.permissions[childId]=[];
       DB.specialists=specs;
-      // Auto-login as specialist
       const child=DB.children.find(c=>c.id===childId);
       setTimeout(()=>{
         toast(`🎉 Welcome! You've joined ${child?.name||'the child'}'s care team!`,'success',5000);
       },800);
+    } else {
+      // FIX FS6: show a clear error when the invite token is not found
+      setTimeout(()=>{
+        toast('⚠️ This invite link is invalid or has already been used. Please ask the family for a new one.','error',5000);
+      },800);
     }
-    // Clean URL
+    // Clean URL regardless of validity
     window.history.replaceState({},'',window.location.pathname);
   }
 })();
