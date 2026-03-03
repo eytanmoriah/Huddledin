@@ -2011,20 +2011,20 @@ function showPrivacyPolicy(){
     mb.style.maxHeight='70vh';mb.style.overflowY='auto';
     const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
     const sections=[
-      {t:'1. Introduction',b:'Huddledin operates the collaborative care platform at huddledin.com. We are committed to protecting the privacy and security of all users, with particular care for the sensitive nature of children's health and therapeutic data. This policy explains what we collect, how we use it, and your rights.'},
-      {t:'2. Who We Are',b:'Huddledin is operated from Israel. Contact us at admin@huddledin.com or visit huddledin.com.'},
-      {t:'3. Information We Collect',b:'We collect: account information (name, email, password), children's profile information (name, date of birth, photo, therapy goals), health and therapy data (session notes, reports, appointments, progress tracking), communications between parents and specialists, payment information (when introduced), and technical data (IP address, browser type, usage data).'},
-      {t:'4. How We Use Your Information',b:'We use your data to provide and improve the platform, enable secure communication between parents and specialists, send invitations and notifications, process payments, monitor for errors, and comply with legal obligations. We do not sell your data or use it for advertising.'},
-      {t:'5. Children's Privacy',b:'Children do not create their own accounts — all child data is managed by a parent or guardian. Parents control which specialists can access their child's data and may delete a child's profile at any time. We do not knowingly collect data directly from children under 13.'},
-      {t:'6. How We Share Your Information',b:'We share data only with: specialists you explicitly invite, trusted service providers (Supabase, Vercel, Resend, Sentry, Plausible), and where required by law. We never sell your data.'},
-      {t:'7. Data Security',b:'All data is encrypted in transit (HTTPS) and at rest. Access is controlled by Row Level Security. We monitor for errors continuously. Contact admin@huddledin.com immediately if you believe your account has been compromised.'},
-      {t:'8. Your Rights',b:'You may have rights to access, correct, delete, or export your data. EU/EEA users have GDPR rights. Israeli users have rights under the Israeli Privacy Protection Law. US users may have HIPAA rights. Contact admin@huddledin.com to exercise any rights — we respond within 30 days.'},
-      {t:'9. Data Retention',b:'Data is retained while your account is active. Child profiles are deleted immediately when removed by a parent. You may request full deletion of your account and data at any time.'},
-      {t:'10. Contact Us',b:'For any privacy questions or requests: admin@huddledin.com | huddledin.com'},
+      ['1. Introduction',"Huddledin operates the collaborative care platform at huddledin.com. We protect the privacy of all users with particular care for sensitive health data about children."],
+      ['2. Who We Are',"Huddledin is operated from Israel. Contact us at admin@huddledin.com."],
+      ['3. Information We Collect',"We collect: account details (name, email, password), child profile data (name, date of birth, photo, therapy goals), health and therapy data (session notes, reports, appointments, progress), messages between parents and specialists, payment details (when introduced), and technical usage data."],
+      ['4. How We Use Your Information',"We use data to provide and improve the platform, enable secure communication, send invitations, process payments, and comply with legal obligations. We never sell your data or use it for advertising."],
+      ["5. Children Privacy","Children do not create their own accounts. All child data is managed by a parent or guardian. Parents control specialist access and may delete a child profile at any time. We do not collect data directly from children under 13."],
+      ['6. How We Share Your Information',"We share data only with: specialists you invite, trusted service providers (Supabase, Vercel, Resend, Sentry, Plausible), and where required by law. We never sell your data."],
+      ['7. Data Security',"All data is encrypted in transit (HTTPS) and at rest. Row Level Security controls access. Contact admin@huddledin.com immediately if you believe your account is compromised."],
+      ['8. Your Rights',"You may have rights to access, correct, delete or export your data. EU users have GDPR rights. Israeli users have rights under Israeli Privacy Protection Law. US users may have HIPAA rights. Email admin@huddledin.com to exercise any right."],
+      ['9. Data Retention',"Data is kept while your account is active. Child profiles are deleted immediately when removed by a parent. You may request full deletion at any time."],
+      ['10. Contact Us',"For any privacy questions: admin@huddledin.com | huddledin.com"],
     ];
     sections.forEach(s=>{
-      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s.t]));
-      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s.b]));
+      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
+      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
     });
     mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
   },540);
@@ -2035,28 +2035,28 @@ function showTermsOfService(){
     mb.style.maxHeight='70vh';mb.style.overflowY='auto';
     const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
     const sections=[
-      {t:'1. Acceptance of Terms',b:'By accessing or using Huddledin ("the Platform"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Platform.'},
-      {t:'2. Description of Service',b:'Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together in support of children with special needs. The platform facilitates communication, appointment scheduling, document sharing, and progress tracking.'},
-      {t:'3. User Accounts',b:'You must provide accurate information when creating an account. You are responsible for maintaining the confidentiality of your password and for all activity under your account. You must notify us immediately of any unauthorised use at admin@huddledin.com.'},
-      {t:'4. Parent Responsibilities',b:'Parents are responsible for: ensuring all information entered about their child is accurate, managing specialist access permissions appropriately, obtaining appropriate consent before sharing a specialist's contact information, and ensuring their use of the platform complies with applicable laws.'},
-      {t:'5. Specialist Responsibilities',b:'Specialists are responsible for: maintaining appropriate professional standards in all communications, using the platform only for legitimate professional purposes, keeping clinical notes accurate and professional, and complying with all applicable professional regulations and laws.'},
-      {t:'6. Prohibited Uses',b:'You may not: use the platform for any unlawful purpose, share false or misleading information about a child's health, attempt to access another user's account, use the platform to harass or harm any person, attempt to reverse-engineer or compromise the platform's security, or use the platform for commercial advertising.'},
-      {t:'7. Health Information Disclaimer',b:'Huddledin is a coordination and communication tool, not a medical device or clinical system. Information shared on the platform does not constitute medical advice. Users should always consult qualified healthcare professionals for medical decisions.'},
-      {t:'8. Data and Privacy',b:'Your use of the Platform is governed by our Privacy Policy, which is incorporated into these Terms by reference. By using the Platform you consent to the data practices described in our Privacy Policy.'},
-      {t:'9. Intellectual Property',b:'The Huddledin platform, including its design, features, and code, is owned by Huddledin and protected by intellectual property laws. You may not copy, modify, or distribute any part of the platform without our express written consent.'},
-      {t:'10. Termination',b:'We reserve the right to suspend or terminate accounts that violate these Terms. You may terminate your account at any time by contacting admin@huddledin.com. Upon termination, your data will be deleted in accordance with our Privacy Policy.'},
-      {t:'11. Limitation of Liability',b:'Huddledin is provided "as is" without warranties of any kind. To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, or consequential damages arising from your use of the platform.'},
-      {t:'12. Changes to Terms',b:'We may update these Terms from time to time. Continued use of the platform after changes are posted constitutes acceptance of the updated Terms.'},
-      {t:'13. Governing Law',b:'These Terms are governed by the laws of the State of Israel. Any disputes shall be subject to the exclusive jurisdiction of the courts of Israel.'},
-      {t:'14. Contact',b:'For any questions about these Terms: admin@huddledin.com | huddledin.com'},
+      ['1. Acceptance of Terms',"By accessing or using Huddledin, you agree to be bound by these Terms of Service. If you do not agree, please do not use the platform."],
+      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together in support of children with special needs."],
+      ['3. User Accounts',"You must provide accurate information when creating an account. You are responsible for maintaining your password confidentiality and all activity under your account."],
+      ['4. Parent Responsibilities',"Parents must ensure all information about their child is accurate, manage specialist access permissions appropriately, and ensure their use complies with applicable laws."],
+      ['5. Specialist Responsibilities',"Specialists must maintain professional standards in all communications, use the platform for legitimate professional purposes only, and comply with all applicable regulations."],
+      ['6. Prohibited Uses',"You may not use the platform for unlawful purposes, share false health information, attempt to access another account, harass any person, reverse-engineer the platform, or use it for commercial advertising."],
+      ['7. Health Information Disclaimer',"Huddledin is a coordination tool, not a medical device. Information shared does not constitute medical advice. Always consult qualified healthcare professionals for medical decisions."],
+      ['8. Data and Privacy',"Your use is governed by our Privacy Policy, which is incorporated into these Terms by reference."],
+      ['9. Intellectual Property',"The Huddledin platform, design, features and code are owned by Huddledin and protected by law. You may not copy or distribute any part without written consent."],
+      ['10. Termination',"We may suspend accounts that violate these Terms. You may terminate your account at any time by contacting admin@huddledin.com."],
+      ['11. Limitation of Liability',"Huddledin is provided as-is without warranties. To the maximum extent permitted by law, we are not liable for indirect or consequential damages."],
+      ['12. Governing Law',"These Terms are governed by the laws of the State of Israel. Disputes are subject to the exclusive jurisdiction of Israeli courts."],
+      ['13. Contact',"For questions about these Terms: admin@huddledin.com | huddledin.com"],
     ];
     sections.forEach(s=>{
-      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s.t]));
-      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s.b]));
+      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
+      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
     });
     mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
   },540);
 }
+
 
 function renderAuth(){
   const root=el('div',{id:'auth-screen'});
@@ -5177,7 +5177,7 @@ function showDeleteChildModal(child){
     const warn=el('div',{class:'danger-zone'});
     warn.appendChild(el('div',{style:{fontWeight:800,color:'#be123c',fontSize:'1rem',marginBottom:'8px'}},['⚠️ This action cannot be undone']));
     warn.appendChild(el('p',{style:{color:'#be123c',fontSize:'.86rem',lineHeight:'1.7',fontWeight:500}},
-      [`Deleting ${child.name}'s profile will:\n\n• Remove all their appointments and tasks from your dashboard\n• Revoke all specialist access for this child\n• Specialist-authored notes will be archived in each specialist's Legacy Archive\n• The child will be removed from the child switcher\n\nThis does NOT delete the specialists' Huddledin accounts.`]));
+      [`Deleting ${child.name}'s profile will:\n\n• Remove all their appointments and tasks from your dashboard\n• Revoke all specialist access for this child\n• Specialist-authored notes will be archived in each specialist\'s Legacy Archive\n• The child will be removed from the child switcher\n\nThis does NOT delete the specialists' Huddledin accounts.`]));
     mb.appendChild(warn);
     mb.appendChild(el('div',{style:{height:'16px'}}));
     mb.appendChild(el('div',{class:'inp-label'},['Type the child\'s name to confirm']));
