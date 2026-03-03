@@ -1403,6 +1403,7 @@ async function _loadSessionFromSupabase(s){
     if(profile.role==='parent'){
       const children=await SB.getChildren(s.user.id);
       LS.set('children',children);
+      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
     }
   }
 }
@@ -5039,15 +5040,17 @@ function showAddChildModal(){
 
     [ni,dob].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
-    mb.appendChild(mkBtn('✅ Add Child','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('✅ Add Child','btn-lg btn-primary btn-full',async()=>{
       if(!ni.value.trim()||!dob.value){toast('⚠️ Name and date of birth required.','error');return;}
       const dobDate=new Date(dob.value);
       const age=new Date().getFullYear()-dobDate.getFullYear();
-      const newChild={id:'c_'+Date.now(),name:ni.value.trim(),age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:photoData||null};
+      const childName=ni.value.trim();
+      let newChildId='c_'+Date.now();
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null});if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:null};
       const children=DB.children;children.push(newChild);DB.children=children;
-      // Add empty permissions for all specialists
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
-      S.activeChild=newChild.id;close();re();toast('🎉 '+ni.value+' added to your family!');
+      S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
     }));
   },500);
 }
@@ -5075,14 +5078,16 @@ function showChildPhotoModal(child){
     mb.appendChild(photoWrap);mb.appendChild(photoInput);
     const row=d('',[], {display:'flex',gap:'10px'});
     if(child.photo){
-      row.appendChild(mkBtn('🗑️ Remove Photo','btn-md btn-danger',()=>{
+      row.appendChild(mkBtn('🗑️ Remove Photo','btn-md btn-danger',async()=>{
         const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
         if(i>-1){ch[i].photo=null;DB.children=ch;}close();re();toast('✅ Photo removed.');
       }));
     }
-    row.appendChild(mkBtn('✅ Save Photo','btn-md btn-primary',()=>{
+    row.appendChild(mkBtn('✅ Save Photo','btn-md btn-primary',async()=>{
       const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
-      if(i>-1){ch[i].photo=photoData;DB.children=ch;}close();re();toast('✅ Photo updated!');
+      if(i>-1){ch[i].photo=photoData;DB.children=ch;}
+      if(session&&session.id!=='demo'){try{await SB.updateChild(child.id,{photo_url:photoData});}catch(e){}}
+      close();re();toast('✅ Photo updated!');
     }));
     mb.appendChild(row);
   },420);
@@ -5099,7 +5104,7 @@ function showDeleteChildModal(child){
     mb.appendChild(el('div',{class:'inp-label'},['Type the child\'s name to confirm']));
     const conf=el('input',{class:'inp',placeholder:child.name,style:{marginBottom:'14px'}});
     mb.appendChild(conf);
-    const delBtn=mkBtn('🗑️ Permanently Delete Profile','btn-lg btn-danger btn-full',()=>{
+    const delBtn=mkBtn('🗑️ Permanently Delete Profile','btn-lg btn-danger btn-full',async()=>{
       if(conf.value.trim()!==child.name){toast('⚠️ Name does not match.','error');return;}
       // Archive all specialist notes for this child
       const archive=DB.legacyArchive;
@@ -5110,7 +5115,7 @@ function showDeleteChildModal(child){
         }
       });
       DB.legacyArchive=archive;
-      // Remove child
+      if(session&&session.id!=='demo'){try{await SB.deleteChild(child.id);}catch(e){}}
       const ch=DB.children.filter(c=>c.id!==child.id);DB.children=ch;
       // Remove all data for this child
       DB.homework=DB.homework.filter(h=>h.childId!==child.id);
@@ -5423,7 +5428,7 @@ function renderSettings(){
       action:()=>openConfirm('Clear All Data','This will permanently delete all your data including children, files, and connections. Are you sure?',true,()=>{
         // Clear all hd9_ keys
         Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
-        doLogout();re();toast('All data cleared.','info');
+        doLogout().then(()=>{re();toast('All data cleared.','info');});
       })
     }
   ];
