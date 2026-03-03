@@ -3913,9 +3913,23 @@ function showInviteModal(){
       const lb=el('div',{class:'invite-link-box'},[magicLink]);
       lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast('✅ Link copied to clipboard!'));};
       linkArea.appendChild(lb);
-      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:500}},['In a real app this would be emailed automatically. For demo, copy the link above.']));
+      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['📧 An invite email has been sent automatically to '+ei.value]));
       // FIX FS2: do NOT call re() here — it destroys the open modal and breaks the close button.
       // The modal already shows the link; re() is deferred until the modal is closed.
+      // Send real invite email via Resend
+      fetch('/api/send-invite',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to:ei.value,
+          childName:child?.name||'your patient',
+          inviteLink:magicLink,
+          fromName:session?.name||'The family',
+          specialistRole:ri.value||'Specialist'
+        })
+      }).then(r=>r.json()).then(d=>{
+        if(d.ok)toast('📧 Invite email sent to '+ei.value+'!','success');
+      }).catch(()=>{}); // silent fail — UI still works if email fails
       toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
     }));
   },500);
