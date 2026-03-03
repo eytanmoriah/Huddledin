@@ -11,6 +11,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
 <!-- ══ SUPABASE SDK ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ══ SENTRY ERROR MONITORING ══ -->
+<script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js" crossorigin="anonymous"></script>
+<script>
+  Sentry.init({
+    dsn: "https://174490d78338801a352d7df3837ced53@o4510981671026688.ingest.us.sentry.io/4510981679022080",
+    environment: "production",
+    release: "huddledin@1.0.0",
+    tracesSampleRate: 0.2,
+    beforeSend(event) {
+      // Strip sensitive user data from error reports
+      if (event.user) delete event.user.email;
+      return event;
+    }
+  });
+</script>
 <style>
 /* ══════════════════════════════════════════════════════════
    HUDDLEDIN v6 — Native Mobile Design System
