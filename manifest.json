@@ -1,0 +1,27 @@
+{
+  "name": "Huddledin — Collaborative Care",
+  "short_name": "Huddledin",
+  "description": "Collaborative care platform for children with special needs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0fdf9",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "medical", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}
