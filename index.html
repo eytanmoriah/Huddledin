@@ -11,6 +11,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
 <!-- ══ SUPABASE SDK ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ══ PLAUSIBLE ANALYTICS ══ -->
+<script async src="https://plausible.io/js/pa-KjPiNv5sa31eWkcgbyZce.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init();
+  function track(name,props){try{plausible(name,props?{props}:undefined);}catch(e){}}
+</script>
 <!-- ══ SENTRY ERROR MONITORING ══ -->
 <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js" crossorigin="anonymous"></script>
 <script>
@@ -2072,6 +2079,7 @@ function renderAuth(){
       const res=await doLogin(email,pass,selRole,name,profession);
       sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
+      track(mode==='signin'?'Login':'Signup',{role:selRole});
       // Parents land on Global Home (Level 0); specialists go straight to dashboard
       if(session.role==='parent'){
         S.navLevel=0;
@@ -3628,7 +3636,7 @@ function showShareModal(file){
         const fi2=fls.find(f=>f.id===folderSel.value)||fls[0];
         fi2.files.push({id:'fl_'+Date.now(),name:data.name||file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k),uploadedBy:'parent'});
         DB.folders=fls;
-        close();toast('✅ "'+( data.name||file.name)+'" uploaded to Dropbox!');
+        close();toast('✅ "'+( data.name||file.name)+'" uploaded to Dropbox!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
     });
     upBtn.innerHTML='📤 Upload & Share';
@@ -3947,6 +3955,7 @@ function showInviteModal(){
         if(d.ok)toast('📧 Invite email sent to '+ei.value+'!','success');
       }).catch(()=>{}); // silent fail — UI still works if email fails
       toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
+      track('Invite Sent',{role:ri.value||'Specialist'});
     }));
   },500);
 }
@@ -4148,6 +4157,7 @@ function showAddEventModal(){
       DB.appointments=apts;
       if(DB.notifPrefs.appointments)pushNotif('report',`New appointment added: ${ti.value} on ${di.value}`,S.activeChild);
       close();re();toast('✅ Appointment added!');
+      track('Appointment Added');
     }));
   },500);
 }
@@ -4255,7 +4265,7 @@ function renderChat(){
       if(ci>-1){
         // FIX FS5: use actual specId; no fallback to 's1'
         const senderKey=role==='parent'?'parent':(specId||session?.email||'unknown');
-        all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});
+        all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
         DB.chats=all;
       }
       S.chatMsg='';re();
@@ -5066,6 +5076,7 @@ function showAddChildModal(){
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
       S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
+      track('Child Added');
     }));
   },500);
 }
