@@ -1887,7 +1887,7 @@ async function createConnectionCode(childId){
 async function redeemConnectionCode(code,specialistId,specialistName,role){
   // Try Supabase first
   if(session&&session.id!=='demo'){
-    let row=null;try{const _r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=_r.data;}catch(e){}
+    let row=null;try{const _r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=_r.data;}catch(e){row=null;}
     if(row){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
@@ -2406,6 +2406,7 @@ function renderShell(){
 
 /* ── HEADER — adapts to nav level ── */
 function renderHeader(){
+  // Header needs position:relative for child dropdown positioning
   const hd=el('header',{id:'header'});
   const inner=el('div',{class:'header-inner'});
 
@@ -2470,9 +2471,14 @@ function renderHeader(){
             item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
             csDd.appendChild(item);
           });
-          // Position relative to header
-          document.querySelector('.app-header')?.appendChild(csDd);
-          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          // Position dropdown relative to centre element
+          const centreRect=centre.getBoundingClientRect();
+          csDd.style.position='fixed';
+          csDd.style.top=(centreRect.bottom+6)+'px';
+          csDd.style.left=(centreRect.left+centreRect.width/2)+'px';
+          csDd.style.transform='translateX(-50%)';
+          document.body.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)&&!csDd?.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
           setTimeout(()=>document.addEventListener('click',out),10);
         };
         centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
@@ -3054,7 +3060,14 @@ function renderMiniCalendar(children,allApts){
       dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
     });
     col.appendChild(dots);
-    col.onclick=()=>showAddEventModalForDate(ds,children);
+    col.onclick=()=>{
+      if(session?.role==='specialist'){
+        // Specialist: add appointment directly
+        showAddEventModal(ds);
+      } else {
+        showAddEventModalForDate(ds,children);
+      }
+    };
     week.appendChild(col);
   });
   card.appendChild(week);
@@ -3582,7 +3595,7 @@ function renderSpecDashboard(){
    {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-lbl',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)'}},[lbl])])]));
     sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
@@ -4286,7 +4299,8 @@ function renderCalendar(){
     const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
       [String(day)]);
     num.style.cursor='pointer';
-    num.onclick=()=>{
+    cell.style.cursor='pointer';
+    const _calClick=()=>{
       const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
       openModal('📅 '+evtLabel,(mb,close)=>{
         if(da.length){
@@ -4304,6 +4318,8 @@ function renderCalendar(){
         }));
       },400);
     };
+    num.onclick=_calClick;
+    cell.onclick=_calClick;
     cell.appendChild(num);
     da.forEach(a=>{
       const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
@@ -4409,7 +4425,7 @@ function showAddEventModal(prefilledDate=null){
     }
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
     if(prefilledDate) di.value=prefilledDate;
     const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
     const typeSel=el('select',{class:'inp'});
@@ -4916,7 +4932,7 @@ function showAssignModal(){
     const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
     const sel=el('select',{class:'inp'});
     ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
     [ta,sel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
@@ -5346,7 +5362,7 @@ function showLogMeasurementModal(){
     const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
     const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
     const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
     [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
