@@ -196,6 +196,9 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 /* ── INPUTS — 48px touch targets, 16px font (no iOS zoom) ── */
 .inp{width:100%;padding:14px 16px;border-radius:var(--r);border:1.5px solid var(--mint-l);font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
 .inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+/* Date placeholder fix for mobile */
+input[type="date"].inp::-webkit-datetime-edit{color:var(--navy)}
+input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;min-width:20px;min-height:20px}
 .inp::placeholder{color:var(--slate-l);font-weight:500}
 textarea.inp{resize:vertical;min-height:120px;line-height:1.65}
 select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
@@ -2076,6 +2079,20 @@ function showEnterCodeModal(){
 /* ═══════════════════════════════════════════════
    DOM HELPERS
 ═══════════════════════════════════════════════ */
+// iOS date input helper — shows placeholder text when empty
+function makeDateInput(placeholder,extraAttrs={}){
+  const inp=el('input',{class:'inp',type:'date','data-placeholder':placeholder,...extraAttrs});
+  // iOS workaround: use type=text when empty, switch to date on focus
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  if(isIOS){
+    inp.type='text';
+    inp.placeholder=placeholder;
+    inp.addEventListener('focus',()=>{inp.type='date';if(!inp.value)inp.placeholder='';});
+    inp.addEventListener('blur',()=>{if(!inp.value){inp.type='text';inp.placeholder=placeholder;}});
+  }
+  return inp;
+}
+
 function el(tag,attrs={},kids=[]){
   const e=document.createElement(tag);
   for(const[k,v]of Object.entries(attrs)){
@@ -4407,7 +4424,7 @@ function showAddEventModalForDate(dateStr,availableChildren){
     const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
     mb.appendChild(titleInp);
     mb.appendChild(el('div',{class:'inp-label'},['Date']));
-    const dateInp=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',style:{marginBottom:'14px'}});
+    const dateInp=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY','data-placeholder':'Select date',style:{marginBottom:'14px'}});
     dateInp.value=dateStr||new Date().toISOString().split('T')[0];
     mb.appendChild(dateInp);
     mb.appendChild(el('div',{class:'inp-label'},['Time']));
@@ -4445,7 +4462,7 @@ function showAddEventModal(prefilledDate=null){
     }
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     if(prefilledDate) di.value=prefilledDate;
     const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
     const typeSel=el('select',{class:'inp'});
@@ -4952,7 +4969,7 @@ function showAssignModal(){
     const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
     const sel=el('select',{class:'inp'});
     ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     [ta,sel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
@@ -5361,7 +5378,7 @@ function showAddMilestoneModal(){
     const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
     const catSel=el('select',{class:'inp'});
     ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',placeholder:'Target date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'Target date','data-placeholder':'Target date'});
     [ti,catSel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
@@ -5382,7 +5399,7 @@ function showLogMeasurementModal(){
     const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
     const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
     const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
@@ -5401,7 +5418,7 @@ function showAddChildModal(){
   openModal('➕ Add Child Profile',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
-    const dob=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',placeholder:'Date of birth'});
+    const dob=makeDateInput('Date of birth',{style:{marginBottom:'16px'}});
 
     // Emoji avatar picker
     mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
