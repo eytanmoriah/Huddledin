@@ -326,7 +326,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:16px 18px;border-radius:var(--r-lg) var(--r-lg) 0 0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px}
 .cal-dl{text-align:center;font-size:.64rem;font-weight:800;color:var(--slate);padding:5px 0}
-.cal-day{min-height:36px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.cal-day{min-height:44px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:8px;transition:background .12s}.cal-day:hover{background:var(--mint-ll)}.cal-day:active{background:var(--mint-l)}
 .cal-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600;transition:transform .12s}
 .cal-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
 .cal-num.has-event{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,.3)}
@@ -1407,6 +1407,17 @@ async function refreshFromSupabase(){
       // Load specialists by household
       const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
       LS.set('specialists',specs||[]);
+      // Load pending specialist requests from Supabase
+      try{
+        const {data:reqs}=await _supa.from('specialist_requests').select('*').eq('parent_id',session.id).eq('status','pending');
+        if(reqs&&reqs.length>0){
+          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status}));
+          const existing=DB.specialistRequests||[];
+          const merged=[...existing];
+          mapped.forEach(r=>{if(!merged.some(e=>e.id===r.id))merged.push(r);});
+          DB.specialistRequests=merged;
+        }
+      }catch(e){}
     } else if(session.role==='specialist'){
       const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',session.id).eq('status','active');
       if(specRows&&specRows.length>0){
@@ -1885,23 +1896,49 @@ async function createConnectionCode(childId){
 }
 
 async function redeemConnectionCode(code,specialistId,specialistName,role){
-  // Try Supabase first
+  let childId=null;
+  // Try Supabase
   if(session&&session.id!=='demo'){
-    let row=null;try{const _r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=_r.data;}catch(e){row=null;}
+    let row=null;
+    try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){}
+    if(!row){
+      // Also try case-insensitive search as fallback
+      try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){}
+    }
     if(row){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
-      const childId=row.child_id;
-      const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
-      // Create pending approval request
-      const requests=DB.specialistRequests||[];
-      const alreadyPending=requests.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
-      if(!alreadyPending){
-        requests.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
-        DB.specialistRequests=requests;
-      }
-      pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team.`,childId);
-      return{ok:true,childId,child};
+      childId=row.child_id;
+      const parentId=row.parent_id;
+      // Save specialist request to Supabase so parent sees it cross-device
+      try{
+        await _supa.from('specialist_requests').upsert({
+          specialist_id:specialistId,
+          specialist_name:specialistName,
+          role,
+          child_id:childId,
+          parent_id:parentId,
+          status:'pending',
+          requested_at:new Date().toISOString()
+        },{onConflict:'specialist_id,child_id'});
+      }catch(e){console.log('specialist_requests upsert error:',e);}
+      // Also add to specialists table so specialist can see the child
+      try{
+        await _supa.from('specialists').upsert({
+          id:specialistId,
+          name:specialistName,
+          role,
+          email:session.email,
+          parent_id:parentId,
+          child_id:childId,
+          household_id:row.household_id||null,
+          status:'pending',
+          invite_token:code
+        },{onConflict:'id'});
+      }catch(e){console.log('specialists upsert error:',e);}
+      let child={name:'your patient'};
+      try{const r=await _supa.from('children').select('*').eq('id',childId).single();if(r.data)child=r.data;}catch(e){}
+      return{ok:true,childId,child:{name:child.name,avatar:child.avatar_emoji||'🧒'}};
     }
     return{error:'Invalid or expired code. Please check with the family for a new one.'};
   }
@@ -1909,17 +1946,14 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
   const codes=DB.connectionCodes||[];
   const idx=codes.findIndex(c=>c.code===code.toUpperCase()&&!c.used&&new Date(c.expiresAt)>new Date());
   if(idx===-1)return{error:'Invalid or expired code. Please check with the family for a new one.'};
-  codes[idx].used=true;
-  DB.connectionCodes=codes;
-  const childId=codes[idx].childId;
-  // Create pending approval request
+  codes[idx].used=true;DB.connectionCodes=codes;
+  childId=codes[idx].childId;
   const requests2=DB.specialistRequests||[];
-  const alreadyPending2=requests2.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
-  if(!alreadyPending2){
+  if(!requests2.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending')){
     requests2.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
     DB.specialistRequests=requests2;
   }
-  pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team.`,childId);
+  const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
   return{ok:true,childId,child};
 }
 
@@ -2406,7 +2440,6 @@ function renderShell(){
 
 /* ── HEADER — adapts to nav level ── */
 function renderHeader(){
-  // Header needs position:relative for child dropdown positioning
   const hd=el('header',{id:'header'});
   const inner=el('div',{class:'header-inner'});
 
@@ -2471,14 +2504,9 @@ function renderHeader(){
             item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
             csDd.appendChild(item);
           });
-          // Position dropdown relative to centre element
-          const centreRect=centre.getBoundingClientRect();
-          csDd.style.position='fixed';
-          csDd.style.top=(centreRect.bottom+6)+'px';
-          csDd.style.left=(centreRect.left+centreRect.width/2)+'px';
-          csDd.style.transform='translateX(-50%)';
-          document.body.appendChild(csDd);
-          const out=ev2=>{if(!centre.contains(ev2.target)&&!csDd?.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          // Position relative to header
+          document.querySelector('.app-header')?.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
           setTimeout(()=>document.addEventListener('click',out),10);
         };
         centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
@@ -3060,14 +3088,7 @@ function renderMiniCalendar(children,allApts){
       dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
     });
     col.appendChild(dots);
-    col.onclick=()=>{
-      if(session?.role==='specialist'){
-        // Specialist: add appointment directly
-        showAddEventModal(ds);
-      } else {
-        showAddEventModalForDate(ds,children);
-      }
-    };
+    col.onclick=()=>showAddEventModalForDate(ds,children);
     week.appendChild(col);
   });
   card.appendChild(week);
@@ -3595,7 +3616,7 @@ function renderSpecDashboard(){
    {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-lbl',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)'}},[lbl])])]));
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
     sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
@@ -4299,8 +4320,7 @@ function renderCalendar(){
     const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
       [String(day)]);
     num.style.cursor='pointer';
-    cell.style.cursor='pointer';
-    const _calClick=()=>{
+    const _openDay=()=>{
       const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
       openModal('📅 '+evtLabel,(mb,close)=>{
         if(da.length){
@@ -4318,8 +4338,8 @@ function renderCalendar(){
         }));
       },400);
     };
-    num.onclick=_calClick;
-    cell.onclick=_calClick;
+    num.onclick=e=>{e.stopPropagation();_openDay();};
+    cell.onclick=()=>_openDay();
     cell.appendChild(num);
     da.forEach(a=>{
       const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
@@ -4425,7 +4445,7 @@ function showAddEventModal(prefilledDate=null){
     }
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
-    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
+    const di=el('input',{class:'inp',type:'date'});
     if(prefilledDate) di.value=prefilledDate;
     const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
     const typeSel=el('select',{class:'inp'});
@@ -4932,7 +4952,7 @@ function showAssignModal(){
     const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
     const sel=el('select',{class:'inp'});
     ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
+    const di=el('input',{class:'inp',type:'date'});
     [ta,sel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
@@ -5362,7 +5382,7 @@ function showLogMeasurementModal(){
     const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
     const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
     const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
-    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY'});
+    const di=el('input',{class:'inp',type:'date'});
     [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
