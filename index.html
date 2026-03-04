@@ -1252,8 +1252,8 @@ const SEED = {
 // Demo data loaded when user clicks "Try Demo"
 const DEMO_SEED={
   children:[
-    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",photo:null},
-    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",photo:null}
+    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",photo:null,status:"active"},
+    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",photo:null,status:"active"}
   ],
   globalInboxFiles:[
     {id:"gi1",name:"Annual_Insurance_Card.pdf",type:"pdf",date:"2025-02-28",size:"142 KB"},
@@ -1996,6 +1996,7 @@ const PARENT_TABS=[
 const SPEC_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'patients',label:'Patients',icon:'👤'},
+  {id:'calendar',label:'Calendar',icon:'📅'},
   {id:'vault',label:'Vault',icon:'🔒'},
   {id:'homework',label:'Tasks',icon:'📋'},
   {id:'files',label:'Files',icon:'📁'},
@@ -2857,16 +2858,14 @@ function renderMiniCalendar(children,allApts){
   hd.appendChild(hl);
   const calHdRight=el('div',{style:{display:'flex',gap:'7px',alignItems:'center'}});
   // Add Event shortcut for parents (Task 5 — editable calendar)
-  if(session?.role==='parent'){
-    const miniAddBtn=el('button',{class:'mini-cal-expand',style:{background:'rgba(255,255,255,.35)',marginRight:'4px'}},['+ Event']);
-    miniAddBtn.onclick=e=>{
-      e.stopPropagation();
-      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
-      if(!S.activeChild){toast('Add a child profile first.','error');return;}
-      showAddEventModal();
-    };
-    calHdRight.appendChild(miniAddBtn);
-  }
+  const miniAddBtn=el('button',{class:'mini-cal-expand',style:{background:'rgba(255,255,255,.35)',marginRight:'4px'}},['+ Event']);
+  miniAddBtn.onclick=e=>{
+    e.stopPropagation();
+    if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+    if(!S.activeChild){toast('Add a child profile first.','error');return;}
+    showAddEventModal();
+  };
+  calHdRight.appendChild(miniAddBtn);
   const expandBtn=el('button',{class:'mini-cal-expand'},['See Full ›']);
   expandBtn.onclick=e=>{e.stopPropagation();S.calFullscreen=true;re();};
   calHdRight.appendChild(expandBtn);
@@ -3271,12 +3270,13 @@ function renderParentDashboard(){
 
   // Stats row
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'📅',color:'#0d9488',val:String(childApts.filter(a=>a.date>=new Date().toISOString().split('T')[0]).length),lbl:'Upcoming Apts'},
-   {icon:'📋',color:'#f97316',val:String(childHW.filter(h=>!h.completed).length),lbl:'Pending Tasks'},
-   {icon:'👥',color:'#7c3aed',val:String(childSpecs.length),lbl:'Specialists'}
-  ].forEach(({icon,color,val,lbl})=>{
+  [{icon:'📅',color:'#0d9488',val:String(childApts.filter(a=>a.date>=new Date().toISOString().split('T')[0]).length),lbl:'Upcoming Apts',tab:'calendar'},
+   {icon:'📋',color:'#f97316',val:String(childHW.filter(h=>!h.completed).length),lbl:'Pending Tasks',tab:'homework'},
+   {icon:'👥',color:'#7c3aed',val:String(childSpecs.length),lbl:'Specialists',tab:'team'}
+  ].forEach(({icon,color,val,lbl,tab})=>{
     const sc=el('div',{class:'card hov'});
     sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
@@ -3414,12 +3414,13 @@ function renderSpecDashboard(){
 
   // Stats
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients'},
-   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments'},
-   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes'}
-  ].forEach(({icon,color,val,lbl})=>{
+  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients',tab:'patients'},
+   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments',tab:'calendar'},
+   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes',tab:'vault'}
+  ].forEach(({icon,color,val,lbl,tab})=>{
     const sc=el('div',{class:'card hov'});
     sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
@@ -3437,30 +3438,7 @@ function renderSpecDashboard(){
     sec.appendChild(promoCard);
   }
 
-  // Calendar
-  const calTitle=el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 My Schedule']);
-  sec.appendChild(calTitle);
-  if(!myApts.length){
-    sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'22px'}},['No appointments scheduled yet.']));
-  } else {
-    const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
-    const calHd2=el('div',{class:'cal-hd',style:{background:'linear-gradient(135deg,var(--lav-d),var(--lav))'}});
-    calHd2.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">Upcoming</span><span style="font-size:.82rem;opacity:.8;margin-left:10px">${myApts.length} sessions</span>`;
-    calCard.appendChild(calHd2);
-    const list=el('div',{style:{padding:'12px'}});
-    myApts.slice(0,5).forEach(a=>{
-      const ch=DB.children.find(c=>c.id===a.childId);
-      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
-      row.appendChild(el('div',{style:{width:'5px',height:'36px',borderRadius:'3px',background:TC[a.type]||'var(--lav-d)',flexShrink:0}}));
-      const info=el('div',{style:{flex:1}});
-      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[a.title+(ch?' — '+ch.name.split(' ')[0]:'')]));
-      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--lav-d)',fontWeight:700,marginTop:'1px'}},[a.date+' · '+a.time]));
-      row.appendChild(info);
-      list.appendChild(row);
-    });
-    calCard.appendChild(list);
-    sec.appendChild(calCard);
-  }
+  sec.appendChild(renderMiniCalendar(myPatients, myApts));
 
   // Recent notes
   if(myNotes.length>0){
@@ -4143,18 +4121,25 @@ function renderCalendar(){
     // FIX F1: use actual today's day number, not hardcoded day===1
     const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
       [String(day)]);
-    if(da.length){
-      num.title=da.map(a=>a.title).join(', ');
-      // FIX B4: dynamic month in event modal title
-      const evtMonthLabel=calNow.toLocaleDateString('en-US',{month:'long'})+' '+day;
-      num.onclick=()=>openModal('📅 Events on '+evtMonthLabel,(mb)=>{
-        da.forEach(apt=>{
-          const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
-          chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${apt.title}</div><div style="font-size:.8rem;color:var(--slate)">${apt.specialist} · ${apt.time}</div>`;
-          mb.appendChild(chip);
-        });
-      },380);
-    }
+    num.style.cursor='pointer';
+    num.onclick=()=>{
+      const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
+      openModal('📅 '+evtLabel,(mb,close)=>{
+        if(da.length){
+          da.forEach(apt=>{
+            const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
+            chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${apt.title}</div><div style="font-size:.8rem;color:var(--slate)">${apt.specialist} · ${apt.time}</div>`;
+            mb.appendChild(chip);
+          });
+          mb.appendChild(el('div',{style:{height:'12px'}}));
+        } else {
+          mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No appointments on this day.']));
+        }
+        mb.appendChild(mkBtn('➕ Add Appointment','btn-lg btn-primary btn-full',()=>{
+          close(); showAddEventModal(ds);
+        }));
+      },400);
+    };
     cell.appendChild(num);
     da.forEach(a=>{
       const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
@@ -4206,7 +4191,7 @@ function showGoogleSyncModal(){
   },420);
 }
 
-function showAddEventModal(){
+function showAddEventModal(prefilledDate=null){
   openModal('➕ Add Appointment',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     // Child selector — shown when called from multi-child fullscreen calendar
@@ -4222,6 +4207,7 @@ function showAddEventModal(){
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
     const di=el('input',{class:'inp',type:'date'});
+    if(prefilledDate) di.value=prefilledDate;
     const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
     const typeSel=el('select',{class:'inp'});
     ['speech','ot','pt','general'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v.toUpperCase();typeSel.appendChild(o);});
@@ -4750,21 +4736,72 @@ function renderPatients(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},['My Patients']));
   sec.appendChild(el('p',{class:'page-sub'},['Click a patient to view their vault & files']));
-  const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'18px'}});
+  const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'12px'}});
   sec.appendChild(si);
+
+  // Filter bar
+  let statusFilter='active';
+  const filterBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
+  const filterBtns={};
+  ['active','inactive','all'].forEach(f=>{
+    const label=f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1);
+    const btn=el('button',{class:f===statusFilter?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
+    btn.onclick=()=>{
+      statusFilter=f;
+      Object.keys(filterBtns).forEach(k=>{
+        filterBtns[k].className=k===f?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';
+      });
+      doFilter(si.value);
+    };
+    filterBtns[f]=btn;
+    filterBar.appendChild(btn);
+  });
+  sec.appendChild(filterBar);
 
   const stack=el('div',{class:'stack'});
   const sorted=[...DB.children].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
 
   const doFilter=q=>{
     stack.innerHTML='';
-    sorted.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
-      const card=el('div',{class:'card click',style:{display:'flex',alignItems:'center',gap:'15px',border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
+    const filtered=sorted.filter(c=>{
+      const matchName=c.name.toLowerCase().includes(q.toLowerCase());
+      const cs=c.status||'active';
+      const matchStatus=statusFilter==='all'||(statusFilter===cs);
+      return matchName&&matchStatus;
+    });
+    if(!filtered.length){
+      const msg=statusFilter==='all'?'No patients found.':('No '+statusFilter+' patients.');
+      stack.appendChild(el('div',{class:'empty-inline'},[msg]));
+      return;
+    }
+    filtered.forEach(c=>{
+      const isInactive=(c.status||'active')==='inactive';
+      const card=el('div',{class:'card click',style:{
+        display:'flex',alignItems:'center',gap:'15px',
+        border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)',
+        filter:isInactive?'grayscale(1)':'none',
+        opacity:isInactive?'0.7':'1'
+      }});
       card.innerHTML=`<div style="width:52px;height:52px;border-radius:15px;background:${c.color}44;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">${c.avatar}</div>`;
       const info=d('',[], {flex:1});
-      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'2px'}},[c.name]));
+      const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}});
+      nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
+      if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
+      info.appendChild(nameRow);
       info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+c.age+' · DOB '+c.dob]));
       card.appendChild(info);
+      // Status toggle
+      const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
+      toggle.onclick=e=>{
+        e.stopPropagation();
+        const idx=DB.children.findIndex(ch=>ch.id===c.id);
+        if(idx>-1){
+          DB.children[idx].status=(c.status||'active')==='active'?'inactive':'active';
+          DB.children=DB.children;
+        }
+        re();
+      };
+      card.appendChild(toggle);
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
       card.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';re();};
       stack.appendChild(card);
@@ -4772,7 +4809,6 @@ function renderPatients(){
   };
   doFilter('');
   si.oninput=e=>doFilter(e.target.value);
-  // FIX B10: si was already appended above; only append stack here
   sec.appendChild(stack);
   return sec;
 }
