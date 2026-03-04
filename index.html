@@ -1575,7 +1575,7 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true});}
+    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -1887,10 +1887,10 @@ async function createConnectionCode(childId){
 async function redeemConnectionCode(code,specialistId,specialistName,role){
   // Try Supabase first
   if(session&&session.id!=='demo'){
-    const {data:row}=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single().catch(()=>({data:null}));
+    let row=null;try{const _r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=_r.data;}catch(e){}
     if(row){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
-      await _supa.from('connection_codes').update({used:true}).eq('id',row.id);
+      try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
       const childId=row.child_id;
       const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
       // Create pending approval request
@@ -5762,7 +5762,7 @@ async function showHouseholdInviteModal(fromSettings=false){
           fromName:session.name||'Your partner',
           specialistRole:role+' (Co-Parent Access)'
         })
-      }).then(()=>{}).catch(()=>{});
+      }).catch(()=>{});
 
       // Mark household invite as sent — don't show modal again
       LS.set('householdInviteSent',true);
