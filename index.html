@@ -1575,7 +1575,7 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true}).catch(()=>{});}
+    if(data.user){await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true});}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -1871,11 +1871,11 @@ async function createConnectionCode(childId){
   const exp=new Date(now);exp.setHours(exp.getHours()+48);
   // Save to Supabase so specialist can redeem from any device
   if(session&&session.id!=='demo'){
-    await _supa.from('connection_codes').upsert({
+    try{await _supa.from('connection_codes').upsert({
       code,child_id:childId,parent_id:session.id,
       household_id:session.householdId||null,
       expires_at:exp.toISOString(),used:false
-    }).catch(()=>{});
+    });}catch(e){}
   }
   // Also keep in localStorage as fallback
   const codes=DB.connectionCodes||[];
@@ -1890,7 +1890,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
     const {data:row}=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single().catch(()=>({data:null}));
     if(row){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
-      await _supa.from('connection_codes').update({used:true}).eq('id',row.id).catch(()=>{});
+      await _supa.from('connection_codes').update({used:true}).eq('id',row.id);
       const childId=row.child_id;
       const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
       // Create pending approval request
@@ -5762,7 +5762,7 @@ async function showHouseholdInviteModal(fromSettings=false){
           fromName:session.name||'Your partner',
           specialistRole:role+' (Co-Parent Access)'
         })
-      }).catch(()=>{});
+      }).then(()=>{}).catch(()=>{});
 
       // Mark household invite as sent — don't show modal again
       LS.set('householdInviteSent',true);
