@@ -3979,7 +3979,8 @@ function showInviteModal(){
       // Generate magic link token
       const token='hd_invite_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
       const child=DB.children.find(c=>c.id===S.activeChild);
-      const magicLink=`${window.location.href.split('?')[0]}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
+      const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
+      const magicLink=`${baseUrl}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
       // Save pending specialist locally
       const specs=DB.specialists;
       const invitePermsObj={};
@@ -5562,7 +5563,9 @@ function re(){
 initData();
 // Handle magic link invite on page load (now via Supabase invites table)
 (async function handleInviteLink(){
-  const params=new URLSearchParams(window.location.search);
+  // Support both ?invite= and /#?invite= URL formats
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
   const token=params.get('invite');
   const childId=params.get('child');
   const inviteEmail=params.get('email');
