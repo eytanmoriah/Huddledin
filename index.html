@@ -5697,10 +5697,11 @@ async function _processPendingInvite(){
         name:session.name,
         role:data.specialist_role||'Specialist',
         status:'active'
-      }).catch(e=>console.log('Specialists upsert error:',JSON.stringify(e)));
+      }).then(({error:e})=>{if(e)console.log('Specialists upsert error:',JSON.stringify(e));});
       // Load the child into local state
       if(data.child_id){
-        const {data:child}=await _supa.from('children').select('*').eq('id',data.child_id).single().catch(()=>({data:null}));
+        let child=null;
+        try{const cr=await _supa.from('children').select('*').eq('id',data.child_id).single();child=cr.data;}catch(e){}
         console.log('Child lookup:', child?child.name:'not found');
         if(child){
           const children=LS.get('children',[]);
@@ -5721,7 +5722,7 @@ async function _processPendingInvite(){
       S.activeChild=storedChild;
       // Load children from Supabase to make sure we have this child
       if(session&&session.id!=='demo'){
-        const children=await SB.getChildren(session.id).catch(()=>[]);
+        let children=[];try{children=await SB.getChildren(session.id);}catch(e){}
         if(children.length>0){LS.set('children',children);}
       }
       toast('🎉 Welcome to the care team!','success',5000);
