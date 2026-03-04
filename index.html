@@ -1394,10 +1394,19 @@ async function refreshFromSupabase(){
   if(!session||session.id==='demo')return;
   try{
     if(session.role==='parent'){
-      const children=await SB.getChildren(session.id);
-      if(children.length>0)LS.set('children',children);
-      const specs=await SB.getSpecialists(session.id);
-      if(specs.length>0)LS.set('specialists',specs);
+      // Always use household_id so co-parents see the same data
+      const hid=session.householdId;
+      let children=[];
+      if(hid){
+        const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+        children=(data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+      } else {
+        children=await SB.getChildren(session.id);
+      }
+      LS.set('children',children);
+      // Load specialists by household
+      const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
+      LS.set('specialists',specs||[]);
     } else if(session.role==='specialist'){
       const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',session.id).eq('status','active');
       if(specRows&&specRows.length>0){
@@ -1412,6 +1421,21 @@ async function refreshFromSupabase(){
       }
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
+}
+
+// Real-time household sync — subscribes to children/specialists changes
+let _householdChannel=null;
+function setupHouseholdSync(){
+  if(!session||session.role!=='parent'||!session.householdId)return;
+  if(_householdChannel)_householdChannel.unsubscribe();
+  _householdChannel=_supa.channel('household:'+session.householdId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
+    .subscribe();
 }
 
 function initData(){
@@ -1518,6 +1542,7 @@ async function _loadSessionFromSupabase(s){
       console.log('onAuthStateChange SIGNED_IN, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
+      setupHouseholdSync();
       // Show household invite modal for parents
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1500);
@@ -1527,7 +1552,7 @@ async function _loadSessionFromSupabase(s){
   });
   re(); // initial render
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session) refreshFromSupabase().then(()=>re());
+  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -2242,6 +2267,7 @@ function renderAuth(){
       const _pi=localStorage.getItem('pendingInviteToken');
       console.log('Email login, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      setupHouseholdSync();
       // Show household invite modal for parents (if not dismissed/skipped)
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1200);
