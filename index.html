@@ -5630,22 +5630,26 @@ function re(){
 initData();
 // Handle magic link invite on page load (now via Supabase invites table)
 (async function handleInviteLink(){
+  console.log('handleInviteLink: search=',window.location.search,'hash=',window.location.hash);
   // Support both ?invite= and /#?invite= URL formats
   const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
   const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
   const token=params.get('invite');
   const childId=params.get('child');
   const inviteEmail=params.get('email');
+  console.log('handleInviteLink: token=',token,'childId=',childId,'session=',session?.id);
   if(token){
     // Store token so we can use it after login/signup
     sessionStorage.setItem('pendingInviteToken', token);
     if(childId) sessionStorage.setItem('pendingInviteChild', childId);
     if(inviteEmail) sessionStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
     window.history.replaceState({},'',window.location.pathname);
+    console.log('handleInviteLink: token stored in sessionStorage');
     setTimeout(()=>toast('🤝 Please sign in or create an account to join the care team.','info',5000),800);
   }
   // Check for pending invite after session is loaded
   const pendingToken=sessionStorage.getItem('pendingInviteToken');
+  console.log('handleInviteLink: pendingToken=',pendingToken,'session=',session?.id);
   if(pendingToken&&session){
     await _processPendingInvite();
   }
