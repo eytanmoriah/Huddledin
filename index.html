@@ -2126,6 +2126,9 @@ function renderAuth(){
       sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
       track(mode==='signin'?'Login':'Signup',{role:selRole});
+      // Process any pending invite
+      const pendingInvite=sessionStorage.getItem('pendingInviteToken');
+      if(pendingInvite){await _processPendingInvite();}
       // Parents land on Global Home (Level 0); specialists go straight to dashboard
       if(session.role==='parent'){
         S.navLevel=0;
@@ -3977,13 +3980,27 @@ function showInviteModal(){
       const token='hd_invite_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
       const child=DB.children.find(c=>c.id===S.activeChild);
       const magicLink=`${window.location.href.split('?')[0]}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
-      // Save pending specialist
+      // Save pending specialist locally
       const specs=DB.specialists;
-      // FIX B8: build permissions keyed to actual child IDs, not hardcoded 'c1'/'c2'
       const invitePermsObj={};
       DB.children.forEach(ch=>{invitePermsObj[ch.id]=ch.id===S.activeChild?prePerms:[];});
-      specs.push({id:'s_'+Date.now(),name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:invitePermsObj,status:'pending',credentials:[],inviteToken:token});
+      const localSpecId='s_'+Date.now();
+      specs.push({id:localSpecId,name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:invitePermsObj,status:'pending',credentials:[],inviteToken:token});
       DB.specialists=specs;
+      // Save invite to Supabase so specialist can accept it
+      if(session&&session.id!=='demo'){
+        const expires=new Date();expires.setDate(expires.getDate()+7);
+        _supa.from('invites').insert({
+          token,
+          parent_id:session.id,
+          child_id:S.activeChild,
+          specialist_email:ei.value,
+          specialist_name:ni.value||ei.value.split('@')[0],
+          specialist_role:ri.value||'Specialist',
+          expires_at:expires.toISOString(),
+          accepted:false
+        }).then(({error})=>{if(error)console.warn('Invite save error:',error);});
+      }
       // Add simulated email to inbox
       const emails=DB.emailInbox;
       emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:ei.value,subject:`🤝 You've been invited to join ${child?.name}'s care team`,body:`${session?.name||'The family'} has invited you to join ${child?.name}'s care team on Huddledin as a ${ri.value||'Specialist'}.\n\nClick your magic link to accept:\n${magicLink}\n\nThis link will auto-register you if you're new, or add the patient to your existing account.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite',magicLink});
@@ -5545,18 +5562,70 @@ initData();
 (async function handleInviteLink(){
   const params=new URLSearchParams(window.location.search);
   const token=params.get('invite');
+  const childId=params.get('child');
+  const inviteEmail=params.get('email');
   if(token){
-    const result=await SB.acceptInvite(token).catch(()=>null);
-    if(result&&!result.expired){
-      setTimeout(()=>toast('🎉 Welcome! You have joined the care team!','success',5000),800);
-    } else if(result?.expired){
-      setTimeout(()=>toast('⚠️ This invite link has expired. Ask the family for a new one.','error',5000),800);
-    } else {
-      setTimeout(()=>toast('⚠️ This invite link is invalid or already used.','error',5000),800);
-    }
+    // Store token so we can use it after login/signup
+    sessionStorage.setItem('pendingInviteToken', token);
+    if(childId) sessionStorage.setItem('pendingInviteChild', childId);
+    if(inviteEmail) sessionStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
     window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🤝 Please sign in or create an account to join the care team.','info',5000),800);
+  }
+  // Check for pending invite after session is loaded
+  const pendingToken=sessionStorage.getItem('pendingInviteToken');
+  if(pendingToken&&session){
+    await _processPendingInvite();
   }
 })();
+
+async function _processPendingInvite(){
+  const token=sessionStorage.getItem('pendingInviteToken');
+  const childId=sessionStorage.getItem('pendingInviteChild');
+  if(!token)return;
+  // Try Supabase first
+  const {data}=await _supa.from('invites').select('*').eq('token',token).single().catch(()=>({data:null}));
+  if(data){
+    if(new Date(data.expires_at)<new Date()){
+      toast('⚠️ This invite has expired. Ask the family for a new one.','error',5000);
+    } else {
+      // Mark accepted
+      await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id).catch(()=>{});
+      // Add child to specialist's accessible children
+      await _supa.from('specialists').upsert({
+        id:session.id,
+        parent_id:data.parent_id,
+        child_id:data.child_id,
+        email:session.email,
+        name:session.name,
+        role:data.specialist_role||'Specialist',
+        status:'active'
+      }).catch(()=>{});
+      // Load the child into local state
+      if(data.child_id){
+        const {data:child}=await _supa.from('children').select('*').eq('id',data.child_id).single().catch(()=>({data:null}));
+        if(child){
+          const children=LS.get('children',[]);
+          if(!children.find(c=>c.id===child.id)){
+            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||'#c4b5fd',photo:child.photo_url||null});
+            LS.set('children',children);
+          }
+          S.activeChild=child.id;
+        }
+      }
+      toast('🎉 Welcome! You have joined the care team!','success',5000);
+      re();
+    }
+  } else if(childId){
+    // Fallback: use URL params directly
+    S.activeChild=childId;
+    toast('🎉 Welcome to the care team!','success',5000);
+    re();
+  }
+  sessionStorage.removeItem('pendingInviteToken');
+  sessionStorage.removeItem('pendingInviteChild');
+  sessionStorage.removeItem('pendingInviteEmail');
+}
 // Note: re() is called inside the async Supabase session boot above
 </script>
 <script>
