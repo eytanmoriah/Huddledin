@@ -1461,7 +1461,7 @@ async function doGoogleSignIn(role){
 
 // doLogin is async now — wraps Supabase email auth, falls back to demo mode
 async function doLogin(email,password,role,name='',profession=''){
-  if(password==='demo'||email.includes('demo@')){
+  if(password==='demo'&&email==='demo@huddledin.com'){
     session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true};
     return{ok:true,isNew:true};
   }
@@ -1472,6 +1472,8 @@ async function doLogin(email,password,role,name='',profession=''){
     const res=await _supa.auth.signUp({email,password,options:{data:{role,display_name:name||email.split('@')[0],profession}}});
     if(res.error)return{error:res.error.message};
     data=res.data;
+    // Client-side profile bootstrap — handles case where DB trigger is absent
+    if(data.user){await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true}).catch(()=>{});}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -1481,8 +1483,7 @@ async function doLogin(email,password,role,name='',profession=''){
 async function doLogout(){
   await _supa.auth.signOut();
   session=null;
-  LS.del('session');
-  LS.del('tourStep');
+  Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
 }
 
 /* ═══════════════════════════════════════════════
@@ -2184,9 +2185,9 @@ function renderAuth(){
     const demoDiv=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)',textAlign:'center'}});
     demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},['Or explore with sample data:']));
     const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},['👀 Try Demo Mode']);
-    demoBtn2.onclick=()=>{
+    demoBtn2.onclick=async()=>{
       // Quick demo login + load data
-      const r=doLogin('demo@huddledin.com','demo','parent','Demo Parent');
+      const r=await doLogin('demo@huddledin.com','demo','parent','Demo Parent');
       if(r.ok){
         S.navLevel=0;S.activeTab='dashboard';
         // Don't show tour in demo mode
@@ -4289,7 +4290,7 @@ function renderChat(){
     const isConsult=chat.type==='specialist-consult';
     const isGroup=chat.type==='group';
     const lastMsg=chat.messages[chat.messages.length-1];
-    const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
+    const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
     const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
     const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
@@ -4316,7 +4317,7 @@ function renderChat(){
   if(activeChat){
     const isConsult=activeChat.type==='specialist-consult';
     const isGroup=activeChat.type==='group';
-    const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==(specId||'s1'));
+    const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
     const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
     const participantNames=isGroup
       ?activeChat.participants.map(p=>p==='parent'?'You':DB.specialists.find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
@@ -4402,7 +4403,7 @@ function showConsultModal(){
    VAULT (with draft + unsaved guard)
 ═══════════════════════════════════════════════ */
 function renderVault(){
-  const specId=session?.specialistId||'s1';
+  const specId=session?.specialistId||null;
   const child=DB.children.find(c=>c.id===S.activeChild);
   const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild);
   const activeNote=myNotes.find(n=>n.id===S.activeVaultId)||null;
@@ -4732,7 +4733,7 @@ function showAssignModal(){
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
       if(!ta.value.trim()||!di.value){toast('⚠️ Task and due date required.','error');return;}
       const all=DB.homework;
-      const specId=session?.specialistId||'s1';
+      const specId=session?.specialistId||null;
       const spec=DB.specialists.find(s=>s.id===specId);
       all.unshift({id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value});
       DB.homework=all;
@@ -4780,7 +4781,7 @@ function renderPatients(){
    CREDENTIALS / PERSONAL FOLDER (Specialist only)
 ═══════════════════════════════════════════════ */
 function renderCredentials(){
-  const specId=session?.specialistId||'s1';
+  const specId=session?.specialistId||null;
   const spec=DB.specialists.find(s=>s.id===specId)||{credentials:[]};
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
@@ -5297,7 +5298,7 @@ function renderSpecialistRequest(){
   sec.appendChild(el('p',{class:'page-sub'},['Send a request to a parent to add you to their child\'s care team. The parent must approve before you gain access.']));
 
   // Pending requests
-  const myRequests=(DB.specialistRequests||[]).filter(r=>r.specialistId===(session?.specialistId||'s1'));
+  const myRequests=(DB.specialistRequests||[]).filter(r=>r.specialistId===(session?.specialistId||null));
   if(myRequests.length){
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
     myRequests.forEach(r=>{
@@ -5322,7 +5323,7 @@ function renderSpecialistRequest(){
   fc.appendChild(mkBtn('📨 Send Join Request','btn-lg btn-primary btn-full',()=>{
     if(!pi.value.trim()||!ni.value.trim()){toast('⚠️ Parent email and child name required.','error');return;}
     const reqs=DB.specialistRequests||[];
-    const specId=session?.specialistId||'s1';
+    const specId=session?.specialistId||null;
     const spec=DB.specialists.find(s=>s.id===specId);
     reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:spec?.name||session?.name,parentEmail:pi.value.trim(),childName:ni.value.trim(),reason:ri.value.trim(),requestedAt:new Date().toISOString().split('T')[0],status:'pending'});
     DB.specialistRequests=reqs;
