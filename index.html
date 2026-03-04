@@ -5654,15 +5654,18 @@ initData();
 async function _processPendingInvite(){
   const token=sessionStorage.getItem('pendingInviteToken');
   const childId=sessionStorage.getItem('pendingInviteChild');
+  console.log('_processPendingInvite called, token:',token,'session:',session?.id);
   if(!token)return;
   // Try Supabase first
-  const {data}=await _supa.from('invites').select('*').eq('token',token).single().catch(()=>({data:null}));
+  const {data,error:fetchErr}=await _supa.from('invites').select('*').eq('token',token).single().catch(e=>({data:null,error:e}));
+  console.log('Invite lookup result:', data?'found':'not found', fetchErr?JSON.stringify(fetchErr):'');
   if(data){
     if(new Date(data.expires_at)<new Date()){
       toast('⚠️ This invite has expired. Ask the family for a new one.','error',5000);
     } else {
       // Mark accepted
-      await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id).catch(()=>{});
+      const {error:upErr}=await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+      console.log('Invite marked accepted:', upErr?JSON.stringify(upErr):'ok');
       // Add child to specialist's accessible children
       await _supa.from('specialists').upsert({
         id:session.id,
@@ -5672,10 +5675,11 @@ async function _processPendingInvite(){
         name:session.name,
         role:data.specialist_role||'Specialist',
         status:'active'
-      }).catch(()=>{});
+      }).catch(e=>console.log('Specialists upsert error:',JSON.stringify(e)));
       // Load the child into local state
       if(data.child_id){
         const {data:child}=await _supa.from('children').select('*').eq('id',data.child_id).single().catch(()=>({data:null}));
+        console.log('Child lookup:', child?child.name:'not found');
         if(child){
           const children=LS.get('children',[]);
           if(!children.find(c=>c.id===child.id)){
