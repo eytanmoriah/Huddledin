@@ -4033,8 +4033,10 @@ function showInviteModal(){
           specialistRole:ri.value||'Specialist'
         })
       }).then(r=>r.json()).then(d=>{
+        console.log('Email API response:',JSON.stringify(d));
         if(d.ok)toast('📧 Invite email sent to '+ei.value+'!','success');
-      }).catch(()=>{}); // silent fail — UI still works if email fails
+        else console.error('Email send failed:',d);
+      }).catch(e=>console.error('Email API error:',e));
       toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
       track('Invite Sent',{role:ri.value||'Specialist'});
     }));
