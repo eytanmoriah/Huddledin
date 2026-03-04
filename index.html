@@ -3633,7 +3633,7 @@ function renderSpecDashboard(){
    {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-lbl',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)'}},[lbl])])]));
     sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
@@ -4653,7 +4653,7 @@ function renderVault(){
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['Private Vault']),
+    el('h2',{class:'page-title'},['Clinical Notes']),
     el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
