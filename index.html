@@ -5675,7 +5675,11 @@ async function _processPendingInvite(){
   console.log('_processPendingInvite called, token:',token,'session:',session?.id);
   if(!token)return;
   // Try Supabase first
-  const {data,error:fetchErr}=await _supa.from('invites').select('*').eq('token',token).single().catch(e=>({data:null,error:e}));
+  let data=null,fetchErr=null;
+  try{
+    const res=await _supa.from('invites').select('*').eq('token',token).single();
+    data=res.data;fetchErr=res.error;
+  }catch(e){fetchErr=e;}
   console.log('Invite lookup result:', data?'found':'not found', fetchErr?JSON.stringify(fetchErr):'');
   if(data){
     if(new Date(data.expires_at)<new Date()){
