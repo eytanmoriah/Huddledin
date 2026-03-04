@@ -2126,9 +2126,6 @@ function renderAuth(){
       sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
       track(mode==='signin'?'Login':'Signup',{role:selRole});
-      // Process any pending invite
-      const pendingInvite=sessionStorage.getItem('pendingInviteToken');
-      if(pendingInvite){await _processPendingInvite();}
       // Parents land on Global Home (Level 0); specialists go straight to dashboard
       if(session.role==='parent'){
         S.navLevel=0;
@@ -2150,6 +2147,9 @@ function renderAuth(){
         S.tourActive=true;S.tourStep=0;
       }
       re();
+      // Process pending invite AFTER re() so session is fully set
+      const _pi=sessionStorage.getItem('pendingInviteToken');
+      if(_pi){setTimeout(()=>_processPendingInvite(),300);}
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -5621,11 +5621,21 @@ async function _processPendingInvite(){
       toast('🎉 Welcome! You have joined the care team!','success',5000);
       re();
     }
-  } else if(childId){
-    // Fallback: use URL params directly
-    S.activeChild=childId;
-    toast('🎉 Welcome to the care team!','success',5000);
-    re();
+  } else {
+    // Fallback: use stored child ID directly
+    const storedChild=sessionStorage.getItem('pendingInviteChild');
+    if(storedChild){
+      S.activeChild=storedChild;
+      // Load children from Supabase to make sure we have this child
+      if(session&&session.id!=='demo'){
+        const children=await SB.getChildren(session.id).catch(()=>[]);
+        if(children.length>0){LS.set('children',children);}
+      }
+      toast('🎉 Welcome to the care team!','success',5000);
+      re();
+    } else {
+      toast('⚠️ Could not process invite. Please ask the family to send a new one.','error',5000);
+    }
   }
   sessionStorage.removeItem('pendingInviteToken');
   sessionStorage.removeItem('pendingInviteChild');
