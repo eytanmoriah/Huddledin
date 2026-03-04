@@ -1386,6 +1386,30 @@ const SB = {
   }
 };
 
+async function refreshFromSupabase(){
+  if(!session||session.id==='demo')return;
+  try{
+    if(session.role==='parent'){
+      const children=await SB.getChildren(session.id);
+      if(children.length>0)LS.set('children',children);
+      const specs=await SB.getSpecialists(session.id);
+      if(specs.length>0)LS.set('specialists',specs);
+    } else if(session.role==='specialist'){
+      const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',session.id).eq('status','active');
+      if(specRows&&specRows.length>0){
+        const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+        if(childIds.length>0){
+          const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+          if(children&&children.length>0){
+            const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null}));
+            LS.set('children',mapped);
+          }
+        }
+      }
+    }
+  }catch(e){console.log('refreshFromSupabase error:',e);}
+}
+
 function initData(){
   if(!LS.get('seeded_v9',false)){
     Object.entries(SEED).forEach(([k,v])=>LS.set(k,v));
@@ -1420,6 +1444,11 @@ async function _loadSessionFromSupabase(s){
       const children=await SB.getChildren(s.user.id);
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      // Load specialists from Supabase so they appear on any device
+      try{
+        const specs=await SB.getSpecialists(s.user.id);
+        if(specs&&specs.length>0)LS.set('specialists',specs);
+      }catch(e){}
     } else if(profile.role==='specialist'){
       // Load specialist's patients from Supabase (works across devices)
       try{
@@ -1478,6 +1507,8 @@ async function _loadSessionFromSupabase(s){
     if(event==='SIGNED_OUT'){session=null;re();}
   });
   re(); // initial render
+  // Refresh data from Supabase on boot (ensures cross-device consistency)
+  if(session) refreshFromSupabase().then(()=>re());
 })();
 
 async function doGoogleSignIn(role){
