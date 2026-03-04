@@ -1420,6 +1420,27 @@ async function _loadSessionFromSupabase(s){
       const children=await SB.getChildren(s.user.id);
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+    } else if(profile.role==='specialist'){
+      // Load specialist's patients from Supabase (works across devices)
+      try{
+        const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',s.user.id).eq('status','active');
+        if(specRows&&specRows.length>0){
+          const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+          if(childIds.length>0){
+            const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+            if(children&&children.length>0){
+              const mapped=children.map(c=>({
+                id:c.id,name:c.name,dob:c.dob,
+                avatar:c.avatar_emoji||'🌸',
+                color:c.color||'#c4b5fd',
+                photo:c.photo_url||null
+              }));
+              LS.set('children',mapped);
+              if(!S.activeChild)S.activeChild=mapped[0].id;
+            }
+          }
+        }
+      }catch(e){console.log('Specialist children load error:',e);}
     }
   }
 }
@@ -1431,12 +1452,17 @@ async function _loadSessionFromSupabase(s){
   // Handle Google OAuth redirect back
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
-      // Apply pending Google role if set
+      // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
       const pendingRole=localStorage.getItem('pendingGoogleRole');
       if(pendingRole){
         localStorage.removeItem('pendingGoogleRole');
-        // Update profile role in Supabase
-        await _supa.from('profiles').update({role:pendingRole}).eq('id',s2.user.id);
+        // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
+        await _supa.from('profiles').upsert({
+          id:s2.user.id,
+          email:s2.user.email,
+          role:pendingRole,
+          display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
+        },{onConflict:'id'});
       }
       await _loadSessionFromSupabase(s2);
       if(session){
