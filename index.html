@@ -1350,14 +1350,18 @@ const SB = {
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
     return (data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
   },
-  async addChild(parentId,child){
-    const {data}=await _supa.from('children').insert({parent_id:parentId,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
+  async addChild(parentId,child,householdId){
+    const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
     return data;
   },
   async updateChild(id,patch){await _supa.from('children').update(patch).eq('id',id);},
   async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
   async getSpecialists(parentId){
     const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
+    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
+  },
+  async getSpecialistsByHousehold(householdId){
+    const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
     return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
   },
   async addSpecialist(spec){const {data}=await _supa.from('specialists').insert(spec).select().single();return data;},
@@ -1439,14 +1443,25 @@ async function _loadSessionFromSupabase(s){
   const {data:profile}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
   if(profile){
     session={id:s.user.id,email:s.user.email,role:profile.role,
-      name:profile.display_name||s.user.email.split('@')[0],specialistId:profile.id,isNew:false};
+      name:profile.display_name||s.user.email.split('@')[0],specialistId:profile.id,isNew:false,
+      householdId:profile.household_id,isPrimary:profile.is_primary!==false};
     if(profile.role==='parent'){
-      const children=await SB.getChildren(s.user.id);
+      // Load children by household_id so co-parents see same children
+      const hid=profile.household_id;
+      let children=[];
+      if(hid){
+        const {data:hChildren}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+        children=(hChildren||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+      } else {
+        children=await SB.getChildren(s.user.id);
+      }
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
-      // Load specialists from Supabase so they appear on any device
+      // Load specialists by household_id
       try{
-        const specs=await SB.getSpecialists(s.user.id);
+        const specs=hid
+          ? await SB.getSpecialistsByHousehold(hid)
+          : await SB.getSpecialists(s.user.id);
         if(specs&&specs.length>0)LS.set('specialists',specs);
       }catch(e){}
     } else if(profile.role==='specialist'){
@@ -1503,6 +1518,10 @@ async function _loadSessionFromSupabase(s){
       console.log('onAuthStateChange SIGNED_IN, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
+      // Show household invite modal for parents
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1500);
+      }
     }
     if(event==='SIGNED_OUT'){session=null;re();}
   });
@@ -2223,6 +2242,10 @@ function renderAuth(){
       const _pi=localStorage.getItem('pendingInviteToken');
       console.log('Email login, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      // Show household invite modal for parents (if not dismissed/skipped)
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1200);
+      }
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -5275,7 +5298,7 @@ function showAddChildModal(){
       const age=new Date().getFullYear()-dobDate.getFullYear();
       const childName=ni.value.trim();
       let newChildId='c_'+Date.now();
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null});if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
       const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
@@ -5552,6 +5575,225 @@ function showCreateGroupChatModal(){
 /* ═══════════════════════════════════════════════
    SETTINGS PATCH — push, delete child, group chat
 ═══════════════════════════════════════════════ */
+// ═══════════════════════════════════════════════
+//   HOUSEHOLD / CO-PARENT FEATURE
+// ═══════════════════════════════════════════════
+
+function genHouseholdToken(){
+  return 'hd_household_'+Math.random().toString(36).slice(2,8)+'_'+Math.random().toString(36).slice(2,10);
+}
+
+async function showHouseholdInviteModal(fromSettings=false){
+  openModal('👨‍👩‍👧 Add a Co-Parent',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65',fontSize:'.9rem'}},
+      ['Invite a partner, spouse, or co-guardian to share full access to your family account. They will see and manage the same children and care team.']));
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Name']));
+    const nameInput=el('input',{class:'inp',placeholder:'e.g. Sarah',style:{marginBottom:'12px'}});
+    mb.appendChild(nameInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Email']));
+    const emailInput=el('input',{class:'inp',type:'email',placeholder:'partner@email.com',style:{marginBottom:'12px'}});
+    mb.appendChild(emailInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Relationship']));
+    const roleSelect=el('select',{class:'inp',style:{marginBottom:'20px'}});
+    ['Spouse','Partner','Guardian','Grandparent','Professional Carer','Other'].forEach(r=>{
+      const opt=el('option',{value:r},[r]);
+      roleSelect.appendChild(opt);
+    });
+    mb.appendChild(roleSelect);
+
+    const errBox=el('div',{});
+    mb.appendChild(errBox);
+
+    const sendBtn=mkBtn('Send Invitation 📧','btn-md btn-primary',async()=>{
+      const name=nameInput.value.trim();
+      const email=emailInput.value.trim();
+      const role=roleSelect.value;
+      errBox.innerHTML='';
+      if(!name){errBox.appendChild(el('div',{class:'auth-error'},['Please enter their name.']));return;}
+      if(!email||!email.includes('@')){errBox.appendChild(el('div',{class:'auth-error'},['Please enter a valid email.']));return;}
+
+      sendBtn.disabled=true;sendBtn.textContent='Sending...';
+
+      const token=genHouseholdToken();
+      const expires=new Date();expires.setDate(expires.getDate()+7);
+      const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
+      const inviteLink=baseUrl+'?household='+token+'&email='+encodeURIComponent(email);
+
+      // Save to Supabase
+      const {error}=await _supa.from('household_invites').insert({
+        household_id:session.householdId,
+        inviter_id:session.id,
+        invitee_email:email,
+        invitee_name:name,
+        invitee_role:role,
+        token,
+        expires_at:expires.toISOString(),
+        accepted:false
+      });
+
+      if(error){
+        console.error('Household invite error:',error);
+        errBox.appendChild(el('div',{class:'auth-error'},['Could not send invite. Please try again.']));
+        sendBtn.disabled=false;sendBtn.textContent='Send Invitation 📧';
+        return;
+      }
+
+      // Send email
+      await fetch('/api/send-invite',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to:email,
+          childName:'your family account',
+          inviteLink,
+          fromName:session.name||'Your partner',
+          specialistRole:role+' (Co-Parent Access)'
+        })
+      }).catch(()=>{});
+
+      // Mark household invite as sent — don't show modal again
+      LS.set('householdInviteSent',true);
+      toast('📧 Invitation sent to '+email+'!','success',4000);
+      close();
+      re();
+    });
+    mb.appendChild(sendBtn);
+
+    if(!fromSettings){
+      const skipBtn=mkBtn('Skip for now','btn-md btn-ghost',()=>{
+        LS.set('householdModalSkipped',true);
+        close();
+      });
+      skipBtn.style.marginTop='8px';
+      mb.appendChild(skipBtn);
+
+      const dismissBtn=el('button',{style:{width:'100%',marginTop:'8px',background:'none',border:'none',color:'var(--slate)',fontSize:'.8rem',cursor:'pointer',padding:'8px'}},['Do not show this again']);
+      dismissBtn.onclick=()=>{LS.set('householdModalDismissed',true);close();};
+      mb.appendChild(dismissBtn);
+    }
+  });
+}
+
+async function processHouseholdInvite(token){
+  if(!session||!token)return;
+  let data=null;
+  try{
+    const res=await _supa.from('household_invites').select('*').eq('token',token).single();
+    data=res.data;
+  }catch(e){}
+  if(!data){toast('⚠️ Invalid or expired household invite.','error',5000);return;}
+  if(new Date(data.expires_at)<new Date()){toast('⚠️ This invite has expired.','error',5000);return;}
+  if(data.accepted){toast('⚠️ This invite has already been used.','error',5000);return;}
+
+  // Link this user to the household
+  await _supa.from('profiles').update({
+    household_id:data.household_id,
+    is_primary:false
+  }).eq('id',session.id);
+
+  // Mark invite accepted
+  await _supa.from('household_invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+
+  // Clear pending tokens
+  localStorage.removeItem('pendingHouseholdToken');
+  localStorage.removeItem('pendingHouseholdEmail');
+
+  // Reload session with new household_id
+  const {data:{session:s}}=await _supa.auth.getSession();
+  if(s)await _loadSessionFromSupabase(s);
+
+  toast('🎉 You are now connected to the shared family account!','success',5000);
+  LS.set('householdInviteSent',true);
+  re();
+}
+
+function shouldShowHouseholdModal(){
+  if(!session||session.role!=='parent')return false;
+  if(LS.get('householdModalDismissed',false))return false;
+  if(LS.get('householdInviteSent',false))return false;
+  // Check if already has a co-parent (household has 2+ members) — checked async, skip here
+  return true;
+}
+
+async function renderHouseholdCard(){
+  const card=el('div',{class:'card',style:{marginBottom:'16px'}});
+  card.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+
+  // Load co-parents
+  let coParents=[];
+  try{
+    const {data}=await _supa.from('profiles').select('*').eq('household_id',session.householdId).neq('id',session.id);
+    coParents=data||[];
+  }catch(e){}
+
+  // Load pending invites
+  let pending=[];
+  try{
+    const {data}=await _supa.from('household_invites').select('*').eq('household_id',session.householdId).eq('accepted',false);
+    pending=(data||[]).filter(i=>new Date(i.expires_at)>new Date());
+  }catch(e){}
+
+  if(coParents.length===0&&pending.length===0){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6'}},
+      ['No co-parent connected yet. Invite a partner or guardian to share access to this family account.']));
+  }
+
+  // Show connected co-parents
+  coParents.forEach(cp=>{
+    const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--lav-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']));
+    const info=el('div',{style:{flex:1}});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[cp.display_name||cp.email]));
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#16a34a',fontWeight:600}},['✅ Connected · Full access']));
+    row.appendChild(info);
+    // Revoke button (primary only)
+    if(session.isPrimary){
+      const revokeBtn=mkBtn('Remove','btn-sm btn-danger',async()=>{
+        if(!confirm('Remove access for '+(cp.display_name||cp.email)+'? They will no longer see this family account.'))return;
+        // Give them their own new household
+        await _supa.from('profiles').update({household_id:null,is_primary:true}).eq('id',cp.id);
+        toast('Access removed.','info');
+        re();
+        // Re-render card
+        const newCard=await renderHouseholdCard();
+        card.replaceWith(newCard);
+      });
+      row.appendChild(revokeBtn);
+    }
+    card.appendChild(row);
+  });
+
+  // Show pending invites
+  if(pending.length>0){
+    card.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',margin:'12px 0 8px'}},['⏳ Pending Invitations']));
+    pending.forEach(inv=>{
+      const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:600,color:'var(--navy)',fontSize:'.88rem'}},[inv.invitee_name||inv.invitee_email]));
+      info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)'}},[inv.invitee_email+' · '+inv.invitee_role+' · Expires '+new Date(inv.expires_at).toLocaleDateString()]));
+      row.appendChild(info);
+      if(session.isPrimary){
+        const cancelBtn=mkBtn('Cancel','btn-sm btn-ghost',async()=>{
+          await _supa.from('household_invites').delete().eq('id',inv.id);
+          toast('Invitation cancelled.','info');
+          const newCard=await renderHouseholdCard();
+          card.replaceWith(newCard);
+        });
+        row.appendChild(cancelBtn);
+      }
+      card.appendChild(row);
+    });
+  }
+
+  const addBtn=mkBtn('+ Invite Co-Parent','btn-md btn-primary',()=>showHouseholdInviteModal(true));
+  addBtn.style.marginTop='14px';
+  card.appendChild(addBtn);
+  return card;
+}
+
 function renderSettings(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
@@ -5611,6 +5853,15 @@ function renderSettings(){
   const acBtns=d('',[], {display:'flex',gap:'10px'});
   acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
   ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Shared Household (parent only)
+  if(session?.role==='parent'){
+    const hhPlaceholder=el('div',{class:'card',style:{marginBottom:'16px'}});
+    hhPlaceholder.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+    hhPlaceholder.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},['Loading household info...']));
+    sec.appendChild(hhPlaceholder);
+    renderHouseholdCard().then(card=>{hhPlaceholder.replaceWith(card);});
+  }
 
   // Manage Children (parent only — photo + delete)
   if(session?.role==='parent'){
@@ -5688,6 +5939,30 @@ function re(){
 
 initData();
 // Handle magic link invite on page load (now via Supabase invites table)
+(async function handleHouseholdInviteLink(){
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
+  const hToken=params.get('household');
+  const hEmail=params.get('email');
+  if(hToken){
+    localStorage.setItem('pendingHouseholdToken',hToken);
+    if(hEmail)localStorage.setItem('pendingHouseholdEmail',decodeURIComponent(hEmail));
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🏠 Please sign in to join the shared family account.','info',5000),800);
+  }
+  const pendingHH=localStorage.getItem('pendingHouseholdToken');
+  if(pendingHH&&session){
+    await processHouseholdInvite(pendingHH);
+  } else if(pendingHH&&!session){
+    let retries=0;
+    const ri=setInterval(async()=>{
+      retries++;
+      if(session){clearInterval(ri);await processHouseholdInvite(localStorage.getItem('pendingHouseholdToken'));}
+      if(retries>20)clearInterval(ri);
+    },500);
+  }
+})();
+
 (async function handleInviteLink(){
   console.log('handleInviteLink: search=',window.location.search,'hash=',window.location.hash);
   // Support both ?invite= and /#?invite= URL formats
