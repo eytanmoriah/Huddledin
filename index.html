@@ -2521,9 +2521,14 @@ function renderHeader(){
             item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
             csDd.appendChild(item);
           });
-          // Position relative to header
-          document.querySelector('.app-header')?.appendChild(csDd);
-          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          // Fixed positioning relative to centre element (works on mobile)
+          const centreRect=centre.getBoundingClientRect();
+          csDd.style.position='fixed';
+          csDd.style.top=(centreRect.bottom+6)+'px';
+          csDd.style.left=(centreRect.left+centreRect.width/2)+'px';
+          csDd.style.transform='translateX(-50%)';
+          document.body.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)&&!csDd?.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
           setTimeout(()=>document.addEventListener('click',out),10);
         };
         centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
