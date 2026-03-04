@@ -1445,7 +1445,8 @@ async function _loadSessionFromSupabase(s){
       }
       // Process pending invite if any
       const _pi=localStorage.getItem('pendingInviteToken');
-      if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      console.log('onAuthStateChange SIGNED_IN, pendingInvite:',_pi,'session:',session?.id);
+      if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
     }
     if(event==='SIGNED_OUT'){session=null;re();}
@@ -2163,6 +2164,7 @@ function renderAuth(){
       re();
       // Process pending invite AFTER re() so session is fully set
       const _pi=localStorage.getItem('pendingInviteToken');
+      console.log('Email login, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
     });
     ig.appendChild(sb);
@@ -5652,6 +5654,18 @@ initData();
   console.log('handleInviteLink: pendingToken=',pendingToken,'session=',session?.id);
   if(pendingToken&&session){
     await _processPendingInvite();
+  } else if(pendingToken&&!session){
+    // Session not ready yet (e.g. Google OAuth redirect) — retry after session loads
+    let retries=0;
+    const retryInterval=setInterval(async()=>{
+      retries++;
+      console.log('handleInviteLink retry',retries,'session=',session?.id);
+      if(session){
+        clearInterval(retryInterval);
+        await _processPendingInvite();
+      }
+      if(retries>20) clearInterval(retryInterval); // give up after 10 seconds
+    },500);
   }
 })();
 
