@@ -3418,9 +3418,18 @@ function renderSpecDashboard(){
    {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments',tab:'calendar'},
    {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes',tab:'vault'}
   ].forEach(({icon,color,val,lbl,tab})=>{
-    const sc=el('div',{class:'card hov'});
+    const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
     sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
-    sc.onclick=()=>{S.activeTab=tab;re();};
+    sc.onclick=()=>{
+      // If patients card and only 1 patient, go straight to their profile
+      if(tab==='patients'&&myPatients.length===1){
+        S.activeChild=myPatients[0].id;
+        S.activeTab='vault';
+      } else {
+        S.activeTab=tab;
+      }
+      re();
+    };
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
@@ -4759,7 +4768,11 @@ function renderPatients(){
   sec.appendChild(filterBar);
 
   const stack=el('div',{class:'stack'});
-  const sorted=[...DB.children].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+  // Merge DB.children with LS children (for invite-based specialists)
+  const lsChildren=LS.get('children',[]);
+  const allChildren=[...DB.children];
+  lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
+  const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
 
   const doFilter=q=>{
     stack.innerHTML='';
