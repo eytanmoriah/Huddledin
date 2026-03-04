@@ -1432,9 +1432,9 @@ async function _loadSessionFromSupabase(s){
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
       // Apply pending Google role if set
-      const pendingRole=sessionStorage.getItem('pendingGoogleRole');
+      const pendingRole=localStorage.getItem('pendingGoogleRole');
       if(pendingRole){
-        sessionStorage.removeItem('pendingGoogleRole');
+        localStorage.removeItem('pendingGoogleRole');
         // Update profile role in Supabase
         await _supa.from('profiles').update({role:pendingRole}).eq('id',s2.user.id);
       }
@@ -1444,7 +1444,7 @@ async function _loadSessionFromSupabase(s){
         S.activeChild=LS.get('children',[])[0]?.id||null;
       }
       // Process pending invite if any
-      const _pi=sessionStorage.getItem('pendingInviteToken');
+      const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
       re();
     }
@@ -1455,7 +1455,7 @@ async function _loadSessionFromSupabase(s){
 
 async function doGoogleSignIn(role){
   // Store selected role so we can apply it after OAuth redirect
-  if(role) sessionStorage.setItem('pendingGoogleRole', role);
+  if(role) localStorage.setItem('pendingGoogleRole', role);
   await _supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}});
 }
 
@@ -2162,7 +2162,7 @@ function renderAuth(){
       }
       re();
       // Process pending invite AFTER re() so session is fully set
-      const _pi=sessionStorage.getItem('pendingInviteToken');
+      const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
     });
     ig.appendChild(sb);
@@ -5640,15 +5640,15 @@ initData();
   console.log('handleInviteLink: token=',token,'childId=',childId,'session=',session?.id);
   if(token){
     // Store token so we can use it after login/signup
-    sessionStorage.setItem('pendingInviteToken', token);
-    if(childId) sessionStorage.setItem('pendingInviteChild', childId);
-    if(inviteEmail) sessionStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
+    localStorage.setItem('pendingInviteToken', token);
+    if(childId) localStorage.setItem('pendingInviteChild', childId);
+    if(inviteEmail) localStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
     window.history.replaceState({},'',window.location.pathname);
     console.log('handleInviteLink: token stored in sessionStorage');
     setTimeout(()=>toast('🤝 Please sign in or create an account to join the care team.','info',5000),800);
   }
   // Check for pending invite after session is loaded
-  const pendingToken=sessionStorage.getItem('pendingInviteToken');
+  const pendingToken=localStorage.getItem('pendingInviteToken');
   console.log('handleInviteLink: pendingToken=',pendingToken,'session=',session?.id);
   if(pendingToken&&session){
     await _processPendingInvite();
@@ -5656,8 +5656,8 @@ initData();
 })();
 
 async function _processPendingInvite(){
-  const token=sessionStorage.getItem('pendingInviteToken');
-  const childId=sessionStorage.getItem('pendingInviteChild');
+  const token=localStorage.getItem('pendingInviteToken');
+  const childId=localStorage.getItem('pendingInviteChild');
   console.log('_processPendingInvite called, token:',token,'session:',session?.id);
   if(!token)return;
   // Try Supabase first
@@ -5698,7 +5698,7 @@ async function _processPendingInvite(){
     }
   } else {
     // Fallback: use stored child ID directly
-    const storedChild=sessionStorage.getItem('pendingInviteChild');
+    const storedChild=localStorage.getItem('pendingInviteChild');
     if(storedChild){
       S.activeChild=storedChild;
       // Load children from Supabase to make sure we have this child
@@ -5712,9 +5712,9 @@ async function _processPendingInvite(){
       toast('⚠️ Could not process invite. Please ask the family to send a new one.','error',5000);
     }
   }
-  sessionStorage.removeItem('pendingInviteToken');
-  sessionStorage.removeItem('pendingInviteChild');
-  sessionStorage.removeItem('pendingInviteEmail');
+  localStorage.removeItem('pendingInviteToken');
+  localStorage.removeItem('pendingInviteChild');
+  localStorage.removeItem('pendingInviteEmail');
 }
 // Note: re() is called inside the async Supabase session boot above
 </script>
