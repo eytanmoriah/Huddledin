@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0d9488"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="application-name" content="Huddledin"/>
-<meta name="description" content="Collaborative care platform for children with special needs"/>
+<meta name="description" content="Collaborative care platform for children"/>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Huddledin — Collaborative Care Platform</title>
@@ -1652,7 +1652,7 @@ const TOUR_STEPS_PARENT=[
   },
   {
     id:'global-inbox',
-    title:'Global Inbox',
+    title:'File Upload & Sorting',
     body:'Drop any document here first — then use "Process File" to move it into the right child\'s folder or share it with a specialist.',
     target:'.global-vault-hd',
     arrow:'arrow-bottom',
@@ -1865,39 +1865,61 @@ function generateCode(){
   return code;
 }
 
-function createConnectionCode(childId){
+async function createConnectionCode(childId){
   const code=generateCode();
   const now=new Date();
   const exp=new Date(now);exp.setHours(exp.getHours()+48);
+  // Save to Supabase so specialist can redeem from any device
+  if(session&&session.id!=='demo'){
+    await _supa.from('connection_codes').upsert({
+      code,child_id:childId,parent_id:session.id,
+      household_id:session.householdId||null,
+      expires_at:exp.toISOString(),used:false
+    }).catch(()=>{});
+  }
+  // Also keep in localStorage as fallback
   const codes=DB.connectionCodes||[];
   codes.push({code,childId,createdAt:now.toISOString(),expiresAt:exp.toISOString(),used:false});
   DB.connectionCodes=codes;
   return code;
 }
 
-function redeemConnectionCode(code,specialistId,specialistName,role){
+async function redeemConnectionCode(code,specialistId,specialistName,role){
+  // Try Supabase first
+  if(session&&session.id!=='demo'){
+    const {data:row}=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single().catch(()=>({data:null}));
+    if(row){
+      if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
+      await _supa.from('connection_codes').update({used:true}).eq('id',row.id).catch(()=>{});
+      const childId=row.child_id;
+      const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
+      // Create pending approval request
+      const requests=DB.specialistRequests||[];
+      const alreadyPending=requests.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
+      if(!alreadyPending){
+        requests.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
+        DB.specialistRequests=requests;
+      }
+      pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team.`,childId);
+      return{ok:true,childId,child};
+    }
+    return{error:'Invalid or expired code. Please check with the family for a new one.'};
+  }
+  // Fallback: localStorage
   const codes=DB.connectionCodes||[];
   const idx=codes.findIndex(c=>c.code===code.toUpperCase()&&!c.used&&new Date(c.expiresAt)>new Date());
   if(idx===-1)return{error:'Invalid or expired code. Please check with the family for a new one.'};
   codes[idx].used=true;
   DB.connectionCodes=codes;
   const childId=codes[idx].childId;
-  const child=DB.children.find(c=>c.id===childId);
-  // Task 3 — Opt-in: do NOT auto-grant folder access.
-  // Instead, create a pending approval request for the parent to review.
-  const requests=DB.specialistRequests||[];
-  // Avoid duplicate pending requests for the same specialist+child
-  const alreadyPending=requests.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
-  if(!alreadyPending){
-    requests.push({
-      id:'req_'+Date.now(),
-      specialistId,specialistName,role,childId,
-      requestedAt:new Date().toISOString(),
-      status:'pending'
-    });
-    DB.specialistRequests=requests;
+  // Create pending approval request
+  const requests2=DB.specialistRequests||[];
+  const alreadyPending2=requests2.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
+  if(!alreadyPending2){
+    requests2.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
+    DB.specialistRequests=requests2;
   }
-  pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team — approval required.`,childId);
+  pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team.`,childId);
   return{ok:true,childId,child};
 }
 
@@ -1946,10 +1968,10 @@ function denySpecialistRequest(requestId){
 
 function showConnectionCodeModal(childId){
   const child=DB.children.find(c=>c.id===childId);
-  openModal('🔗 Connection Code — '+child?.name,(mb,close)=>{
+  openModal('🔗 Connection Code — '+child?.name,async(mb,close)=>{
     // Check for an existing valid code
     const existing=(DB.connectionCodes||[]).find(c=>c.childId===childId&&!c.used&&new Date(c.expiresAt)>new Date());
-    const code=existing?existing.code:createConnectionCode(childId);
+    const code=existing?existing.code:await createConnectionCode(childId);
 
     const card=el('div',{class:'conn-code-card',style:{marginBottom:'18px'}});
     card.appendChild(el('div',{class:'conn-code-label'},['Share this code with the specialist']));
@@ -2003,10 +2025,10 @@ function showEnterCodeModal(){
     const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'20px'}});
     mb.appendChild(errDiv);
 
-    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',async()=>{
       const code=codeInp.value.trim();
       if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
-      const result=redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
+      const result=await redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
       if(result.error){errDiv.textContent=result.error;return;}
       close();
       toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
@@ -2099,7 +2121,7 @@ const SPEC_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'patients',label:'Patients',icon:'👤'},
   {id:'calendar',label:'Calendar',icon:'📅'},
-  {id:'vault',label:'Vault',icon:'🔒'},
+  {id:'vault',label:'Clinical Notes',icon:'📋'},
   {id:'homework',label:'Tasks',icon:'📋'},
   {id:'files',label:'Files',icon:'📁'},
   {id:'chat',label:'Chat',icon:'💬'},
@@ -2157,7 +2179,7 @@ function showTermsOfService(){
     const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
     const sections=[
       ['1. Acceptance of Terms',"By accessing or using Huddledin, you agree to be bound by these Terms of Service. If you do not agree, please do not use the platform."],
-      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together in support of children with special needs."],
+      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together."],
       ['3. User Accounts',"You must provide accurate information when creating an account. You are responsible for maintaining your password confidentiality and all activity under your account."],
       ['4. Parent Responsibilities',"Parents must ensure all information about their child is accurate, manage specialist access permissions appropriately, and ensure their use complies with applicable laws."],
       ['5. Specialist Responsibilities',"Specialists must maintain professional standards in all communications, use the platform for legitimate professional purposes only, and comply with all applicable regulations."],
@@ -2190,7 +2212,7 @@ function renderAuth(){
   const hero=el('div',{class:'auth-hero'});
   hero.appendChild(el('div',{class:'auth-logo-wrap'},['🤝']));
   hero.appendChild(el('h1',{class:'auth-title ff'},['Huddledin']));
-  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children with special needs']));
+  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children']));
   card.appendChild(hero);
 
   const body=el('div',{class:'auth-body'});
@@ -2426,22 +2448,53 @@ function renderHeader(){
       centre.appendChild(el('span',{style:{
         fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'
       }},[child.name.split(' ')[0]]));
+      // Child switcher dropdown
+      const allChildren=DB.children;
+      if(allChildren.length>1){
+        centre.style.cursor='pointer';
+        let csDd=null;
+        centre.onclick=e=>{
+          e.stopPropagation();
+          if(csDd){csDd.remove();csDd=null;return;}
+          csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
+          allChildren.forEach(ch=>{
+            const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:ch.id===S.activeChild?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
+            const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+            if(ch.photo){const img=el('img',{src:ch.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}});av2.appendChild(img);}
+            else{av2.textContent=ch.avatar;}
+            item.appendChild(av2);
+            item.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[ch.name]));
+            if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
+            item.onmouseenter=()=>item.style.background='var(--mint-ll)';
+            item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
+            item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
+            csDd.appendChild(item);
+          });
+          // Position relative to header
+          document.querySelector('.app-header')?.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          setTimeout(()=>document.addEventListener('click',out),10);
+        };
+        centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
+      }
       inner.appendChild(centre);
     }
   } else if(session?.role==='parent' && S.navLevel===0){
     // ── Level 0: Logo is just branding ──
-    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
-      el('div',{class:'logo-bubble'},['🤝']),
-      el('span',{class:'logo-name ff'},['Huddledin'])
-    ]));
+    const lvl0Logo=el('div',{id:'logo',style:{cursor:'default',display:'flex',alignItems:'center',gap:'8px'}});
+    lvl0Logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    lvl0Logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    inner.appendChild(lvl0Logo);
     // No switcher at Level 0 — child selection lives in the home page bubbles
     inner.appendChild(el('div',{style:{flex:1}})); // spacer
   } else {
-    // ── Specialist: logo + role label ──
-    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
-      el('div',{class:'logo-bubble'},['🤝']),
-      el('span',{class:'logo-name ff'},['Huddledin'])
-    ]));
+    // ── Specialist: logo → home ──
+    const specLogo=el('div',{id:'logo',style:{cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}});
+    specLogo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    specLogo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    specLogo.onclick=()=>{S.activeTab='dashboard';re();};
+    specLogo.title='Back to Dashboard';
+    inner.appendChild(specLogo);
     const spec=DB.specialists.find(s=>s.id===session?.specialistId);
     const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
     nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
@@ -2560,7 +2613,7 @@ function renderDrawer(){
     const specItems=[
       {icon:'🏠',label:'Home',id:'dashboard'},
       {icon:'👤',label:'Patients',id:'patients'},
-      {icon:'🔒',label:'Vault',id:'vault'},
+      {icon:'📋',label:'Clinical Notes',id:'vault'},
       {icon:'📋',label:'Tasks',id:'homework'},
       {icon:'📁',label:'Files',id:'files'},
       {icon:'💬',label:'Chat',id:'chat'},
@@ -2690,7 +2743,7 @@ function renderBottomNav(){
     quickTabs=[
       {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
       {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
-      {id:'vault',label:'Vault',icon:'🔒',action:()=>switchTab('vault')},
+      {id:'vault',label:'Clinical Notes',icon:'📋',action:()=>switchTab('vault')},
     ];
   }
 
@@ -2985,7 +3038,8 @@ function renderMiniCalendar(children,allApts){
   days.forEach(ds=>{
     const d=new Date(ds+'T12:00');
     const dayApts=allApts.filter(a=>a.date===ds);
-    const col=el('div',{class:'mcw-day'});
+    const col=el('div',{class:'mcw-day',style:{cursor:'pointer'}});
+    col.title='Add appointment on '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     col.appendChild(el('div',{class:'mcw-label'},[DAY_LABELS[d.getDay()]]));
     const num=el('div',{class:'mcw-num'+(ds===today?' today':'')},
       [String(d.getDate())]);
@@ -3000,6 +3054,7 @@ function renderMiniCalendar(children,allApts){
       dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
     });
     col.appendChild(dots);
+    col.onclick=()=>showAddEventModalForDate(ds,children);
     week.appendChild(col);
   });
   card.appendChild(week);
@@ -3165,7 +3220,7 @@ function renderGlobalVault(){
   const wrap=el('div',{});
   const hd=el('div',{class:'global-vault-hd'});
   const left=el('div',{});
-  left.appendChild(el('div',{class:'global-vault-title'},['📥 Global Inbox']));
+  left.appendChild(el('div',{class:'global-vault-title'},['📁 File Upload & Sorting']));
   left.appendChild(el('div',{class:'global-vault-sub'},['Unsorted files — tap to process']));
   hd.appendChild(left);
   hd.appendChild(mkBtn('➕ Upload','btn-sm btn-secondary',()=>{
@@ -3522,22 +3577,13 @@ function renderSpecDashboard(){
 
   // Stats
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients',tab:'patients'},
-   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments',tab:'calendar'},
-   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes',tab:'vault'}
-  ].forEach(({icon,color,val,lbl,tab})=>{
+  [{icon:'👤',color:'#0d9488',lbl:'Patients',tab:'patients'},
+   {icon:'📅',color:'#7c3aed',lbl:'Calendar',tab:'calendar'},
+   {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
+  ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
-    sc.onclick=()=>{
-      // If patients card and only 1 patient, go straight to their profile
-      if(tab==='patients'&&myPatients.length===1){
-        S.activeChild=myPatients[0].id;
-        S.activeTab='vault';
-      } else {
-        S.activeTab=tab;
-      }
-      re();
-    };
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
@@ -3596,7 +3642,7 @@ function renderFiles(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['File Manager']),
-    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name} · Dropbox-backed · Granular sharing`])
+    el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
   ]));
   if(isParent){
     // Regular file upload (desktop + file picker)
@@ -3607,7 +3653,6 @@ function renderFiles(){
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
     hd.appendChild(el('div',{class:'sec-hd-right'},[
-      mkBtn('📷 Camera','btn-md btn-slate',()=>document.getElementById('cameraInput')?.click()),
       mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())
     ]));
   }
@@ -4308,6 +4353,45 @@ function showGoogleSyncModal(){
       mb.appendChild(btn2);
     });
   },420);
+}
+
+function showAddEventModalForDate(dateStr,availableChildren){
+  const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
+  if(theChildren.length===0){toast('Add a child profile first.','error');return;}
+  openModal('📅 Add Appointment',(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},['Which child?']));
+    const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+    theChildren.forEach(c=>{
+      const opt=el('option',{value:c.id},[c.avatar+' '+c.name]);
+      childSel.appendChild(opt);
+    });
+    if(S.activeChild&&theChildren.find(c=>c.id===S.activeChild))childSel.value=S.activeChild;
+    mb.appendChild(childSel);
+    mb.appendChild(el('div',{class:'inp-label'},['Title']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
+    mb.appendChild(titleInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Date']));
+    const dateInp=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',style:{marginBottom:'14px'}});
+    dateInp.value=dateStr||new Date().toISOString().split('T')[0];
+    mb.appendChild(dateInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Time']));
+    const timeInp=el('input',{class:'inp',type:'time',style:{marginBottom:'14px'}});
+    timeInp.value='09:00';
+    mb.appendChild(timeInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const notesInp=el('input',{class:'inp',placeholder:'Any extra details',style:{marginBottom:'20px'}});
+    mb.appendChild(notesInp);
+    mb.appendChild(mkBtn('Add Appointment','btn-lg btn-primary btn-full',()=>{
+      if(!titleInp.value.trim()){toast('Please enter a title.','error');return;}
+      if(!dateInp.value){toast('Please enter a date.','error');return;}
+      const apts=DB.appointments;
+      apts.push({id:'a_'+Date.now(),childId:childSel.value,title:titleInp.value.trim(),
+        date:dateInp.value,time:timeInp.value||'09:00',notes:notesInp.value.trim(),
+        specialistId:session?.specialistId||null,sharedWith:[]});
+      DB.appointments=apts;
+      close();toast('Appointment added!','success');re();
+    }));
+  });
 }
 
 function showAddEventModal(prefilledDate=null){
@@ -5241,7 +5325,7 @@ function showAddMilestoneModal(){
     const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
     const catSel=el('select',{class:'inp'});
     ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date',placeholder:'Target date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',placeholder:'Target date'});
     [ti,catSel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
@@ -5281,7 +5365,7 @@ function showAddChildModal(){
   openModal('➕ Add Child Profile',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
-    const dob=el('input',{class:'inp',type:'date',placeholder:'Date of birth'});
+    const dob=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY',placeholder:'Date of birth'});
 
     // Emoji avatar picker
     mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
@@ -5302,7 +5386,7 @@ function showAddChildModal(){
     let photoData=null;
     const photoWrap=el('div',{class:'photo-upload-area'});
     photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload a photo</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">Or use camera on mobile</div>';
-    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
       const f=e.target.files[0];if(!f)return;
       const reader=new FileReader();
@@ -5343,7 +5427,7 @@ function showChildPhotoModal(child){
     } else {
       photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
     }
-    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
       const f=e.target.files[0];if(!f)return;
       const reader=new FileReader();
