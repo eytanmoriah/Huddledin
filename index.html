@@ -194,7 +194,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .badge-navy{background:#e2e8f0;color:var(--navy)}
 
 /* ── INPUTS — 48px touch targets, 16px font (no iOS zoom) ── */
-.inp{width:100%;padding:14px 16px;border-radius:var(--r);border:1.5px solid var(--mint-l);font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
+.inp{width:100%;padding:14px 16px;border-radius:var(--r);border:2px solid #94a3b8;font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
 .inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
 /* Date placeholder fix for mobile */
 input[type="date"].inp::-webkit-datetime-edit{color:var(--navy)}
@@ -1248,6 +1248,7 @@ const SEED = {
   milestones:[],
   specialistRequests:[],
   connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
+  todos:[], // [{id, childId, title, note, dueDate, dueTime, completed, reminders:{inApp,email,push}, createdAt}]
   linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
   specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
@@ -1480,8 +1481,13 @@ async function _loadSessionFromSupabase(s){
   if(!s)return;
   const {data:profile}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
   if(profile){
+    // Use display_name → Google full_name → email prefix
+    const _displayName=profile.display_name&&!profile.display_name.includes('@')
+      ? profile.display_name.split(' ')[0]
+      : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'').split(' ')[0]
+      || s.user.email.split('@')[0];
     session={id:s.user.id,email:s.user.email,role:profile.role,
-      name:profile.display_name||s.user.email.split('@')[0],specialistId:profile.id,isNew:false,
+      name:_displayName,specialistId:profile.id,isNew:false,
       householdId:profile.household_id,isPrimary:profile.is_primary!==false};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
@@ -1589,7 +1595,7 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
+    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -2164,6 +2170,7 @@ const PARENT_TABS=[
   {id:'calendar',label:'Calendar',icon:'📅'},
   {id:'progress',label:'Progress',icon:'📈'},
   {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
   {id:'email',label:'Inbox',icon:'📧'},
   {id:'settings',label:'Settings',icon:'⚙️'}
@@ -2176,6 +2183,7 @@ const SPEC_TABS=[
   {id:'homework',label:'Tasks',icon:'📋'},
   {id:'files',label:'Files',icon:'📁'},
   {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
   {id:'credentials',label:'My Folder',icon:'🗂️'},
   {id:'request',label:'Join Team',icon:'📨'}
@@ -2521,14 +2529,9 @@ function renderHeader(){
             item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
             csDd.appendChild(item);
           });
-          // Fixed positioning relative to centre element (works on mobile)
-          const centreRect=centre.getBoundingClientRect();
-          csDd.style.position='fixed';
-          csDd.style.top=(centreRect.bottom+6)+'px';
-          csDd.style.left=(centreRect.left+centreRect.width/2)+'px';
-          csDd.style.transform='translateX(-50%)';
-          document.body.appendChild(csDd);
-          const out=ev2=>{if(!centre.contains(ev2.target)&&!csDd?.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          // Position relative to header
+          document.querySelector('.app-header')?.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
           setTimeout(()=>document.addEventListener('click',out),10);
         };
         centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
@@ -3410,6 +3413,7 @@ function renderContent(){
   if(t==='settings')return renderSettings();
   if(t==='patients')return renderPatients();
   if(t==='vault')return renderVault();
+  if(t==='todo')return renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
   if(t==='progress')return renderProgress();
@@ -3470,9 +3474,9 @@ function renderParentDashboard(){
   const wc1=el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:'700',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},
     [child.avatar+' '+child.name+"'s Profile"]);
   const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
-    [(session?.name||'Parent')+' 👋']);
+    [child.name]);
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
-    ['Age '+child.age+' · DOB '+child.dob]);
+    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   // Quick action buttons in welcome card
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
@@ -3487,18 +3491,23 @@ function renderParentDashboard(){
   welcome.appendChild(wBtns);
   sec.appendChild(welcome);
 
-  // Stats row
-  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'📅',color:'#0d9488',val:String(childApts.filter(a=>a.date>=new Date().toISOString().split('T')[0]).length),lbl:'Upcoming Apts',tab:'calendar'},
-   {icon:'📋',color:'#f97316',val:String(childHW.filter(h=>!h.completed).length),lbl:'Pending Tasks',tab:'homework'},
-   {icon:'👥',color:'#7c3aed',val:String(childSpecs.length),lbl:'Specialists',tab:'team'}
-  ].forEach(({icon,color,val,lbl,tab})=>{
-    const sc=el('div',{class:'card hov'});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
-    sc.onclick=()=>{S.activeTab=tab;re();};
-    stats.appendChild(sc);
+  // Big square navigation grid (like file manager)
+  const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  [
+    {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
+    {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+    {icon:'🔗',label:'Invite Specialist',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>showConnectionCodeModal(child.id)},
+    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:'calendar'},
+    {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+    {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
+  ].forEach(({icon,label,color,bg,tab,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
+    sq.onclick=()=>{if(fn)fn();else{S.activeTab=tab;re();}};
+    navGrid.appendChild(sq);
   });
-  sec.appendChild(stats);
+  sec.appendChild(navGrid);
 
   // Empty state if truly new
   const hasAnyData=childHW.length||childApts.length||childSpecs.length;
@@ -3638,11 +3647,33 @@ function renderSpecDashboard(){
    {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-lbl',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)'}},[lbl])])]));
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
     sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
+
+  // If a patient is selected, show square nav grid for that patient
+  if(S.activeChild){
+    const pt=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+    if(pt){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.95rem'}},[pt.avatar+' '+pt.name+"'s Profile"]));
+      const ptGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+      [
+        {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
+        {icon:'📋',label:'Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+        {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+        {icon:'💬',label:'Chat',color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
+      ].forEach(({icon,label,color,bg,tab})=>{
+        const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+        sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+        sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
+        sq.onclick=()=>{S.activeTab=tab;re();};
+        ptGrid.appendChild(sq);
+      });
+      sec.appendChild(ptGrid);
+    }
+  }
 
   // Promotion block — shown when specialist has at least 1 patient
   if(myPatients.length>=1){
@@ -3789,8 +3820,14 @@ function renderFiles(){
       wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
       wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
       wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
-      // Tap = open
-      wrap.onclick=()=>{if(!moved)showFolderModal(folder,isParent);};
+      // Tap = open (use both touchend and click for Android compatibility)
+      const _openFolder=()=>{if(!moved)showFolderModal(folder,isParent);};
+      wrap.addEventListener('touchend',(e)=>{
+        clearTimeout(pressTimer);
+        if(!moved){e.preventDefault();_openFolder();}
+        moved=false;
+      },{passive:false});
+      wrap.onclick=(e)=>{if(!moved)_openFolder();};
       // Context menu (right-click on desktop = long-press equivalent)
       wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
       
@@ -3921,15 +3958,59 @@ function showShareModal(file){
 function showFolderModal(folder,isParent){
   openModal(folder.icon+' '+folder.name,(mb,close)=>{
     const stack=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    if(!folder.files||folder.files.length===0){
+      stack.appendChild(el('div',{class:'empty-inline'},['No files in this folder yet.']));
+    }
     folder.files.forEach(f=>{
-      const fi=el('div',{class:'file-item'});
-      fi.innerHTML=`<span style="font-size:1.35rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${f.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${f.date}</div></div>`;
-      if(f.locked)fi.appendChild(el('span',{class:'locked-badge'},['🔒 Locked']));
-      // Per-file share management (parent only)
-      if(isParent&&!f.locked){
-        const mgBtn=mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder));
-        fi.appendChild(mgBtn);
+      const fi=el('div',{class:'file-item',style:{flexDirection:'column',alignItems:'stretch',gap:'8px'}});
+      const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+      const ext=(f.name||'').split('.').pop().toLowerCase();
+      const fileIcon={'pdf':'📄','jpg':'🖼️','jpeg':'🖼️','png':'🖼️','doc':'📝','docx':'📝','mp4':'🎬','mp3':'🎵'}[ext]||'📎';
+      topRow.appendChild(el('span',{style:{fontSize:'1.35rem'}},[fileIcon]));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}},[f.name]));
+      info.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',marginTop:'2px'}},[f.date||'']));
+      topRow.appendChild(info);
+      if(f.locked)topRow.appendChild(el('span',{class:'locked-badge'},['🔒']));
+      fi.appendChild(topRow);
+      // Action buttons row
+      const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+      // Preview
+      if(f.url){
+        const prevBtn=mkBtn('👁 Preview','btn-sm btn-ghost',()=>{
+          if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+            openModal('🖼 '+f.name,(pm)=>{pm.appendChild(el('img',{src:f.url,style:{width:'100%',borderRadius:'12px'}}));},520);
+          } else if(ext==='pdf'){
+            window.open(f.url,'_blank');
+          } else {
+            window.open(f.url,'_blank');
+          }
+        });
+        actions.appendChild(prevBtn);
       }
+      // Download
+      if(f.url){
+        const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',()=>{
+          const a=document.createElement('a');a.href=f.url;a.download=f.name;a.click();
+        });
+        actions.appendChild(dlBtn);
+      }
+      // Rename (parent only)
+      if(isParent&&!f.locked){
+        const rnBtn=mkBtn('✏️ Rename','btn-sm btn-ghost',()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            const fls=DB.folders;
+            const fo=fls.find(x=>x.id===folder.id);
+            if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+            close();showFolderModal(folder,isParent);toast('File renamed!');
+          }
+        });
+        actions.appendChild(rnBtn);
+        // Manage permissions
+        actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+      }
+      if(actions.children.length>0)fi.appendChild(actions);
       stack.appendChild(fi);
     });
     mb.appendChild(stack);
@@ -4058,9 +4139,9 @@ function renderTeam(){
     }
   }
 
-  // Existing team members
+  // Existing team members — check permissions OR child_id match (for Supabase-connected specialists)
   const specialists=DB.specialists.filter(s=>
-    child?(s.permissions[child.id]?.length>0||s.status==='pending'):true
+    child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true
   );
 
   if(!specialists.length){
@@ -4243,10 +4324,10 @@ function showInviteModal(){
         })
       }).then(r=>r.json()).then(d=>{
         console.log('Email API response:',JSON.stringify(d));
-        if(d.ok)toast('📧 Invite email sent to '+ei.value+'!','success');
+        if(d.ok){toast('📧 Invite email sent to '+ei.value+'!','success');close();}
         else console.error('Email send failed:',d);
       }).catch(e=>console.error('Email API error:',e));
-      toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
+      toast('✅ Sending invite to '+ei.value+'…');
       track('Invite Sent',{role:ri.value||'Specialist'});
     }));
   },500);
@@ -4658,7 +4739,7 @@ function renderVault(){
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['Clinical Notes']),
+    el('h2',{class:'page-title'},['Private Vault']),
     el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -4894,6 +4975,242 @@ function renderVault(){
 /* ═══════════════════════════════════════════════
    HOMEWORK — PARENT VIEW
 ═══════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════
+   TO-DO LIST WITH REMINDERS
+═══════════════════════════════════════════════ */
+function renderTodoList(){
+  const isParent=session?.role==='parent';
+  const childId=S.activeChild;
+  const child=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
+  const sec=el('div',{class:'section'});
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['✅ To-Do List']),
+    el('p',{class:'page-sub'},[child?child.avatar+' '+child.name+'\'s tasks':'All tasks'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('➕ Add Task','btn-sm btn-primary',()=>showAddTodoModal(childId))
+  ]));
+  sec.appendChild(hd);
+
+  const todos=(DB.todos||[]).filter(t=>!childId||t.childId===childId);
+  const pending=todos.filter(t=>!t.completed);
+  const done=todos.filter(t=>t.completed);
+  const today=new Date().toISOString().split('T')[0];
+
+  if(!todos.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['✅']),
+      el('div',{class:'empty-state-title'},['No tasks yet']),
+      el('div',{class:'empty-state-body'},['Add tasks with optional reminders to stay on top of things.']),
+      el('div',{class:'empty-state-actions'},[mkBtn('➕ Add First Task','btn-md btn-primary',()=>showAddTodoModal(childId))])
+    ]));
+    return sec;
+  }
+
+  // Pending tasks
+  if(pending.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['Pending ('+pending.length+')']));
+    pending.sort((a,b)=>(a.dueDate||'9')>(b.dueDate||'9')?1:-1).forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  // Completed tasks
+  if(done.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--slate)',marginBottom:'12px',marginTop:'18px',fontSize:'.9rem'}},['Completed ('+done.length+')']));
+    done.forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  return sec;
+}
+
+function renderTodoCard(todo,today){
+  const isOverdue=!todo.completed&&todo.dueDate&&todo.dueDate<today;
+  const card=el('div',{class:'card',style:{
+    display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'10px',
+    opacity:todo.completed?'0.6':'1',
+    borderLeft:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
+  }});
+
+  // Checkbox
+  const chk=el('div',{class:'chk'+(todo.completed?' done':''),style:{marginTop:'3px',flexShrink:0}},todo.completed?['✓']:[]);
+  chk.onclick=()=>{
+    const all=DB.todos||[];
+    const i=all.findIndex(t=>t.id===todo.id);
+    if(i>-1){all[i].completed=!all[i].completed;DB.todos=all;}
+    re();
+  };
+  card.appendChild(chk);
+
+  // Info
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.88rem',color:todo.completed?'var(--slate-l)':'var(--navy)',textDecoration:todo.completed?'line-through':'none',marginBottom:'4px'}},[todo.title]));
+  if(todo.note){
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'5px',lineHeight:'1.4'}},[todo.note]));
+  }
+  const meta=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}});
+  if(todo.dueDate){
+    const dueLbl=el('span',{style:{fontSize:'.72rem',fontWeight:700,color:isOverdue?'var(--rose)':'var(--teal)',background:isOverdue?'#fff1f2':'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},
+      [(isOverdue?'⚠️ Overdue: ':'')+todo.dueDate+(todo.dueTime?' at '+todo.dueTime:'')]);
+    meta.appendChild(dueLbl);
+  }
+  // Reminder badges
+  const r=todo.reminders||{};
+  if(r.inApp)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['🔔 In-App']));
+  if(r.email)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📧 Email']));
+  if(r.push)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📱 Push']));
+  info.appendChild(meta);
+  card.appendChild(info);
+
+  // Actions
+  const acts=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',flexShrink:0}});
+  acts.appendChild(mkBtn('✏️','btn-sm btn-ghost',()=>showAddTodoModal(todo.childId,todo)));
+  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
+    DB.todos=(DB.todos||[]).filter(t=>t.id!==todo.id);re();toast('Task removed.');
+  })));
+  card.appendChild(acts);
+  return card;
+}
+
+function showAddTodoModal(childId,existing){
+  const title=existing?'Edit Task':'New Task';
+  openModal(title,(mb,close)=>{
+    // Title
+    mb.appendChild(el('div',{class:'inp-label'},['Task title *']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech practice 10 min',style:{marginBottom:'14px'}});
+    if(existing)titleInp.value=existing.title||'';
+    mb.appendChild(titleInp);
+
+    // Note
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const noteInp=el('textarea',{class:'inp',placeholder:'Additional details…',style:{marginBottom:'14px',minHeight:'72px'}});
+    if(existing)noteInp.value=existing.note||'';
+    mb.appendChild(noteInp);
+
+    // Due date + time
+    const dateRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
+    const dateInp=makeDateInput('Due date');
+    if(existing&&existing.dueDate)dateInp.value=existing.dueDate;
+    const timeInp=el('input',{class:'inp',type:'time',placeholder:'Time (optional)'});
+    if(existing&&existing.dueTime)timeInp.value=existing.dueTime;
+    dateRow.appendChild(dateInp);
+    dateRow.appendChild(timeInp);
+    mb.appendChild(dateRow);
+
+    // Child selector (if no active child)
+    let selChildId=childId||S.activeChild;
+    const allChildren=DB.children.length?DB.children:LS.get('children',[]);
+    if(!selChildId&&allChildren.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      childSel.appendChild(el('option',{value:''},[' — select child —']));
+      allChildren.forEach(ch=>{
+        const o=el('option',{value:ch.id},[ch.avatar+' '+ch.name]);
+        if(existing&&existing.childId===ch.id)o.selected=true;
+        childSel.appendChild(o);
+      });
+      childSel.onchange=()=>{selChildId=childSel.value;};
+      mb.appendChild(childSel);
+    }
+
+    // Reminder options
+    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Reminders (optional)']));
+    const remRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'20px'}});
+    const remOpts=[
+      {key:'inApp',label:'🔔 In-App',desc:'Alert inside the app when due'},
+      {key:'email',label:'📧 Email',desc:'Email reminder when due'},
+      {key:'push',label:'📱 Push',desc:'Push notification (if enabled)'}
+    ];
+    const remState={inApp:existing?.reminders?.inApp||false,email:existing?.reminders?.email||false,push:existing?.reminders?.push||false};
+    remOpts.forEach(({key,label,desc})=>{
+      const tog=el('div',{style:{
+        display:'flex',alignItems:'center',gap:'8px',padding:'9px 13px',
+        borderRadius:'12px',cursor:'pointer',border:'2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)'),
+        background:remState[key]?'var(--mint-ll)':'#fff',
+        transition:'all .15s',userSelect:'none'
+      }});
+      const dot=el('div',{style:{width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(remState[key]?'var(--teal)':'#ccc'),background:remState[key]?'var(--teal)':'#fff',flexShrink:0}});
+      tog.appendChild(dot);
+      tog.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:700,color:remState[key]?'var(--teal)':'var(--slate)'}},[label]));
+      tog.onclick=()=>{
+        remState[key]=!remState[key];
+        tog.style.border='2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)');
+        tog.style.background=remState[key]?'var(--mint-ll)':'#fff';
+        dot.style.border='2px solid '+(remState[key]?'var(--teal)':'#ccc');
+        dot.style.background=remState[key]?'var(--teal)':'#fff';
+        tog.querySelector('span').style.color=remState[key]?'var(--teal)':'var(--slate)';
+      };
+      remRow.appendChild(tog);
+    });
+    mb.appendChild(remRow);
+
+    // Save
+    mb.appendChild(mkBtn(existing?'💾 Save Changes':'➕ Add Task','btn-lg btn-primary btn-full',async()=>{
+      const t=titleInp.value.trim();
+      if(!t){toast('Please enter a task title.','error');return;}
+      const finalChildId=selChildId||S.activeChild;
+      const todo={
+        id:existing?.id||'td_'+Date.now(),
+        childId:finalChildId||null,
+        title:t,
+        note:noteInp.value.trim(),
+        dueDate:dateInp.value||null,
+        dueTime:timeInp.value||null,
+        completed:existing?.completed||false,
+        reminders:{...remState},
+        createdAt:existing?.createdAt||new Date().toISOString()
+      };
+      const all=DB.todos||[];
+      if(existing){
+        const i=all.findIndex(x=>x.id===existing.id);
+        if(i>-1)all[i]=todo;else all.push(todo);
+      } else {
+        all.push(todo);
+      }
+      DB.todos=all;
+
+      // Schedule in-app reminder if dueDate+dueTime set
+      if(todo.reminders.inApp&&todo.dueDate&&todo.dueTime){
+        const dueMs=new Date(todo.dueDate+'T'+todo.dueTime).getTime();
+        const now=Date.now();
+        if(dueMs>now){
+          const delay=dueMs-now;
+          if(delay<2147483647){ // max setTimeout
+            setTimeout(()=>{
+              if(!(DB.todos||[]).find(t2=>t2.id===todo.id&&t2.completed)){
+                pushNotif('homework','⏰ Reminder: '+todo.title,todo.childId);
+                toast('⏰ Reminder: '+todo.title,'info',6000);
+              }
+            },delay);
+          }
+        }
+      }
+
+      // Email reminder — save to Supabase for server-side scheduling
+      if(todo.reminders.email&&todo.dueDate&&session?.email){
+        try{
+          await _supa.from('todo_reminders').upsert({
+            todo_id:todo.id,
+            user_email:session.email,
+            due_at:todo.dueDate+(todo.dueTime?'T'+todo.dueTime+':00':'T09:00:00'),
+            title:todo.title,
+            child_id:todo.childId||null,
+            sent:false
+          },{onConflict:'todo_id'});
+        }catch(e){console.log('todo reminder save:',e);}
+      }
+
+      close();re();
+      toast(existing?'✅ Task updated!':'✅ Task added!','success');
+    }));
+  },520);
+}
+
 function renderHomeworkParent(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const hw=DB.homework.filter(h=>h.childId===S.activeChild);
@@ -6016,6 +6333,23 @@ function renderSettings(){
   // Account
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
   ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👤 Account']));
+  // Name row with edit pencil
+  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+  const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
+  const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
+  editBtn.onclick=()=>{
+    const newName=prompt('Enter your display name:',session?.name||'');
+    if(newName&&newName.trim()){
+      _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
+        .then(()=>{
+          session.name=newName.trim();
+          nameDisplay.textContent='👤 '+newName.trim();
+          toast('Name updated!','success');
+        }).catch(()=>toast('Could not save name.','error'));
+    }
+  };
+  nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
+  ac.appendChild(nameRow);
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
   const acBtns=d('',[], {display:'flex',gap:'10px'});
