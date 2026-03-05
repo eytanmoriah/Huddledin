@@ -1422,18 +1422,8 @@ const SB = {
   }
 };
 
-async function _provisionDefaultFolders(childId){
-  const defaults=[
-    {id:'f_'+childId+'_sp', name:'Speech Therapy',      icon:'🗣️',key:'speech', childId},
-    {id:'f_'+childId+'_ot', name:'Occupational Therapy',icon:'✋', key:'ot',     childId},
-    {id:'f_'+childId+'_pt', name:'Physical Therapy',    icon:'🏃', key:'pt',     childId},
-    {id:'f_'+childId+'_med',name:'Medical Records',     icon:'📋', key:'general',childId},
-    {id:'f_'+childId+'_meds',name:'Medications',        icon:'💊', key:'meds',   childId},
-    {id:'f_'+childId+'_sch',name:'School Reports',      icon:'🏫', key:'school', childId}
-  ];
-  const created=[];
-  for(const f of defaults){try{await SB.addFolder(f);created.push({...f,files:[]});}catch(e){}}
-  return created;
+async function _provisionDefaultFolders(){
+  return[];
 }
 
 async function refreshFromSupabase(){
@@ -1462,7 +1452,7 @@ async function refreshFromSupabase(){
         for(const ch of children){
           try{
             let f=await SB.getFolders(ch.id);
-            if(f.length===0)f=await _provisionDefaultFolders(ch.id);
+            if(f.length===0)f=[];
             allFolders.push(...f);
           }catch(e){}
         }
@@ -1493,7 +1483,7 @@ async function refreshFromSupabase(){
             for(const ch of mapped){
               try{
                 let f=await SB.getFolders(ch.id);
-                if(f.length===0)f=await _provisionDefaultFolders(ch.id);
+                if(f.length===0)f=[];
                 allFolders.push(...f);
               }catch(e){}
             }
