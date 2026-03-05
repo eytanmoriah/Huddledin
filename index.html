@@ -2203,6 +2203,22 @@ function badge(t,c='teal'){return el('span',{class:`badge badge-${c}`},[t]);}
 function mkAvatar(emoji,sz=40,bg='#d1fae5'){
   return el('div',{class:'avatar',style:{width:sz+'px',height:sz+'px',background:bg,fontSize:(sz*.42)+'px'}},[emoji]);
 }
+function mkChildAvatar(child,sz=48,radius='12px'){
+  const wrap=el('div',{style:{
+    width:sz+'px',height:sz+'px',borderRadius:radius,
+    background:(child.color||'#0d9488')+'44',
+    display:'flex',alignItems:'center',justifyContent:'center',
+    fontSize:(sz*.42)+'px',flexShrink:0,overflow:'hidden'
+  }});
+  if(child.photo){
+    const img=el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover',display:'block'}});
+    img.onerror=()=>{img.remove();wrap.textContent=child.avatar||'🧒';};
+    wrap.appendChild(img);
+  } else {
+    wrap.textContent=child.avatar||'🧒';
+  }
+  return wrap;
+}
 function spinner(){return el('span',{class:'spinner'});}
 
 function toast(msg,type='success',ms=3200){
@@ -2935,7 +2951,7 @@ function renderSearchOverlay(){
     // Search patients
     DB.children.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
       const item=el('div',{class:'search-result-item'});
-      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},[c.avatar]));
+      item.appendChild(mkChildAvatar(c,36,'50%'));
       const siBody=el('div',{});
       siBody.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[c.name]));
       siBody.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['Patient · Age '+c.age]));
@@ -5550,7 +5566,7 @@ function renderPatients(){
         filter:isInactive?'grayscale(1)':'none',
         opacity:isInactive?'0.7':'1'
       }});
-      card.innerHTML=`<div style="width:52px;height:52px;border-radius:15px;background:${c.color}44;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">${c.avatar}</div>`;
+      card.appendChild(mkChildAvatar(c,52,'15px'));
       const info=d('',[], {flex:1});
       const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}});
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
@@ -5613,11 +5629,7 @@ function renderPatientDashboard(){
     border:'1.5px solid var(--lav)',
     display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
   }});
-  hdrCard.appendChild(el('div',{style:{
-    width:'56px',height:'56px',borderRadius:'16px',
-    background:child.color+'44',display:'flex',alignItems:'center',
-    justifyContent:'center',fontSize:'2rem',flexShrink:0
-  }},[child.avatar]));
+  hdrCard.appendChild(mkChildAvatar(child,56,'16px'));
   const hInfo=el('div',{style:{flex:1}});
   hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
   hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
