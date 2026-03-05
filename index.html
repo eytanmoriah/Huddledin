@@ -2610,7 +2610,7 @@ function renderHeader(){
           item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
           csDd.appendChild(item);
         });
-        document.querySelector('.app-header')?.appendChild(csDd);
+        (document.getElementById('header')||document.body).appendChild(csDd);
         const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
         setTimeout(()=>document.addEventListener('click',out),10);
       };
