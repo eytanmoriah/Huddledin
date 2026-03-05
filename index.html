@@ -4019,7 +4019,7 @@ function showShareModal(file){
         const fi2=fls.find(f=>f.id===folderId)||fls[0];
         if(fi2)fi2.files.push({id:newFile.id,name:newFile.name,date:newFile.date,locked:false,sharedWith:newFile.sharedWith,uploadedBy:'parent',url});
         DB.folders=fls;
-        close();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
+        close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
     });
     upBtn.innerHTML='📤 Upload & Share';
@@ -4104,13 +4104,30 @@ function showFolderModal(folder,isParent){
       // Preview
       if(f.url){
         const prevBtn=mkBtn('👁 Preview','btn-sm btn-ghost',()=>{
+          const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.82)',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'stretch'}});
+          const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+          bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+          const xBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+          xBtn.onclick=()=>ov.remove();
+          bar.appendChild(xBtn);
+          ov.appendChild(bar);
+          const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
           if(['jpg','jpeg','png','gif','webp'].includes(ext)){
-            openModal('🖼 '+f.name,(pm)=>{pm.appendChild(el('img',{src:f.url,style:{width:'100%',borderRadius:'12px'}}));},520);
-          } else if(ext==='pdf'){
-            window.open(f.url,'_blank');
+            body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+          } else if(ext==='pdf'||['doc','docx','xls','xlsx','ppt','pptx'].includes(ext)){
+            const frame=el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}});
+            body.appendChild(frame);
           } else {
-            window.open(f.url,'_blank');
+            const wrap=el('div',{style:{textAlign:'center',color:'#fff'}});
+            wrap.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+            wrap.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},[`Preview not available for .${ext} files`]));
+            const dlA=el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download file']);
+            wrap.appendChild(dlA);
+            body.appendChild(wrap);
           }
+          ov.appendChild(body);
+          ov.onclick=e=>{if(e.target===ov)ov.remove();};
+          document.body.appendChild(ov);
         });
         actions.appendChild(prevBtn);
       }
@@ -4138,6 +4155,19 @@ function showFolderModal(folder,isParent){
         actions.appendChild(rnBtn);
         // Manage permissions
         actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+        // Delete
+        const delBtn=mkBtn('🗑 Delete','btn-sm btn-danger',async()=>{
+          openConfirm('Delete "'+f.name+'"?','This will permanently delete the file and cannot be undone.',true,async()=>{
+            try{
+              await SB.deleteFile(f.id);
+              const fls=DB.folders;
+              const fo=fls.find(x=>x.id===folder.id);
+              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+              close();re();toast('🗑 File deleted.');
+            }catch(e){toast('❌ Delete failed: '+e.message,'error');}
+          });
+        });
+        actions.appendChild(delBtn);
       }
       if(actions.children.length>0)fi.appendChild(actions);
       stack.appendChild(fi);
