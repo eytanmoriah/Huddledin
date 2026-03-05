@@ -1497,16 +1497,14 @@ async function refreshFromSupabase(){
           try{
             const specId=session.specialistId||session.id;
             const {data:perms}=await _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId);
-            if(perms&&perms.length>0){
-              const specs=DB.specialists;
-              const si=specs.findIndex(s=>s.id===specId);
-              if(si>-1){
-                const permMap={};
-                perms.forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
-                specs[si].permissions={...specs[si].permissions,...permMap};
-                DB.specialists=specs;
-              }
-            }
+            const permMap={};
+            (perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
+            // Store in dedicated key so renderFiles can read it even if DB.specialists is empty
+            LS.set('my_perms',permMap);
+            // Also try to update DB.specialists record if it exists
+            const specs=DB.specialists;
+            const si=specs.findIndex(s=>s.id===specId);
+            if(si>-1){specs[si].permissions={...specs[si].permissions,...permMap};DB.specialists=specs;}
           }catch(e){}
         }
       }
@@ -2134,6 +2132,11 @@ async function approveFolderRequest(req){
       specs[si].permissions[req.childId].push(req.requestedFolder);
     DB.specialists=specs;
   }
+  // Also update my_perms in case specialist is on same device
+  const myPerms=LS.get('my_perms',{});
+  if(!myPerms[req.childId])myPerms[req.childId]=[];
+  if(!myPerms[req.childId].includes(req.requestedFolder))myPerms[req.childId].push(req.requestedFolder);
+  LS.set('my_perms',myPerms);
   // Mark request approved
   const reqs=DB.specialistRequests;
   const ri=reqs.findIndex(r=>r.id===req.id);
@@ -3860,9 +3863,8 @@ function renderSpecDashboard(){
 function renderFiles(){
   const isParent=session?.role==='parent';
   const spec=DB.specialists.find(s=>s.id===session?.specialistId);
-  const perms=spec?.permissions[S.activeChild]||[];
-  // Task 4 — vault-aware permission check
-  // Standard folders: parent always access, specialist needs permission key
+  const myPerms=LS.get('my_perms',{});
+  const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
   const canAccess=key=>isParent||perms.includes(key);
   const folders=DB.folders.filter(f=>f.childId===S.activeChild);
   const child=DB.children.find(c=>c.id===S.activeChild);
@@ -4466,8 +4468,12 @@ function renderTeam(){
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
       info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
       const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
-      perms.forEach(p2=>pr.appendChild(badge(p2.toUpperCase(),'teal')));
-      if(!perms.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+      const childFoldersForSpec=DB.folders.filter(f=>f.childId===child?.id);
+      perms.forEach(key=>{
+        const f=childFoldersForSpec.find(f=>f.key===key);
+        if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
+      });
+      if(!pr.children.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
       info.appendChild(pr);
       card.appendChild(info);
       if(!isPending&&child){
