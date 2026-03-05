@@ -1394,7 +1394,10 @@ const SB = {
     }));
   },
   async addFile(file){
-    await _supa.from('files').insert({id:file.id,folder_id:file.folderId,child_id:file.childId,name:file.name,date:file.date,locked:false,shared_with:file.sharedWith||[],uploaded_by:file.uploadedBy,url:file.url||null});
+    const payload={folder_id:file.folderId,child_id:file.childId,name:file.name,date:file.date,locked:false,uploaded_by:file.uploadedBy,url:file.url||null};
+    const {data,error}=await _supa.from('files').insert(payload).select('id').single();
+    if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
+    return data;
   },
   async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
   async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
@@ -4111,16 +4114,13 @@ function showShareModal(file){
       try{
         const {path,url}=await SB.uploadFile(S.activeChild,file);
         const folderId=folderSel.value;
-        const folder=DB.folders.find(f=>f.id===folderId);
-        const folderKey=folder?.key;
-        // Auto-share with all specialists who have access to this folder
-        const sharedWith=DB.specialists.filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey)).map(s=>s.id);
-        const newFile={id:'fl_'+Date.now(),folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith,uploadedBy:'parent',url};
-        await SB.addFile(newFile);
+        const newFile={folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,uploadedBy:'parent',url};
+        const saved=await SB.addFile(newFile);
+        const fileId=saved?.id||crypto.randomUUID();
         // Update local cache so UI reflects immediately without a full refresh
         const fls=DB.folders;
         const fi2=fls.find(f=>f.id===folderId);
-        if(fi2)fi2.files.push({id:newFile.id,name:newFile.name,date:newFile.date,locked:false,sharedWith,uploadedBy:'parent',url});
+        if(fi2)fi2.files.push({id:fileId,name:newFile.name,date:newFile.date,locked:false,sharedWith:[],uploadedBy:'parent',url});
         DB.folders=fls;
         close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
