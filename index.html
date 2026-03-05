@@ -16,6 +16,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
 <!-- ══ SUPABASE SDK ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ══ CROPPER.JS ══ -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
 <!-- ══ SENTRY — load synchronously before app code ══ -->
 <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js"></script>
 <script>
@@ -6085,8 +6088,30 @@ function showChildPhotoModal(child){
       const f=e.target.files[0];if(!f)return;
       const reader=new FileReader();
       reader.onload=ev=>{
-        photoData=ev.target.result;
-        photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">New photo selected ✓</div>`;
+        // Show fullscreen crop overlay
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},['Drag & pinch to crop']));
+        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},['Cancel']);
+        cancelBtn.onclick=()=>ov.remove();
+        bar.appendChild(cancelBtn);
+        ov.appendChild(bar);
+        const imgWrap=el('div',{style:{flex:1,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+        const img=el('img',{src:ev.target.result,style:{maxWidth:'100%',maxHeight:'100%'}});
+        imgWrap.appendChild(img);
+        ov.appendChild(imgWrap);
+        const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
+        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},['✅ Use This Crop']);
+        useBtn.onclick=()=>{
+          const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
+          photoData=canvas.toDataURL('image/jpeg',0.88);
+          photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Photo cropped ✓</div>`;
+          cropper.destroy();ov.remove();
+        };
+        foot.appendChild(useBtn);
+        ov.appendChild(foot);
+        document.body.appendChild(ov);
+        const cropper=new Cropper(img,{aspectRatio:1,viewMode:1,dragMode:'move',autoCropArea:0.9,restore:false,guides:true,center:true,highlight:false,cropBoxMovable:false,cropBoxResizable:false,toggleDragModeOnDblclick:false});
       };
       reader.readAsDataURL(f);
     };
