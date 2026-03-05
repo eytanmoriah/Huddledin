@@ -1384,17 +1384,17 @@ const SB = {
     const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
     if(!fData||!fData.length)return[];
     const folderIds=fData.map(f=>f.id);
-    const {data:fiData}=await _supa.from('files').select('id,folder_id,name,date,locked,shared_with,uploaded_by,url').in('folder_id',folderIds);
+    const {data:fiData}=await _supa.from('files').select('id,folder_id,name,created_at,locked,shared_with,uploaded_by,url').in('folder_id',folderIds);
     return fData.map(f=>({
       id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
       files:(fiData||[]).filter(fi=>fi.folder_id===f.id).map(fi=>({
-        id:fi.id,name:fi.name,date:fi.date,locked:fi.locked||false,
+        id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:fi.locked||false,
         sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,url:fi.url||null
       }))
     }));
   },
   async addFile(file){
-    const payload={folder_id:file.folderId,child_id:file.childId,name:file.name,date:file.date,locked:false,uploaded_by:file.uploadedBy,url:file.url||null};
+    const payload={folder_id:file.folderId,child_id:file.childId,name:file.name,locked:false,uploaded_by:file.uploadedBy,url:file.url||null};
     const {data,error}=await _supa.from('files').insert(payload).select('id').single();
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
     return data;
