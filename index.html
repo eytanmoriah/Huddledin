@@ -1362,11 +1362,11 @@ const SB = {
   async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
   async getSpecialists(parentId){
     const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
-    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
+    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
   },
   async getSpecialistsByHousehold(householdId){
     const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
-    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
+    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
   },
   async addSpecialist(spec){const {data}=await _supa.from('specialists').insert(spec).select().single();return data;},
   async updateSpecialist(id,patch){await _supa.from('specialists').update(patch).eq('id',id);},
@@ -1410,6 +1410,9 @@ async function refreshFromSupabase(){
       LS.set('children',children);
       // Load specialists by household
       const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
+      // Merge local permissions so approvals survive a Supabase sync
+      const localSpecs=DB.specialists||[];
+      (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
       LS.set('specialists',specs||[]);
       // Load pending specialist requests from Supabase
       try{
@@ -1506,7 +1509,11 @@ async function _loadSessionFromSupabase(s){
         const specs=hid
           ? await SB.getSpecialistsByHousehold(hid)
           : await SB.getSpecialists(s.user.id);
-        if(specs&&specs.length>0)LS.set('specialists',specs);
+        if(specs&&specs.length>0){
+          const localSpecs2=DB.specialists||[];
+          specs.forEach(s=>{const local=localSpecs2.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+          LS.set('specialists',specs);
+        }
       }catch(e){}
     } else if(profile.role==='specialist'){
       // Load specialist's patients from Supabase (works across devices)
@@ -1997,6 +2004,12 @@ function approveSpecialistRequest(requestId,selectedFolders){
     vaults.push({vaultId:'vault_'+Date.now(),specialistId:req.specialistId,specialistName:req.specialistName,childId:req.childId,authorizedSpecialistIds:[],createdAt:new Date().toISOString()});
     DB.specialistVaults=vaults;
   }
+  // Persist approval to Supabase so it survives page refresh
+  try{
+    if(_supa&&req.specialistId){
+      await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
+    }
+  }catch(e){}
   const child=DB.children.find(c=>c.id===req.childId);
   pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
   re();
@@ -4175,7 +4188,8 @@ function renderTeam(){
     child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true
   );
 
-  if(!specialists.length){
+  const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
+  if(!specialists.length&&!pendingReqsForChild.length){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['👥']),
       el('div',{class:'empty-state-title'},['No specialists yet']),
