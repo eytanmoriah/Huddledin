@@ -1185,37 +1185,16 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
    TOKENS
    ⚠️  SECURITY WARNING (QA-SEC-1 / OWASP A02):
    Client-side API tokens are visible to all users via DevTools.
-   In production, ALL API calls (Dropbox, Anthropic) MUST be
-   proxied through a secure backend server. The tokens below
-   should be rotated immediately if this file was shared publicly.
+   In production, ALL API calls (Anthropic) MUST be proxied
+   through a secure backend server. Rotate immediately if leaked.
 
    ── HOW TO INJECT TOKENS ──────────────────────
-   Add a <script> block in the <head> BEFORE this file loads,
-   or have your server template render it inline:
+   Add a <script> block in the <head> BEFORE this file loads:
 
      <script>
-       window.DROPBOX_TOKEN  = "sl.YOUR_DROPBOX_ACCESS_TOKEN";
        window.ANTHROPIC_API_KEY = "sk-ant-YOUR_ANTHROPIC_KEY";
      <\/script>
-
-   For Dropbox specifically:
-     • App key / App secret are used ONLY in the OAuth flow
-       (server-side) to exchange an authorization code for the
-       access token. They should NEVER appear in client JS.
-     • Generate a long-lived (offline) access token at
-       https://www.dropbox.com/developers/apps → your app →
-       OAuth 2 → Generated access token.
-     • Assign that access token to window.DROPBOX_TOKEN above.
-
-   For local development only (never commit this):
-     Open the file in a text editor, find the <head> tag, and
-     paste the <script> block above with your real token.
-     Keep a .gitignore'd copy of the file with tokens injected,
-     and always distribute the token-free version.
 ═══════════════════════════════════════════════ */
-const DROPBOX_TOKEN = typeof window.DROPBOX_TOKEN !== 'undefined'
-  ? window.DROPBOX_TOKEN
-  : '';
 
 /* ═══════════════════════════════════════════════
    SEED DATA — Production zero-state defaults
@@ -1271,23 +1250,23 @@ const DEMO_SEED={
     {id:"s4",name:"Dr. Marcus Webb",role:"Behavioral Therapist",email:"marcus@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending",credentials:[]}
   ],
   folders:[
-    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[
+    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",childId:"c1",files:[
       {id:"fl1",name:"Session_Jan.pdf",date:"2025-01-15",locked:true,sharedWith:["s1"],uploadedBy:"s1"},
       {id:"fl2",name:"Goals_Q1.pdf",date:"2025-02-01",locked:false,sharedWith:["s1","s2"],uploadedBy:"parent"}
     ]},
-    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[
+    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",childId:"c1",files:[
       {id:"fl3",name:"OT_Assessment.pdf",date:"2025-01-20",locked:true,sharedWith:["s2"],uploadedBy:"s2"}
     ]},
-    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[
+    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",childId:"c1",files:[
       {id:"fl4",name:"PT_Progress.pdf",date:"2025-02-10",locked:false,sharedWith:["s3"],uploadedBy:"s3"}
     ]},
-    {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[
+    {id:"f4",name:"Medical Records",icon:"📋",key:"general",childId:"c1",files:[
       {id:"fl5",name:"Annual_Physical.pdf",date:"2024-12-01",locked:true,sharedWith:["s1","s2","s3"],uploadedBy:"parent"}
     ]},
-    {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[
+    {id:"f5",name:"Medications",icon:"💊",key:"meds",childId:"c1",files:[
       {id:"fl6",name:"Med_Schedule.pdf",date:"2025-01-01",locked:true,sharedWith:[],uploadedBy:"parent"}
     ]},
-    {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[
+    {id:"f6",name:"School Reports",icon:"🏫",key:"school",childId:"c1",files:[
       {id:"fl7",name:"IEP_2025.pdf",date:"2025-01-08",locked:false,sharedWith:["s1"],uploadedBy:"parent"}
     ]}
   ],
@@ -1372,12 +1351,21 @@ const SB = {
   async updateSpecialist(id,patch){await _supa.from('specialists').update(patch).eq('id',id);},
   async getMessages(childId){const {data}=await _supa.from('messages').select('*').eq('child_id',childId).order('created_at');return data||[];},
   async sendMessage(msg){const {data}=await _supa.from('messages').insert(msg).select().single();return data;},
-  async uploadFile(childId,file){
-    const path=`${childId}/${Date.now()}_${file.name}`;
-    const {error}=await _supa.storage.from('huddledin-files').upload(path,file,{contentType:file.type});
+  async getFolders(childId){
+    const {data}=await _supa.from('folders').select('id,name,icon,key,child_id,files:files(id,name,date,locked,shared_with,uploaded_by,url)').eq('child_id',childId).order('created_at');
+    return (data||[]).map(f=>({id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,files:(f.files||[]).map(fi=>({id:fi.id,name:fi.name,date:fi.date,locked:fi.locked||false,sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,url:fi.url||null}))}));
+  },
+  async addFile(file){
+    await _supa.from('files').insert({id:file.id,folder_id:file.folderId,child_id:file.childId,name:file.name,date:file.date,locked:false,shared_with:file.sharedWith||[],uploaded_by:file.uploadedBy,url:file.url||null});
+  },
+  async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
+  async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
+  async uploadFile(storagePath,file){
+    const path=`${storagePath}/${Date.now()}_${file.name}`;
+    const {error}=await _supa.storage.from('huddledin-files').upload(path,file,{contentType:file.type,upsert:false});
     if(error)throw error;
-    const {data:signed}=await _supa.storage.from('huddledin-files').createSignedUrl(path,3600);
-    return {path,url:signed?.signedUrl||''};
+    const {data}=_supa.storage.from('huddledin-files').getPublicUrl(path);
+    return {path,url:data.publicUrl};
   },
   async acceptInvite(token){
     const {data}=await _supa.from('invites').select('*').eq('token',token).eq('accepted',false).single();
@@ -1414,6 +1402,12 @@ async function refreshFromSupabase(){
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
       LS.set('specialists',specs||[]);
+      // Load folders for all children from Supabase
+      try{
+        const allFolders=[];
+        for(const ch of children){try{const f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}}
+        LS.set('folders',allFolders);
+      }catch(e){}
       // Load pending specialist requests from Supabase
       try{
         const {data:reqs}=await _supa.from('specialist_requests').select('*').eq('parent_id',session.id).eq('status','pending');
@@ -1434,6 +1428,10 @@ async function refreshFromSupabase(){
           if(children&&children.length>0){
             const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active'}));
             LS.set('children',mapped);
+            // Load folders for each patient
+            const allFolders=[];
+            for(const ch of mapped){try{const f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}}
+            LS.set('folders',allFolders);
           }
         }
       }
@@ -1637,7 +1635,8 @@ let S={
   calFullscreen:false,
   tourActive:false,       // is guided tour running?
   tourStep:0,             // current step index
-  patientStatusFilter:'active'  // filter state for renderPatients — survives re()
+  patientStatusFilter:'active',  // filter state for renderPatients — survives re()
+  calendarMode:'child'           // 'joint' = all children; 'child' = active child only
 };
 
 /* ═══════════════════════════════════════════════
@@ -2788,6 +2787,7 @@ function switchTab(id){
     });
     return;
   }
+  if(id==='calendar') S.calendarMode='joint';
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
   S.isDrawerOpen=false;
@@ -3505,17 +3505,6 @@ function renderParentDashboard(){
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
     ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
-  // Quick action buttons in welcome card
-  const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
-  [
-    ['📈 Progress',()=>{S.activeTab='progress';re();}],
-    ['📁 Files',()=>{S.activeTab='files';re();}],
-    ['🔗 Invite Specialist',()=>showConnectionCodeModal(child.id)]
-  ].forEach(([label,fn])=>{
-    const b=el('button',{style:{background:'rgba(255,255,255,.2)',border:'1.5px solid rgba(255,255,255,.3)',color:'#fff',borderRadius:'99px',padding:'7px 13px',fontSize:'.76rem',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}},[label]);
-    b.onclick=fn;wBtns.appendChild(b);
-  });
-  welcome.appendChild(wBtns);
   sec.appendChild(welcome);
 
   // Big square navigation grid (like file manager)
@@ -3524,7 +3513,7 @@ function renderParentDashboard(){
     {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
     {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
     {icon:'🔗',label:'Invite Specialist',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>showConnectionCodeModal(child.id)},
-    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:'calendar'},
+    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{S.calendarMode='child';S.activeTab='calendar';re();}},
     {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
     {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
   ].forEach(({icon,label,color,bg,tab,fn})=>{
@@ -3733,7 +3722,7 @@ function renderFiles(){
   // Task 4 — vault-aware permission check
   // Standard folders: parent always access, specialist needs permission key
   const canAccess=key=>isParent||perms.includes(key);
-  const folders=DB.folders;
+  const folders=DB.folders.filter(f=>f.childId===S.activeChild||!f.childId);
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
@@ -3933,7 +3922,7 @@ function showShareModal(file){
     // Which folder
     mb.appendChild(el('div',{class:'inp-label'},['Save to folder']));
     const folderSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
-    DB.folders.forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+    DB.folders.filter(f=>f.childId===S.activeChild||!f.childId).forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
     mb.appendChild(folderSel);
 
     const row2=d('',[], {display:'flex',gap:'10px'});
@@ -3941,23 +3930,16 @@ function showShareModal(file){
     const upBtn=mkBtn('','btn-md btn-primary btn-full',async()=>{
       upBtn.innerHTML='<span class="spinner"></span> Uploading...';upBtn.disabled=true;
       try{
-        const ab=await file.arrayBuffer();
-        const child=DB.children.find(c=>c.id===S.activeChild);
-        // FIX FS1: sanitize path segments to remove characters that are invalid in Dropbox paths
-        const sanitizePath=s=>(s||'unknown').replace(/[\\/:*?"<>|]/g,'_').trim()||'unnamed';
-        const safeChildName=sanitizePath(child?.name);
-        const safeFileName=sanitizePath(file.name);
-        const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
-          method:'POST',
-          headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
-            'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/${safeChildName}/${safeFileName}`,mode:'add',autorename:true})},body:ab
-        });
-        const data=await resp.json();
+        const {path,url}=await SB.uploadFile(S.activeChild,file);
+        const folderId=folderSel.value;
+        const newFile={id:'fl_'+Date.now(),folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k),uploadedBy:'parent',url};
+        await SB.addFile(newFile);
+        // Update local cache so UI reflects immediately without a full refresh
         const fls=DB.folders;
-        const fi2=fls.find(f=>f.id===folderSel.value)||fls[0];
-        fi2.files.push({id:'fl_'+Date.now(),name:data.name||file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k),uploadedBy:'parent'});
+        const fi2=fls.find(f=>f.id===folderId)||fls[0];
+        if(fi2)fi2.files.push({id:newFile.id,name:newFile.name,date:newFile.date,locked:false,sharedWith:newFile.sharedWith,uploadedBy:'parent',url});
         DB.folders=fls;
-        close();toast('✅ "'+( data.name||file.name)+'" uploaded to Dropbox!');track('File Uploaded');
+        close();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
     });
     upBtn.innerHTML='📤 Upload & Share';
@@ -4008,13 +3990,16 @@ function showFolderModal(folder,isParent){
       }
       // Rename (parent only)
       if(isParent&&!f.locked){
-        const rnBtn=mkBtn('✏️ Rename','btn-sm btn-ghost',()=>{
+        const rnBtn=mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
           const newName=prompt('Rename file:',f.name);
           if(newName&&newName.trim()){
-            const fls=DB.folders;
-            const fo=fls.find(x=>x.id===folder.id);
-            if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-            close();showFolderModal(folder,isParent);toast('File renamed!');
+            try{
+              await SB.renameFile(f.id,newName.trim());
+              const fls=DB.folders;
+              const fo=fls.find(x=>x.id===folder.id);
+              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+            }catch(e){toast('❌ Rename failed: '+e.message,'error');}
           }
         });
         actions.appendChild(rnBtn);
@@ -4408,8 +4393,11 @@ function showHandshakeModal(spec){
 ═══════════════════════════════════════════════ */
 function renderCalendar(){
   const isParent=session?.role==='parent';
+  const allChildren=DB.children;
   const childApts=isParent
-    ?DB.appointments.filter(a=>a.childId===S.activeChild)
+    ?(S.calendarMode==='joint'
+      ?DB.appointments.filter(a=>allChildren.some(c=>c.id===a.childId))
+      :DB.appointments.filter(a=>a.childId===S.activeChild))
     :DB.appointments.filter(a=>a.specialistId===(session?.specialistId)||a.sharedWith?.includes(session?.specialistId));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
@@ -4418,7 +4406,7 @@ function renderCalendar(){
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Calendar']),
     // FIX B4: dynamic month label in calendar subtitle
-    el('p',{class:'page-sub'},[isParent?`${child?.avatar} ${child?.name} — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`:`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
+    el('p',{class:'page-sub'},[isParent?(S.calendarMode==='joint'?`All Children — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`:`${child?.avatar} ${child?.name} — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`):`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
@@ -4472,7 +4460,10 @@ function renderCalendar(){
     cell.onclick=()=>_openDay();
     cell.appendChild(num);
     da.forEach(a=>{
-      const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
+      const dotColor=(isParent&&S.calendarMode==='joint')
+        ?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)')
+        :(TC[a.type]||'var(--teal)');
+      const dot=el('div',{class:'cal-dot',style:{background:dotColor}},[a.title.split(' ')[0]]);
       cell.appendChild(dot);
     });
     cg.appendChild(cell);
@@ -4485,12 +4476,13 @@ function renderCalendar(){
   [...childApts].sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
     const ch=DB.children.find(c=>c.id===apt.childId);
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
-    const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}});
+    const barColor=(isParent&&S.calendarMode==='joint')?(ch?.color||'var(--teal)'):(TC[apt.type]||'var(--teal)');
+    const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
     card.appendChild(bar);
     const info=d('',[], {flex:1});
     info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[apt.title]));
     info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[apt.specialist]));
-    if(ch&&isParent)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)'}},[ch.avatar+' '+ch.name]));
+    if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
     card.appendChild(info);
     const right=d('',[], {textAlign:'right'});
     right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
@@ -5552,19 +5544,11 @@ function showCredentialUpload(spec,specId){
       const upBtn=mkBtn('📤 Upload','btn-lg btn-primary btn-full',async()=>{
         upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
         try{
-          const ab=await file.arrayBuffer();
-          // FIX FS1: sanitize path segments for credential uploads too
-          const sanitizeCredPath=s=>(s||'unknown').replace(/[\\/:*?"<>|]/g,'_').trim()||'unnamed';
-          const resp=await fetch('https://content.dropboxapi.com/2/files/upload',{
-            method:'POST',
-            headers:{Authorization:'Bearer '+DROPBOX_TOKEN,'Content-Type':'application/octet-stream',
-              'Dropbox-API-Arg':JSON.stringify({path:`/Huddledin/Specialists/${sanitizeCredPath(spec.name)}/Credentials/${sanitizeCredPath(file.name)}`,mode:'add',autorename:true})},body:ab
-          });
-          const data=await resp.json();
+          const {path,url}=await SB.uploadFile('specialists/'+specId,file);
           const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
           if(i>-1){
             if(!specs[i].credentials)specs[i].credentials=[];
-            specs[i].credentials.push({id:'cr_'+Date.now(),name:data.name||file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value});
+            specs[i].credentials.push({id:'cr_'+Date.now(),name:file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value,url});
             DB.specialists=specs;
           }
           close();re();toast('✅ Credential uploaded to your private folder!');
