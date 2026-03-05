@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0d9488"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="application-name" content="Huddledin"/>
-<meta name="description" content="Collaborative care platform for children with special needs"/>
+<meta name="description" content="Collaborative care platform for children"/>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Huddledin — Collaborative Care Platform</title>
@@ -194,8 +194,11 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .badge-navy{background:#e2e8f0;color:var(--navy)}
 
 /* ── INPUTS — 48px touch targets, 16px font (no iOS zoom) ── */
-.inp{width:100%;padding:14px 16px;border-radius:var(--r);border:1.5px solid var(--mint-l);font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
+.inp{width:100%;padding:14px 16px;border-radius:var(--r);border:2px solid #94a3b8;font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
 .inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+/* Date placeholder fix for mobile */
+input[type="date"].inp::-webkit-datetime-edit{color:var(--navy)}
+input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;min-width:20px;min-height:20px}
 .inp::placeholder{color:var(--slate-l);font-weight:500}
 textarea.inp{resize:vertical;min-height:120px;line-height:1.65}
 select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
@@ -326,7 +329,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:16px 18px;border-radius:var(--r-lg) var(--r-lg) 0 0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px}
 .cal-dl{text-align:center;font-size:.64rem;font-weight:800;color:var(--slate);padding:5px 0}
-.cal-day{min-height:36px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.cal-day{min-height:44px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:8px;transition:background .12s}.cal-day:hover{background:var(--mint-ll)}.cal-day:active{background:var(--mint-l)}
 .cal-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600;transition:transform .12s}
 .cal-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
 .cal-num.has-event{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,.3)}
@@ -1245,6 +1248,7 @@ const SEED = {
   milestones:[],
   specialistRequests:[],
   connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
+  todos:[], // [{id, childId, title, note, dueDate, dueTime, completed, reminders:{inApp,email,push}, createdAt}]
   linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
   specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
@@ -1350,14 +1354,18 @@ const SB = {
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
     return (data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
   },
-  async addChild(parentId,child){
-    const {data}=await _supa.from('children').insert({parent_id:parentId,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
+  async addChild(parentId,child,householdId){
+    const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
     return data;
   },
   async updateChild(id,patch){await _supa.from('children').update(patch).eq('id',id);},
   async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
   async getSpecialists(parentId){
     const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
+    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
+  },
+  async getSpecialistsByHousehold(householdId){
+    const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
     return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token}));
   },
   async addSpecialist(spec){const {data}=await _supa.from('specialists').insert(spec).select().single();return data;},
@@ -1385,6 +1393,65 @@ const SB = {
       .subscribe();
   }
 };
+
+async function refreshFromSupabase(){
+  if(!session||session.id==='demo')return;
+  try{
+    if(session.role==='parent'){
+      // Always use household_id so co-parents see the same data
+      const hid=session.householdId;
+      let children=[];
+      if(hid){
+        const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+        children=(data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+      } else {
+        children=await SB.getChildren(session.id);
+      }
+      LS.set('children',children);
+      // Load specialists by household
+      const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
+      LS.set('specialists',specs||[]);
+      // Load pending specialist requests from Supabase
+      try{
+        const {data:reqs}=await _supa.from('specialist_requests').select('*').eq('parent_id',session.id).eq('status','pending');
+        if(reqs&&reqs.length>0){
+          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status}));
+          const existing=DB.specialistRequests||[];
+          const merged=[...existing];
+          mapped.forEach(r=>{if(!merged.some(e=>e.id===r.id))merged.push(r);});
+          DB.specialistRequests=merged;
+        }
+      }catch(e){}
+    } else if(session.role==='specialist'){
+      const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',session.id).eq('status','active');
+      if(specRows&&specRows.length>0){
+        const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+        if(childIds.length>0){
+          const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+          if(children&&children.length>0){
+            const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null}));
+            LS.set('children',mapped);
+          }
+        }
+      }
+    }
+  }catch(e){console.log('refreshFromSupabase error:',e);}
+}
+
+// Real-time household sync — subscribes to children/specialists changes
+let _householdChannel=null;
+function setupHouseholdSync(){
+  if(!session||session.role!=='parent'||!session.householdId)return;
+  if(_householdChannel)_householdChannel.unsubscribe();
+  _householdChannel=_supa.channel('household:'+session.householdId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
+    .subscribe();
+}
 
 function initData(){
   if(!LS.get('seeded_v9',false)){
@@ -1414,14 +1481,54 @@ async function _loadSessionFromSupabase(s){
   if(!s)return;
   const {data:profile}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
   if(profile){
+    // Use display_name → Google full_name → email prefix
+    const _displayName=profile.display_name&&!profile.display_name.includes('@')
+      ? profile.display_name.split(' ')[0]
+      : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'').split(' ')[0]
+      || s.user.email.split('@')[0];
     session={id:s.user.id,email:s.user.email,role:profile.role,
-      name:profile.display_name||s.user.email.split('@')[0],specialistId:profile.id,isNew:false};
+      name:_displayName,specialistId:profile.id,isNew:false,
+      householdId:profile.household_id,isPrimary:profile.is_primary!==false};
     if(profile.role==='parent'){
-      const children=await SB.getChildren(s.user.id);
-      const _localCh=LS.get('children',[]);
-      children.forEach(c=>{const lc=_localCh.find(x=>x.id===c.id);if(lc?.status)c.status=lc.status;});
+      // Load children by household_id so co-parents see same children
+      const hid=profile.household_id;
+      let children=[];
+      if(hid){
+        const {data:hChildren}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+        children=(hChildren||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+      } else {
+        children=await SB.getChildren(s.user.id);
+      }
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      // Load specialists by household_id
+      try{
+        const specs=hid
+          ? await SB.getSpecialistsByHousehold(hid)
+          : await SB.getSpecialists(s.user.id);
+        if(specs&&specs.length>0)LS.set('specialists',specs);
+      }catch(e){}
+    } else if(profile.role==='specialist'){
+      // Load specialist's patients from Supabase (works across devices)
+      try{
+        const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',s.user.id).eq('status','active');
+        if(specRows&&specRows.length>0){
+          const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+          if(childIds.length>0){
+            const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+            if(children&&children.length>0){
+              const mapped=children.map(c=>({
+                id:c.id,name:c.name,dob:c.dob,
+                avatar:c.avatar_emoji||'🌸',
+                color:c.color||'#c4b5fd',
+                photo:c.photo_url||null
+              }));
+              LS.set('children',mapped);
+              if(!S.activeChild)S.activeChild=mapped[0].id;
+            }
+          }
+        }
+      }catch(e){console.log('Specialist children load error:',e);}
     }
   }
 }
@@ -1433,12 +1540,17 @@ async function _loadSessionFromSupabase(s){
   // Handle Google OAuth redirect back
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
-      // Apply pending Google role if set
+      // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
       const pendingRole=localStorage.getItem('pendingGoogleRole');
       if(pendingRole){
         localStorage.removeItem('pendingGoogleRole');
-        // Update profile role in Supabase
-        await _supa.from('profiles').update({role:pendingRole}).eq('id',s2.user.id);
+        // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
+        await _supa.from('profiles').upsert({
+          id:s2.user.id,
+          email:s2.user.email,
+          role:pendingRole,
+          display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
+        },{onConflict:'id'});
       }
       await _loadSessionFromSupabase(s2);
       if(session){
@@ -1447,12 +1559,20 @@ async function _loadSessionFromSupabase(s){
       }
       // Process pending invite if any
       const _pi=localStorage.getItem('pendingInviteToken');
-      if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      console.log('onAuthStateChange SIGNED_IN, pendingInvite:',_pi,'session:',session?.id);
+      if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
+      setupHouseholdSync();
+      // Show household invite modal for parents
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1500);
+      }
     }
     if(event==='SIGNED_OUT'){session=null;re();}
   });
   re(); // initial render
+  // Refresh data from Supabase on boot (ensures cross-device consistency)
+  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -1475,7 +1595,7 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null},{onConflict:'id',ignoreDuplicates:true}).catch(()=>{});}
+    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -1552,7 +1672,7 @@ const TOUR_STEPS_PARENT=[
   },
   {
     id:'global-inbox',
-    title:'Global Inbox',
+    title:'File Upload & Sorting',
     body:'Drop any document here first — then use "Process File" to move it into the right child\'s folder or share it with a specialist.',
     target:'.global-vault-hd',
     arrow:'arrow-bottom',
@@ -1765,39 +1885,84 @@ function generateCode(){
   return code;
 }
 
-function createConnectionCode(childId){
+async function createConnectionCode(childId){
   const code=generateCode();
   const now=new Date();
   const exp=new Date(now);exp.setHours(exp.getHours()+48);
+  // Save to Supabase so specialist can redeem from any device
+  if(session&&session.id!=='demo'){
+    try{await _supa.from('connection_codes').upsert({
+      code,child_id:childId,parent_id:session.id,
+      household_id:session.householdId||null,
+      expires_at:exp.toISOString(),used:false
+    });}catch(e){}
+  }
+  // Also keep in localStorage as fallback
   const codes=DB.connectionCodes||[];
   codes.push({code,childId,createdAt:now.toISOString(),expiresAt:exp.toISOString(),used:false});
   DB.connectionCodes=codes;
   return code;
 }
 
-function redeemConnectionCode(code,specialistId,specialistName,role){
+async function redeemConnectionCode(code,specialistId,specialistName,role){
+  let childId=null;
+  // Try Supabase
+  if(session&&session.id!=='demo'){
+    let row=null;
+    try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){}
+    if(!row){
+      // Also try case-insensitive search as fallback
+      try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){}
+    }
+    if(row){
+      if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
+      try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
+      childId=row.child_id;
+      const parentId=row.parent_id;
+      // Save specialist request to Supabase so parent sees it cross-device
+      try{
+        await _supa.from('specialist_requests').upsert({
+          specialist_id:specialistId,
+          specialist_name:specialistName,
+          role,
+          child_id:childId,
+          parent_id:parentId,
+          status:'pending',
+          requested_at:new Date().toISOString()
+        },{onConflict:'specialist_id,child_id'});
+      }catch(e){console.log('specialist_requests upsert error:',e);}
+      // Also add to specialists table so specialist can see the child
+      try{
+        await _supa.from('specialists').upsert({
+          id:specialistId,
+          name:specialistName,
+          role,
+          email:session.email,
+          parent_id:parentId,
+          child_id:childId,
+          household_id:row.household_id||null,
+          status:'pending',
+          invite_token:code
+        },{onConflict:'id'});
+      }catch(e){console.log('specialists upsert error:',e);}
+      let child={name:'your patient'};
+      try{const r=await _supa.from('children').select('*').eq('id',childId).single();if(r.data)child=r.data;}catch(e){}
+      return{ok:true,childId,child:{name:child.name,avatar:child.avatar_emoji||'🧒'}};
+    }
+    return{error:'Invalid or expired code. Please check with the family for a new one.'};
+  }
+  // Fallback: localStorage
   const codes=DB.connectionCodes||[];
   const idx=codes.findIndex(c=>c.code===code.toUpperCase()&&!c.used&&new Date(c.expiresAt)>new Date());
   if(idx===-1)return{error:'Invalid or expired code. Please check with the family for a new one.'};
-  codes[idx].used=true;
-  DB.connectionCodes=codes;
-  const childId=codes[idx].childId;
-  const child=DB.children.find(c=>c.id===childId);
-  // Task 3 — Opt-in: do NOT auto-grant folder access.
-  // Instead, create a pending approval request for the parent to review.
-  const requests=DB.specialistRequests||[];
-  // Avoid duplicate pending requests for the same specialist+child
-  const alreadyPending=requests.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending');
-  if(!alreadyPending){
-    requests.push({
-      id:'req_'+Date.now(),
-      specialistId,specialistName,role,childId,
-      requestedAt:new Date().toISOString(),
-      status:'pending'
-    });
-    DB.specialistRequests=requests;
+  codes[idx].used=true;DB.connectionCodes=codes;
+  childId=codes[idx].childId;
+  const requests2=DB.specialistRequests||[];
+  if(!requests2.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending')){
+    requests2.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
+    DB.specialistRequests=requests2;
   }
-  pushNotif('invite',`${specialistName} wants to join ${child?.name||'your child'}'s care team — approval required.`,childId);
+  const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
   return{ok:true,childId,child};
 }
 
@@ -1832,17 +1997,6 @@ function approveSpecialistRequest(requestId,selectedFolders){
   }
   const child=DB.children.find(c=>c.id===req.childId);
   pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
-  // Persist approval to Supabase (fire-and-forget, skip in demo mode)
-  if(session&&session.id!=='demo'&&req.specialistId){
-    _supa.from('specialists').upsert({
-      id:req.specialistId,
-      parent_id:session.id,
-      child_id:req.childId,
-      name:req.specialistName,
-      role:req.role||'Specialist',
-      status:'active'
-    }).then(({error:e})=>{if(e)console.log('Approve upsert error:',JSON.stringify(e));});
-  }
   re();
   toast('Access granted to '+req.specialistName+'!');
 }
@@ -1857,10 +2011,10 @@ function denySpecialistRequest(requestId){
 
 function showConnectionCodeModal(childId){
   const child=DB.children.find(c=>c.id===childId);
-  openModal('🔗 Connection Code — '+child?.name,(mb,close)=>{
+  openModal('🔗 Connection Code — '+child?.name,async(mb,close)=>{
     // Check for an existing valid code
     const existing=(DB.connectionCodes||[]).find(c=>c.childId===childId&&!c.used&&new Date(c.expiresAt)>new Date());
-    const code=existing?existing.code:createConnectionCode(childId);
+    const code=existing?existing.code:await createConnectionCode(childId);
 
     const card=el('div',{class:'conn-code-card',style:{marginBottom:'18px'}});
     card.appendChild(el('div',{class:'conn-code-label'},['Share this code with the specialist']));
@@ -1914,10 +2068,10 @@ function showEnterCodeModal(){
     const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'20px'}});
     mb.appendChild(errDiv);
 
-    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',async()=>{
       const code=codeInp.value.trim();
       if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
-      const result=redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
+      const result=await redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
       if(result.error){errDiv.textContent=result.error;return;}
       close();
       toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
@@ -1931,6 +2085,20 @@ function showEnterCodeModal(){
 /* ═══════════════════════════════════════════════
    DOM HELPERS
 ═══════════════════════════════════════════════ */
+// iOS date input helper — shows placeholder text when empty
+function makeDateInput(placeholder,extraAttrs={}){
+  const inp=el('input',{class:'inp',type:'date','data-placeholder':placeholder,...extraAttrs});
+  // iOS workaround: use type=text when empty, switch to date on focus
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  if(isIOS){
+    inp.type='text';
+    inp.placeholder=placeholder;
+    inp.addEventListener('focus',()=>{inp.type='date';if(!inp.value)inp.placeholder='';});
+    inp.addEventListener('blur',()=>{if(!inp.value){inp.type='text';inp.placeholder=placeholder;}});
+  }
+  return inp;
+}
+
 function el(tag,attrs={},kids=[]){
   const e=document.createElement(tag);
   for(const[k,v]of Object.entries(attrs)){
@@ -1968,7 +2136,6 @@ function toast(msg,type='success',ms=3200){
    MODAL ENGINE
 ═══════════════════════════════════════════════ */
 function openModal(title,buildFn,maxW=490){
-  if(document.querySelector('.overlay'))return;
   const ov=el('div',{class:'overlay'});
   const mo=el('div',{class:'modal',style:{maxWidth:maxW+'px'}});
   const mh=el('div',{class:'modal-hd'},[
@@ -2003,6 +2170,7 @@ const PARENT_TABS=[
   {id:'calendar',label:'Calendar',icon:'📅'},
   {id:'progress',label:'Progress',icon:'📈'},
   {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
   {id:'email',label:'Inbox',icon:'📧'},
   {id:'settings',label:'Settings',icon:'⚙️'}
@@ -2011,10 +2179,11 @@ const SPEC_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'patients',label:'Patients',icon:'👤'},
   {id:'calendar',label:'Calendar',icon:'📅'},
-  {id:'vault',label:'Vault',icon:'🔒'},
+  {id:'vault',label:'Clinical Notes',icon:'📋'},
   {id:'homework',label:'Tasks',icon:'📋'},
   {id:'files',label:'Files',icon:'📁'},
   {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
   {id:'credentials',label:'My Folder',icon:'🗂️'},
   {id:'request',label:'Join Team',icon:'📨'}
@@ -2069,7 +2238,7 @@ function showTermsOfService(){
     const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
     const sections=[
       ['1. Acceptance of Terms',"By accessing or using Huddledin, you agree to be bound by these Terms of Service. If you do not agree, please do not use the platform."],
-      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together in support of children with special needs."],
+      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together."],
       ['3. User Accounts',"You must provide accurate information when creating an account. You are responsible for maintaining your password confidentiality and all activity under your account."],
       ['4. Parent Responsibilities',"Parents must ensure all information about their child is accurate, manage specialist access permissions appropriately, and ensure their use complies with applicable laws."],
       ['5. Specialist Responsibilities',"Specialists must maintain professional standards in all communications, use the platform for legitimate professional purposes only, and comply with all applicable regulations."],
@@ -2102,7 +2271,7 @@ function renderAuth(){
   const hero=el('div',{class:'auth-hero'});
   hero.appendChild(el('div',{class:'auth-logo-wrap'},['🤝']));
   hero.appendChild(el('h1',{class:'auth-title ff'},['Huddledin']));
-  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children with special needs']));
+  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children']));
   card.appendChild(hero);
 
   const body=el('div',{class:'auth-body'});
@@ -2177,7 +2346,13 @@ function renderAuth(){
       re();
       // Process pending invite AFTER re() so session is fully set
       const _pi=localStorage.getItem('pendingInviteToken');
+      console.log('Email login, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      setupHouseholdSync();
+      // Show household invite modal for parents (if not dismissed/skipped)
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1200);
+      }
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -2332,22 +2507,53 @@ function renderHeader(){
       centre.appendChild(el('span',{style:{
         fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'
       }},[child.name.split(' ')[0]]));
+      // Child switcher dropdown
+      const allChildren=DB.children;
+      if(allChildren.length>1){
+        centre.style.cursor='pointer';
+        let csDd=null;
+        centre.onclick=e=>{
+          e.stopPropagation();
+          if(csDd){csDd.remove();csDd=null;return;}
+          csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
+          allChildren.forEach(ch=>{
+            const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:ch.id===S.activeChild?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
+            const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+            if(ch.photo){const img=el('img',{src:ch.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}});av2.appendChild(img);}
+            else{av2.textContent=ch.avatar;}
+            item.appendChild(av2);
+            item.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[ch.name]));
+            if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
+            item.onmouseenter=()=>item.style.background='var(--mint-ll)';
+            item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
+            item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
+            csDd.appendChild(item);
+          });
+          // Position relative to header
+          document.querySelector('.app-header')?.appendChild(csDd);
+          const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+          setTimeout(()=>document.addEventListener('click',out),10);
+        };
+        centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
+      }
       inner.appendChild(centre);
     }
   } else if(session?.role==='parent' && S.navLevel===0){
     // ── Level 0: Logo is just branding ──
-    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
-      el('div',{class:'logo-bubble'},['🤝']),
-      el('span',{class:'logo-name ff'},['Huddledin'])
-    ]));
+    const lvl0Logo=el('div',{id:'logo',style:{cursor:'default',display:'flex',alignItems:'center',gap:'8px'}});
+    lvl0Logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    lvl0Logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    inner.appendChild(lvl0Logo);
     // No switcher at Level 0 — child selection lives in the home page bubbles
     inner.appendChild(el('div',{style:{flex:1}})); // spacer
   } else {
-    // ── Specialist: logo + role label ──
-    inner.appendChild(el('a',{id:'logo',href:'#',onclick:e=>e.preventDefault()},[
-      el('div',{class:'logo-bubble'},['🤝']),
-      el('span',{class:'logo-name ff'},['Huddledin'])
-    ]));
+    // ── Specialist: logo → home ──
+    const specLogo=el('div',{id:'logo',style:{cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}});
+    specLogo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    specLogo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    specLogo.onclick=()=>{S.activeTab='dashboard';re();};
+    specLogo.title='Back to Dashboard';
+    inner.appendChild(specLogo);
     const spec=DB.specialists.find(s=>s.id===session?.specialistId);
     const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
     nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
@@ -2378,11 +2584,7 @@ function renderNotifBell(){
     dd.appendChild(dh);
     (notifs.slice(0,6)).forEach(n=>{
       const ni=el('div',{class:'notif-item'+(n.read?'':" unread")});
-      ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
-      const niBody=el('div',{});
-      niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
-      niBody.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'2px'}},[n.time]));
-      ni.appendChild(niBody);
+      ni.innerHTML=`<span style="font-size:1.25rem">${notifIcon[n.type]||'📢'}</span><div><div style="font-size:.79rem;font-weight:700;color:var(--navy);line-height:1.4">${n.msg}</div><div style="font-size:.68rem;color:var(--slate-l);margin-top:2px">${n.time}</div></div>`;
       ni.onclick=()=>{
         const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
         if(i>-1){ns[i].read=true;DB.notifications=ns;}
@@ -2470,7 +2672,7 @@ function renderDrawer(){
     const specItems=[
       {icon:'🏠',label:'Home',id:'dashboard'},
       {icon:'👤',label:'Patients',id:'patients'},
-      {icon:'🔒',label:'Vault',id:'vault'},
+      {icon:'📋',label:'Clinical Notes',id:'vault'},
       {icon:'📋',label:'Tasks',id:'homework'},
       {icon:'📁',label:'Files',id:'files'},
       {icon:'💬',label:'Chat',id:'chat'},
@@ -2600,7 +2802,7 @@ function renderBottomNav(){
     quickTabs=[
       {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
       {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
-      {id:'vault',label:'Vault',icon:'🔒',action:()=>switchTab('vault')},
+      {id:'vault',label:'Clinical Notes',icon:'📋',action:()=>switchTab('vault')},
     ];
   }
 
@@ -2647,11 +2849,7 @@ function renderSearchOverlay(){
     // Search patients
     DB.children.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
       const item=el('div',{class:'search-result-item'});
-      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},[c.avatar]));
-      const siBody=el('div',{});
-      siBody.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[c.name]));
-      siBody.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['Patient · Age '+c.age]));
-      item.appendChild(siBody);
+      item.innerHTML=`<span style="font-size:1.5rem">${c.avatar}</span><div><div style="font-weight:700;color:var(--navy)">${c.name}</div><div style="font-size:.76rem;color:var(--slate)">Patient · Age ${c.age}</div></div>`;
       item.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';S.searchOpen=false;S.searchQuery='';re();};
       results.appendChild(item);
     });
@@ -2666,11 +2864,7 @@ function renderSearchOverlay(){
     }).forEach(n=>{
       const c=DB.children.find(x=>x.id===n.childId);
       const item=el('div',{class:'search-result-item'});
-      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},['📝']));
-      const niBody2=el('div',{});
-      niBody2.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[n.title]));
-      niBody2.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[(c?.avatar||'')+' '+(c?.name||'')+' · '+n.date]));
-      item.appendChild(niBody2);
+      item.innerHTML=`<span style="font-size:1.5rem">📝</span><div><div style="font-weight:700;color:var(--navy)">${n.title}</div><div style="font-size:.76rem;color:var(--slate)">${c?.avatar} ${c?.name} · ${n.date}</div></div>`;
       item.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
       results.appendChild(item);
     });
@@ -2903,7 +3097,8 @@ function renderMiniCalendar(children,allApts){
   days.forEach(ds=>{
     const d=new Date(ds+'T12:00');
     const dayApts=allApts.filter(a=>a.date===ds);
-    const col=el('div',{class:'mcw-day'});
+    const col=el('div',{class:'mcw-day',style:{cursor:'pointer'}});
+    col.title='Add appointment on '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     col.appendChild(el('div',{class:'mcw-label'},[DAY_LABELS[d.getDay()]]));
     const num=el('div',{class:'mcw-num'+(ds===today?' today':'')},
       [String(d.getDate())]);
@@ -2918,6 +3113,7 @@ function renderMiniCalendar(children,allApts){
       dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
     });
     col.appendChild(dots);
+    col.onclick=()=>showAddEventModalForDate(ds,children);
     week.appendChild(col);
   });
   card.appendChild(week);
@@ -3083,7 +3279,7 @@ function renderGlobalVault(){
   const wrap=el('div',{});
   const hd=el('div',{class:'global-vault-hd'});
   const left=el('div',{});
-  left.appendChild(el('div',{class:'global-vault-title'},['📥 Global Inbox']));
+  left.appendChild(el('div',{class:'global-vault-title'},['📁 File Upload & Sorting']));
   left.appendChild(el('div',{class:'global-vault-sub'},['Unsorted files — tap to process']));
   hd.appendChild(left);
   hd.appendChild(mkBtn('➕ Upload','btn-sm btn-secondary',()=>{
@@ -3217,6 +3413,7 @@ function renderContent(){
   if(t==='settings')return renderSettings();
   if(t==='patients')return renderPatients();
   if(t==='vault')return renderVault();
+  if(t==='todo')return renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
   if(t==='progress')return renderProgress();
@@ -3277,9 +3474,9 @@ function renderParentDashboard(){
   const wc1=el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:'700',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},
     [child.avatar+' '+child.name+"'s Profile"]);
   const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
-    [(session?.name||'Parent')+' 👋']);
+    [child.name]);
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
-    ['Age '+child.age+' · DOB '+child.dob]);
+    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   // Quick action buttons in welcome card
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
@@ -3294,18 +3491,23 @@ function renderParentDashboard(){
   welcome.appendChild(wBtns);
   sec.appendChild(welcome);
 
-  // Stats row
-  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'📅',color:'#0d9488',val:String(childApts.filter(a=>a.date>=new Date().toISOString().split('T')[0]).length),lbl:'Upcoming Apts',tab:'calendar'},
-   {icon:'📋',color:'#f97316',val:String(childHW.filter(h=>!h.completed).length),lbl:'Pending Tasks',tab:'homework'},
-   {icon:'👥',color:'#7c3aed',val:String(childSpecs.length),lbl:'Specialists',tab:'team'}
-  ].forEach(({icon,color,val,lbl,tab})=>{
-    const sc=el('div',{class:'card hov'});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
-    sc.onclick=()=>{S.activeTab=tab;re();};
-    stats.appendChild(sc);
+  // Big square navigation grid (like file manager)
+  const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  [
+    {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
+    {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+    {icon:'🔗',label:'Invite Specialist',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>showConnectionCodeModal(child.id)},
+    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:'calendar'},
+    {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+    {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
+  ].forEach(({icon,label,color,bg,tab,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
+    sq.onclick=()=>{if(fn)fn();else{S.activeTab=tab;re();}};
+    navGrid.appendChild(sq);
   });
-  sec.appendChild(stats);
+  sec.appendChild(navGrid);
 
   // Empty state if truly new
   const hasAnyData=childHW.length||childApts.length||childSpecs.length;
@@ -3440,25 +3642,38 @@ function renderSpecDashboard(){
 
   // Stats
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
-  [{icon:'👤',color:'#0d9488',val:String(myPatients.length),lbl:'Active Patients',tab:'patients'},
-   {icon:'📅',color:'#7c3aed',val:String(myApts.length),lbl:'Appointments',tab:'calendar'},
-   {icon:'📝',color:'#f59e0b',val:String(myNotes.filter(n=>!n.published&&!n.locked).length),lbl:'Draft Notes',tab:'vault'}
-  ].forEach(({icon,color,val,lbl,tab})=>{
+  [{icon:'👤',color:'#0d9488',lbl:'Patients',tab:'patients'},
+   {icon:'📅',color:'#7c3aed',lbl:'Calendar',tab:'calendar'},
+   {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
+  ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val'},[val]),el('div',{class:'stat-lbl'},[lbl])])]));
-    sc.onclick=()=>{
-      // If patients card and only 1 patient, go straight to their profile
-      if(tab==='patients'&&myPatients.length===1){
-        S.activeChild=myPatients[0].id;
-        S.activeTab='vault';
-      } else {
-        S.activeTab=tab;
-      }
-      re();
-    };
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
+
+  // If a patient is selected, show square nav grid for that patient
+  if(S.activeChild){
+    const pt=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+    if(pt){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.95rem'}},[pt.avatar+' '+pt.name+"'s Profile"]));
+      const ptGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+      [
+        {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
+        {icon:'📋',label:'Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+        {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+        {icon:'💬',label:'Chat',color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
+      ].forEach(({icon,label,color,bg,tab})=>{
+        const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+        sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+        sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
+        sq.onclick=()=>{S.activeTab=tab;re();};
+        ptGrid.appendChild(sq);
+      });
+      sec.appendChild(ptGrid);
+    }
+  }
 
   // Promotion block — shown when specialist has at least 1 patient
   if(myPatients.length>=1){
@@ -3514,7 +3729,7 @@ function renderFiles(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['File Manager']),
-    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name} · Dropbox-backed · Granular sharing`])
+    el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
   ]));
   if(isParent){
     // Regular file upload (desktop + file picker)
@@ -3525,7 +3740,6 @@ function renderFiles(){
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
     hd.appendChild(el('div',{class:'sec-hd-right'},[
-      mkBtn('📷 Camera','btn-md btn-slate',()=>document.getElementById('cameraInput')?.click()),
       mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())
     ]));
   }
@@ -3606,8 +3820,14 @@ function renderFiles(){
       wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
       wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
       wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
-      // Tap = open
-      wrap.onclick=()=>{if(!moved)showFolderModal(folder,isParent);};
+      // Tap = open (use both touchend and click for Android compatibility)
+      const _openFolder=()=>{if(!moved)showFolderModal(folder,isParent);};
+      wrap.addEventListener('touchend',(e)=>{
+        clearTimeout(pressTimer);
+        if(!moved){e.preventDefault();_openFolder();}
+        moved=false;
+      },{passive:false});
+      wrap.onclick=(e)=>{if(!moved)_openFolder();};
       // Context menu (right-click on desktop = long-press equivalent)
       wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
       
@@ -3738,15 +3958,59 @@ function showShareModal(file){
 function showFolderModal(folder,isParent){
   openModal(folder.icon+' '+folder.name,(mb,close)=>{
     const stack=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    if(!folder.files||folder.files.length===0){
+      stack.appendChild(el('div',{class:'empty-inline'},['No files in this folder yet.']));
+    }
     folder.files.forEach(f=>{
-      const fi=el('div',{class:'file-item'});
-      fi.innerHTML=`<span style="font-size:1.35rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${f.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${f.date}</div></div>`;
-      if(f.locked)fi.appendChild(el('span',{class:'locked-badge'},['🔒 Locked']));
-      // Per-file share management (parent only)
-      if(isParent&&!f.locked){
-        const mgBtn=mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder));
-        fi.appendChild(mgBtn);
+      const fi=el('div',{class:'file-item',style:{flexDirection:'column',alignItems:'stretch',gap:'8px'}});
+      const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+      const ext=(f.name||'').split('.').pop().toLowerCase();
+      const fileIcon={'pdf':'📄','jpg':'🖼️','jpeg':'🖼️','png':'🖼️','doc':'📝','docx':'📝','mp4':'🎬','mp3':'🎵'}[ext]||'📎';
+      topRow.appendChild(el('span',{style:{fontSize:'1.35rem'}},[fileIcon]));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}},[f.name]));
+      info.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',marginTop:'2px'}},[f.date||'']));
+      topRow.appendChild(info);
+      if(f.locked)topRow.appendChild(el('span',{class:'locked-badge'},['🔒']));
+      fi.appendChild(topRow);
+      // Action buttons row
+      const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+      // Preview
+      if(f.url){
+        const prevBtn=mkBtn('👁 Preview','btn-sm btn-ghost',()=>{
+          if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+            openModal('🖼 '+f.name,(pm)=>{pm.appendChild(el('img',{src:f.url,style:{width:'100%',borderRadius:'12px'}}));},520);
+          } else if(ext==='pdf'){
+            window.open(f.url,'_blank');
+          } else {
+            window.open(f.url,'_blank');
+          }
+        });
+        actions.appendChild(prevBtn);
       }
+      // Download
+      if(f.url){
+        const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',()=>{
+          const a=document.createElement('a');a.href=f.url;a.download=f.name;a.click();
+        });
+        actions.appendChild(dlBtn);
+      }
+      // Rename (parent only)
+      if(isParent&&!f.locked){
+        const rnBtn=mkBtn('✏️ Rename','btn-sm btn-ghost',()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            const fls=DB.folders;
+            const fo=fls.find(x=>x.id===folder.id);
+            if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+            close();showFolderModal(folder,isParent);toast('File renamed!');
+          }
+        });
+        actions.appendChild(rnBtn);
+        // Manage permissions
+        actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+      }
+      if(actions.children.length>0)fi.appendChild(actions);
       stack.appendChild(fi);
     });
     mb.appendChild(stack);
@@ -3875,9 +4139,9 @@ function renderTeam(){
     }
   }
 
-  // Existing team members
+  // Existing team members — check permissions OR child_id match (for Supabase-connected specialists)
   const specialists=DB.specialists.filter(s=>
-    child?(s.permissions[child.id]?.length>0||s.status==='pending'):true
+    child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true
   );
 
   if(!specialists.length){
@@ -4060,10 +4324,10 @@ function showInviteModal(){
         })
       }).then(r=>r.json()).then(d=>{
         console.log('Email API response:',JSON.stringify(d));
-        if(d.ok)toast('📧 Invite email sent to '+ei.value+'!','success');
+        if(d.ok){toast('📧 Invite email sent to '+ei.value+'!','success');close();}
         else console.error('Email send failed:',d);
       }).catch(e=>console.error('Email API error:',e));
-      toast('✅ Invitation created for '+ei.value+'! Magic link generated.');
+      toast('✅ Sending invite to '+ei.value+'…');
       track('Invite Sent',{role:ri.value||'Specialist'});
     }));
   },500);
@@ -4159,14 +4423,13 @@ function renderCalendar(){
     const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
       [String(day)]);
     num.style.cursor='pointer';
-    num.onclick=()=>{
+    const _openDay=()=>{
       const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
       openModal('📅 '+evtLabel,(mb,close)=>{
         if(da.length){
           da.forEach(apt=>{
             const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
-            chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[apt.title]));
-            chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[apt.specialist+' · '+apt.time]));
+            chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${apt.title}</div><div style="font-size:.8rem;color:var(--slate)">${apt.specialist} · ${apt.time}</div>`;
             mb.appendChild(chip);
           });
           mb.appendChild(el('div',{style:{height:'12px'}}));
@@ -4178,6 +4441,8 @@ function renderCalendar(){
         }));
       },400);
     };
+    num.onclick=e=>{e.stopPropagation();_openDay();};
+    cell.onclick=()=>_openDay();
     cell.appendChild(num);
     da.forEach(a=>{
       const dot=el('div',{class:'cal-dot',style:{background:TC[a.type]||'var(--teal)'}},[a.title.split(' ')[0]]);
@@ -4229,6 +4494,45 @@ function showGoogleSyncModal(){
   },420);
 }
 
+function showAddEventModalForDate(dateStr,availableChildren){
+  const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
+  if(theChildren.length===0){toast('Add a child profile first.','error');return;}
+  openModal('📅 Add Appointment',(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},['Which child?']));
+    const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+    theChildren.forEach(c=>{
+      const opt=el('option',{value:c.id},[c.avatar+' '+c.name]);
+      childSel.appendChild(opt);
+    });
+    if(S.activeChild&&theChildren.find(c=>c.id===S.activeChild))childSel.value=S.activeChild;
+    mb.appendChild(childSel);
+    mb.appendChild(el('div',{class:'inp-label'},['Title']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
+    mb.appendChild(titleInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Date']));
+    const dateInp=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY','data-placeholder':'Select date',style:{marginBottom:'14px'}});
+    dateInp.value=dateStr||new Date().toISOString().split('T')[0];
+    mb.appendChild(dateInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Time']));
+    const timeInp=el('input',{class:'inp',type:'time',style:{marginBottom:'14px'}});
+    timeInp.value='09:00';
+    mb.appendChild(timeInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const notesInp=el('input',{class:'inp',placeholder:'Any extra details',style:{marginBottom:'20px'}});
+    mb.appendChild(notesInp);
+    mb.appendChild(mkBtn('Add Appointment','btn-lg btn-primary btn-full',()=>{
+      if(!titleInp.value.trim()){toast('Please enter a title.','error');return;}
+      if(!dateInp.value){toast('Please enter a date.','error');return;}
+      const apts=DB.appointments;
+      apts.push({id:'a_'+Date.now(),childId:childSel.value,title:titleInp.value.trim(),
+        date:dateInp.value,time:timeInp.value||'09:00',notes:notesInp.value.trim(),
+        specialistId:session?.specialistId||null,sharedWith:[]});
+      DB.appointments=apts;
+      close();toast('Appointment added!','success');re();
+    }));
+  });
+}
+
 function showAddEventModal(prefilledDate=null){
   openModal('➕ Add Appointment',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
@@ -4244,7 +4548,7 @@ function showAddEventModal(prefilledDate=null){
     }
     const ti=el('input',{class:'inp',placeholder:'e.g. Speech Session'});
     const si=el('input',{class:'inp',placeholder:'Specialist name'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     if(prefilledDate) di.value=prefilledDate;
     const tmi=el('input',{class:'inp',placeholder:'e.g. 10:00 AM'});
     const typeSel=el('select',{class:'inp'});
@@ -4671,6 +4975,242 @@ function renderVault(){
 /* ═══════════════════════════════════════════════
    HOMEWORK — PARENT VIEW
 ═══════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════
+   TO-DO LIST WITH REMINDERS
+═══════════════════════════════════════════════ */
+function renderTodoList(){
+  const isParent=session?.role==='parent';
+  const childId=S.activeChild;
+  const child=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
+  const sec=el('div',{class:'section'});
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['✅ To-Do List']),
+    el('p',{class:'page-sub'},[child?child.avatar+' '+child.name+'\'s tasks':'All tasks'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('➕ Add Task','btn-sm btn-primary',()=>showAddTodoModal(childId))
+  ]));
+  sec.appendChild(hd);
+
+  const todos=(DB.todos||[]).filter(t=>!childId||t.childId===childId);
+  const pending=todos.filter(t=>!t.completed);
+  const done=todos.filter(t=>t.completed);
+  const today=new Date().toISOString().split('T')[0];
+
+  if(!todos.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['✅']),
+      el('div',{class:'empty-state-title'},['No tasks yet']),
+      el('div',{class:'empty-state-body'},['Add tasks with optional reminders to stay on top of things.']),
+      el('div',{class:'empty-state-actions'},[mkBtn('➕ Add First Task','btn-md btn-primary',()=>showAddTodoModal(childId))])
+    ]));
+    return sec;
+  }
+
+  // Pending tasks
+  if(pending.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['Pending ('+pending.length+')']));
+    pending.sort((a,b)=>(a.dueDate||'9')>(b.dueDate||'9')?1:-1).forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  // Completed tasks
+  if(done.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--slate)',marginBottom:'12px',marginTop:'18px',fontSize:'.9rem'}},['Completed ('+done.length+')']));
+    done.forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  return sec;
+}
+
+function renderTodoCard(todo,today){
+  const isOverdue=!todo.completed&&todo.dueDate&&todo.dueDate<today;
+  const card=el('div',{class:'card',style:{
+    display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'10px',
+    opacity:todo.completed?'0.6':'1',
+    borderLeft:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
+  }});
+
+  // Checkbox
+  const chk=el('div',{class:'chk'+(todo.completed?' done':''),style:{marginTop:'3px',flexShrink:0}},todo.completed?['✓']:[]);
+  chk.onclick=()=>{
+    const all=DB.todos||[];
+    const i=all.findIndex(t=>t.id===todo.id);
+    if(i>-1){all[i].completed=!all[i].completed;DB.todos=all;}
+    re();
+  };
+  card.appendChild(chk);
+
+  // Info
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.88rem',color:todo.completed?'var(--slate-l)':'var(--navy)',textDecoration:todo.completed?'line-through':'none',marginBottom:'4px'}},[todo.title]));
+  if(todo.note){
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'5px',lineHeight:'1.4'}},[todo.note]));
+  }
+  const meta=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}});
+  if(todo.dueDate){
+    const dueLbl=el('span',{style:{fontSize:'.72rem',fontWeight:700,color:isOverdue?'var(--rose)':'var(--teal)',background:isOverdue?'#fff1f2':'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},
+      [(isOverdue?'⚠️ Overdue: ':'')+todo.dueDate+(todo.dueTime?' at '+todo.dueTime:'')]);
+    meta.appendChild(dueLbl);
+  }
+  // Reminder badges
+  const r=todo.reminders||{};
+  if(r.inApp)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['🔔 In-App']));
+  if(r.email)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📧 Email']));
+  if(r.push)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📱 Push']));
+  info.appendChild(meta);
+  card.appendChild(info);
+
+  // Actions
+  const acts=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',flexShrink:0}});
+  acts.appendChild(mkBtn('✏️','btn-sm btn-ghost',()=>showAddTodoModal(todo.childId,todo)));
+  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
+    DB.todos=(DB.todos||[]).filter(t=>t.id!==todo.id);re();toast('Task removed.');
+  })));
+  card.appendChild(acts);
+  return card;
+}
+
+function showAddTodoModal(childId,existing){
+  const title=existing?'Edit Task':'New Task';
+  openModal(title,(mb,close)=>{
+    // Title
+    mb.appendChild(el('div',{class:'inp-label'},['Task title *']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech practice 10 min',style:{marginBottom:'14px'}});
+    if(existing)titleInp.value=existing.title||'';
+    mb.appendChild(titleInp);
+
+    // Note
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const noteInp=el('textarea',{class:'inp',placeholder:'Additional details…',style:{marginBottom:'14px',minHeight:'72px'}});
+    if(existing)noteInp.value=existing.note||'';
+    mb.appendChild(noteInp);
+
+    // Due date + time
+    const dateRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
+    const dateInp=makeDateInput('Due date');
+    if(existing&&existing.dueDate)dateInp.value=existing.dueDate;
+    const timeInp=el('input',{class:'inp',type:'time',placeholder:'Time (optional)'});
+    if(existing&&existing.dueTime)timeInp.value=existing.dueTime;
+    dateRow.appendChild(dateInp);
+    dateRow.appendChild(timeInp);
+    mb.appendChild(dateRow);
+
+    // Child selector (if no active child)
+    let selChildId=childId||S.activeChild;
+    const allChildren=DB.children.length?DB.children:LS.get('children',[]);
+    if(!selChildId&&allChildren.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      childSel.appendChild(el('option',{value:''},[' — select child —']));
+      allChildren.forEach(ch=>{
+        const o=el('option',{value:ch.id},[ch.avatar+' '+ch.name]);
+        if(existing&&existing.childId===ch.id)o.selected=true;
+        childSel.appendChild(o);
+      });
+      childSel.onchange=()=>{selChildId=childSel.value;};
+      mb.appendChild(childSel);
+    }
+
+    // Reminder options
+    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Reminders (optional)']));
+    const remRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'20px'}});
+    const remOpts=[
+      {key:'inApp',label:'🔔 In-App',desc:'Alert inside the app when due'},
+      {key:'email',label:'📧 Email',desc:'Email reminder when due'},
+      {key:'push',label:'📱 Push',desc:'Push notification (if enabled)'}
+    ];
+    const remState={inApp:existing?.reminders?.inApp||false,email:existing?.reminders?.email||false,push:existing?.reminders?.push||false};
+    remOpts.forEach(({key,label,desc})=>{
+      const tog=el('div',{style:{
+        display:'flex',alignItems:'center',gap:'8px',padding:'9px 13px',
+        borderRadius:'12px',cursor:'pointer',border:'2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)'),
+        background:remState[key]?'var(--mint-ll)':'#fff',
+        transition:'all .15s',userSelect:'none'
+      }});
+      const dot=el('div',{style:{width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(remState[key]?'var(--teal)':'#ccc'),background:remState[key]?'var(--teal)':'#fff',flexShrink:0}});
+      tog.appendChild(dot);
+      tog.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:700,color:remState[key]?'var(--teal)':'var(--slate)'}},[label]));
+      tog.onclick=()=>{
+        remState[key]=!remState[key];
+        tog.style.border='2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)');
+        tog.style.background=remState[key]?'var(--mint-ll)':'#fff';
+        dot.style.border='2px solid '+(remState[key]?'var(--teal)':'#ccc');
+        dot.style.background=remState[key]?'var(--teal)':'#fff';
+        tog.querySelector('span').style.color=remState[key]?'var(--teal)':'var(--slate)';
+      };
+      remRow.appendChild(tog);
+    });
+    mb.appendChild(remRow);
+
+    // Save
+    mb.appendChild(mkBtn(existing?'💾 Save Changes':'➕ Add Task','btn-lg btn-primary btn-full',async()=>{
+      const t=titleInp.value.trim();
+      if(!t){toast('Please enter a task title.','error');return;}
+      const finalChildId=selChildId||S.activeChild;
+      const todo={
+        id:existing?.id||'td_'+Date.now(),
+        childId:finalChildId||null,
+        title:t,
+        note:noteInp.value.trim(),
+        dueDate:dateInp.value||null,
+        dueTime:timeInp.value||null,
+        completed:existing?.completed||false,
+        reminders:{...remState},
+        createdAt:existing?.createdAt||new Date().toISOString()
+      };
+      const all=DB.todos||[];
+      if(existing){
+        const i=all.findIndex(x=>x.id===existing.id);
+        if(i>-1)all[i]=todo;else all.push(todo);
+      } else {
+        all.push(todo);
+      }
+      DB.todos=all;
+
+      // Schedule in-app reminder if dueDate+dueTime set
+      if(todo.reminders.inApp&&todo.dueDate&&todo.dueTime){
+        const dueMs=new Date(todo.dueDate+'T'+todo.dueTime).getTime();
+        const now=Date.now();
+        if(dueMs>now){
+          const delay=dueMs-now;
+          if(delay<2147483647){ // max setTimeout
+            setTimeout(()=>{
+              if(!(DB.todos||[]).find(t2=>t2.id===todo.id&&t2.completed)){
+                pushNotif('homework','⏰ Reminder: '+todo.title,todo.childId);
+                toast('⏰ Reminder: '+todo.title,'info',6000);
+              }
+            },delay);
+          }
+        }
+      }
+
+      // Email reminder — save to Supabase for server-side scheduling
+      if(todo.reminders.email&&todo.dueDate&&session?.email){
+        try{
+          await _supa.from('todo_reminders').upsert({
+            todo_id:todo.id,
+            user_email:session.email,
+            due_at:todo.dueDate+(todo.dueTime?'T'+todo.dueTime+':00':'T09:00:00'),
+            title:todo.title,
+            child_id:todo.childId||null,
+            sent:false
+          },{onConflict:'todo_id'});
+        }catch(e){console.log('todo reminder save:',e);}
+      }
+
+      close();re();
+      toast(existing?'✅ Task updated!':'✅ Task added!','success');
+    }));
+  },520);
+}
+
 function renderHomeworkParent(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const hw=DB.homework.filter(h=>h.childId===S.activeChild);
@@ -4751,7 +5291,7 @@ function showAssignModal(){
     const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
     const sel=el('select',{class:'inp'});
     ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     [ta,sel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
@@ -4836,16 +5376,10 @@ function renderPatients(){
       const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
       toggle.onclick=e=>{
         e.stopPropagation();
-        // Only the specialist who has this patient linked can toggle status
-        const specId=session?.specialistId||null;
-        const spec=DB.specialists.find(s=>s.id===specId);
-        const hasAccess=!specId||!spec||(spec.permissions&&(spec.permissions[c.id]||[]).length>0)||(DB.linkedSpecialists||[]).some(l=>l.specialistId===specId&&l.childId===c.id);
-        if(!hasAccess){toast('No permission to change this patient\'s status.','error');return;}
-        const ch2=DB.children;
-        const idx=ch2.findIndex(ch=>ch.id===c.id);
+        const idx=DB.children.findIndex(ch=>ch.id===c.id);
         if(idx>-1){
-          ch2[idx].status=(c.status||'active')==='active'?'inactive':'active';
-          DB.children=ch2;
+          DB.children[idx].status=(c.status||'active')==='active'?'inactive':'active';
+          DB.children=DB.children;
         }
         re();
       };
@@ -4954,11 +5488,7 @@ function renderNotifications(){
   const stack=el('div',{class:'stack'});
   notifs.forEach(n=>{
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'flex-start',background:n.read?'#fff':'var(--mint-l)',border:n.read?'2px solid var(--mint-l)':'2.5px solid var(--teal-l)',cursor:'pointer'}});
-    card.appendChild(el('span',{style:{fontSize:'1.45rem'}},[notifIcon[n.type]||'📢']));
-    const ncBody=el('div',{style:{flex:'1'}});
-    ncBody.appendChild(el('div',{style:{fontWeight:n.read?600:800,color:'var(--navy)',lineHeight:'1.4',marginBottom:'3px'}},[n.msg]));
-    ncBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[n.time]));
-    card.appendChild(ncBody);
+    card.innerHTML=`<span style="font-size:1.45rem">${notifIcon[n.type]||'📢'}</span><div style="flex:1"><div style="font-weight:${n.read?600:800};color:var(--navy);line-height:1.4;margin-bottom:3px">${n.msg}</div><div style="font-size:.72rem;color:var(--slate-l)">${n.time}</div></div>`;
     if(!n.read)card.appendChild(badge('New','teal'));
     card.onclick=()=>{
       const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
@@ -5170,7 +5700,7 @@ function showAddMilestoneModal(){
     const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
     const catSel=el('select',{class:'inp'});
     ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date',placeholder:'Target date'});
+    const di=el('input',{class:'inp',type:'date',placeholder:'Target date','data-placeholder':'Target date'});
     [ti,catSel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
@@ -5191,7 +5721,7 @@ function showLogMeasurementModal(){
     const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
     const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
     const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
-    const di=el('input',{class:'inp',type:'date'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
     [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
@@ -5210,7 +5740,7 @@ function showAddChildModal(){
   openModal('➕ Add Child Profile',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
-    const dob=el('input',{class:'inp',type:'date',placeholder:'Date of birth'});
+    const dob=makeDateInput('Date of birth',{style:{marginBottom:'16px'}});
 
     // Emoji avatar picker
     mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
@@ -5231,7 +5761,7 @@ function showAddChildModal(){
     let photoData=null;
     const photoWrap=el('div',{class:'photo-upload-area'});
     photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload a photo</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">Or use camera on mobile</div>';
-    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
       const f=e.target.files[0];if(!f)return;
       const reader=new FileReader();
@@ -5253,8 +5783,8 @@ function showAddChildModal(){
       const age=new Date().getFullYear()-dobDate.getFullYear();
       const childName=ni.value.trim();
       let newChildId='c_'+Date.now();
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null});if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
-      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:null,status:'active'};
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
       S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
@@ -5272,7 +5802,7 @@ function showChildPhotoModal(child){
     } else {
       photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
     }
-    const photoInput=el('input',{type:'file',accept:'image/*',capture:'user',style:{display:'none'}});
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
       const f=e.target.files[0];if(!f)return;
       const reader=new FileReader();
@@ -5391,11 +5921,7 @@ function renderSpecialistRequest(){
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
     myRequests.forEach(r=>{
       const card=el('div',{class:'spec-request-card'});
-      const rcTop=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}});
-      rcTop.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[r.childName||'Unknown child']));
-      const rcBadge=r.status==='pending'?el('span',{class:'badge badge-amber'},['⏳ Pending']):r.status==='approved'?el('span',{class:'badge badge-green'},['✅ Approved']):el('span',{class:'badge badge-rose'},['✗ Denied']);
-      rcTop.appendChild(rcBadge);
-      card.appendChild(rcTop);
+      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div style="font-weight:800;color:var(--navy)">${r.childName||'Unknown child'}</div>${r.status==='pending'?'<span class="badge badge-amber">⏳ Pending</span>':r.status==='approved'?'<span class="badge badge-green">✅ Approved</span>':'<span class="badge badge-rose">✗ Denied</span>'}</div>`;
       card.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[`Sent to: ${r.parentEmail||'parent'} · ${r.requestedAt}`]));
       sec.appendChild(card);
     });
@@ -5534,6 +6060,225 @@ function showCreateGroupChatModal(){
 /* ═══════════════════════════════════════════════
    SETTINGS PATCH — push, delete child, group chat
 ═══════════════════════════════════════════════ */
+// ═══════════════════════════════════════════════
+//   HOUSEHOLD / CO-PARENT FEATURE
+// ═══════════════════════════════════════════════
+
+function genHouseholdToken(){
+  return 'hd_household_'+Math.random().toString(36).slice(2,8)+'_'+Math.random().toString(36).slice(2,10);
+}
+
+async function showHouseholdInviteModal(fromSettings=false){
+  openModal('👨‍👩‍👧 Add a Co-Parent',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65',fontSize:'.9rem'}},
+      ['Invite a partner, spouse, or co-guardian to share full access to your family account. They will see and manage the same children and care team.']));
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Name']));
+    const nameInput=el('input',{class:'inp',placeholder:'e.g. Sarah',style:{marginBottom:'12px'}});
+    mb.appendChild(nameInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Email']));
+    const emailInput=el('input',{class:'inp',type:'email',placeholder:'partner@email.com',style:{marginBottom:'12px'}});
+    mb.appendChild(emailInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Relationship']));
+    const roleSelect=el('select',{class:'inp',style:{marginBottom:'20px'}});
+    ['Spouse','Partner','Guardian','Grandparent','Professional Carer','Other'].forEach(r=>{
+      const opt=el('option',{value:r},[r]);
+      roleSelect.appendChild(opt);
+    });
+    mb.appendChild(roleSelect);
+
+    const errBox=el('div',{});
+    mb.appendChild(errBox);
+
+    const sendBtn=mkBtn('Send Invitation 📧','btn-md btn-primary',async()=>{
+      const name=nameInput.value.trim();
+      const email=emailInput.value.trim();
+      const role=roleSelect.value;
+      errBox.innerHTML='';
+      if(!name){errBox.appendChild(el('div',{class:'auth-error'},['Please enter their name.']));return;}
+      if(!email||!email.includes('@')){errBox.appendChild(el('div',{class:'auth-error'},['Please enter a valid email.']));return;}
+
+      sendBtn.disabled=true;sendBtn.textContent='Sending...';
+
+      const token=genHouseholdToken();
+      const expires=new Date();expires.setDate(expires.getDate()+7);
+      const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
+      const inviteLink=baseUrl+'?household='+token+'&email='+encodeURIComponent(email);
+
+      // Save to Supabase
+      const {error}=await _supa.from('household_invites').insert({
+        household_id:session.householdId,
+        inviter_id:session.id,
+        invitee_email:email,
+        invitee_name:name,
+        invitee_role:role,
+        token,
+        expires_at:expires.toISOString(),
+        accepted:false
+      });
+
+      if(error){
+        console.error('Household invite error:',error);
+        errBox.appendChild(el('div',{class:'auth-error'},['Could not send invite. Please try again.']));
+        sendBtn.disabled=false;sendBtn.textContent='Send Invitation 📧';
+        return;
+      }
+
+      // Send email
+      await fetch('/api/send-invite',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to:email,
+          childName:'your family account',
+          inviteLink,
+          fromName:session.name||'Your partner',
+          specialistRole:role+' (Co-Parent Access)'
+        })
+      }).catch(()=>{});
+
+      // Mark household invite as sent — don't show modal again
+      LS.set('householdInviteSent',true);
+      toast('📧 Invitation sent to '+email+'!','success',4000);
+      close();
+      re();
+    });
+    mb.appendChild(sendBtn);
+
+    if(!fromSettings){
+      const skipBtn=mkBtn('Skip for now','btn-md btn-ghost',()=>{
+        LS.set('householdModalSkipped',true);
+        close();
+      });
+      skipBtn.style.marginTop='8px';
+      mb.appendChild(skipBtn);
+
+      const dismissBtn=el('button',{style:{width:'100%',marginTop:'8px',background:'none',border:'none',color:'var(--slate)',fontSize:'.8rem',cursor:'pointer',padding:'8px'}},['Do not show this again']);
+      dismissBtn.onclick=()=>{LS.set('householdModalDismissed',true);close();};
+      mb.appendChild(dismissBtn);
+    }
+  });
+}
+
+async function processHouseholdInvite(token){
+  if(!session||!token)return;
+  let data=null;
+  try{
+    const res=await _supa.from('household_invites').select('*').eq('token',token).single();
+    data=res.data;
+  }catch(e){}
+  if(!data){toast('⚠️ Invalid or expired household invite.','error',5000);return;}
+  if(new Date(data.expires_at)<new Date()){toast('⚠️ This invite has expired.','error',5000);return;}
+  if(data.accepted){toast('⚠️ This invite has already been used.','error',5000);return;}
+
+  // Link this user to the household
+  await _supa.from('profiles').update({
+    household_id:data.household_id,
+    is_primary:false
+  }).eq('id',session.id);
+
+  // Mark invite accepted
+  await _supa.from('household_invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+
+  // Clear pending tokens
+  localStorage.removeItem('pendingHouseholdToken');
+  localStorage.removeItem('pendingHouseholdEmail');
+
+  // Reload session with new household_id
+  const {data:{session:s}}=await _supa.auth.getSession();
+  if(s)await _loadSessionFromSupabase(s);
+
+  toast('🎉 You are now connected to the shared family account!','success',5000);
+  LS.set('householdInviteSent',true);
+  re();
+}
+
+function shouldShowHouseholdModal(){
+  if(!session||session.role!=='parent')return false;
+  if(LS.get('householdModalDismissed',false))return false;
+  if(LS.get('householdInviteSent',false))return false;
+  // Check if already has a co-parent (household has 2+ members) — checked async, skip here
+  return true;
+}
+
+async function renderHouseholdCard(){
+  const card=el('div',{class:'card',style:{marginBottom:'16px'}});
+  card.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+
+  // Load co-parents
+  let coParents=[];
+  try{
+    const {data}=await _supa.from('profiles').select('*').eq('household_id',session.householdId).neq('id',session.id);
+    coParents=data||[];
+  }catch(e){}
+
+  // Load pending invites
+  let pending=[];
+  try{
+    const {data}=await _supa.from('household_invites').select('*').eq('household_id',session.householdId).eq('accepted',false);
+    pending=(data||[]).filter(i=>new Date(i.expires_at)>new Date());
+  }catch(e){}
+
+  if(coParents.length===0&&pending.length===0){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6'}},
+      ['No co-parent connected yet. Invite a partner or guardian to share access to this family account.']));
+  }
+
+  // Show connected co-parents
+  coParents.forEach(cp=>{
+    const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--lav-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']));
+    const info=el('div',{style:{flex:1}});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[cp.display_name||cp.email]));
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#16a34a',fontWeight:600}},['✅ Connected · Full access']));
+    row.appendChild(info);
+    // Revoke button (primary only)
+    if(session.isPrimary){
+      const revokeBtn=mkBtn('Remove','btn-sm btn-danger',async()=>{
+        if(!confirm('Remove access for '+(cp.display_name||cp.email)+'? They will no longer see this family account.'))return;
+        // Give them their own new household
+        await _supa.from('profiles').update({household_id:null,is_primary:true}).eq('id',cp.id);
+        toast('Access removed.','info');
+        re();
+        // Re-render card
+        const newCard=await renderHouseholdCard();
+        card.replaceWith(newCard);
+      });
+      row.appendChild(revokeBtn);
+    }
+    card.appendChild(row);
+  });
+
+  // Show pending invites
+  if(pending.length>0){
+    card.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',margin:'12px 0 8px'}},['⏳ Pending Invitations']));
+    pending.forEach(inv=>{
+      const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:600,color:'var(--navy)',fontSize:'.88rem'}},[inv.invitee_name||inv.invitee_email]));
+      info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)'}},[inv.invitee_email+' · '+inv.invitee_role+' · Expires '+new Date(inv.expires_at).toLocaleDateString()]));
+      row.appendChild(info);
+      if(session.isPrimary){
+        const cancelBtn=mkBtn('Cancel','btn-sm btn-ghost',async()=>{
+          await _supa.from('household_invites').delete().eq('id',inv.id);
+          toast('Invitation cancelled.','info');
+          const newCard=await renderHouseholdCard();
+          card.replaceWith(newCard);
+        });
+        row.appendChild(cancelBtn);
+      }
+      card.appendChild(row);
+    });
+  }
+
+  const addBtn=mkBtn('+ Invite Co-Parent','btn-md btn-primary',()=>showHouseholdInviteModal(true));
+  addBtn.style.marginTop='14px';
+  card.appendChild(addBtn);
+  return card;
+}
+
 function renderSettings(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
@@ -5588,11 +6333,37 @@ function renderSettings(){
   // Account
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
   ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👤 Account']));
+  // Name row with edit pencil
+  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+  const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
+  const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
+  editBtn.onclick=()=>{
+    const newName=prompt('Enter your display name:',session?.name||'');
+    if(newName&&newName.trim()){
+      _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
+        .then(()=>{
+          session.name=newName.trim();
+          nameDisplay.textContent='👤 '+newName.trim();
+          toast('Name updated!','success');
+        }).catch(()=>toast('Could not save name.','error'));
+    }
+  };
+  nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
+  ac.appendChild(nameRow);
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
   const acBtns=d('',[], {display:'flex',gap:'10px'});
   acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
   ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Shared Household (parent only)
+  if(session?.role==='parent'){
+    const hhPlaceholder=el('div',{class:'card',style:{marginBottom:'16px'}});
+    hhPlaceholder.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+    hhPlaceholder.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},['Loading household info...']));
+    sec.appendChild(hhPlaceholder);
+    renderHouseholdCard().then(card=>{hhPlaceholder.replaceWith(card);});
+  }
 
   // Manage Children (parent only — photo + delete)
   if(session?.role==='parent'){
@@ -5670,6 +6441,30 @@ function re(){
 
 initData();
 // Handle magic link invite on page load (now via Supabase invites table)
+(async function handleHouseholdInviteLink(){
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
+  const hToken=params.get('household');
+  const hEmail=params.get('email');
+  if(hToken){
+    localStorage.setItem('pendingHouseholdToken',hToken);
+    if(hEmail)localStorage.setItem('pendingHouseholdEmail',decodeURIComponent(hEmail));
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🏠 Please sign in to join the shared family account.','info',5000),800);
+  }
+  const pendingHH=localStorage.getItem('pendingHouseholdToken');
+  if(pendingHH&&session){
+    await processHouseholdInvite(pendingHH);
+  } else if(pendingHH&&!session){
+    let retries=0;
+    const ri=setInterval(async()=>{
+      retries++;
+      if(session){clearInterval(ri);await processHouseholdInvite(localStorage.getItem('pendingHouseholdToken'));}
+      if(retries>20)clearInterval(ri);
+    },500);
+  }
+})();
+
 (async function handleInviteLink(){
   console.log('handleInviteLink: search=',window.location.search,'hash=',window.location.hash);
   // Support both ?invite= and /#?invite= URL formats
@@ -5693,6 +6488,18 @@ initData();
   console.log('handleInviteLink: pendingToken=',pendingToken,'session=',session?.id);
   if(pendingToken&&session){
     await _processPendingInvite();
+  } else if(pendingToken&&!session){
+    // Session not ready yet (e.g. Google OAuth redirect) — retry after session loads
+    let retries=0;
+    const retryInterval=setInterval(async()=>{
+      retries++;
+      console.log('handleInviteLink retry',retries,'session=',session?.id);
+      if(session){
+        clearInterval(retryInterval);
+        await _processPendingInvite();
+      }
+      if(retries>20) clearInterval(retryInterval); // give up after 10 seconds
+    },500);
   }
 })();
 
@@ -5702,7 +6509,11 @@ async function _processPendingInvite(){
   console.log('_processPendingInvite called, token:',token,'session:',session?.id);
   if(!token)return;
   // Try Supabase first
-  const {data,error:fetchErr}=await _supa.from('invites').select('*').eq('token',token).single().catch(e=>({data:null,error:e}));
+  let data=null,fetchErr=null;
+  try{
+    const res=await _supa.from('invites').select('*').eq('token',token).single();
+    data=res.data;fetchErr=res.error;
+  }catch(e){fetchErr=e;}
   console.log('Invite lookup result:', data?'found':'not found', fetchErr?JSON.stringify(fetchErr):'');
   if(data){
     if(new Date(data.expires_at)<new Date()){
@@ -5720,15 +6531,16 @@ async function _processPendingInvite(){
         name:session.name,
         role:data.specialist_role||'Specialist',
         status:'active'
-      }).catch(e=>console.log('Specialists upsert error:',JSON.stringify(e)));
+      }).then(({error:e})=>{if(e)console.log('Specialists upsert error:',JSON.stringify(e));});
       // Load the child into local state
       if(data.child_id){
-        const {data:child}=await _supa.from('children').select('*').eq('id',data.child_id).single().catch(()=>({data:null}));
+        let child=null;
+        try{const cr=await _supa.from('children').select('*').eq('id',data.child_id).single();child=cr.data;}catch(e){}
         console.log('Child lookup:', child?child.name:'not found');
         if(child){
           const children=LS.get('children',[]);
           if(!children.find(c=>c.id===child.id)){
-            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||'#c4b5fd',photo:child.photo_url||null,status:'active'});
+            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||'#c4b5fd',photo:child.photo_url||null});
             LS.set('children',children);
           }
           S.activeChild=child.id;
@@ -5744,9 +6556,7 @@ async function _processPendingInvite(){
       S.activeChild=storedChild;
       // Load children from Supabase to make sure we have this child
       if(session&&session.id!=='demo'){
-        const children=await SB.getChildren(session.id).catch(()=>[]);
-        const _lc=LS.get('children',[]);
-        children.forEach(c=>{const x=_lc.find(l=>l.id===c.id);if(x?.status)c.status=x.status;});
+        let children=[];try{children=await SB.getChildren(session.id);}catch(e){}
         if(children.length>0){LS.set('children',children);}
       }
       toast('🎉 Welcome to the care team!','success',5000);
