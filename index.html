@@ -1395,6 +1395,7 @@ const SB = {
   },
   async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
   async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
+  async deleteFolder(folderId){await _supa.from('folders').delete().eq('id',folderId);},
   async addFolder(folder){
     const {data,error}=await _supa.from('folders').insert({id:folder.id,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
     if(error)throw error;
@@ -3879,13 +3880,24 @@ function renderFiles(){
         const y=rect.bottom+8>window.innerHeight-150?rect.top-150:rect.bottom+8;
         menu.style.cssText=`left:${x}px;top:${y}px`;
         
+        const isCustomFolder=folder.key&&folder.key.startsWith('custom_');
         const actions=[
           {icon:'📂',label:'Open Folder',fn:()=>showFolderModal(folder,isParent)},
           ...(isParent?[{icon:'📤',label:'Upload File',fn:()=>{document.getElementById('fileInput')?.click();}}]:[]),
-          {icon:'ℹ️',label:`${folder.files.length} files`,fn:null},
+          {icon:'ℹ️',label:`${folder.files.length} file${folder.files.length!==1?'s':''}`,fn:null},
+          ...(isParent&&isCustomFolder?[{icon:'🗑️',label:'Delete Folder',danger:true,fn:()=>{
+            openConfirm('Delete "'+folder.name+'"?','This will permanently delete the folder and all its files. This cannot be undone.',true,async()=>{
+              try{
+                await SB.deleteFolder(folder.id);
+                const fls=DB.folders.filter(f=>f.id!==folder.id);
+                DB.folders=fls;
+                re();toast('🗑️ Folder deleted.');
+              }catch(e){toast('❌ Could not delete folder: '+e.message,'error');}
+            });
+          }}]:[]),
         ];
         actions.forEach(a=>{
-          const item=el('div',{class:'long-press-item'},['  ',a.icon,' ',a.label]);
+          const item=el('div',{class:'long-press-item'+(a.danger?' danger':'')},['  ',a.icon,' ',a.label]);
           if(a.fn)item.onclick=()=>{menu.remove();a.fn();};
           else{item.style.opacity='.5';item.style.cursor='default';}
           menu.appendChild(item);
