@@ -3941,6 +3941,7 @@ function renderFiles(){
     }
   });
   sec.appendChild(grid);
+  sec.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
 
   // Task 4 — Specialist Vault folders (hard-locked personal storage per specialist)
   if(S.activeChild){
