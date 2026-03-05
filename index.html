@@ -1527,6 +1527,20 @@ function setupHouseholdSync(){
     .subscribe();
 }
 
+// Real-time permissions sync for specialist — picks up permission grants instantly
+let _specPermsChannel=null;
+function setupSpecialistSync(){
+  if(!session||session.role!=='specialist'||!_supa)return;
+  const specId=session.specialistId||session.id;
+  if(!specId)return;
+  if(_specPermsChannel)_specPermsChannel.unsubscribe();
+  _specPermsChannel=_supa.channel('spec_perms:'+specId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
+    .subscribe();
+}
+
 function initData(){
   if(!LS.get('seeded_v9',false)){
     Object.entries(SEED).forEach(([k,v])=>LS.set(k,v));
@@ -1639,7 +1653,7 @@ async function _loadSessionFromSupabase(s){
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
-      setupHouseholdSync();
+      setupHouseholdSync();setupSpecialistSync();
       // Show household invite modal for parents
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1500);
@@ -1649,7 +1663,7 @@ async function _loadSessionFromSupabase(s){
   });
   re(); // initial render
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();});}
+  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();setupSpecialistSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -2505,7 +2519,7 @@ function renderAuth(){
       // Process pending invite AFTER re() so session is fully set
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
-      setupHouseholdSync();
+      setupHouseholdSync();setupSpecialistSync();
       // Show household invite modal for parents (if not dismissed/skipped)
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1200);
@@ -4524,23 +4538,33 @@ function removeSpecialist(spec){
 function showPermModal(spec){
   openModal('⚙️ Permissions — '+spec.name,(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Which areas can '+spec.name+' access?']));
-    const folderKeys=['speech','ot','pt','general','meds','school'];
+    const childFolders=DB.folders.filter(f=>f.childId===S.activeChild);
     const curPerms=[...(spec.permissions[S.activeChild]||[])];
     const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
-    folderKeys.forEach(key=>{
-      const folder=DB.folders.find(f=>f.key===key);
+    if(childFolders.length===0){
+      rows.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.85rem',padding:'10px'}},['No folders found for this child.']));
+    }
+    childFolders.forEach(folder=>{
+      const key=folder.key||folder.id;
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
       const cb=el('input',{type:'checkbox'});cb.checked=curPerms.includes(key);
       cb.onchange=e=>{if(e.target.checked){if(!curPerms.includes(key))curPerms.push(key);}else{const i=curPerms.indexOf(key);if(i>-1)curPerms.splice(i,1);}};
       lbl.appendChild(cb);
-      lbl.appendChild(el('span',{style:{fontSize:'1.1rem'}},[folder?.icon||'📁']));
-      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.86rem'}},[folder?.name||key]));
+      lbl.appendChild(el('span',{style:{fontSize:'1.1rem'}},[folder.icon||'📁']));
+      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.86rem'}},[folder.name]));
       rows.appendChild(lbl);
     });
     mb.appendChild(rows);
-    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
       const specs=DB.specialists,i=specs.findIndex(s=>s.id===spec.id);
       if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
+      // Sync to Supabase so specialist's device picks it up
+      if(_supa&&spec.id&&S.activeChild){
+        await _supa.from('folder_permissions').delete().eq('specialist_id',spec.id).eq('child_id',S.activeChild).catch(()=>{});
+        for(const key of curPerms){
+          await _supa.from('folder_permissions').upsert({specialist_id:spec.id,child_id:S.activeChild,folder_key:key}).catch(()=>{});
+        }
+      }
       close();re();toast('✅ Permissions updated for '+spec.name+'!');
     }));
   },480);
