@@ -1378,8 +1378,17 @@ const SB = {
   async getMessages(childId){const {data}=await _supa.from('messages').select('*').eq('child_id',childId).order('created_at');return data||[];},
   async sendMessage(msg){const {data}=await _supa.from('messages').insert(msg).select().single();return data;},
   async getFolders(childId){
-    const {data}=await _supa.from('folders').select('id,name,icon,key,child_id,files:files(id,name,date,locked,shared_with,uploaded_by,url)').eq('child_id',childId).order('created_at');
-    return (data||[]).map(f=>({id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,files:(f.files||[]).map(fi=>({id:fi.id,name:fi.name,date:fi.date,locked:fi.locked||false,sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,url:fi.url||null}))}));
+    const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
+    if(!fData||!fData.length)return[];
+    const folderIds=fData.map(f=>f.id);
+    const {data:fiData}=await _supa.from('files').select('id,folder_id,name,date,locked,shared_with,uploaded_by,url').in('folder_id',folderIds);
+    return fData.map(f=>({
+      id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
+      files:(fiData||[]).filter(fi=>fi.folder_id===f.id).map(fi=>({
+        id:fi.id,name:fi.name,date:fi.date,locked:fi.locked||false,
+        sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,url:fi.url||null
+      }))
+    }));
   },
   async addFile(file){
     await _supa.from('files').insert({id:file.id,folder_id:file.folderId,child_id:file.childId,name:file.name,date:file.date,locked:false,shared_with:file.sharedWith||[],uploaded_by:file.uploadedBy,url:file.url||null});
@@ -2857,6 +2866,10 @@ function switchTab(id){
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
   S.isDrawerOpen=false;
   re();
+  // Refresh folders+files from Supabase when opening File Manager
+  if(id==='files'&&session?.id!=='demo'){
+    refreshFromSupabase().then(()=>re()).catch(()=>{});
+  }
 }
 
 /* ── BOTTOM NAV — 3 quick tabs + menu ── */
