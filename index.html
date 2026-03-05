@@ -2189,6 +2189,31 @@ function showConnectionCodeModal(childId){
     card.appendChild(btns);
     mb.appendChild(card);
 
+    // Email the code
+    const emailSection=el('div',{style:{marginBottom:'18px'}});
+    emailSection.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'8px'}},['📧 Or send code by email']));
+    const emailRow=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
+    const emailInp=el('input',{class:'inp',type:'email',placeholder:'specialist@example.com',style:{flex:1,marginBottom:'0'}});
+    const sendBtn=mkBtn('Send','btn-sm btn-primary',async()=>{
+      const to=emailInp.value.trim();
+      if(!to||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){toast('⚠️ Enter a valid email address.','error');return;}
+      sendBtn.disabled=true;sendBtn.textContent='Sending…';
+      try{
+        const resp=await fetch('/api/send-invite',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({to,childName:child?.name,connectionCode:code,fromName:session?.displayName||session?.email||'A parent'})
+        });
+        if(resp.ok){toast('✅ Code sent to '+to);}
+        else{const err=await resp.json().catch(()=>({}));toast('❌ '+(err.error||'Could not send email.'),'error');}
+      }catch(e){toast('❌ Network error: '+e.message,'error');}
+      sendBtn.disabled=false;sendBtn.textContent='Send';
+    });
+    emailRow.appendChild(emailInp);
+    emailRow.appendChild(sendBtn);
+    emailSection.appendChild(emailRow);
+    mb.appendChild(emailSection);
+
     mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.6',fontWeight:500}},
       ['The specialist enters this 6-character code in their app. They\'ll instantly gain access to '+child?.name+'\'s permitted folders. Codes expire after 48 hours.']));
   },440);
@@ -2955,53 +2980,54 @@ function renderBottomNav(){
   const unreadEmails=(DB.emailInbox||[]).filter(e=>!e.read).length;
   const totalBadge=unreadNotifs+unreadEmails;
 
-  // Quick tabs depend on level and role
-  let quickTabs;
+  const nav=el('nav',{id:'bottom-nav'});
+  const inner=el('div',{class:'bnav-inner'});
+
   if(session?.role==='parent'){
-    if(S.navLevel===0){
-      quickTabs=[
-        {id:'home',label:'Home',icon:'🏠',action:()=>{S.navLevel=0;re();}},
-        {id:'calendar-global',label:'Calendar',icon:'📅',action:()=>{S.calFullscreen=true;re();}},
-        {id:'chat-global',label:'Chat',icon:'💬',action:()=>{S.navLevel=1;switchTab('chat');}},
-      ];
-    } else {
-      quickTabs=[
-        {id:'home',label:'Home',icon:'🏠',action:()=>{S.navLevel=0;re();}},
-        {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
-        {id:'files',label:'Files',icon:'📁',action:()=>switchTab('files')},
-      ];
-    }
+    // 4-icon fixed bar for parents
+    const parentTabs=[
+      {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{S.navLevel=0;S.isDrawerOpen=false;re();}},
+      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{S.calFullscreen=true;S.navLevel=1;re();}},
+      {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>switchTab('chat')},
+      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{S.activeTab='notifications';re();}},
+    ];
+    parentTabs.forEach(t=>{
+      const b=el('button',{class:'bnav-btn'+(t.isActive?' active':'')});
+      b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
+      b.appendChild(document.createTextNode(t.label));
+      if(t.id==='notifications'&&totalBadge>0){
+        b.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+      }
+      b.onclick=t.action;
+      inner.appendChild(b);
+    });
   } else {
-    quickTabs=[
+    // Specialists keep their existing 3-tab layout
+    const specTabs=[
       {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
       {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
       {id:'vault',label:'Clinical Notes',icon:'📋',action:()=>switchTab('vault')},
     ];
+    specTabs.forEach(t=>{
+      const isActive=S.activeTab===t.id;
+      const b=el('button',{class:'bnav-btn'+(isActive?' active':'')});
+      b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
+      b.appendChild(document.createTextNode(t.label));
+      b.onclick=t.action;
+      inner.appendChild(b);
+    });
+    // Menu tab for specialists
+    const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
+    const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
+    menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
+    menuBtn.appendChild(menuIcon);
+    menuBtn.appendChild(document.createTextNode('Menu'));
+    if(totalBadge>0){
+      menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+    }
+    menuBtn.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+    inner.appendChild(menuBtn);
   }
-
-  const nav=el('nav',{id:'bottom-nav'});
-  const inner=el('div',{class:'bnav-inner'});
-
-  quickTabs.forEach(t=>{
-    const isActive=t.id==='home'?(S.navLevel===0&&session?.role==='parent'):(S.activeTab===t.id&&S.navLevel===1)||(t.id==='calendar-global'&&S.calFullscreen);
-    const b=el('button',{class:'bnav-btn'+(isActive?' active':'')});
-    b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
-    b.appendChild(document.createTextNode(t.label));
-    b.onclick=t.action;
-    inner.appendChild(b);
-  });
-
-  // Menu tab
-  const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
-  const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
-  menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
-  menuBtn.appendChild(menuIcon);
-  menuBtn.appendChild(document.createTextNode('Menu'));
-  if(totalBadge>0){
-    menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
-  }
-  menuBtn.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
-  inner.appendChild(menuBtn);
 
   nav.appendChild(inner);
   return nav;
@@ -3660,6 +3686,10 @@ function renderParentDashboard(){
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
     ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
+  welcome.style.position='relative';
+  const editBtn=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'rgba(255,255,255,.2)',border:'none',borderRadius:'50%',width:'34px',height:'34px',fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}},['✏️']);
+  editBtn.onclick=()=>showEditChildModal(child);
+  welcome.appendChild(editBtn);
   sec.appendChild(welcome);
 
   // Big square navigation grid (like file manager)
@@ -3870,6 +3900,17 @@ function renderSpecDashboard(){
 /* ═══════════════════════════════════════════════
    FILE MANAGER
 ═══════════════════════════════════════════════ */
+function mkSubHeader(title,rightEl=null){
+  const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
+  const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
+  backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
+  hd.appendChild(backBtn);
+  hd.appendChild(el('h2',{class:'page-title',style:{flex:1,textAlign:'center',margin:'0',fontSize:'1rem'}},[title]));
+  if(rightEl)hd.appendChild(rightEl);
+  else hd.appendChild(el('div',{style:{width:'80px',flexShrink:0}}));
+  return hd;
+}
+
 function renderFiles(){
   const isParent=session?.role==='parent';
   const spec=DB.specialists.find(s=>s.id===session?.specialistId);
@@ -3880,11 +3921,6 @@ function renderFiles(){
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['File Manager']),
-    el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
-  ]));
   if(isParent){
     // Regular file upload (desktop + file picker)
     const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
@@ -3893,12 +3929,18 @@ function renderFiles(){
     const ci=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});ci.id='cameraInput';
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
-    hd.appendChild(el('div',{class:'sec-hd-right'},[
-      mkBtn('📁 New Folder','btn-sm btn-ghost',()=>showAddFolderModal()),
-      mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())
+    const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    rightEl.appendChild(mkBtn('📁','btn-sm btn-ghost',()=>showAddFolderModal()));
+    rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
+    sec.appendChild(mkSubHeader('File Manager',rightEl));
+  } else {
+    const hd=el('div',{class:'sec-hd'});
+    hd.appendChild(el('div',{class:'sec-hd-left'},[
+      el('h2',{class:'page-title'},['File Manager']),
+      el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
     ]));
+    sec.appendChild(hd);
   }
-  sec.appendChild(hd);
 
   if(folders.length===0){
     sec.appendChild(el('div',{class:'empty-state'},[
@@ -4348,21 +4390,13 @@ function showAccessRequest(folder){
 function renderTeam(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['Care Team']),
-    el('p',{class:'page-sub'},[child?`${child.avatar} ${child.name}'s specialists`:'No child selected'])
-  ]));
-
-  // Two invite actions
-  const actRow=el('div',{class:'sec-hd-right',style:{display:'flex',gap:'8px',flexWrap:'wrap'}});
-  actRow.appendChild(mkBtn('🔗 Share Code','btn-md btn-primary',()=>{
+  const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+  rightEl.appendChild(mkBtn('🔗','btn-sm btn-primary',()=>{
     if(!child){toast('Select a child first.','error');return;}
     showConnectionCodeModal(child.id);
   }));
-  actRow.appendChild(mkBtn('📧 Email Invite','btn-md btn-secondary',()=>showInviteModal()));
-  hd.appendChild(actRow);
-  sec.appendChild(hd);
+  rightEl.appendChild(mkBtn('📧','btn-sm btn-ghost',()=>showInviteModal()));
+  sec.appendChild(mkSubHeader('Care Team',rightEl));
 
   // Connection code banner at top of team page
   if(child){
@@ -4726,17 +4760,23 @@ function renderCalendar(){
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['Calendar']),
-    // FIX B4: dynamic month label in calendar subtitle
-    el('p',{class:'page-sub'},[isParent?(S.calendarMode==='joint'?`All Children — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`:`${child?.avatar} ${child?.name} — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`):`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
-  ]));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[
-    mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
-    mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())
-  ]));
-  sec.appendChild(hd);
+  if(isParent){
+    const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    rightEl.appendChild(mkBtn('📅','btn-sm btn-ghost',()=>showGoogleSyncModal()));
+    rightEl.appendChild(mkBtn('➕','btn-sm btn-primary',()=>showAddEventModal()));
+    sec.appendChild(mkSubHeader('Calendar',rightEl));
+  } else {
+    const hd=el('div',{class:'sec-hd'});
+    hd.appendChild(el('div',{class:'sec-hd-left'},[
+      el('h2',{class:'page-title'},['Calendar']),
+      el('p',{class:'page-sub'},[`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
+    ]));
+    hd.appendChild(el('div',{class:'sec-hd-right'},[
+      mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
+      mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())
+    ]));
+    sec.appendChild(hd);
+  }
 
   // FIX B4/B9/F1: compute dynamic year/month/firstDay and today
   const calNow=new Date();
@@ -5991,16 +6031,10 @@ function renderProgress(){
   const milestones=DB.milestones.filter(m=>m.childId===S.activeChild);
   const sec=el('div',{class:'section'});
 
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['📈 Progress Tracking']),
-    el('p',{class:'page-sub'},[child?.avatar+' '+child?.name+' · Milestones & measurements'])
-  ]));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[
-    mkBtn('➕ Add Milestone','btn-sm btn-primary',()=>showAddMilestoneModal()),
-    mkBtn('📊 Log Measurement','btn-sm btn-secondary',()=>showLogMeasurementModal())
-  ]));
-  sec.appendChild(hd);
+  const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+  rightEl.appendChild(mkBtn('➕','btn-sm btn-primary',()=>showAddMilestoneModal()));
+  rightEl.appendChild(mkBtn('📊','btn-sm btn-ghost',()=>showLogMeasurementModal()));
+  sec.appendChild(mkSubHeader('📈 Progress',rightEl));
 
   // Tab bar
   const tabs=el('div',{class:'prog-tabs'});
@@ -6143,6 +6177,59 @@ function showLogMeasurementModal(){
 /* ═══════════════════════════════════════════════
    3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
 ═══════════════════════════════════════════════ */
+function showEditChildModal(child){
+  openModal('✏️ Edit '+child.name,(mb,close)=>{
+    // Avatar / photo tappable button
+    const avatarWrap=el('div',{style:{display:'flex',justifyContent:'center',marginBottom:'18px'}});
+    const avatarBtn=el('button',{style:{position:'relative',background:'none',border:'none',cursor:'pointer',padding:'0'}});
+    if(child.photo){
+      avatarBtn.appendChild(el('img',{src:child.photo,style:{width:'72px',height:'72px',borderRadius:'50%',objectFit:'cover'}}));
+    } else {
+      avatarBtn.appendChild(el('span',{style:{fontSize:'3rem',lineHeight:'72px',display:'block',width:'72px',textAlign:'center'}},[child.avatar]));
+    }
+    const camBadge=el('span',{style:{position:'absolute',bottom:'0',right:'0',background:'var(--teal)',borderRadius:'50%',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem',color:'#fff'}},['📷']);
+    avatarBtn.appendChild(camBadge);
+    avatarBtn.onclick=()=>showChildPhotoModal(child);
+    avatarWrap.appendChild(avatarBtn);
+    mb.appendChild(avatarWrap);
+
+    // Name input
+    mb.appendChild(el('div',{class:'inp-label'},['Name']));
+    const ni=el('input',{class:'inp',type:'text',style:{marginBottom:'14px'}});
+    ni.value=child.name;
+    mb.appendChild(ni);
+
+    // DOB input
+    const dob=makeDateInput('Date of birth',{style:{marginBottom:'18px'}});
+    dob.value=child.dob||'';
+    mb.appendChild(dob);
+
+    const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'18px'}});
+    mb.appendChild(errDiv);
+
+    mb.appendChild(mkBtn('💾 Save Changes','btn-lg btn-primary btn-full',async()=>{
+      const name=ni.value.trim();
+      const dobVal=dob.value;
+      if(!name||!dobVal){errDiv.textContent='Name and date of birth are required.';return;}
+      if(session&&session.id!=='demo'){
+        try{
+          await _supa.from('children').update({name,dob:dobVal}).eq('id',child.id);
+        }catch(e){errDiv.textContent='Save failed: '+e.message;return;}
+      }
+      // Update local cache
+      const idx=DB.children.findIndex(c=>c.id===child.id);
+      if(idx>-1){
+        const dobDate=new Date(dobVal);
+        DB.children[idx].name=name;
+        DB.children[idx].dob=dobVal;
+        DB.children[idx].age=new Date().getFullYear()-dobDate.getFullYear();
+        DB.children=DB.children;
+      }
+      close();re();toast('✅ '+name+' updated!');
+    }));
+  },420);
+}
+
 function showAddChildModal(){
   openModal('➕ Add Child Profile',(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
@@ -6670,6 +6757,9 @@ async function renderHouseholdCard(){
     row.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--lav-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']));
     const info=el('div',{style:{flex:1}});
     info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[cp.display_name||cp.email]));
+    if(cp.display_name&&cp.email){
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500,marginBottom:'2px'}},[cp.email]));
+    }
     info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#16a34a',fontWeight:600}},['✅ Connected · Full access']));
     row.appendChild(info);
     // Revoke button (primary only)
@@ -6815,6 +6905,7 @@ function renderSettings(){
         row.appendChild(el('span',{style:{fontSize:'1.6rem'}},[child.avatar]));
       }
       row.appendChild(el('div',{style:{flex:1,fontWeight:700,color:'var(--navy)'}},[child.name]));
+      row.appendChild(mkBtn('✏️ Edit','btn-sm btn-slate',()=>showEditChildModal(child)));
       row.appendChild(mkBtn('📷 Photo','btn-sm btn-slate',()=>showChildPhotoModal(child)));
       row.appendChild(mkBtn('🗑️ Delete','btn-sm btn-danger',()=>showDeleteChildModal(child)));
       mc.appendChild(row);
