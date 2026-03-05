@@ -1559,7 +1559,6 @@ async function _loadSessionFromSupabase(s){
       }
       // Process pending invite if any
       const _pi=localStorage.getItem('pendingInviteToken');
-      console.log('onAuthStateChange SIGNED_IN, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       re();
       setupHouseholdSync();
@@ -1606,6 +1605,7 @@ async function doLogout(){
   await _supa.auth.signOut();
   session=null;
   Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+  ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
 }
 
 /* ═══════════════════════════════════════════════
@@ -1629,7 +1629,8 @@ let S={
   isDrawerOpen:false,
   calFullscreen:false,
   tourActive:false,       // is guided tour running?
-  tourStep:0              // current step index
+  tourStep:0,             // current step index
+  patientStatusFilter:'active'  // filter state for renderPatients — survives re()
 };
 
 /* ═══════════════════════════════════════════════
@@ -1881,8 +1882,9 @@ function renderTour(){
 
 function generateCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code='';for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];
-  return code;
+  const arr=new Uint8Array(6);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>chars[b%chars.length]).join('');
 }
 
 async function createConnectionCode(childId){
@@ -2346,7 +2348,6 @@ function renderAuth(){
       re();
       // Process pending invite AFTER re() so session is fully set
       const _pi=localStorage.getItem('pendingInviteToken');
-      console.log('Email login, pendingInvite:',_pi,'session:',session?.id);
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
       setupHouseholdSync();
       // Show household invite modal for parents (if not dismissed/skipped)
@@ -2584,7 +2585,11 @@ function renderNotifBell(){
     dd.appendChild(dh);
     (notifs.slice(0,6)).forEach(n=>{
       const ni=el('div',{class:'notif-item'+(n.read?'':" unread")});
-      ni.innerHTML=`<span style="font-size:1.25rem">${notifIcon[n.type]||'📢'}</span><div><div style="font-size:.79rem;font-weight:700;color:var(--navy);line-height:1.4">${n.msg}</div><div style="font-size:.68rem;color:var(--slate-l);margin-top:2px">${n.time}</div></div>`;
+      ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
+      const niBody=el('div',{});
+      niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
+      niBody.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'2px'}},[n.time]));
+      ni.appendChild(niBody);
       ni.onclick=()=>{
         const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
         if(i>-1){ns[i].read=true;DB.notifications=ns;}
@@ -2849,7 +2854,11 @@ function renderSearchOverlay(){
     // Search patients
     DB.children.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
       const item=el('div',{class:'search-result-item'});
-      item.innerHTML=`<span style="font-size:1.5rem">${c.avatar}</span><div><div style="font-weight:700;color:var(--navy)">${c.name}</div><div style="font-size:.76rem;color:var(--slate)">Patient · Age ${c.age}</div></div>`;
+      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},[c.avatar]));
+      const siBody=el('div',{});
+      siBody.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[c.name]));
+      siBody.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['Patient · Age '+c.age]));
+      item.appendChild(siBody);
       item.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';S.searchOpen=false;S.searchQuery='';re();};
       results.appendChild(item);
     });
@@ -2864,7 +2873,11 @@ function renderSearchOverlay(){
     }).forEach(n=>{
       const c=DB.children.find(x=>x.id===n.childId);
       const item=el('div',{class:'search-result-item'});
-      item.innerHTML=`<span style="font-size:1.5rem">📝</span><div><div style="font-weight:700;color:var(--navy)">${n.title}</div><div style="font-size:.76rem;color:var(--slate)">${c?.avatar} ${c?.name} · ${n.date}</div></div>`;
+      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},['📝']));
+      const niBody2=el('div',{});
+      niBody2.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[n.title]));
+      niBody2.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[(c?.avatar||'')+' '+(c?.name||'')+' · '+n.date]));
+      item.appendChild(niBody2);
       item.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
       results.appendChild(item);
     });
@@ -3595,9 +3608,15 @@ function renderSpecDashboard(){
 
   // Welcome card
   const welcome=el('div',{class:'welcome-card',style:{background:'linear-gradient(135deg,var(--lav-d) 0%,var(--lav) 60%,#7dd3fc 100%)'}});
-  welcome.innerHTML=`<div style="color:rgba(255,255,255,.7);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Welcome back</div>
-    <div class="ff" style="font-size:1.45rem;font-weight:800;color:#fff;margin-bottom:5px">${spec?.name||session?.name||'Specialist'} 👋</div>
-    <div style="color:rgba(255,255,255,.8);font-size:.84rem;font-weight:500">${spec?.role||'Specialist'} · <strong style="color:#fff">${myPatients.length}</strong> patient${myPatients.length!==1?'s':''}</div>`;
+  welcome.appendChild(el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},['Welcome back']));
+  const wName=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:800,color:'#fff',marginBottom:'5px'}},[(spec?.name||session?.name||'Specialist')+' 👋']);
+  welcome.appendChild(wName);
+  const wRole=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:500}});
+  wRole.appendChild(document.createTextNode((spec?.role||'Specialist')+' · '));
+  const wPt=el('strong',{style:{color:'#fff'}},[String(myPatients.length)]);
+  wRole.appendChild(wPt);
+  wRole.appendChild(document.createTextNode(' patient'+(myPatients.length!==1?'s':'')));
+  welcome.appendChild(wRole);
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
   [
     ['🔗 Enter Patient Code',()=>showEnterCodeModal()],
@@ -4050,9 +4069,21 @@ function showFilePermModal(file,folder){
 function showAccessRequest(folder){
   openModal('🔒 Request Access',(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
-      [`You don't have access to ${folder.name}. Send a request to the parent?`]));
+      [`You don't have access to the ${folder.name} folder. Send a request to the parent?`]));
     mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',()=>{
-      close();toast('✅ Access request sent to parent!');
+      const specId=session?.specialistId||null;
+      const specName=session?.name||'Specialist';
+      const specRole=DB.specialists.find(s=>s.id===specId)?.role||'Specialist';
+      const childId=S.activeChild;
+      if(!specId||!childId){toast('Session error — please reload.','error');close();return;}
+      const reqs=DB.specialistRequests||[];
+      const alreadyPending=reqs.some(r=>r.specialistId===specId&&r.childId===childId&&r.requestedFolder===folder.key&&r.status==='pending');
+      if(alreadyPending){toast('⚠️ You already have a pending request for this folder.','info');close();return;}
+      reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedAt:new Date().toISOString(),status:'pending'});
+      DB.specialistRequests=reqs;
+      pushNotif('invite',`${specName} requested access to ${folder.name}.`,childId);
+      close();
+      toast('✅ Access request sent to parent!');
     }));
   },400);
 }
@@ -4189,7 +4220,11 @@ function renderTeam(){
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},['🗄️ Legacy Archives']));
     archive.forEach(a=>{
       const ac=el('div',{class:'card',style:{background:'#f8fafc',border:'2px dashed var(--slate-l)',display:'flex',gap:'12px',alignItems:'center',marginBottom:'10px'}});
-      ac.innerHTML=`<span style="font-size:1.4rem">🗄️</span><div style="flex:1"><div style="font-weight:700;color:var(--slate)">${a.specialistName}</div><div style="font-size:.76rem;color:var(--slate-l)">${a.childName} · Archived ${a.archivedAt} · ${a.notes.length} note(s) retained</div></div>`;
+      ac.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🗄️']));
+      const acInfo=el('div',{style:{flex:'1'}});
+      acInfo.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)'}},[a.specialistName]));
+      acInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)'}},[a.childName+' · Archived '+a.archivedAt+' · '+a.notes.length+' note(s) retained']));
+      ac.appendChild(acInfo);
       ac.appendChild(badge('Legacy','slate'));
       sec.appendChild(ac);
     });
@@ -4270,7 +4305,8 @@ function showInviteModal(){
     mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
       if(!ei.value){toast('⚠️ Email required.','error');return;}
       // Generate magic link token
-      const token='hd_invite_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+      const _ta=new Uint8Array(8);crypto.getRandomValues(_ta);
+      const token='hd_invite_'+Date.now().toString(36)+'_'+Array.from(_ta).map(b=>b.toString(16).padStart(2,'0')).join('');
       const child=DB.children.find(c=>c.id===S.activeChild);
       const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
       const magicLink=`${baseUrl}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
@@ -4284,7 +4320,6 @@ function showInviteModal(){
       // Save invite to Supabase so specialist can accept it
       if(session&&session.id!=='demo'){
         const expires=new Date();expires.setDate(expires.getDate()+7);
-        console.log('Attempting invite insert, session.id:',session?.id,'child:',S.activeChild);
         _supa.from('invites').insert({
           token,
           parent_id:session.id,
@@ -4295,7 +4330,7 @@ function showInviteModal(){
           specialist_role:ri.value||'Specialist',
           expires_at:expires.toISOString(),
           accepted:false
-        }).then(({data,error})=>{if(error){console.error('Invite save error DETAILS:',JSON.stringify(error));console.error('Code:',error.code,'Message:',error.message,'Details:',error.details);}else{console.log('Invite saved to Supabase:',data);}});
+        }).then(({error})=>{if(error)console.error('Invite save error:',error.code);});
       }
       // Add simulated email to inbox
       const emails=DB.emailInbox;
@@ -4323,10 +4358,9 @@ function showInviteModal(){
           specialistRole:ri.value||'Specialist'
         })
       }).then(r=>r.json()).then(d=>{
-        console.log('Email API response:',JSON.stringify(d));
         if(d.ok){toast('📧 Invite email sent to '+ei.value+'!','success');close();}
-        else console.error('Email send failed:',d);
-      }).catch(e=>console.error('Email API error:',e));
+        else toast('⚠️ Email delivery failed. Share the link manually.','error');
+      }).catch(()=>toast('⚠️ Email delivery failed. Share the link manually.','error'));
       toast('✅ Sending invite to '+ei.value+'…');
       track('Invite Sent',{role:ri.value||'Specialist'});
     }));
@@ -4624,12 +4658,14 @@ function renderChat(){
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
 
     const item=el('div',{style:{padding:'13px 14px',borderBottom:'1.5px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .12s',minHeight:'52px'}});
-    item.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      ${isConsult?'<span class="badge badge-lav" style="font-size:.6rem;padding:1px 6px">Consult</span>':''}
-      ${isGroup?'<span class="group-badge">Group</span>':''}
-      <span style="font-weight:800;font-size:.82rem;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${chatName}</span></div>
-      <div style="font-size:.68rem;color:var(--slate)">${childName}</div>
-      <div style="font-size:.66rem;color:var(--slate-l);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${lastMsg?.text?.slice(0,28)||''}${(lastMsg?.text?.length||0)>28?'…':''}</div>`;
+    const ciTop=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}});
+    if(isConsult)ciTop.appendChild(el('span',{class:'badge badge-lav',style:{fontSize:'.6rem',padding:'1px 6px'}},['Consult']));
+    if(isGroup)ciTop.appendChild(el('span',{class:'group-badge'},['Group']));
+    ciTop.appendChild(el('span',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
+    item.appendChild(ciTop);
+    item.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},[childName]));
+    const previewText=(lastMsg?.text||'').slice(0,28)+((lastMsg?.text?.length||0)>28?'…':'');
+    item.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate-l)',marginTop:'1px',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}},[previewText]));
     item.onclick=()=>{S.activeChatId=chat.id;re();};
     list.appendChild(item);
   });
@@ -5317,15 +5353,14 @@ function renderPatients(){
   const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'12px'}});
   sec.appendChild(si);
 
-  // Filter bar
-  let statusFilter='active';
+  // Filter bar — state lives in S so it survives re()
   const filterBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
   const filterBtns={};
   ['active','inactive','all'].forEach(f=>{
     const label=f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1);
-    const btn=el('button',{class:f===statusFilter?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
+    const btn=el('button',{class:f===S.patientStatusFilter?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
     btn.onclick=()=>{
-      statusFilter=f;
+      S.patientStatusFilter=f;
       Object.keys(filterBtns).forEach(k=>{
         filterBtns[k].className=k===f?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';
       });
@@ -5348,11 +5383,11 @@ function renderPatients(){
     const filtered=sorted.filter(c=>{
       const matchName=c.name.toLowerCase().includes(q.toLowerCase());
       const cs=c.status||'active';
-      const matchStatus=statusFilter==='all'||(statusFilter===cs);
+      const matchStatus=S.patientStatusFilter==='all'||(S.patientStatusFilter===cs);
       return matchName&&matchStatus;
     });
     if(!filtered.length){
-      const msg=statusFilter==='all'?'No patients found.':('No '+statusFilter+' patients.');
+      const msg=S.patientStatusFilter==='all'?'No patients found.':('No '+S.patientStatusFilter+' patients.');
       stack.appendChild(el('div',{class:'empty-inline'},[msg]));
       return;
     }
@@ -5488,7 +5523,11 @@ function renderNotifications(){
   const stack=el('div',{class:'stack'});
   notifs.forEach(n=>{
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'flex-start',background:n.read?'#fff':'var(--mint-l)',border:n.read?'2px solid var(--mint-l)':'2.5px solid var(--teal-l)',cursor:'pointer'}});
-    card.innerHTML=`<span style="font-size:1.45rem">${notifIcon[n.type]||'📢'}</span><div style="flex:1"><div style="font-weight:${n.read?600:800};color:var(--navy);line-height:1.4;margin-bottom:3px">${n.msg}</div><div style="font-size:.72rem;color:var(--slate-l)">${n.time}</div></div>`;
+    card.appendChild(el('span',{style:{fontSize:'1.45rem'}},[notifIcon[n.type]||'📢']));
+    const ncBody=el('div',{style:{flex:'1'}});
+    ncBody.appendChild(el('div',{style:{fontWeight:n.read?600:800,color:'var(--navy)',lineHeight:'1.4',marginBottom:'3px'}},[n.msg]));
+    ncBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[n.time]));
+    card.appendChild(ncBody);
     if(!n.read)card.appendChild(badge('New','teal'));
     card.onclick=()=>{
       const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
@@ -5921,7 +5960,11 @@ function renderSpecialistRequest(){
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
     myRequests.forEach(r=>{
       const card=el('div',{class:'spec-request-card'});
-      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div style="font-weight:800;color:var(--navy)">${r.childName||'Unknown child'}</div>${r.status==='pending'?'<span class="badge badge-amber">⏳ Pending</span>':r.status==='approved'?'<span class="badge badge-green">✅ Approved</span>':'<span class="badge badge-rose">✗ Denied</span>'}</div>`;
+      const rcTop=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}});
+      rcTop.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[r.childName||'Unknown child']));
+      const rcBadge=r.status==='pending'?el('span',{class:'badge badge-amber'},['⏳ Pending']):r.status==='approved'?el('span',{class:'badge badge-green'},['✅ Approved']):el('span',{class:'badge badge-rose'},['✗ Denied']);
+      rcTop.appendChild(rcBadge);
+      card.appendChild(rcTop);
       card.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[`Sent to: ${r.parentEmail||'parent'} · ${r.requestedAt}`]));
       sec.appendChild(card);
     });
@@ -6004,18 +6047,21 @@ function renderPublishedSummaries(){
     hdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.86rem'}},[spec?.name+' · '+note.date]));
     hdr.appendChild(badge(note.locked?'🔒 Locked':'Published','teal'));
     nb.appendChild(hdr);
-    // Editable if NOT locked
-    const ta=el('textarea',{class:'inp',style:{background:'white',minHeight:'80px',fontSize:'.85rem'}});
+    // Parents see read-only view; specialists can edit until locked
+    const isParentView=session?.role==='parent';
+    const isReadOnly=note.locked||isParentView;
+    const ta=el('textarea',{class:'inp',style:{background:isReadOnly?'#f8fafc':'white',minHeight:'80px',fontSize:'.85rem'}});
     ta.value=note.summary;
-    ta.readOnly=note.locked;
-    ta.style.background=note.locked?'#f8fafc':'white';
-    ta.oninput=e=>{
-      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-      if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
-    };
+    ta.readOnly=isReadOnly;
+    if(!isReadOnly){
+      ta.oninput=e=>{
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+      };
+    }
     nb.appendChild(ta);
-    if(!note.locked){
-      nb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['✏️ You can annotate or add notes to this summary']));
+    if(!isReadOnly){
+      nb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['✏️ Edit your summary before locking']));
     }
     wrap.appendChild(nb);
   });
@@ -6065,7 +6111,9 @@ function showCreateGroupChatModal(){
 // ═══════════════════════════════════════════════
 
 function genHouseholdToken(){
-  return 'hd_household_'+Math.random().toString(36).slice(2,8)+'_'+Math.random().toString(36).slice(2,10);
+  const arr=new Uint8Array(14);crypto.getRandomValues(arr);
+  const hex=Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return 'hd_household_'+hex.slice(0,8)+'_'+hex.slice(8);
 }
 
 async function showHouseholdInviteModal(fromSettings=false){
@@ -6466,26 +6514,22 @@ initData();
 })();
 
 (async function handleInviteLink(){
-  console.log('handleInviteLink: search=',window.location.search,'hash=',window.location.hash);
   // Support both ?invite= and /#?invite= URL formats
   const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
   const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
   const token=params.get('invite');
   const childId=params.get('child');
   const inviteEmail=params.get('email');
-  console.log('handleInviteLink: token=',token,'childId=',childId,'session=',session?.id);
   if(token){
     // Store token so we can use it after login/signup
     localStorage.setItem('pendingInviteToken', token);
     if(childId) localStorage.setItem('pendingInviteChild', childId);
     if(inviteEmail) localStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
     window.history.replaceState({},'',window.location.pathname);
-    console.log('handleInviteLink: token stored in sessionStorage');
     setTimeout(()=>toast('🤝 Please sign in or create an account to join the care team.','info',5000),800);
   }
   // Check for pending invite after session is loaded
   const pendingToken=localStorage.getItem('pendingInviteToken');
-  console.log('handleInviteLink: pendingToken=',pendingToken,'session=',session?.id);
   if(pendingToken&&session){
     await _processPendingInvite();
   } else if(pendingToken&&!session){
@@ -6493,7 +6537,6 @@ initData();
     let retries=0;
     const retryInterval=setInterval(async()=>{
       retries++;
-      console.log('handleInviteLink retry',retries,'session=',session?.id);
       if(session){
         clearInterval(retryInterval);
         await _processPendingInvite();
@@ -6506,7 +6549,6 @@ initData();
 async function _processPendingInvite(){
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
-  console.log('_processPendingInvite called, token:',token,'session:',session?.id);
   if(!token)return;
   // Try Supabase first
   let data=null,fetchErr=null;
@@ -6514,14 +6556,12 @@ async function _processPendingInvite(){
     const res=await _supa.from('invites').select('*').eq('token',token).single();
     data=res.data;fetchErr=res.error;
   }catch(e){fetchErr=e;}
-  console.log('Invite lookup result:', data?'found':'not found', fetchErr?JSON.stringify(fetchErr):'');
   if(data){
     if(new Date(data.expires_at)<new Date()){
       toast('⚠️ This invite has expired. Ask the family for a new one.','error',5000);
     } else {
       // Mark accepted
-      const {error:upErr}=await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
-      console.log('Invite marked accepted:', upErr?JSON.stringify(upErr):'ok');
+      await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
       // Add child to specialist's accessible children
       await _supa.from('specialists').upsert({
         id:session.id,
@@ -6531,12 +6571,11 @@ async function _processPendingInvite(){
         name:session.name,
         role:data.specialist_role||'Specialist',
         status:'active'
-      }).then(({error:e})=>{if(e)console.log('Specialists upsert error:',JSON.stringify(e));});
+      }).then(({error:e})=>{if(e)console.error('Specialists upsert error:',e.code);});
       // Load the child into local state
       if(data.child_id){
         let child=null;
         try{const cr=await _supa.from('children').select('*').eq('id',data.child_id).single();child=cr.data;}catch(e){}
-        console.log('Child lookup:', child?child.name:'not found');
         if(child){
           const children=LS.get('children',[]);
           if(!children.find(c=>c.id===child.id)){
