@@ -1384,17 +1384,18 @@ const SB = {
     const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
     if(!fData||!fData.length)return[];
     const folderIds=fData.map(f=>f.id);
-    const {data:fiData}=await _supa.from('files').select('id,folder_id,name,created_at,locked,shared_with,uploaded_by,url').in('folder_id',folderIds);
+    const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type').eq('child_id',childId);
     return fData.map(f=>({
       id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
-      files:(fiData||[]).filter(fi=>fi.folder_id===f.id).map(fi=>({
-        id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:fi.locked||false,
-        sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,url:fi.url||null
+      files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
+        id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
+        sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
+        url:fi.storage_path?_supa.storage.from('huddledin-files').getPublicUrl(fi.storage_path).data.publicUrl:null
       }))
     }));
   },
   async addFile(file){
-    const payload={folder_id:file.folderId,child_id:file.childId,name:file.name,locked:false,uploaded_by:file.uploadedBy,url:file.url||null};
+    const payload={child_id:file.childId,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
     const {data,error}=await _supa.from('files').insert(payload).select('id').single();
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
     return data;
@@ -4114,13 +4115,14 @@ function showShareModal(file){
       try{
         const {path,url}=await SB.uploadFile(S.activeChild,file);
         const folderId=folderSel.value;
-        const newFile={folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,uploadedBy:'parent',url};
+        const folder=DB.folders.find(f=>f.id===folderId);
+        const newFile={childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder?.key||'general'};
         const saved=await SB.addFile(newFile);
         const fileId=saved?.id||crypto.randomUUID();
         // Update local cache so UI reflects immediately without a full refresh
         const fls=DB.folders;
         const fi2=fls.find(f=>f.id===folderId);
-        if(fi2)fi2.files.push({id:fileId,name:newFile.name,date:newFile.date,locked:false,sharedWith:[],uploadedBy:'parent',url});
+        if(fi2)fi2.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
         DB.folders=fls;
         close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
