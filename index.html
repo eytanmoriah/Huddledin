@@ -1975,7 +1975,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
   return{ok:true,childId,child};
 }
 
-function approveSpecialistRequest(requestId,selectedFolders){
+async function approveSpecialistRequest(requestId,selectedFolders){
   const requests=DB.specialistRequests||[];
   const reqIdx=requests.findIndex(r=>r.id===requestId);
   if(reqIdx===-1)return;
