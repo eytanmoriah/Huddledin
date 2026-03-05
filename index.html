@@ -1474,40 +1474,31 @@ async function refreshFromSupabase(){
         }
       }catch(e){}
     } else if(session.role==='specialist'){
-      const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',session.id).eq('status','active');
-      if(specRows&&specRows.length>0){
-        const childIds=specRows.map(r=>r.child_id).filter(Boolean);
-        if(childIds.length>0){
-          const {data:children}=await _supa.from('children').select('*').in('id',childIds);
-          if(children&&children.length>0){
-            const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active'}));
-            LS.set('children',mapped);
-            // Load folders for each patient (auto-provision defaults if none exist)
-            const allFolders=[];
-            for(const ch of mapped){
-              try{
-                let f=await SB.getFolders(ch.id);
-                if(f.length===0)f=[];
-                allFolders.push(...f);
-              }catch(e){}
-            }
-            if(allFolders.length>0)LS.set('folders',allFolders);
+      // Use specialist_requests as the multi-child junction (supports multiple patients per specialist)
+      const specId=session.specialistId||session.id;
+      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
+      const childIds=[...new Set((reqRows||[]).map(r=>r.child_id).filter(Boolean))];
+      if(childIds.length>0){
+        const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+        if(children&&children.length>0){
+          const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active'}));
+          LS.set('children',mapped);
+          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
+          // Load folders for each patient
+          const allFolders=[];
+          for(const ch of mapped){
+            try{let f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}
           }
-          // Load this specialist's folder permissions from Supabase
-          try{
-            const specId=session.specialistId||session.id;
-            const {data:perms}=await _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId);
-            const permMap={};
-            (perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
-            // Store in dedicated key so renderFiles can read it even if DB.specialists is empty
-            LS.set('my_perms',permMap);
-            // Also try to update DB.specialists record if it exists
-            const specs=DB.specialists;
-            const si=specs.findIndex(s=>s.id===specId);
-            if(si>-1){specs[si].permissions={...specs[si].permissions,...permMap};DB.specialists=specs;}
-          }catch(e){}
+          if(allFolders.length>0)LS.set('folders',allFolders);
         }
       }
+      // Load this specialist's folder permissions from Supabase
+      try{
+        const {data:perms}=await _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId);
+        const permMap={};
+        (perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
+        LS.set('my_perms',permMap);
+      }catch(e){}
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
@@ -2026,7 +2017,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
           requested_at:new Date().toISOString()
         },{onConflict:'specialist_id,child_id'});
       }catch(e){console.log('specialist_requests upsert error:',e);}
-      // Also add to specialists table so specialist can see the child
+      // Update specialist profile in specialists table (single row per specialist — profile info only)
       try{
         await _supa.from('specialists').upsert({
           id:specialistId,
@@ -2233,6 +2224,7 @@ function showEnterCodeModal(){
       toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
       S.activeChild=result.childId;
       S.activeTab='dashboard';
+      await refreshFromSupabase();
       re();
     }));
   },440);
