@@ -1352,7 +1352,7 @@ const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const SB = {
   async getChildren(parentId){
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
-    return (data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+    return (data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,status:c.status||'active'}));
   },
   async addChild(parentId,child,householdId){
     const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
@@ -1403,7 +1403,7 @@ async function refreshFromSupabase(){
       let children=[];
       if(hid){
         const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=(data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+        children=(data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,status:c.status||'active'}));
       } else {
         children=await SB.getChildren(session.id);
       }
@@ -1432,7 +1432,7 @@ async function refreshFromSupabase(){
         if(childIds.length>0){
           const {data:children}=await _supa.from('children').select('*').in('id',childIds);
           if(children&&children.length>0){
-            const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null}));
+            const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active'}));
             LS.set('children',mapped);
           }
         }
@@ -5404,11 +5404,17 @@ function renderPatients(){
       const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
       toggle.onclick=e=>{
         e.stopPropagation();
-        const idx=DB.children.findIndex(ch=>ch.id===c.id);
+        const children=DB.children;
+        const idx=children.findIndex(ch=>ch.id===c.id);
         if(idx>-1){
-          DB.children[idx].status=(c.status||'active')==='active'?'inactive':'active';
-          DB.children=DB.children;
+          children[idx].status=(children[idx].status||'active')==='active'?'inactive':'active';
+          DB.children=children;
+        } else {
+          const lsc=LS.get('children',[]);
+          const li=lsc.findIndex(ch=>ch.id===c.id);
+          if(li>-1){lsc[li].status=(lsc[li].status||'active')==='active'?'inactive':'active';LS.set('children',lsc);}
         }
+        S.patientStatusFilter='all';
         re();
       };
       card.appendChild(toggle);
