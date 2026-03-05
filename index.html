@@ -1466,7 +1466,7 @@ async function refreshFromSupabase(){
       try{
         const {data:reqs}=await _supa.from('specialist_requests').select('*').eq('parent_id',session.id).eq('status','pending');
         if(reqs&&reqs.length>0){
-          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status}));
+          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
           const existing=DB.specialistRequests||[];
           const merged=[...existing];
           mapped.forEach(r=>{if(!merged.some(e=>e.id===r.id))merged.push(r);});
@@ -1493,6 +1493,21 @@ async function refreshFromSupabase(){
             }
             if(allFolders.length>0)LS.set('folders',allFolders);
           }
+          // Load this specialist's folder permissions from Supabase
+          try{
+            const specId=session.specialistId||session.id;
+            const {data:perms}=await _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId);
+            if(perms&&perms.length>0){
+              const specs=DB.specialists;
+              const si=specs.findIndex(s=>s.id===specId);
+              if(si>-1){
+                const permMap={};
+                perms.forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
+                specs[si].permissions={...specs[si].permissions,...permMap};
+                DB.specialists=specs;
+              }
+            }
+          }catch(e){}
         }
       }
     }
@@ -2069,17 +2084,31 @@ async function approveSpecialistRequest(requestId,selectedFolders){
       await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
     }
   }catch(e){}
-  // Auto-create a folder for this specialist's profession if none exists for that key
+  // Auto-create folder + grant permission for specialist's profession
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
   if(prof){
+    // Grant profession key permission immediately
+    const specs2=DB.specialists;
+    const si2=specs2.findIndex(s=>s.id===req.specialistId);
+    if(si2>-1){
+      if(!specs2[si2].permissions[req.childId])specs2[si2].permissions[req.childId]=[];
+      if(!specs2[si2].permissions[req.childId].includes(prof.key))
+        specs2[si2].permissions[req.childId].push(prof.key);
+      DB.specialists=specs2;
+    }
+    // Create folder in Supabase if it doesn't exist yet
     const existing=DB.folders.filter(f=>f.childId===req.childId);
     if(!existing.some(f=>f.key===prof.key)){
       const newF={id:'f_'+req.childId+'_'+prof.key+'_'+Date.now(),name:prof.label,icon:prof.icon,key:prof.key,childId:req.childId};
-      SB.addFolder(newF).then(()=>{
-        const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();
-      }).catch(()=>{});
+      SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(()=>{});
     }
+    // Persist profession permission to folder_permissions table
+    if(_supa&&req.specialistId)
+      _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:prof.key}).catch(()=>{});
   }
+  // Persist all manually selected folder permissions too
+  if(_supa&&req.specialistId&&selectedFolders.length)
+    selectedFolders.forEach(key=>_supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key}).catch(()=>{}));
   const child=DB.children.find(c=>c.id===req.childId);
   pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
   re();
@@ -2090,8 +2119,33 @@ function denySpecialistRequest(requestId){
   const requests=DB.specialistRequests||[];
   const idx=requests.findIndex(r=>r.id===requestId);
   if(idx>-1){requests[idx].status='denied';DB.specialistRequests=requests;}
+  if(_supa)_supa.from('specialist_requests').update({status:'denied'}).eq('id',requestId).catch(()=>{});
   re();
   toast('Request declined.');
+}
+
+async function approveFolderRequest(req){
+  // Grant the specific folder key that was requested
+  const specs=DB.specialists;
+  const si=specs.findIndex(s=>s.id===req.specialistId);
+  if(si>-1){
+    if(!specs[si].permissions[req.childId])specs[si].permissions[req.childId]=[];
+    if(!specs[si].permissions[req.childId].includes(req.requestedFolder))
+      specs[si].permissions[req.childId].push(req.requestedFolder);
+    DB.specialists=specs;
+  }
+  // Mark request approved
+  const reqs=DB.specialistRequests;
+  const ri=reqs.findIndex(r=>r.id===req.id);
+  if(ri>-1){reqs[ri].status='approved';DB.specialistRequests=reqs;}
+  // Persist to Supabase
+  if(_supa&&req.specialistId){
+    await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:req.requestedFolder}).catch(()=>{});
+    await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id).catch(()=>{});
+  }
+  const folder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===req.childId);
+  re();
+  toast('✅ Access granted to '+(folder?.name||req.requestedFolder)+' for '+req.specialistName+'!');
 }
 
 function showConnectionCodeModal(childId){
@@ -4254,9 +4308,18 @@ function showAccessRequest(folder){
       const reqs=DB.specialistRequests||[];
       const alreadyPending=reqs.some(r=>r.specialistId===specId&&r.childId===childId&&r.requestedFolder===folder.key&&r.status==='pending');
       if(alreadyPending){toast('⚠️ You already have a pending request for this folder.','info');close();return;}
-      reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedAt:new Date().toISOString(),status:'pending'});
+      const newReq={id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedFolderName:folder.name,requestType:'folder',requestedAt:new Date().toISOString(),status:'pending'};
+      reqs.push(newReq);
       DB.specialistRequests=reqs;
-      pushNotif('invite',`${specName} requested access to ${folder.name}.`,childId);
+      // Save to Supabase so parent on any device sees it
+      if(session&&session.id!=='demo'){
+        _supa.from('children').select('parent_id').eq('id',childId).single().then(({data})=>{
+          if(data?.parent_id){
+            _supa.from('specialist_requests').insert({id:newReq.id,parent_id:data.parent_id,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'}).catch(()=>{});
+          }
+        }).catch(()=>{});
+      }
+      pushNotif('invite',`${specName} is requesting access to the ${folder.name} folder.`,childId);
       close();
       toast('✅ Access request sent to parent!');
     }));
@@ -4304,12 +4367,40 @@ function renderTeam(){
     sec.appendChild(connBanner);
   }
 
-  // Pending access requests (opt-in approval section)
+  // Pending requests — split into join requests vs folder access requests
   if(child){
-    const pendingReqs=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
-    if(pendingReqs.length>0){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['Pending Access Requests']));
-      pendingReqs.forEach(req=>{
+    const allPending=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
+    const joinReqs=allPending.filter(r=>!r.requestType||r.requestType==='join');
+    const folderReqs=allPending.filter(r=>r.requestType==='folder');
+
+    // ── Folder access requests (specialist already on team, wants a specific folder) ──
+    if(folderReqs.length>0){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
+      folderReqs.forEach(req=>{
+        const reqFolder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===child.id);
+        const reqCard=el('div',{class:'spec-request-card'});
+        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
+        topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+new Date(req.requestedAt).toLocaleDateString()]));
+        topRow.appendChild(info);
+        reqCard.appendChild(topRow);
+        reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},
+          ['Requesting access to: '+(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)]));
+        const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
+        btnRow.appendChild(mkBtn('✅ Grant Access','btn-sm btn-primary',()=>approveFolderRequest(req)));
+        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        reqCard.appendChild(btnRow);
+        sec.appendChild(reqCard);
+      });
+      sec.appendChild(el('div',{class:'sep'}));
+    }
+
+    // ── Join requests (specialist wants to join the team) ──
+    if(joinReqs.length>0){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['👥 Pending Team Requests']));
+      joinReqs.forEach(req=>{
         const reqCard=el('div',{class:'spec-request-card'});
         const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
         topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
@@ -4318,23 +4409,24 @@ function renderTeam(){
         info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · Requested '+new Date(req.requestedAt).toLocaleDateString()]));
         topRow.appendChild(info);
         reqCard.appendChild(topRow);
-        // Folder selection for approval
-        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Choose which folders to grant access:']));
-        const folderKeys=['speech','ot','pt','general','meds','school'];
-        const selFolders=[];
+        // Show actual folders for this child, pre-check the profession folder
+        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Choose which folders to share:']));
+        const childFolders=DB.folders.filter(f=>f.childId===child.id);
+        const profMatch=PROFESSIONS.find(p=>p.label===req.role);
+        const selFolders=profMatch?[profMatch.key]:[];
         const fRows=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'12px'}});
-        folderKeys.forEach(key=>{
-          const folder=DB.folders.find(f=>f.key===key);
+        childFolders.forEach(folder=>{
           const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',padding:'7px 11px',borderRadius:'11px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',fontSize:'.8rem',fontWeight:700}});
           const cb=el('input',{type:'checkbox'});
-          cb.onchange=e=>{if(e.target.checked){if(!selFolders.includes(key))selFolders.push(key);}else{const fi=selFolders.indexOf(key);if(fi>-1)selFolders.splice(fi,1);}};
-          lbl.appendChild(cb);lbl.appendChild(document.createTextNode((folder?.icon||'📁')+' '+(folder?.name||key)));
+          cb.checked=selFolders.includes(folder.key);
+          cb.onchange=e=>{if(e.target.checked){if(!selFolders.includes(folder.key))selFolders.push(folder.key);}else{const fi=selFolders.indexOf(folder.key);if(fi>-1)selFolders.splice(fi,1);}};
+          lbl.appendChild(cb);lbl.appendChild(document.createTextNode(folder.icon+' '+folder.name));
           fRows.appendChild(lbl);
         });
+        if(!childFolders.length)fRows.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},['No folders created yet — specialist will get access when folders are added.']));
         reqCard.appendChild(fRows);
         const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
         btnRow.appendChild(mkBtn('Approve & Grant Access','btn-sm btn-primary',()=>{
-          if(!selFolders.length){toast('Select at least one folder to grant.','error');return;}
           approveSpecialistRequest(req.id,selFolders);
         }));
         btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
