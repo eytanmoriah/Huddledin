@@ -1232,6 +1232,32 @@ const SEED = {
   specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
 
+/* ── Standardised profession list ── */
+const PROFESSIONS=[
+  {label:'Speech-Language Therapist', key:'speech',  icon:'🗣️'},
+  {label:'Occupational Therapist',    key:'ot',      icon:'✋'},
+  {label:'Physical Therapist',        key:'pt',      icon:'🏃'},
+  {label:'ABA / Behavioral Therapist',key:'aba',     icon:'🧩'},
+  {label:'Psychologist',              key:'psych',   icon:'🧠'},
+  {label:'Psychiatrist',              key:'psych',   icon:'🧠'},
+  {label:'Developmental Pediatrician',key:'dev',     icon:'👶'},
+  {label:'Pediatrician',              key:'general', icon:'🏥'},
+  {label:'Neurologist',               key:'neuro',   icon:'🧬'},
+  {label:'Audiologist',               key:'audio',   icon:'👂'},
+  {label:'Vision Therapist',          key:'vision',  icon:'👁️'},
+  {label:'Special Education Teacher', key:'edu',     icon:'📚'},
+  {label:'Educational Therapist',     key:'edu',     icon:'📚'},
+  {label:'Social Worker',             key:'social',  icon:'🤝'},
+  {label:'Feeding Therapist',         key:'feeding', icon:'🍽️'},
+  {label:'Music Therapist',           key:'music',   icon:'🎵'},
+  {label:'Art Therapist',             key:'art',     icon:'🎨'},
+  {label:'Dietitian / Nutritionist',  key:'diet',    icon:'🥗'},
+  {label:'Orthopedic Specialist',     key:'ortho',   icon:'🦴'},
+  {label:'Genetic Counselor',         key:'genetics',icon:'🧬'},
+  {label:'Case Manager / Coordinator',key:'case',    icon:'📋'},
+  {label:'Other / General',           key:'general', icon:'📁'}
+];
+
 // Demo data loaded when user clicks "Try Demo"
 const DEMO_SEED={
   children:[
@@ -1360,6 +1386,11 @@ const SB = {
   },
   async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
   async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
+  async addFolder(folder){
+    const {data,error}=await _supa.from('folders').insert({id:folder.id,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
+    if(error)throw error;
+    return data;
+  },
   async uploadFile(storagePath,file){
     const path=`${storagePath}/${Date.now()}_${file.name}`;
     const {error}=await _supa.storage.from('huddledin-files').upload(path,file,{contentType:file.type,upsert:false});
@@ -1382,6 +1413,20 @@ const SB = {
   }
 };
 
+async function _provisionDefaultFolders(childId){
+  const defaults=[
+    {id:'f_'+childId+'_sp', name:'Speech Therapy',      icon:'🗣️',key:'speech', childId},
+    {id:'f_'+childId+'_ot', name:'Occupational Therapy',icon:'✋', key:'ot',     childId},
+    {id:'f_'+childId+'_pt', name:'Physical Therapy',    icon:'🏃', key:'pt',     childId},
+    {id:'f_'+childId+'_med',name:'Medical Records',     icon:'📋', key:'general',childId},
+    {id:'f_'+childId+'_meds',name:'Medications',        icon:'💊', key:'meds',   childId},
+    {id:'f_'+childId+'_sch',name:'School Reports',      icon:'🏫', key:'school', childId}
+  ];
+  const created=[];
+  for(const f of defaults){try{await SB.addFolder(f);created.push({...f,files:[]});}catch(e){}}
+  return created;
+}
+
 async function refreshFromSupabase(){
   if(!session||session.id==='demo')return;
   try{
@@ -1402,11 +1447,17 @@ async function refreshFromSupabase(){
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
       LS.set('specialists',specs||[]);
-      // Load folders for all children from Supabase
+      // Load folders for all children from Supabase (auto-provision defaults if none exist)
       try{
         const allFolders=[];
-        for(const ch of children){try{const f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}}
-        LS.set('folders',allFolders);
+        for(const ch of children){
+          try{
+            let f=await SB.getFolders(ch.id);
+            if(f.length===0)f=await _provisionDefaultFolders(ch.id);
+            allFolders.push(...f);
+          }catch(e){}
+        }
+        if(allFolders.length>0)LS.set('folders',allFolders);
       }catch(e){}
       // Load pending specialist requests from Supabase
       try{
@@ -1428,10 +1479,16 @@ async function refreshFromSupabase(){
           if(children&&children.length>0){
             const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active'}));
             LS.set('children',mapped);
-            // Load folders for each patient
+            // Load folders for each patient (auto-provision defaults if none exist)
             const allFolders=[];
-            for(const ch of mapped){try{const f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}}
-            LS.set('folders',allFolders);
+            for(const ch of mapped){
+              try{
+                let f=await SB.getFolders(ch.id);
+                if(f.length===0)f=await _provisionDefaultFolders(ch.id);
+                allFolders.push(...f);
+              }catch(e){}
+            }
+            if(allFolders.length>0)LS.set('folders',allFolders);
           }
         }
       }
@@ -2009,6 +2066,17 @@ async function approveSpecialistRequest(requestId,selectedFolders){
       await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
     }
   }catch(e){}
+  // Auto-create a folder for this specialist's profession if none exists for that key
+  const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
+  if(prof){
+    const existing=DB.folders.filter(f=>f.childId===req.childId);
+    if(!existing.some(f=>f.key===prof.key)){
+      const newF={id:'f_'+req.childId+'_'+prof.key+'_'+Date.now(),name:prof.label,icon:prof.icon,key:prof.key,childId:req.childId};
+      SB.addFolder(newF).then(()=>{
+        const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();
+      }).catch(()=>{});
+    }
+  }
   const child=DB.children.find(c=>c.id===req.childId);
   pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
   re();
@@ -2318,7 +2386,7 @@ function renderAuth(){
     if(mode==='signup'){
       const ni=el('input',{class:'inp',placeholder:'Your full name',type:'text'});ni.id='auth-name';ig.appendChild(ni);
       if(selRole==='specialist'){
-        const pi2=el('input',{class:'inp',placeholder:'Your profession (e.g. Speech Therapist)',type:'text'});pi2.id='auth-profession';ig.appendChild(pi2);
+        const pi2=el('select',{class:'inp'});pi2.id='auth-profession';PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;pi2.appendChild(o);});ig.appendChild(pi2);
       }
     }
     const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
@@ -3722,7 +3790,7 @@ function renderFiles(){
   // Task 4 — vault-aware permission check
   // Standard folders: parent always access, specialist needs permission key
   const canAccess=key=>isParent||perms.includes(key);
-  const folders=DB.folders.filter(f=>f.childId===S.activeChild||!f.childId);
+  const folders=DB.folders.filter(f=>f.childId===S.activeChild);
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
@@ -3740,10 +3808,20 @@ function renderFiles(){
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
     hd.appendChild(el('div',{class:'sec-hd-right'},[
+      mkBtn('📁 New Folder','btn-sm btn-ghost',()=>showAddFolderModal()),
       mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInput')?.click())
     ]));
   }
   sec.appendChild(hd);
+
+  if(folders.length===0){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📁']),
+      el('div',{class:'empty-state-title'},['Setting up folders…']),
+      el('div',{class:'empty-state-body'},['Your folders are being created. Pull down to refresh.'])
+    ]));
+    return sec;
+  }
 
   const grid=el('div',{class:'g-folder'});
   folders.forEach(folder=>{
@@ -3922,12 +4000,17 @@ function showShareModal(file){
     // Which folder
     mb.appendChild(el('div',{class:'inp-label'},['Save to folder']));
     const folderSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
-    DB.folders.filter(f=>f.childId===S.activeChild||!f.childId).forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+    DB.folders.filter(f=>f.childId===S.activeChild).forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
     mb.appendChild(folderSel);
 
     const row2=d('',[], {display:'flex',gap:'10px'});
     row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
     const upBtn=mkBtn('','btn-md btn-primary btn-full',async()=>{
+      if(!folderSel.value){
+        upBtn.innerHTML='📤 Upload & Share';upBtn.disabled=false;
+        toast('No folders available yet. Please wait a moment and try again.','error');
+        return;
+      }
       upBtn.innerHTML='<span class="spinner"></span> Uploading...';upBtn.disabled=true;
       try{
         const {path,url}=await SB.uploadFile(S.activeChild,file);
@@ -3946,6 +4029,59 @@ function showShareModal(file){
     row2.appendChild(upBtn);
     mb.appendChild(row2);
   },520);
+}
+
+function showAddFolderModal(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  if(!child){toast('Select a child first.','error');return;}
+  openModal('📁 New Folder',(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},['Folder name']));
+    const nameInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
+    mb.appendChild(nameInp);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Icon']));
+    const iconInp=el('input',{class:'inp',placeholder:'📁',style:{marginBottom:'14px',width:'80px'}});
+    iconInp.value='📁';
+    mb.appendChild(iconInp);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Who can see this folder?']));
+    const permsMap={};
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      permsMap[s.id]=false;
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 12px',borderRadius:'12px',background:'var(--mint-ll)'}});
+      const cb=el('input',{type:'checkbox'});cb.checked=false;
+      cb.onchange=e=>permsMap[s.id]=e.target.checked;
+      lbl.appendChild(cb);
+      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.84rem'}},[s.avatar+' '+s.name+' · '+s.role]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+
+    const row2=d('',[], {display:'flex',gap:'10px'});
+    row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    row2.appendChild(mkBtn('Create Folder','btn-md btn-primary btn-full',async()=>{
+      const name=nameInp.value.trim();
+      if(!name){toast('Please enter a folder name.','error');return;}
+      const key='custom_'+Date.now();
+      const newFolder={id:'f_'+S.activeChild+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,childId:S.activeChild};
+      try{
+        await SB.addFolder(newFolder);
+        const selected=Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k);
+        const fls=DB.folders;fls.push({...newFolder,files:[]});DB.folders=fls;
+        if(selected.length){
+          const specs=DB.specialists;
+          selected.forEach(sId=>{
+            const si=specs.findIndex(s=>s.id===sId);
+            if(si>-1){if(!specs[si].permissions[S.activeChild])specs[si].permissions[S.activeChild]=[];specs[si].permissions[S.activeChild].push(key);}
+          });
+          DB.specialists=specs;
+        }
+        close();re();toast('📁 "'+name+'" folder created!');
+      }catch(e){toast('❌ Could not create folder: '+e.message,'error');}
+    }));
+    mb.appendChild(row2);
+  },500);
 }
 
 function showFolderModal(folder,isParent){
@@ -4255,7 +4391,7 @@ function showInviteModal(){
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     const ni=el('input',{class:'inp',placeholder:"Specialist's full name",type:'text'});
     const ei=el('input',{class:'inp',placeholder:"Specialist's email address",type:'email'});
-    const ri=el('input',{class:'inp',placeholder:'Role (e.g. Speech Therapist)'});
+    const ri=el('select',{class:'inp',style:{marginBottom:'8px'}});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
     [ni,ei,ri].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
 
@@ -6024,7 +6160,7 @@ function renderSpecialistRequest(){
   const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
   const pi=el('input',{class:'inp',placeholder:"Parent's email address",type:'email'});
   const ni=el('input',{class:'inp',placeholder:"Child's name"});
-  const ri=el('input',{class:'inp',placeholder:"Reason / your role (e.g. Speech Therapist for Lily)"});
+  const ri=el('select',{class:'inp'});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
   [pi,ni,ri].forEach(i=>ig.appendChild(i));
   fc.appendChild(ig);
   fc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
