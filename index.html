@@ -3438,6 +3438,7 @@ function renderContent(){
   if(t==='notifications')return renderNotifications();
   if(t==='settings')return renderSettings();
   if(t==='patients')return renderPatients();
+  if(t==='patient-detail')return renderPatientDashboard();
   if(t==='vault')return renderVault();
   if(t==='todo')return renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
@@ -3679,33 +3680,11 @@ function renderSpecDashboard(){
    {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
-    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),d('',[el('div',{class:'stat-val',style:{fontSize:'1.5rem'}},[icon]),el('div',{class:'stat-lbl'},[lbl])])]));
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),el('div',{class:'stat-lbl'},[lbl])]));
     sc.onclick=()=>{S.activeTab=tab;re();};
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
-
-  // If a patient is selected, show square nav grid for that patient
-  if(S.activeChild){
-    const pt=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
-    if(pt){
-      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.95rem'}},[pt.avatar+' '+pt.name+"'s Profile"]));
-      const ptGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
-      [
-        {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
-        {icon:'📋',label:'Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
-        {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-        {icon:'💬',label:'Chat',color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
-      ].forEach(({icon,label,color,bg,tab})=>{
-        const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
-        sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
-        sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
-        sq.onclick=()=>{S.activeTab=tab;re();};
-        ptGrid.appendChild(sq);
-      });
-      sec.appendChild(ptGrid);
-    }
-  }
 
   // Promotion block — shown when specialist has at least 1 patient
   if(myPatients.length>=1){
@@ -4789,7 +4768,7 @@ function renderVault(){
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['Private Vault']),
+    el('h2',{class:'page-title'},['Clinical Notes']),
     el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -5434,13 +5413,78 @@ function renderPatients(){
       };
       card.appendChild(toggle);
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';re();};
+      card.onclick=()=>{S.activeChild=c.id;S.activeTab='patient-detail';re();};
       stack.appendChild(card);
     });
   };
   doFilter('');
   si.oninput=e=>doFilter(e.target.value);
   sec.appendChild(stack);
+  return sec;
+}
+
+/* ═══════════════════════════════════════════════
+   PATIENT DASHBOARD (Specialist → patient detail)
+═══════════════════════════════════════════════ */
+function renderPatientDashboard(){
+  const specId=session?.specialistId;
+  const child=DB.children.find(c=>c.id===S.activeChild)
+    ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+  if(!child){S.activeTab='patients';re();return el('div');}
+
+  const patientApts=DB.appointments.filter(a=>
+    a.childId===child.id&&(a.specialistId===specId||a.sharedWith?.includes(specId))
+  );
+
+  const sec=el('div',{class:'section'});
+
+  // Back button
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{S.activeTab='patients';re();});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+
+  // Patient header bubble
+  const hdrCard=el('div',{class:'card',style:{
+    background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+    border:'1.5px solid var(--lav)',
+    display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
+  }});
+  hdrCard.appendChild(el('div',{style:{
+    width:'56px',height:'56px',borderRadius:'16px',
+    background:child.color+'44',display:'flex',alignItems:'center',
+    justifyContent:'center',fontSize:'2rem',flexShrink:0
+  }},[child.avatar]));
+  const hInfo=el('div',{style:{flex:1}});
+  hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
+  hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
+    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]));
+  hdrCard.appendChild(hInfo);
+  sec.appendChild(hdrCard);
+
+  // 2×2 action grid
+  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  [
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
+    {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework'},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
+  ].forEach(({icon,label,color,bg,tab})=>{
+    const sq=el('div',{class:'card hov',style:{
+      cursor:'pointer',padding:'20px 16px',display:'flex',
+      flexDirection:'column',alignItems:'center',justifyContent:'center',
+      gap:'10px',minHeight:'100px',background:bg,
+      border:'1.5px solid '+color+'33',textAlign:'center'
+    }});
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
+    sq.onclick=()=>{S.activeTab=tab;re();};
+    grid.appendChild(sq);
+  });
+  sec.appendChild(grid);
+
+  // Mini-calendar filtered to this patient only
+  sec.appendChild(renderMiniCalendar([child], patientApts));
+
   return sec;
 }
 
