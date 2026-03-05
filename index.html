@@ -4076,32 +4076,34 @@ function renderFiles(){
 }
 
 function showShareModal(file){
-  openModal('📤 Upload & Share',(mb,close)=>{
-    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[`Who can view "${file.name}"?`]));
-    const permsMap={};
-    const rows=el('div',{class:'inp-group',style:{marginBottom:'18px'}});
-    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
-      permsMap[s.id]=false;
-      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
-      const cb=el('input',{type:'checkbox'});cb.checked=false;
-      cb.onchange=e=>permsMap[s.id]=e.target.checked;
-      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
-      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
-      rows.appendChild(lbl);
-    });
-    mb.appendChild(rows);
-
+  openModal('📤 Upload File',(mb,close)=>{
     // Which folder
     mb.appendChild(el('div',{class:'inp-label'},['Save to folder']));
     const folderSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
     DB.folders.filter(f=>f.childId===S.activeChild).forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
     mb.appendChild(folderSel);
 
+    // Show who will see the file based on folder access (read-only info)
+    const accessInfo=el('div',{style:{background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'12px',padding:'10px 13px',marginBottom:'16px',fontSize:'.8rem',color:'var(--slate)'}});
+    function updateAccessInfo(){
+      const folder=DB.folders.find(f=>f.id===folderSel.value);
+      const folderKey=folder?.key;
+      const specsWithAccess=DB.specialists.filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey));
+      if(specsWithAccess.length){
+        accessInfo.textContent='👁 Visible to: '+specsWithAccess.map(s=>s.name).join(', ');
+      } else {
+        accessInfo.textContent='👁 Only visible to you (no specialists have access to this folder yet)';
+      }
+    }
+    folderSel.onchange=updateAccessInfo;
+    updateAccessInfo();
+    mb.appendChild(accessInfo);
+
     const row2=d('',[], {display:'flex',gap:'10px'});
     row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
     const upBtn=mkBtn('','btn-md btn-primary btn-full',async()=>{
       if(!folderSel.value){
-        upBtn.innerHTML='📤 Upload & Share';upBtn.disabled=false;
+        upBtn.innerHTML='📤 Upload';upBtn.disabled=false;
         toast('No folders available yet. Please wait a moment and try again.','error');
         return;
       }
@@ -4109,17 +4111,21 @@ function showShareModal(file){
       try{
         const {path,url}=await SB.uploadFile(S.activeChild,file);
         const folderId=folderSel.value;
-        const newFile={id:'fl_'+Date.now(),folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k),uploadedBy:'parent',url};
+        const folder=DB.folders.find(f=>f.id===folderId);
+        const folderKey=folder?.key;
+        // Auto-share with all specialists who have access to this folder
+        const sharedWith=DB.specialists.filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey)).map(s=>s.id);
+        const newFile={id:'fl_'+Date.now(),folderId,childId:S.activeChild,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith,uploadedBy:'parent',url};
         await SB.addFile(newFile);
         // Update local cache so UI reflects immediately without a full refresh
         const fls=DB.folders;
-        const fi2=fls.find(f=>f.id===folderId)||fls[0];
-        if(fi2)fi2.files.push({id:newFile.id,name:newFile.name,date:newFile.date,locked:false,sharedWith:newFile.sharedWith,uploadedBy:'parent',url});
+        const fi2=fls.find(f=>f.id===folderId);
+        if(fi2)fi2.files.push({id:newFile.id,name:newFile.name,date:newFile.date,locked:false,sharedWith,uploadedBy:'parent',url});
         DB.folders=fls;
         close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
     });
-    upBtn.innerHTML='📤 Upload & Share';
+    upBtn.innerHTML='📤 Upload';
     row2.appendChild(upBtn);
     mb.appendChild(row2);
   },520);
