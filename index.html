@@ -1519,8 +1519,14 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{
       refreshFromSupabase().then(()=>re());
     })
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{
+      refreshFromSupabase().then(()=>re());
+    })
     .subscribe();
 }
+
+// Real-time chat message subscription handle
+let _chatSub=null;
 
 // Real-time permissions sync for specialist — picks up permission grants instantly
 let _specPermsChannel=null;
@@ -1718,7 +1724,8 @@ let S={
   tourActive:false,       // is guided tour running?
   tourStep:0,             // current step index
   patientStatusFilter:'active',  // filter state for renderPatients — survives re()
-  calendarMode:'child'           // 'joint' = all children; 'child' = active child only
+  calendarMode:'child',          // 'joint' = all children; 'child' = active child only
+  activeChatChildId:null
 };
 
 /* ═══════════════════════════════════════════════
@@ -2093,6 +2100,9 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   }catch(e){}
   // Auto-create folder + grant permission for specialist's profession
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
+  const folderKey=prof?prof.key:'spec_'+req.specialistId;
+  const folderName=prof?prof.label:req.specialistName+"'s Folder";
+  const folderIcon=prof?prof.icon:'📁';
   if(prof){
     // Grant profession key permission immediately
     const specs2=DB.specialists;
@@ -2103,15 +2113,15 @@ async function approveSpecialistRequest(requestId,selectedFolders){
         specs2[si2].permissions[req.childId].push(prof.key);
       DB.specialists=specs2;
     }
-    // Create folder in Supabase if it doesn't exist yet
-    const existing=DB.folders.filter(f=>f.childId===req.childId);
-    if(!existing.some(f=>f.key===prof.key)){
-      const newF={id:'f_'+req.childId+'_'+prof.key+'_'+Date.now(),name:prof.label,icon:prof.icon,key:prof.key,childId:req.childId};
-      SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(()=>{});
-    }
     // Persist profession permission to folder_permissions table
     if(_supa&&req.specialistId)
       _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:prof.key}).catch(()=>{});
+  }
+  // Create folder if it doesn't exist yet — always runs regardless of prof match
+  const existing=DB.folders.filter(f=>f.childId===req.childId);
+  if(!existing.some(f=>f.key===folderKey)){
+    const newF={id:'f_'+req.childId+'_'+folderKey+'_'+Date.now(),name:folderName,icon:folderIcon,key:folderKey,childId:req.childId};
+    SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(()=>{});
   }
   // Persist all manually selected folder permissions too
   if(_supa&&req.specialistId&&selectedFolders.length)
@@ -2606,7 +2616,9 @@ function renderShell(){
   // Full-screen calendar overlay (always on top)
   if(S.calFullscreen){
     const shell=el('div',{id:'app-shell'});
+    shell.appendChild(renderHeader());
     shell.appendChild(renderCalFullscreen());
+    shell.appendChild(renderBottomNav());
     return shell;
   }
 
@@ -2963,7 +2975,8 @@ function switchTab(id){
     });
     return;
   }
-  if(id==='calendar') S.calendarMode='joint';
+  if(id==='calendar'){S.calendarMode='joint';S.calFullscreen=false;}
+  if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;}
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
   S.isDrawerOpen=false;
@@ -3697,7 +3710,7 @@ function renderParentDashboard(){
   [
     {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
     {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-    {icon:'🔗',label:'Invite Specialist',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>showConnectionCodeModal(child.id)},
+    {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;switchTab('chat');}},
     {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{S.calendarMode='child';S.activeTab='calendar';re();}},
     {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
     {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
@@ -4409,11 +4422,14 @@ function renderTeam(){
     connBanner.appendChild(el('div',{style:{fontSize:'1.8rem'}},'🔗'));
     const ci=el('div',{style:{flex:1}});
     ci.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}},
-      ['Connection Codes — the fastest way to invite']));
+      ['Invite a specialist to join my team.']));
     ci.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
-      ['Generate a 6-character code and share it with a therapist. They enter it in their app to instantly join.']));
+      ['Generate a connection code or send an email invitation to bring a therapist onto the care team.']));
     connBanner.appendChild(ci);
-    connBanner.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
+    const bannerBtns=el('div',{style:{display:'flex',gap:'8px',flexDirection:'column',alignItems:'flex-end'}});
+    bannerBtns.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
+    bannerBtns.appendChild(mkBtn('📧 Email Invite','btn-sm btn-secondary',()=>showInviteModal()));
+    connBanner.appendChild(bannerBtns);
     sec.appendChild(connBanner);
   }
 
@@ -4983,6 +4999,10 @@ function renderChat(){
     return c.participants.includes(specId);
   });
 
+  const displayChats=S.activeChatChildId
+    ? visChats.filter(c=>c.childId===S.activeChatChildId)
+    : visChats;
+
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('h2',{class:'page-title'},['Messages']));
@@ -4991,13 +5011,18 @@ function renderChat(){
     session?.role==='specialist'?mkBtn('🤝 Request Consult','btn-sm btn-lav',()=>showConsultModal()):el('span')
   ]));
   sec.appendChild(hd);
+  if(S.activeChatChildId){
+    const backRow=el('div',{style:{marginBottom:'10px'}});
+    backRow.appendChild(mkBtn('← All Chats','btn-sm btn-ghost',()=>{S.activeChatChildId=null;re();}));
+    sec.appendChild(backRow);
+  }
 
   const isMobile=window.innerWidth<768;
   const wrap=el('div',{class:'chat-layout',style:{display:'flex',flexDirection:isMobile?'column':'row',gap:'14px',minHeight:isMobile?'auto':'460px'}});
 
   // Chat list sidebar
   const list=el('div',{class:'chat-sidebar card',style:{padding:0,overflow:'hidden',width:isMobile?'100%':'200px',minWidth:isMobile?'unset':'200px',maxHeight:isMobile?'160px':'auto',overflowY:'auto',WebkitOverflowScrolling:'touch',borderRight:isMobile?'none':'1.5px solid var(--mint-l)'}});
-  visChats.forEach(chat=>{
+  displayChats.forEach(chat=>{
     const isConsult=chat.type==='specialist-consult';
     const isGroup=chat.type==='group';
     const lastMsg=chat.messages[chat.messages.length-1];
@@ -5005,8 +5030,9 @@ function renderChat(){
     const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
     const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
+    const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--mint)';
 
-    const item=el('div',{style:{padding:'13px 14px',borderBottom:'1.5px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .12s',minHeight:'52px'}});
+    const item=el('div',{style:{padding:'13px 14px',borderBottom:'1.5px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .12s',minHeight:'52px',borderLeft:S.activeChatChildId?'none':'10px solid '+childColor}});
     const ciTop=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}});
     if(isConsult)ciTop.appendChild(el('span',{class:'badge badge-lav',style:{fontSize:'.6rem',padding:'1px 6px'}},['Consult']));
     if(isGroup)ciTop.appendChild(el('span',{class:'group-badge'},['Group']));
@@ -5018,7 +5044,7 @@ function renderChat(){
     item.onclick=()=>{S.activeChatId=chat.id;re();};
     list.appendChild(item);
   });
-  if(!visChats.length){
+  if(!displayChats.length){
     list.appendChild(el('div',{style:{padding:'20px 16px',color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['No chats yet.']));
   }
   wrap.appendChild(list);
@@ -5061,6 +5087,17 @@ function renderChat(){
     win.appendChild(msgArea);
     // FIX F7: scroll after paint, not after an arbitrary timeout
     requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+    // Real-time message subscription
+    if(session?.id!=='demo'&&activeChat.childId){
+      if(_chatSub)_chatSub.unsubscribe();
+      _chatSub=SB.subscribeToMessages(activeChat.childId,msg=>{
+        const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
+        if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
+          all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,text:msg.text,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
+          DB.chats=all2;re();
+        }
+      });
+    }
 
     const inputRow=el('div',{class:'chat-input-row'});
     const mi=el('input',{class:'inp',placeholder:'Type a message…',style:{flex:'1',fontSize:'16px'}});
@@ -5074,6 +5111,9 @@ function renderChat(){
         const senderKey=role==='parent'?'parent':(specId||session?.email||'unknown');
         all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
         DB.chats=all;
+        if(session?.id!=='demo'){
+          _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,text:txt,created_at:new Date().toISOString()}).catch(()=>{});
+        }
       }
       S.chatMsg='';re();
       // FIX F7: use requestAnimationFrame instead of setTimeout to scroll after DOM is rebuilt
@@ -5092,8 +5132,23 @@ function renderChat(){
 
 function showConsultModal(){
   openModal('🤝 Request to Consult',(mb,close)=>{
+    const specId=session?.specialistId;
+    // "Start Chat with Parent" section — no approval required
+    const chatSection=el('div',{style:{marginBottom:'18px',padding:'14px',background:'var(--mint-ll)',borderRadius:'14px',border:'1.5px solid var(--mint-l)'}});
+    chatSection.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'8px',fontSize:'.9rem'}},['💬 Start Chat with Parent']));
+    chatSection.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'10px',margin:'0 0 10px'}},['Open a direct message thread with the parent — no approval required.']));
+    chatSection.appendChild(mkBtn('💬 Start Chat with Parent','btn-sm btn-primary',()=>{
+      let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes('parent')&&c.participants.includes(specId)&&c.childId===S.activeChild);
+      if(!chat){
+        chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[]};
+        const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
+      }
+      S.activeChatId=chat.id;
+      close();switchTab('chat');
+    }));
+    mb.appendChild(chatSection);
     // FIX B3: declare spec before it is referenced in the click handler closure
-    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+    const spec=DB.specialists.find(s=>s.id===specId);
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
       ['Request parent approval to consult with another specialist:']));
     DB.specialists.filter(s=>s.id!==session?.specialistId&&s.status==='active').forEach(s=>{
