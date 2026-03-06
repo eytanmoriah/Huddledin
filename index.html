@@ -1468,7 +1468,9 @@ async function refreshFromSupabase(){
       }catch(e){}
       // Load pending specialist requests from Supabase
       try{
-        const {data:reqs}=await _supa.from('specialist_requests').select('*').eq('parent_id',session.id).eq('status','pending');
+        let _reqQ=_supa.from('specialist_requests').select('*').eq('status','pending');
+        _reqQ=session.householdId?_reqQ.eq('household_id',session.householdId):_reqQ.eq('parent_id',session.id);
+        const {data:reqs}=await _reqQ;
         if(reqs&&reqs.length>0){
           const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
           const existing=DB.specialistRequests||[];
@@ -2024,6 +2026,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
           role,
           child_id:childId,
           parent_id:parentId,
+          household_id:row.household_id||null,
           status:'pending',
           requested_at:new Date().toISOString()
         },{onConflict:'specialist_id,child_id'});
