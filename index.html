@@ -482,7 +482,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* The drawer panel itself */
 .drawer{
-  position:fixed;top:0;left:0;bottom:0;z-index:400;
+  position:fixed;top:0;left:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:400;
   width:min(300px,82vw);
   background:#fff;
   box-shadow:6px 0 40px rgba(0,0,0,.18),2px 0 8px rgba(0,0,0,.08);
@@ -526,7 +526,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 
 /* Drawer scroll area */
-.drawer-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 10px}
+.drawer-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 10px calc(80px + env(safe-area-inset-bottom,0px)) 10px}
 
 /* Section label inside drawer */
 .drawer-section-label{
