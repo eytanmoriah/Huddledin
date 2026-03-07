@@ -2866,7 +2866,7 @@ function renderHeader(){
     }});
     logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
     logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
-    logo.onclick=()=>{_pushNav();S.navLevel=0;S.isDrawerOpen=false;re();};
+    logo.onclick=()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();};
     logo.title='Back to Family Home';
     inner.appendChild(logo);
 
@@ -3208,6 +3208,7 @@ function switchTab(id){
     return;
   }
   _pushNav();
+  S.calFullscreen=false; // always exit fullscreen when switching tabs
   if(id==='calendar'){S.calendarMode='joint';S.calFullscreen=false;}
   if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
   S.activeTab=id;
@@ -3232,10 +3233,10 @@ function renderBottomNav(){
   if(session?.role==='parent'){
     // 4-icon fixed bar for parents
     const parentTabs=[
-      {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{S.navLevel=0;S.isDrawerOpen=false;re();}},
+      {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
       {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
-      {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>switchTab('chat')},
-      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{S.activeTab='notifications';re();}},
+      {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;switchTab('chat');}},
+      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.activeTab='notifications';re();}},
     ];
     parentTabs.forEach(t=>{
       const b=el('button',{class:'bnav-btn'+(t.isActive?' active':'')});
