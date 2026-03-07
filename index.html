@@ -1357,6 +1357,22 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 /* ── Supabase DB helpers (async) ── */
+// Load folder_permissions from Supabase into specialist objects
+async function _loadSpecPermissions(specs){
+  if(!specs||!specs.length||!_supa)return;
+  try{
+    const specIds=specs.map(s=>s.id);
+    const {data:perms}=await _supa.from('folder_permissions').select('specialist_id,child_id,folder_key').in('specialist_id',specIds);
+    (perms||[]).forEach(p=>{
+      const spec=specs.find(s=>s.id===p.specialist_id);
+      if(spec){
+        if(!spec.permissions[p.child_id])spec.permissions[p.child_id]=[];
+        if(!spec.permissions[p.child_id].includes(p.folder_key))spec.permissions[p.child_id].push(p.folder_key);
+      }
+    });
+  }catch(e){console.error('_loadSpecPermissions:',e);}
+}
+
 const SB = {
   async getChildren(parentId){
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
@@ -1370,11 +1386,15 @@ const SB = {
   async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
   async getSpecialists(parentId){
     const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
-    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    await _loadSpecPermissions(specs);
+    return specs;
   },
   async getSpecialistsByHousehold(householdId){
     const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
-    return (data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    await _loadSpecPermissions(specs);
+    return specs;
   },
   async addSpecialist(spec){const {data}=await _supa.from('specialists').insert(spec).select().single();return data;},
   async updateSpecialist(id,patch){await _supa.from('specialists').update(patch).eq('id',id);},
@@ -1454,16 +1474,10 @@ async function refreshFromSupabase(){
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
       LS.set('specialists',specs||[]);
-      // Load folders for all children from Supabase (auto-provision defaults if none exist)
+      // Load folders for all children in parallel
       try{
-        const allFolders=[];
-        for(const ch of children){
-          try{
-            let f=await SB.getFolders(ch.id);
-            if(f.length===0)f=[];
-            allFolders.push(...f);
-          }catch(e){}
-        }
+        const folderResults=await Promise.all(children.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
+        const allFolders=folderResults.flat();
         if(allFolders.length>0)LS.set('folders',allFolders);
       }catch(e){}
       // Load pending specialist requests from Supabase
@@ -1476,45 +1490,37 @@ async function refreshFromSupabase(){
           DB.specialistRequests=mapped;
         }
       }catch(e){}
-      // Appointments
-      try{
-        const {data:apts}=await _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date');
-        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
-      }catch(e){console.error('refresh appointments:',e);}
-      // Homework
-      try{
-        const {data:hw}=await _supa.from('homework').select('*').eq(hid?'household_id':'child_id',hid||session.id);
-        LS.set('homework',(hw||[]).map(h=>({id:h.id,childId:h.child_id,task:h.task,category:h.category,due:h.due,completed:h.completed,specialist:h.specialist_name||'',specialistId:h.specialist_id||''})));
-      }catch(e){console.error('refresh homework:',e);}
-      // Notifications
-      try{
-        const {data:notifs}=await _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50);
-        LS.set('notifications',(notifs||[]).map(n=>({id:n.id,type:n.type,msg:n.message,read:n.read,childId:n.child_id,time:new Date(n.created_at).toLocaleDateString()})));
-      }catch(e){console.error('refresh notifications:',e);}
-      // Todos
-      try{
-        const {data:tds}=await _supa.from('todos').select('*').eq('user_id',session.id);
-        LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}})));
-      }catch(e){console.error('refresh todos:',e);}
-      // Milestones
-      try{
-        const {data:miles}=await _supa.from('milestones').select('*').eq('household_id',hid||session.id);
-        LS.set('milestones',(miles||[]).map(m=>({id:m.id,childId:m.child_id,title:m.label,date:m.date||'',achieved:m.achieved||false,category:m.category||'General',specialistId:m.specialist_id||null})));
-      }catch(e){console.error('refresh milestones:',e);}
-      // Progress
-      try{
-        const {data:prog}=await _supa.from('progress').select('*').eq('household_id',hid||session.id);
-        LS.set('progress',(prog||[]).map(p=>({id:p.id,childId:p.child_id,category:p.category||'General',label:p.label||'',value:p.value||0,maxValue:p.max_value||100,unit:p.unit||'',date:p.date||'',specialistId:p.specialist_id||null})));
-      }catch(e){console.error('refresh progress:',e);}
-      // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
-      try{
-        const {data:chatRows}=await _supa.from('chats').select('*').eq('household_id',hid||session.id);
-        if(chatRows&&chatRows.length){
-          const existing=DB.chats||[];
-          const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});
-          LS.set('chats',merged);
-        }
-      }catch(e){console.error('refresh chats:',e);}
+      // Fetch all secondary data in parallel for speed
+      await Promise.allSettled([
+        // Appointments
+        _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
+          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
+          .catch(e=>console.error('refresh appointments:',e)),
+        // Homework
+        _supa.from('homework').select('*').eq(hid?'household_id':'child_id',hid||session.id)
+          .then(({data:hw})=>LS.set('homework',(hw||[]).map(h=>({id:h.id,childId:h.child_id,task:h.task,category:h.category,due:h.due,completed:h.completed,specialist:h.specialist_name||'',specialistId:h.specialist_id||''}))))
+          .catch(e=>console.error('refresh homework:',e)),
+        // Notifications
+        _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
+          .then(({data:notifs})=>LS.set('notifications',(notifs||[]).map(n=>({id:n.id,type:n.type,msg:n.message,read:n.read,childId:n.child_id,time:new Date(n.created_at).toLocaleDateString()}))))
+          .catch(e=>console.error('refresh notifications:',e)),
+        // Todos
+        _supa.from('todos').select('*').eq('user_id',session.id)
+          .then(({data:tds})=>LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}}))))
+          .catch(e=>console.error('refresh todos:',e)),
+        // Milestones
+        _supa.from('milestones').select('*').eq('household_id',hid||session.id)
+          .then(({data:miles})=>LS.set('milestones',(miles||[]).map(m=>({id:m.id,childId:m.child_id,title:m.label,date:m.date||'',achieved:m.achieved||false,category:m.category||'General',specialistId:m.specialist_id||null}))))
+          .catch(e=>console.error('refresh milestones:',e)),
+        // Progress
+        _supa.from('progress').select('*').eq('household_id',hid||session.id)
+          .then(({data:prog})=>LS.set('progress',(prog||[]).map(p=>({id:p.id,childId:p.child_id,category:p.category||'General',label:p.label||'',value:p.value||0,maxValue:p.max_value||100,unit:p.unit||'',date:p.date||'',specialistId:p.specialist_id||null}))))
+          .catch(e=>console.error('refresh progress:',e)),
+        // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
+        _supa.from('chats').select('*').eq('household_id',hid||session.id)
+          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});LS.set('chats',merged);}})
+          .catch(e=>console.error('refresh chats:',e))
+      ]);
     } else if(session.role==='specialist'){
       // Use specialist_requests as the multi-child junction (supports multiple patients per specialist)
       const specId=session.specialistId||session.id;
@@ -1526,11 +1532,9 @@ async function refreshFromSupabase(){
           const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id}));
           LS.set('children',mapped);
           if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
-          // Load folders for each patient
-          const allFolders=[];
-          for(const ch of mapped){
-            try{let f=await SB.getFolders(ch.id);allFolders.push(...f);}catch(e){}
-          }
+          // Load folders for each patient in parallel
+          const folderResults2=await Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
+          const allFolders=folderResults2.flat();
           if(allFolders.length>0)LS.set('folders',allFolders);
           // Load appointments for all patients
           try{
@@ -1542,27 +1546,21 @@ async function refreshFromSupabase(){
           }catch(e){console.error('refresh spec appointments:',e);}
         }
       }
-      // Load this specialist's folder permissions from Supabase
-      try{
-        const {data:perms}=await _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId);
-        const permMap={};
-        (perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});
-        LS.set('my_perms',permMap);
-      }catch(e){}
-      // Vault notes for this specialist
-      try{
-        const {data:vnotes}=await _supa.from('vault_notes').select('*').eq('specialist_id',specId).order('created_at',{ascending:false});
-        LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));
-      }catch(e){console.error('refresh vaultNotes:',e);}
-      // Chats for this specialist
-      try{
-        const {data:specChatRows}=await _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]));
-        if(specChatRows&&specChatRows.length){
-          const existing=DB.chats||[];
-          const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});
-          LS.set('chats',merged);
-        }
-      }catch(e){console.error('refresh spec chats:',e);}
+      // Load specialist secondary data in parallel
+      await Promise.allSettled([
+        // Folder permissions
+        _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
+          .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);})
+          .catch(()=>{}),
+        // Vault notes
+        _supa.from('vault_notes').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
+          .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
+          .catch(e=>console.error('refresh vaultNotes:',e)),
+        // Chats
+        _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
+          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});LS.set('chats',merged);}})
+          .catch(e=>console.error('refresh spec chats:',e))
+      ]);
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
@@ -1670,7 +1668,7 @@ async function _loadSessionFromSupabase(s){
       let children=[];
       if(hid){
         const {data:hChildren}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=(hChildren||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url}));
+        children=(hChildren||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id}));
       } else {
         children=await SB.getChildren(s.user.id);
       }
@@ -2109,17 +2107,22 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
       try{
-        await _supa.from('specialist_requests').upsert({
-          specialist_id:specialistId,
-          specialist_name:specialistName,
-          role,
-          child_id:childId,
-          parent_id:parentId,
-          household_id:row.household_id||null,
-          status:'pending',
-          requested_at:new Date().toISOString()
-        },{onConflict:'specialist_id,child_id'});
-      }catch(e){console.log('specialist_requests upsert error:',e);}
+        // Only create if no existing request (don't overwrite already-approved)
+        const {data:existingReq}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).maybeSingle();
+        if(!existingReq){
+          await _supa.from('specialist_requests').insert({
+            specialist_id:specialistId,
+            specialist_name:specialistName,
+            role,
+            child_id:childId,
+            parent_id:parentId,
+            household_id:row.household_id||null,
+            status:'pending',
+            requested_at:new Date().toISOString()
+          });
+        }
+      }catch(e){console.log('specialist_requests insert error:',e);}
       // Update specialist profile in specialists table (single row per specialist — profile info only)
       try{
         await _supa.from('specialists').upsert({
@@ -2188,6 +2191,8 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   try{
     if(_supa&&req.specialistId){
       await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
+      // Mark the request as approved so it stops appearing in parent notifications
+      await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
     }
   }catch(e){}
   // Auto-create folder + grant permission for specialist's profession
@@ -3847,8 +3852,9 @@ function renderParentDashboard(){
       const chk=el('div',{class:'chk'+(hw.completed?' done':'')},hw.completed?['✓']:[]);
       chk.onclick=()=>{
         const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
-        if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;
-          if(!hw.completed)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);}
+        if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
+          if(nv)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);
+          _supa.from('homework').update({completed:nv}).eq('id',hw.id).then(()=>{}).catch(e=>console.error('hw complete:',e));}
         re();
       };
       const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},[hw.task]);
@@ -4969,7 +4975,7 @@ function renderCalendar(){
     card.appendChild(right);
     if(isParent){
       card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Appointment','Remove this appointment?',true,()=>{
-        const apts=DB.appointments;DB.appointments=apts.filter(a=>a.id!==apt.id);re();toast('✅ Appointment removed.');
+        (async()=>{try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){console.error('delete appointment:',e);}const apts=DB.appointments;DB.appointments=apts.filter(a=>a.id!==apt.id);re();toast('✅ Appointment removed.');})();
       })));
     }
     stack.appendChild(card);
@@ -5615,7 +5621,7 @@ function renderTodoCard(todo,today){
   chk.onclick=()=>{
     const all=DB.todos||[];
     const i=all.findIndex(t=>t.id===todo.id);
-    if(i>-1){all[i].completed=!all[i].completed;DB.todos=all;}
+    if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.todos=all;_supa.from('todos').update({completed:nv}).eq('id',todo.id).then(()=>{}).catch(e=>console.error('todo complete:',e));}
     re();
   };
   card.appendChild(chk);
@@ -5846,7 +5852,7 @@ function renderHomeworkSpec(){
     const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
     chk.onclick=()=>{
       const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
-      if(i>-1){all[i].completed=!all[i].completed;DB.homework=all;}re();
+      if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;_supa.from('homework').update({completed:nv}).eq('id',task.id).then(()=>{}).catch(e=>console.error('hw complete:',e));}re();
     };
     card.appendChild(chk);
     const info=d('',[], {flex:1});
