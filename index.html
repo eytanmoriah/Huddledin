@@ -1357,6 +1357,13 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 /* ── Supabase DB helpers (async) ── */
+// Get the household_id for a child — from cache first, then Supabase
+function getChildHouseholdId(childId){
+  if(!childId)return session?.householdId||null;
+  const child=(LS.get('children',[])).find(c=>c.id===childId)||DB.children?.find(c=>c.id===childId);
+  return child?.householdId||session?.householdId||null;
+}
+
 // Load folder_permissions from Supabase into specialist objects
 async function _loadSpecPermissions(specs){
   if(!specs||!specs.length||!_supa)return;
@@ -2100,10 +2107,8 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
       childId=row.child_id;
-      if(!session.householdId&&row.household_id){
-        session.householdId=row.household_id;
-        try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
-      }
+      // Specialists don't store household_id on their profile
+      // They connect to families purely via specialist_requests rows
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
       try{
@@ -2503,7 +2508,7 @@ function pushNotif(type,msg,childId){
   ns.unshift(notif);
   DB.notifications=ns;
   if(session?.id&&session.id!=='demo'){
-    try{_supa.from('notifications').insert({id:notif.id,user_id:session.id,household_id:session.householdId||null,child_id:childId||null,type,message:msg,read:false});}catch(e){}
+    try{_supa.from('notifications').insert({id:notif.id,user_id:session.id,household_id:getChildHouseholdId(childId),child_id:childId||null,type,message:msg,read:false});}catch(e){}
   }
   sendPush('Huddledin 🤝',msg);
 }
@@ -4856,7 +4861,7 @@ function showHandshakeModal(spec){
           childId:S.activeChild,approved:true,
           name:`${spec.name.split(' ')[0]} + ${other.name.split(' ')[0]} Consult`,
           messages:[]};
-        try{await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});}catch(e){console.error('create consult chat:',e);}
+        try{await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:getChildHouseholdId(newChat.childId),type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});}catch(e){console.error('create consult chat:',e);}
         const cs=DB.chats;cs.push(newChat);DB.chats=cs;
       }
       close();re();toast('✅ Consultation approved! Secure chat created.');
@@ -5030,7 +5035,7 @@ function showAddEventModalForDate(dateStr,availableChildren){
       const newApt={id:'a_'+Date.now(),childId:childSel.value,title:titleInp.value.trim(),date:dateInp.value,time:timeInp.value||'09:00',notes:notesInp.value.trim(),specialistId:session?.specialistId||null,sharedWith:[]};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({id:newApt.id,child_id:newApt.childId,parent_id:session.id,household_id:session.householdId||null,title:newApt.title,date:newApt.date,time:newApt.time,type:'general',shared_with:[]});
+          await _supa.from('appointments').insert({id:newApt.id,child_id:newApt.childId,parent_id:session.id,household_id:getChildHouseholdId(newApt.childId),title:newApt.title,date:newApt.date,time:newApt.time,type:'general',shared_with:[]});
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           close();toast('Appointment added!','success');re();
         }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
@@ -5085,7 +5090,7 @@ function showAddEventModal(prefilledDate=null){
       const newApt2={id:'a_'+Date.now(),childId,title:ti.value,specialist:si.value||session?.name||'TBD',specialistId:specId2,date:di.value,time:tmi.value||'TBD',type:typeSel.value,sharedWith};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({id:newApt2.id,child_id:newApt2.childId,parent_id:childRec?.parentId||session.id,household_id:childRec?.householdId||session.householdId||null,specialist_id:session.role==='specialist'?session.id:null,title:newApt2.title,date:newApt2.date,time:newApt2.time,type:newApt2.type,shared_with:newApt2.sharedWith});
+          await _supa.from('appointments').insert({id:newApt2.id,child_id:newApt2.childId,parent_id:childRec?.parentId||session.id,household_id:childRec?.householdId||getChildHouseholdId(newApt2.childId),specialist_id:session.role==='specialist'?session.id:null,title:newApt2.title,date:newApt2.date,time:newApt2.time,type:newApt2.type,shared_with:newApt2.sharedWith});
           const apts=DB.appointments;apts.push(newApt2);DB.appointments=apts;
           if(DB.notifPrefs.appointments)pushNotif('report',`New appointment added: ${ti.value} on ${di.value}`,S.activeChild);
           close();re();toast('✅ Appointment added!');track('Appointment Added');
@@ -5229,7 +5234,7 @@ function renderChat(){
         all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
         DB.chats=all;
         if(session?.id!=='demo'){
-          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:session.householdId||null,created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
+          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
         }
       }
       S.chatMsg='';re();
@@ -5260,7 +5265,7 @@ function showConsultModal(){
         if(!chat){
           chat={id:'ch_'+Date.now(),type:'direct',participants:[session.id,specId],childId:S.activeChild,approved:true,messages:[]};
           try{
-            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:session.householdId||null,type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
+            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
             const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
           }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
         }
@@ -5889,7 +5894,7 @@ function showAssignModal(){
       const newHw={id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value};
       (async()=>{
         try{
-          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:session.householdId||null,specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
+          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:getChildHouseholdId(newHw.childId),specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
           const all=DB.homework;all.unshift(newHw);DB.homework=all;
           pushNotif('homework',`New task: "${ta.value.slice(0,42)}…"`,S.activeChild);
           close();re();toast('✅ Task assigned!');
@@ -6359,7 +6364,7 @@ function showAddMilestoneModal(){
       const newMs={id:'ml_'+Date.now(),childId:S.activeChild,title:ti.value.trim(),date:di.value,achieved:false,category:catSel.value,specialistId:session?.specialistId||null};
       (async()=>{
         try{
-          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:session.householdId||null,label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
+          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:getChildHouseholdId(newMs.childId),label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
           const ms=DB.milestones;ms.push(newMs);DB.milestones=ms;close();re();toast('✅ Milestone added!');
         }catch(e){console.error('add milestone:',e);toast('Could not save milestone.','error');}
       })();
@@ -6384,7 +6389,7 @@ function showLogMeasurementModal(){
       const newProg={id:'p_'+Date.now(),childId:S.activeChild,category:catSel.value,label:lb.value.trim(),value:parseFloat(vi.value),maxValue:parseFloat(mi2.value),unit:ui.value||'',date:di.value,specialistId:session?.specialistId||null};
       (async()=>{
         try{
-          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:session.householdId||null,specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
+          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:getChildHouseholdId(newProg.childId),specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
           const ps=DB.progress;ps.push(newProg);DB.progress=ps;close();S.activeProgressTab='overview';re();toast('📊 Measurement logged!');
         }catch(e){console.error('log measurement:',e);toast('Could not save measurement.','error');}
       })();
@@ -6792,7 +6797,7 @@ function showCreateGroupChatModal(){
       const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[]};
       (async()=>{
         try{
-          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
+          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:getChildHouseholdId(newChat.childId),type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
         }catch(e){console.error('create group chat:',e);toast('Could not create chat.','error');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
