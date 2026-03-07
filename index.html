@@ -1806,6 +1806,8 @@ async function _loadSessionFromSupabase(s){
         S.navLevel=session.role==='parent'?0:1;
         S.activeChild=LS.get('children',[])[0]?.id||null;
       }
+      // Seed browser history so back button works inside app
+      _seedHistory();
       // Process pending invite if any
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
@@ -1818,6 +1820,7 @@ async function _loadSessionFromSupabase(s){
     }
     if(event==='SIGNED_OUT'){session=null;re();}
   });
+  if(session)_seedHistory();
   re(); // initial render
   // Refresh data from Supabase on boot (ensures cross-device consistency)
   if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();setupSpecialistSync();});}
@@ -1833,6 +1836,7 @@ async function doGoogleSignIn(role){
 async function doLogin(email,password,role,name='',profession=''){
   if(password==='demo'&&email==='demo@huddledin.com'){
     session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true};
+    _seedHistory();
     return{ok:true,isNew:true};
   }
   // Try sign-in first
@@ -2862,7 +2866,7 @@ function renderHeader(){
     }});
     logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
     logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
-    logo.onclick=()=>{S.navLevel=0;S.isDrawerOpen=false;re();};
+    logo.onclick=()=>{_pushNav();S.navLevel=0;S.isDrawerOpen=false;re();};
     logo.title='Back to Family Home';
     inner.appendChild(logo);
 
@@ -2902,7 +2906,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -3017,6 +3021,7 @@ function renderDrawer(){
         S.isDrawerOpen=false;
         if(tabId==='home'){
           // Return to Global Family Home
+          _pushNav();
           S.navLevel=0;
           re();
         } else {
@@ -3138,16 +3143,71 @@ function renderSidenav(){
   return nav;
 }
 
+/* ═══════════════════════════════════════════════
+   BACK BUTTON / HISTORY MANAGEMENT
+   Intercepts Android back & iOS swipe-back to
+   navigate within the app instead of exiting.
+═══════════════════════════════════════════════ */
+
+// Snapshot the parts of S that define "which screen you're on"
+function _snapNav(){
+  return{
+    navLevel:S.navLevel,
+    activeTab:S.activeTab,
+    activeChild:S.activeChild,
+    calFullscreen:S.calFullscreen,
+    activeChatId:S.activeChatId,
+    activeVaultId:S.activeVaultId,
+    activeChatChildId:S.activeChatChildId,
+    isDrawerOpen:S.isDrawerOpen,
+    patientStatusFilter:S.patientStatusFilter,
+    activeProgressTab:S.activeProgressTab,
+    calendarMode:S.calendarMode,
+  };
+}
+
+// Push a new history entry (call BEFORE mutating S)
+function _pushNav(){
+  const snap=_snapNav();
+  window.history.pushState(snap,'');
+}
+
+// On popstate (back button / swipe back): restore snapshot
+window.addEventListener('popstate',function(e){
+  if(!session)return; // let browser handle if logged out
+  const snap=e.state;
+  if(!snap){
+    // No state means we're at the very first entry — push a fresh one so
+    // the next back press has somewhere to go, but don't exit the app
+    window.history.pushState(_snapNav(),'');
+    return;
+  }
+  // Restore S from snapshot
+  Object.assign(S,snap);
+  // Close drawer on back
+  S.isDrawerOpen=false;
+  re();
+});
+
+// Seed the initial history entry once session is available
+// Called from login success path
+function _seedHistory(){
+  // Replace the current (empty) entry with our initial state
+  window.history.replaceState(_snapNav(),'');
+}
+
 function switchTab(id){
   // Guard unsaved vault changes
   if(S.activeTab==='vault'&&S.vaultHasUnsaved&&id!=='vault'){
     openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{
+      _pushNav();
       S.vaultHasUnsaved=false;S.activeTab=id;
       if(session?.role==='parent')S.navLevel=1;
       S.isDrawerOpen=false;re();
     });
     return;
   }
+  _pushNav();
   if(id==='calendar'){S.calendarMode='joint';S.calFullscreen=false;}
   if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
   S.activeTab=id;
@@ -3173,7 +3233,7 @@ function renderBottomNav(){
     // 4-icon fixed bar for parents
     const parentTabs=[
       {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{S.navLevel=0;S.isDrawerOpen=false;re();}},
-      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{S.calFullscreen=true;S.navLevel=1;re();}},
+      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
       {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>switchTab('chat')},
       {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{S.activeTab='notifications';re();}},
     ];
@@ -3258,7 +3318,7 @@ function renderSearchOverlay(){
       niBody2.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[n.title]));
       niBody2.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[(c?.avatar||'')+' '+(c?.name||'')+' · '+n.date]));
       item.appendChild(niBody2);
-      item.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
+      item.onclick=()=>{_pushNav();S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
       results.appendChild(item);
     });
     if(!results.children.length){
@@ -3396,7 +3456,7 @@ function renderGlobalHome(){
     if(childHW.length>0){
       bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
     }
-    bubble.onclick=()=>{S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
+    bubble.onclick=()=>{_pushNav();S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
     row.appendChild(bubble);
   });
@@ -3480,7 +3540,7 @@ function renderMiniCalendar(children,allApts){
   };
   calHdRight.appendChild(miniAddBtn);
   const expandBtn=el('button',{class:'mini-cal-expand'},['See Full ›']);
-  expandBtn.onclick=e=>{e.stopPropagation();S.calFullscreen=true;re();};
+  expandBtn.onclick=e=>{e.stopPropagation();_pushNav();S.calFullscreen=true;re();};
   calHdRight.appendChild(expandBtn);
   hd.appendChild(calHdRight);
   card.appendChild(hd);
@@ -3538,7 +3598,7 @@ function renderMiniCalendar(children,allApts){
   }
 
   // Tap whole card to expand
-  card.onclick=()=>{S.calFullscreen=true;re();};
+  card.onclick=()=>{_pushNav();S.calFullscreen=true;re();};
   return card;
 }
 
@@ -3557,7 +3617,7 @@ function renderCalFullscreen(){
 
   // Header
   const hd=el('div',{class:'cal-fs-hd'});
-  const closeBtn=mkBtn('‹ Back','btn-sm btn-slate',()=>{S.calFullscreen=false;re();});
+  const closeBtn=mkBtn('‹ Back','btn-sm btn-slate',()=>{if(window.history.length>1){window.history.back();}else{S.calFullscreen=false;re();}});
   hd.appendChild(closeBtn);
   // FIX B4: dynamic month label
   const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+' — All Children';
@@ -3829,7 +3889,7 @@ function renderParentDashboard(){
       el('div',{class:'empty-state-title'},['No child selected']),
       el('div',{class:'empty-state-body'},['Go back to Family Home and tap a child\'s bubble to view their profile.']),
       el('div',{class:'empty-state-actions'},[
-        mkBtn('← Family Home','btn-md btn-primary',()=>{S.navLevel=0;re();})
+        mkBtn('← Family Home','btn-md btn-primary',()=>{_pushNav();S.navLevel=0;re();})
       ])
     ]));
     return sec;
@@ -3884,7 +3944,7 @@ function renderParentDashboard(){
     {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
     {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
     {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;switchTab('chat');}},
-    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{S.calendarMode='child';S.activeTab='calendar';re();}},
+    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
     {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
     {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
   ].forEach(({icon,label,color,bg,tab,fn})=>{
@@ -3905,7 +3965,7 @@ function renderParentDashboard(){
       el('div',{class:'empty-state-body'},['Add specialists to the care team, schedule appointments, and upload files — all in one place.']),
       el('div',{class:'empty-state-actions'},[
         mkBtn('🔗 Invite Specialist','btn-md btn-primary',()=>showConnectionCodeModal(child.id)),
-        mkBtn('📅 Add Appointment','btn-md btn-secondary',()=>{S.activeTab='calendar';re();})
+        mkBtn('📅 Add Appointment','btn-md btn-secondary',()=>{_pushNav();S.activeTab='calendar';re();})
       ])
     ]));
     return sec;
@@ -6074,7 +6134,7 @@ function renderPatients(){
       };
       card.appendChild(toggle);
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
+      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
       stack.appendChild(card);
     });
   };
@@ -6100,7 +6160,7 @@ function renderPatientDashboard(){
   const sec=el('div',{class:'section'});
 
   // Back button
-  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{S.activeTab='patients';re();});
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{if(window.history.length>1)window.history.back();else{S.activeTab='patients';re();}});
   backBtn.style.marginBottom='16px';
   sec.appendChild(backBtn);
 
