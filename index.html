@@ -4841,7 +4841,7 @@ function showHandshakeModal(spec){
 
     const row2=d('',[], {display:'flex',gap:'11px'});
     row2.appendChild(mkBtn('✗ Deny','btn-md btn-danger',close));
-    row2.appendChild(mkBtn('✓ Approve','btn-md btn-primary',()=>{
+    row2.appendChild(mkBtn('✓ Approve','btn-md btn-primary',async()=>{
       // Create specialist chat
       const other=DB.specialists.find(s=>s.id===selectedConsult);
       if(other){
@@ -5215,7 +5215,7 @@ function renderChat(){
     const mi=el('input',{class:'inp',placeholder:'Type a message…',style:{flex:'1',fontSize:'16px'}});
     mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
     const sb2=el('button',{class:'send-btn',title:'Send message'},['➤']);
-    sb2.onclick=()=>{
+    sb2.onclick=async()=>{
       const txt=mi.value.trim();if(!txt)return;
       const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
       if(ci>-1){
