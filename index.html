@@ -4923,7 +4923,7 @@ function showHandshakeModal(spec){
       const other=DB.specialists.find(s=>s.id===selectedConsult);
       if(other){
         const newChat={id:'ch_'+Date.now(),type:'specialist-consult',
-          participants:inclCb.checked?[session.id,spec.id,selectedConsult]:[spec.id,selectedConsult],
+          participants:inclCb.checked?[(session?.role==='parent'?'parent':session.id),spec.id,selectedConsult]:[spec.id,selectedConsult],
           childId:S.activeChild,approved:true,
           name:`${spec.name.split(' ')[0]} + ${other.name.split(' ')[0]} Consult`,
           messages:[]};
@@ -5184,7 +5184,7 @@ function renderChat(){
   // Filter visible chats
   // FIX FS5: removed hardcoded 's1' fallback — a new specialist should only see their own chats
   const visChats=allChats.filter(c=>{
-    if(role==='parent')return c.participants.includes('parent');
+    if(role==='parent')return c.participants.includes('parent')||c.participants.includes(session?.id);
     if(!specId)return false; // no specialist ID means no accessible chats
     return c.participants.includes(specId);
   });
@@ -5300,7 +5300,7 @@ function renderChat(){
         all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
         DB.chats=all;
         if(session?.id!=='demo'){
-          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:session.householdId||null,created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
+          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
         }
       }
       S.chatMsg='';re();
@@ -5329,9 +5329,9 @@ function showConsultModal(){
       let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(specId)&&c.childId===S.activeChild);
       (async()=>{
         if(!chat){
-          chat={id:'ch_'+Date.now(),type:'direct',participants:[session.id,specId],childId:S.activeChild,approved:true,messages:[]};
+          chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[]};
           try{
-            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:session.householdId||null,type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
+            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
             const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
           }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
         }
@@ -6877,7 +6877,7 @@ function showCreateGroupChatModal(){
     mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
       if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
       const name=ni.value.trim()||'Care Team Group Chat';
-      const participants=[session.id,...Array.from(selected)];
+      const participants=[session?.role==='parent'?'parent':session.id,...Array.from(selected)];
       const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[]};
       (async()=>{
         try{
