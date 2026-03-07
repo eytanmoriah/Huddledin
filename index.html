@@ -1357,11 +1357,73 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 /* ── Supabase DB helpers (async) ── */
-// Get the household_id for a child — from cache first, then Supabase
+
+// Get household_id for a child from cache
 function getChildHouseholdId(childId){
   if(!childId)return session?.householdId||null;
   const child=(LS.get('children',[])).find(c=>c.id===childId)||DB.children?.find(c=>c.id===childId);
   return child?.householdId||session?.householdId||null;
+}
+
+// Load all specialists for a specific child from Supabase
+// Used by specialist sessions to see the full care team
+async function loadChildSpecialists(childId){
+  if(!childId||!_supa)return[];
+  try{
+    // Get all approved specialist_requests for this child
+    const {data:reqs}=await _supa.from('specialist_requests')
+      .select('specialist_id,specialist_name,role,status')
+      .eq('child_id',childId)
+      .in('status',['approved','pending']);
+    if(!reqs||!reqs.length)return[];
+    // Get their profiles
+    const specIds=reqs.map(r=>r.specialist_id).filter(Boolean);
+    const {data:profiles}=await _supa.from('profiles')
+      .select('id,display_name,email,role')
+      .in('id',specIds);
+    // Get their folder permissions for this child
+    const {data:perms}=await _supa.from('folder_permissions')
+      .select('specialist_id,folder_key')
+      .in('specialist_id',specIds)
+      .eq('child_id',childId);
+    const permMap={};
+    (perms||[]).forEach(p=>{if(!permMap[p.specialist_id])permMap[p.specialist_id]=[];permMap[p.specialist_id].push(p.folder_key);});
+    const specs=reqs.map(r=>{
+      const prof=(profiles||[]).find(p=>p.id===r.specialist_id);
+      const name=prof?.display_name||r.specialist_name||'Specialist';
+      return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
+        avatar:'🩺',status:r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
+    });
+    LS.set('child_specialists_'+childId,specs);
+    return specs;
+  }catch(e){console.error('loadChildSpecialists:',e);return[];}
+}
+
+// Get specialists for a child — from cache or DB.specialists (for parents)
+// This is the universal getter that works for both roles
+function getChildTeam(childId){
+  if(session?.role==='parent'){
+    // Parents have DB.specialists loaded from their household
+    return DB.specialists.filter(s=>
+      childId?(s.permissions?.[childId]?.length>0||s.status==='pending'||s.childId===childId):true
+    );
+  }
+  // Specialists: use the per-child cache loaded by loadChildSpecialists
+  return LS.get('child_specialists_'+(childId||S.activeChild),[]);
+}
+
+// Get the current specialist's own record from session (no DB lookup needed)
+function getMySpecialistRecord(){
+  return{
+    id:session?.specialistId||session?.id,
+    name:session?.name||'',
+    role:session?.profession||session?.role||'Specialist',
+    email:session?.email||'',
+    avatar:'🩺',
+    status:'active',
+    permissions:LS.get('my_perms',{}),
+    credentials:LS.get('my_credentials',[])
+  };
 }
 
 // Load folder_permissions from Supabase into specialist objects
@@ -1539,6 +1601,8 @@ async function refreshFromSupabase(){
           const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id}));
           LS.set('children',mapped);
           if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
+          // Load care team for each patient in parallel (other specialists on the child)
+          await Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[])));
           // Load folders for each patient in parallel
           const folderResults2=await Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
           const allFolders=folderResults2.flat();
@@ -2107,8 +2171,10 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
       childId=row.child_id;
-      // Specialists don't store household_id on their profile
-      // They connect to families purely via specialist_requests rows
+      if(!session.householdId&&row.household_id){
+        session.householdId=row.household_id;
+        try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
+      }
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
       try{
@@ -2333,7 +2399,7 @@ function showConnectionCodeModal(childId){
 
 function showEnterCodeModal(){
   const specId=session?.specialistId;
-  const spec=DB.specialists.find(s=>s.id===specId);
+  const spec=getMySpecialistRecord();
   openModal('🔗 Enter Connection Code',(mb,close)=>{
     const wrap=el('div',{class:'conn-enter-wrap',style:{marginBottom:'18px'}});
     wrap.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'10px'}},['🏥']));
@@ -2508,7 +2574,7 @@ function pushNotif(type,msg,childId){
   ns.unshift(notif);
   DB.notifications=ns;
   if(session?.id&&session.id!=='demo'){
-    try{_supa.from('notifications').insert({id:notif.id,user_id:session.id,household_id:getChildHouseholdId(childId),child_id:childId||null,type,message:msg,read:false});}catch(e){}
+    try{_supa.from('notifications').insert({id:notif.id,user_id:session.id,household_id:session.householdId||null,child_id:childId||null,type,message:msg,read:false});}catch(e){}
   }
   sendPush('Huddledin 🤝',msg);
 }
@@ -2835,7 +2901,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;re();};
+          item.onclick=ev=>{ev.stopPropagation();S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -2860,7 +2926,7 @@ function renderHeader(){
     specLogo.onclick=()=>{S.activeTab='dashboard';re();};
     specLogo.title='Back to Dashboard';
     inner.appendChild(specLogo);
-    const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+    const spec=getMySpecialistRecord();
     const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
     nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
       [spec?.role||'Specialist']));
@@ -2916,7 +2982,7 @@ function renderDrawer(){
     id:'nav-drawer','aria-hidden':String(!S.isDrawerOpen)});
 
   // ── Profile header inside drawer ──
-  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const spec=getMySpecialistRecord();
   const displayName=session?.role==='parent'
     ?`${session?.name||'Parent'}`
     :(spec?.name||session?.name||'Specialist');
@@ -3051,7 +3117,7 @@ function renderDrawer(){
 /* ── SIDENAV ── */
 function renderSidenav(){
   const tabs=getTabs();
-  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const spec=getMySpecialistRecord();
   const nav=el('nav',{id:'sidenav'});
   const prof=el('div',{class:'sidenav-profile'});
   // FIX F9/QA-SEC-2: avoid innerHTML with user-controlled data to prevent XSS
@@ -3770,8 +3836,8 @@ function renderParentDashboard(){
 
   const childHW=DB.homework.filter(h=>h.childId===child.id);
   const childApts=DB.appointments.filter(a=>a.childId===child.id);
-  const specialists=DB.specialists.filter(s=>s.status==='active');
-  const childSpecs=specialists.filter(s=>s.permissions[child.id]?.length>0);
+  const specialists=getChildTeam(child?.id).filter(s=>s.status==='active');
+  const childSpecs=specialists.filter(s=>(s.permissions?.[child.id]?.length>0)||s.childId===child.id);
 
   const sec=el('div',{class:'section'});
 
@@ -3901,7 +3967,7 @@ function renderParentDashboard(){
 ═══════════════════════════════════════════════ */
 function renderSpecDashboard(){
   const specId=session?.specialistId;
-  const spec=DB.specialists.find(s=>s.id===specId);
+  const spec=getMySpecialistRecord();
   // For specialists who joined via invite, load children from LS directly
   // since they may not have a local spec record with permissions
   const localChildren=LS.get('children',[]);
@@ -4033,7 +4099,7 @@ function mkSubHeader(title,rightEl=null){
 
 function renderFiles(){
   const isParent=session?.role==='parent';
-  const spec=DB.specialists.find(s=>s.id===session?.specialistId);
+  const spec=getMySpecialistRecord();
   const myPerms=LS.get('my_perms',{});
   const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
   const canAccess=key=>isParent||perms.includes(key);
@@ -4184,7 +4250,7 @@ function renderFiles(){
         const isOwner=!isParent&&session?.specialistId===vault.specialistId;
         const isAuthorized=!isParent&&(vault.authorizedSpecialistIds||[]).includes(session?.specialistId);
         const canViewVault=isOwner||isAuthorized;
-        const vaultSpec=DB.specialists.find(s=>s.id===vault.specialistId);
+        const vaultSpec=getChildTeam(vault.childId||S.activeChild).find(s=>s.id===vault.specialistId)||{name:vault.specialistName||'Specialist'};
         const wrap=el('div',{class:'folder-card',style:{background:'linear-gradient(135deg,var(--lav-l),#fff)',border:'1.5px solid var(--lav)'}});
         const iw=el('div',{class:'folder-icon-wrap',style:{background:'var(--lav-l)'}},['🔐']);
         wrap.appendChild(iw);
@@ -4196,7 +4262,7 @@ function renderFiles(){
           wrap.onclick=()=>openModal('🔐 '+vaultSpec?.name+"'s Vault",(mb,close)=>{
             mb.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,marginBottom:'16px'}},['This is your private vault. Files uploaded here are not visible to other specialists.']));
             // Authorize another specialist
-            const otherSpecs=(DB.specialists||[]).filter(s=>s.status==='active'&&s.id!==vault.specialistId&&(s.permissions[vault.childId]||[]).length>0);
+            const otherSpecs=getChildTeam(vault.childId).filter(s=>s.status==='active'&&s.id!==vault.specialistId);
             if(otherSpecs.length>0&&isOwner){
               mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Authorize another specialist to view:']));
               otherSpecs.forEach(os=>{
@@ -4254,7 +4320,7 @@ function showShareModal(file){
     function updateAccessInfo(){
       const folder=DB.folders.find(f=>f.id===folderSel.value);
       const folderKey=folder?.key;
-      const specsWithAccess=DB.specialists.filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey));
+      const specsWithAccess=getChildTeam(S.activeChild).filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey));
       if(specsWithAccess.length){
         accessInfo.textContent='👁 Visible to: '+specsWithAccess.map(s=>s.name).join(', ');
       } else {
@@ -4610,10 +4676,10 @@ function renderTeam(){
     }
   }
 
-  // Existing team members — check permissions OR child_id match (for Supabase-connected specialists)
-  const specialists=DB.specialists.filter(s=>
-    child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true
-  );
+  // Existing team members — use getChildTeam() which works for both parent and specialist
+  const specialists=session?.role==='specialist'
+    ? getChildTeam(child?.id)
+    : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
 
   const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
   if(!specialists.length&&!pendingReqsForChild.length){
@@ -4861,7 +4927,7 @@ function showHandshakeModal(spec){
           childId:S.activeChild,approved:true,
           name:`${spec.name.split(' ')[0]} + ${other.name.split(' ')[0]} Consult`,
           messages:[]};
-        try{await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:getChildHouseholdId(newChat.childId),type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});}catch(e){console.error('create consult chat:',e);}
+        try{await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});}catch(e){console.error('create consult chat:',e);}
         const cs=DB.chats;cs.push(newChat);DB.chats=cs;
       }
       close();re();toast('✅ Consultation approved! Secure chat created.');
@@ -5035,7 +5101,7 @@ function showAddEventModalForDate(dateStr,availableChildren){
       const newApt={id:'a_'+Date.now(),childId:childSel.value,title:titleInp.value.trim(),date:dateInp.value,time:timeInp.value||'09:00',notes:notesInp.value.trim(),specialistId:session?.specialistId||null,sharedWith:[]};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({id:newApt.id,child_id:newApt.childId,parent_id:session.id,household_id:getChildHouseholdId(newApt.childId),title:newApt.title,date:newApt.date,time:newApt.time,type:'general',shared_with:[]});
+          await _supa.from('appointments').insert({id:newApt.id,child_id:newApt.childId,parent_id:session.id,household_id:session.householdId||null,title:newApt.title,date:newApt.date,time:newApt.time,type:'general',shared_with:[]});
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           close();toast('Appointment added!','success');re();
         }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
@@ -5073,7 +5139,7 @@ function showAddEventModal(prefilledDate=null){
     const sharedWith=[];
     const shr=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     mb.appendChild(el('div',{class:'inp-label'},['Visible to specialists']));
-    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+    getChildTeam(S.activeChild).filter(s=>s.status==='active').forEach(s=>{
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
       const cb=el('input',{type:'checkbox'});
       cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
@@ -5090,7 +5156,7 @@ function showAddEventModal(prefilledDate=null){
       const newApt2={id:'a_'+Date.now(),childId,title:ti.value,specialist:si.value||session?.name||'TBD',specialistId:specId2,date:di.value,time:tmi.value||'TBD',type:typeSel.value,sharedWith};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({id:newApt2.id,child_id:newApt2.childId,parent_id:childRec?.parentId||session.id,household_id:childRec?.householdId||getChildHouseholdId(newApt2.childId),specialist_id:session.role==='specialist'?session.id:null,title:newApt2.title,date:newApt2.date,time:newApt2.time,type:newApt2.type,shared_with:newApt2.sharedWith});
+          await _supa.from('appointments').insert({id:newApt2.id,child_id:newApt2.childId,parent_id:childRec?.parentId||session.id,household_id:childRec?.householdId||session.householdId||null,specialist_id:session.role==='specialist'?session.id:null,title:newApt2.title,date:newApt2.date,time:newApt2.time,type:newApt2.type,shared_with:newApt2.sharedWith});
           const apts=DB.appointments;apts.push(newApt2);DB.appointments=apts;
           if(DB.notifPrefs.appointments)pushNotif('report',`New appointment added: ${ti.value} on ${di.value}`,S.activeChild);
           close();re();toast('✅ Appointment added!');track('Appointment Added');
@@ -5151,7 +5217,7 @@ function renderChat(){
     const isGroup=chat.type==='group';
     const lastMsg=chat.messages[chat.messages.length-1];
     const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
+    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId)||getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--mint)';
@@ -5181,9 +5247,9 @@ function renderChat(){
     const isConsult=activeChat.type==='specialist-consult';
     const isGroup=activeChat.type==='group';
     const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=DB.specialists.find(s=>s.id===otherSpecId);
+    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId)||getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const participantNames=isGroup
-      ?activeChat.participants.map(p=>p==='parent'?'You':DB.specialists.find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
+      ?activeChat.participants.map(p=>p==='parent'?'You':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
       :null;
 
     const winHd=d('',[], {padding:'13px 17px',borderBottom:'2px solid var(--mint-ll)',display:'flex',gap:'12px',alignItems:'center'});
@@ -5199,7 +5265,7 @@ function renderChat(){
     activeChat.messages.forEach(m=>{
       const myId=session?.id||'';
       const isMe=m.sender===myId;
-      const senderSpec=DB.specialists.find(s=>s.id===m.sender);
+      const senderSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
       const row=d('',[], {display:'flex',justifyContent:isMe?'flex-end':'flex-start'});
       const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
       if(!isMe)bub.appendChild(el('div',{class:'bubble-name'},[senderSpec?.name||(m.sender==='parent'?'Parent':'Unknown')]));
@@ -5234,7 +5300,7 @@ function renderChat(){
         all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
         DB.chats=all;
         if(session?.id!=='demo'){
-          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
+          try{await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:session.householdId||null,created_at:new Date().toISOString()});}catch(e){console.error('send message:',e);}
         }
       }
       S.chatMsg='';re();
@@ -5265,7 +5331,7 @@ function showConsultModal(){
         if(!chat){
           chat={id:'ch_'+Date.now(),type:'direct',participants:[session.id,specId],childId:S.activeChild,approved:true,messages:[]};
           try{
-            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
+            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:session.householdId||null,type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
             const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
           }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
         }
@@ -5275,19 +5341,39 @@ function showConsultModal(){
     }));
     mb.appendChild(chatSection);
     // FIX B3: declare spec before it is referenced in the click handler closure
-    const spec=DB.specialists.find(s=>s.id===specId);
+    const spec=getMySpecialistRecord();
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
       ['Request parent approval to consult with another specialist:']));
-    DB.specialists.filter(s=>s.id!==session?.specialistId&&s.status==='active').forEach(s=>{
+    getChildTeam(S.activeChild).filter(s=>s.id!==session?.specialistId&&s.status!=='pending').forEach(s=>{
       const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'11px 14px',borderRadius:'14px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)',marginBottom:'9px'}});
       row.appendChild(mkAvatar(s.avatar,34));
       const info=d('',[], {flex:1});
       info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]));
       info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
       row.appendChild(info);
-      row.appendChild(mkBtn('Request','btn-sm btn-primary',()=>{
-        pushNotif('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild);
-        close();toast('✅ Request sent! Parent will be notified to approve.');
+      row.appendChild(mkBtn('Request','btn-sm btn-primary',async()=>{
+        // Save consult request to Supabase so parent sees it cross-device
+        try{
+          const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+          await _supa.from('specialist_requests').insert({
+            specialist_id:session.specialistId||session.id,
+            specialist_name:spec?.name||session?.name||'Specialist',
+            role:spec?.role||session?.profession||'Specialist',
+            child_id:S.activeChild,
+            parent_id:child?.parentId||null,
+            household_id:getChildHouseholdId(S.activeChild),
+            status:'pending',
+            request_type:'consult',
+            requested_folder:s.id,
+            requested_folder_name:s.name,
+            requested_at:new Date().toISOString()
+          });
+          pushNotif('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild);
+          close();toast('✅ Request sent! Parent will be notified to approve.');
+        }catch(e){
+          console.error('consult request:',e);
+          toast('Could not send request. Please try again.','error');
+        }
       }));
       mb.appendChild(row);
     });
@@ -5541,7 +5627,7 @@ function renderVault(){
                 }
               }
             }catch(e){console.error('publish note:',e);}
-            pushNotif('report',`${DB.specialists.find(s=>s.id===specId)?.name||'Specialist'} published a new session summary for ${child?.name}`,S.activeChild);
+            pushNotif('report',`${session?.name||'Specialist'} published a new session summary for ${child?.name}`,S.activeChild);
             S.vaultHasUnsaved=false;re();toast('🎉 Summary published!');
           });
         });
@@ -5890,11 +5976,11 @@ function showAssignModal(){
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
       if(!ta.value.trim()||!di.value){toast('⚠️ Task and due date required.','error');return;}
       const specId=session?.specialistId||null;
-      const spec=DB.specialists.find(s=>s.id===specId);
+      const spec=getMySpecialistRecord();
       const newHw={id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value};
       (async()=>{
         try{
-          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:getChildHouseholdId(newHw.childId),specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
+          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:session.householdId||null,specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
           const all=DB.homework;all.unshift(newHw);DB.homework=all;
           pushNotif('homework',`New task: "${ta.value.slice(0,42)}…"`,S.activeChild);
           close();re();toast('✅ Task assigned!');
@@ -5987,7 +6073,7 @@ function renderPatients(){
       };
       card.appendChild(toggle);
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{S.activeChild=c.id;S.activeTab='patient-detail';re();};
+      card.onclick=()=>{S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
       stack.appendChild(card);
     });
   };
@@ -6063,7 +6149,7 @@ function renderPatientDashboard(){
 ═══════════════════════════════════════════════ */
 function renderCredentials(){
   const specId=session?.specialistId||null;
-  const spec=DB.specialists.find(s=>s.id===specId)||{credentials:[]};
+  const spec={...getMySpecialistRecord(),credentials:getMySpecialistRecord().credentials||[]};
   const sec=el('div',{class:'section'});
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
@@ -6080,7 +6166,7 @@ function renderCredentials(){
       el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},['Only you can see these documents'])
     ])]));
 
-  const creds=(spec.credentials||[]);
+  const creds=LS.get('my_credentials',spec.credentials||[]);
   if(!creds.length){
     card.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,textAlign:'center',padding:'20px 0'}},['No documents uploaded yet.\nUpload your license, certifications, and professional documents here.']));
   } else {
@@ -6088,8 +6174,9 @@ function renderCredentials(){
       const fi=el('div',{class:'file-item'});
       fi.innerHTML=`<span style="font-size:1.3rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${cr.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${cr.date} · ${cr.type}</div></div>`;
       fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Document','Remove this document permanently?',true,()=>{
-        const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
-        if(i>-1){specs[i].credentials=specs[i].credentials.filter(c=>c.id!==cr.id);DB.specialists=specs;}
+        const mySpec=getMySpecialistRecord();
+        const updatedCreds=(mySpec.credentials||[]).filter(c=>c.id!==cr.id);
+        LS.set('my_credentials',updatedCreds);
         re();toast('✅ Document removed.');
       })));
       card.appendChild(fi);
@@ -6117,12 +6204,9 @@ function showCredentialUpload(spec,specId){
         upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
         try{
           const {path,url}=await SB.uploadFile('specialists/'+specId,file);
-          const specs=DB.specialists,i=specs.findIndex(s=>s.id===specId);
-          if(i>-1){
-            if(!specs[i].credentials)specs[i].credentials=[];
-            specs[i].credentials.push({id:'cr_'+Date.now(),name:file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value,url});
-            DB.specialists=specs;
-          }
+          const existingCreds=LS.get('my_credentials',[]);
+          existingCreds.push({id:'cr_'+Date.now(),name:file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value,url});
+          LS.set('my_credentials',existingCreds);
           close();re();toast('✅ Credential uploaded to your private folder!');
         }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
       });
@@ -6331,7 +6415,7 @@ function renderProgress(){
     const sorted=[...progressData].sort((a,b)=>b.date.localeCompare(a.date));
     const stack=el('div',{class:'stack'});
     sorted.forEach(p=>{
-      const spec=DB.specialists.find(s=>s.id===p.specialistId);
+      const spec=getChildTeam(S.activeChild).find(s=>s.id===p.specialistId)||{name:p.specialistName||'Specialist'};
       const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
       const pct=Math.round((p.value/p.maxValue)*100);
       const circ=el('div',{style:{width:'52px',height:'52px',borderRadius:'50%',background:`conic-gradient(var(--teal) ${pct*3.6}deg,#e2e8f0 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
@@ -6364,7 +6448,7 @@ function showAddMilestoneModal(){
       const newMs={id:'ml_'+Date.now(),childId:S.activeChild,title:ti.value.trim(),date:di.value,achieved:false,category:catSel.value,specialistId:session?.specialistId||null};
       (async()=>{
         try{
-          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:getChildHouseholdId(newMs.childId),label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
+          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:session.householdId||null,label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
           const ms=DB.milestones;ms.push(newMs);DB.milestones=ms;close();re();toast('✅ Milestone added!');
         }catch(e){console.error('add milestone:',e);toast('Could not save milestone.','error');}
       })();
@@ -6389,7 +6473,7 @@ function showLogMeasurementModal(){
       const newProg={id:'p_'+Date.now(),childId:S.activeChild,category:catSel.value,label:lb.value.trim(),value:parseFloat(vi.value),maxValue:parseFloat(mi2.value),unit:ui.value||'',date:di.value,specialistId:session?.specialistId||null};
       (async()=>{
         try{
-          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:getChildHouseholdId(newProg.childId),specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
+          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:session.householdId||null,specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
           const ps=DB.progress;ps.push(newProg);DB.progress=ps;close();S.activeProgressTab='overview';re();toast('📊 Measurement logged!');
         }catch(e){console.error('log measurement:',e);toast('Could not save measurement.','error');}
       })();
@@ -6685,7 +6769,7 @@ function renderSpecialistRequest(){
     if(!pi.value.trim()||!ni.value.trim()){toast('⚠️ Parent email and child name required.','error');return;}
     const reqs=DB.specialistRequests||[];
     const specId=session?.specialistId||null;
-    const spec=DB.specialists.find(s=>s.id===specId);
+    const spec=getMySpecialistRecord();
     reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:spec?.name||session?.name,parentEmail:pi.value.trim(),childName:ni.value.trim(),reason:ri.value.trim(),requestedAt:new Date().toISOString().split('T')[0],status:'pending'});
     DB.specialistRequests=reqs;
     // Add notification for parent (simulated)
@@ -6741,7 +6825,7 @@ function renderPublishedSummaries(){
   const wrap=el('div',{class:'card',style:{marginBottom:'20px'}});
   wrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📄 Session Summaries from Your Team']));
   published.forEach(note=>{
-    const spec=DB.specialists.find(s=>s.id===note.specialistId);
+    const spec=getChildTeam(note.childId||S.activeChild).find(s=>s.id===note.specialistId)||{name:note.specialistName||'Specialist'};
     const nb=el('div',{class:'ai-block',style:{marginBottom:'12px'}});
     const hdr=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'});
     hdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.86rem'}},[spec?.name+' · '+note.date]));
@@ -6780,7 +6864,7 @@ function showCreateGroupChatModal(){
     mb.appendChild(ni);
     mb.appendChild(el('div',{class:'inp-label'},['Select participants']));
     const selected=new Set();
-    const activeSpecs=DB.specialists.filter(s=>s.status==='active');
+    const activeSpecs=getChildTeam(S.activeChild).filter(s=>s.status==='active');
     activeSpecs.forEach(s=>{
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 13px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px'}});
       const cb=el('input',{type:'checkbox'});
@@ -6797,7 +6881,7 @@ function showCreateGroupChatModal(){
       const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[]};
       (async()=>{
         try{
-          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:getChildHouseholdId(newChat.childId),type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
+          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
         }catch(e){console.error('create group chat:',e);toast('Could not create chat.','error');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
