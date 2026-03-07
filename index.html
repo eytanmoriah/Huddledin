@@ -5217,7 +5217,7 @@ function renderChat(){
     const isGroup=chat.type==='group';
     const lastMsg=chat.messages[chat.messages.length-1];
     const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId)||getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--mint)';
@@ -5247,7 +5247,7 @@ function renderChat(){
     const isConsult=activeChat.type==='specialist-consult';
     const isGroup=activeChat.type==='group';
     const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId)||getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+    const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const participantNames=isGroup
       ?activeChat.participants.map(p=>p==='parent'?'You':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
       :null;
