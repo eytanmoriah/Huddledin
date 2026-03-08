@@ -6179,7 +6179,8 @@ function renderChatThread(activeChat,specId,myId,onBack){
     background:'#fff',flexShrink:0,zIndex:1
   }});
   if(onBack){
-    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.6rem',padding:'0 6px 0 0',lineHeight:1,flexShrink:0}},['<']);
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.5rem',fontWeight:900,padding:'0 8px 0 0',lineHeight:1,flexShrink:0,minWidth:'32px',textAlign:'left'}});
+    backBtn.textContent='‹';
     backBtn.onclick=onBack;
     threadHd.appendChild(backBtn);
   }
@@ -6256,7 +6257,7 @@ function renderChatThread(activeChat,specId,myId,onBack){
 
   // -- Input row (sticky bottom) --
   const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
-  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px',border:'none',outline:'none',background:'transparent',padding:'0 4px'}});
+  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
   const sb2=el('button',{class:'send-btn',title:'Send'});
   sb2.innerHTML='&#10148;';
