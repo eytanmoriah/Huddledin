@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           user_id: userId,
-          refresh_token: tokens.refresh_token,
+          p_refresh_token: tokens.refresh_token,
           enabled: true
         })
       }
