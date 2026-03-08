@@ -6188,6 +6188,28 @@ function renderChatThread(activeChat,specId,myId,onBack){
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
 
+  // iOS Visual Viewport fix: when keyboard opens, adjust bottom so input stays visible
+  if(isMobile && window.visualViewport){
+    const _vvHandler=()=>{
+      const vv=window.visualViewport;
+      const keyboardHeight=window.innerHeight - vv.height - vv.offsetTop;
+      const bottomOffset=Math.max(0, keyboardHeight);
+      wrap.style.bottom = bottomOffset > 10 ? bottomOffset+'px' : 'var(--bnav-h)';
+      // Scroll messages to bottom when keyboard opens
+      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+    };
+    window.visualViewport.addEventListener('resize', _vvHandler);
+    window.visualViewport.addEventListener('scroll', _vvHandler);
+    // Cleanup when thread is removed from DOM
+    const _origOnBack = onBack;
+    if(onBack) {
+      wrap._vvCleanup = ()=>{
+        window.visualViewport.removeEventListener('resize', _vvHandler);
+        window.visualViewport.removeEventListener('scroll', _vvHandler);
+      };
+    }
+  }
+
   // -- Header (sticky top) --
   const threadHd=el('div',{style:{
     display:'flex',alignItems:'center',gap:'10px',
@@ -6198,7 +6220,7 @@ function renderChatThread(activeChat,specId,myId,onBack){
   if(onBack){
     const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.5rem',fontWeight:900,padding:'0 8px 0 0',lineHeight:1,flexShrink:0,minWidth:'32px',textAlign:'left'}});
     backBtn.textContent='‹';
-    backBtn.onclick=onBack;
+    backBtn.onclick=()=>{if(wrap._vvCleanup)wrap._vvCleanup();onBack();};
     threadHd.appendChild(backBtn);
   }
   const av=el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:childColor+'22',border:'2px solid '+childColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
@@ -8320,14 +8342,6 @@ function renderSpecialistSettings(){
   });
   sec.appendChild(wh);
 
-  // Calendar sync
-  const cc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  cc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 Calendar Sync']));
-  cc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6'}},['Sync your Huddledin appointments with your personal calendar.']));
-  const calBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
-  ['📅 Google Calendar','🍎 Apple iCal','📧 Outlook'].forEach(b=>{calBtns.appendChild(mkBtn(b,'btn-md btn-ghost',()=>showGoogleSyncModal()));});
-  cc.appendChild(calBtns);sec.appendChild(cc);
-
   // Sign out
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
   ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['👤 Account']));
@@ -8380,16 +8394,6 @@ function renderSettings(){
     }):el('span')
   ]));
   sec.appendChild(pc2);
-
-  // Calendar sync
-  const cc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  cc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📅 Calendar Sync']));
-  cc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6',fontWeight:500}},['Connect your calendar to sync appointments automatically.']));
-  const calBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
-  ['📅 Google Calendar','🍎 Apple iCal','📧 Outlook'].forEach(b=>{
-    calBtns.appendChild(mkBtn(b,'btn-md btn-ghost',()=>showGoogleSyncModal()));
-  });
-  cc.appendChild(calBtns);sec.appendChild(cc);
 
   // Account
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
