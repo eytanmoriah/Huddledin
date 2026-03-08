@@ -272,6 +272,18 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .bubble-me{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;border-radius:22px 22px 6px 22px;padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:0 2px 10px rgba(13,148,136,.25)}
 .bubble-them{background:var(--white);color:var(--navy);border-radius:22px 22px 22px 6px;border:1.5px solid var(--mint-l);padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:var(--s0)}
 .bubble-time{font-size:.64rem;opacity:.55;margin-top:4px;text-align:right}
+.bubble-tick{font-size:.64rem;color:rgba(255,255,255,.6);margin-left:3px}
+.bubble-tick.read{color:#a7f3d0}
+.chat-unread-badge{min-width:18px;height:18px;background:var(--teal);color:#fff;border-radius:99px;font-size:.58rem;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0}
+.chat-list-item{padding:13px 14px;border-bottom:1.5px solid var(--mint-ll);cursor:pointer;transition:background .12s;min-height:56px;display:flex;align-items:center;gap:10px}
+.chat-list-item:active{background:var(--mint-ll)}
+.chat-list-item.active{background:var(--mint-l)}
+.chat-list-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.chat-list-body{flex:1;min-width:0}
+.chat-list-name{font-weight:800;font-size:.84rem;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-preview{font-size:.71rem;color:var(--slate-l);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-list-time{font-size:.62rem;color:var(--slate-l);white-space:nowrap}
 .bubble-name{font-size:.68rem;font-weight:800;color:var(--teal);margin-bottom:4px}
 
 /* ── AI SUMMARIZER — Full-screen overlay ── */
@@ -1601,7 +1613,7 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh progress:',e)),
         // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
         _supa.from('chats').select('*').eq('household_id',hid||session.id)
-          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});LS.set('chats',merged);}})
+          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[]};});LS.set('chats',merged);}})
           .catch(e=>console.error('refresh chats:',e))
       ]);
     } else if(session.role==='specialist'){
@@ -1663,7 +1675,7 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh vaultNotes:',e)),
         // Chats
         _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
-          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[]};});LS.set('chats',merged);}})
+          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[]};});LS.set('chats',merged);}})
           .catch(e=>console.error('refresh spec chats:',e))
       ]);
     }
@@ -3414,6 +3426,8 @@ function switchTab(id){
 /* ── BOTTOM NAV — 3 quick tabs + menu ── */
 function renderBottomNav(){
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const myId=session?.id||'';
+  const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).length;
   const totalBadge=unreadNotifs; // badge shows unread notifications only
 
   const nav=el('nav',{id:'bottom-nav'});
@@ -3433,6 +3447,9 @@ function renderBottomNav(){
       b.appendChild(document.createTextNode(t.label));
       if(t.id==='notifications'&&totalBadge>0){
         b.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+      }
+      if(t.id==='chat'&&unreadChats>0){
+        b.appendChild(el('span',{class:'bnav-badge',style:{background:'var(--coral)'}},[unreadChats>9?'9+':String(unreadChats)]));
       }
       b.onclick=t.action;
       inner.appendChild(b);
@@ -4216,7 +4233,7 @@ function renderParentDashboard(){
   [
     {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
     {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-    {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;switchTab('chat');}},
+    {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
     {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
     {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
     {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
@@ -5943,6 +5960,22 @@ function showAddEventModal(prefilledDate=null){
 /* ═══════════════════════════════════════════════
    CHAT
 ═══════════════════════════════════════════════ */
+/* helper: mark chat as read for current user */
+function markChatRead(chatId){
+  const myId=session?.id||'';
+  if(!myId)return;
+  const all=DB.chats;
+  const ci=all.findIndex(c=>c.id===chatId);
+  if(ci>-1&&(all[ci].unreadFor||[]).includes(myId)){
+    all[ci].unreadFor=(all[ci].unreadFor||[]).filter(id=>id!==myId);
+    DB.chats=all;
+    // persist read state to Supabase
+    if(session?.id!=='demo'){
+      _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(()=>{});
+    }
+  }
+}
+
 function renderChat(){
   if(!S.chatsLoaded){
     S.chatsLoaded=true;
@@ -5951,157 +5984,279 @@ function renderChat(){
     sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['Loading messages…']));
     return sec;
   }
+
   const allChats=DB.chats;
   const role=session?.role;
   const specId=session?.specialistId;
+  const myId=session?.id||'';
+  const isMobile=window.innerWidth<768;
 
   // Filter visible chats
-  // FIX FS5: removed hardcoded 's1' fallback — a new specialist should only see their own chats
-  const visChats=allChats.filter(c=>{
-    if(role==='parent')return c.participants.includes('parent')||c.participants.includes(session?.id);
-    if(!specId)return false; // no specialist ID means no accessible chats
+  let visChats=allChats.filter(c=>{
+    if(role==='parent')return c.participants.includes('parent')||c.participants.includes(myId);
+    if(!specId)return false;
     return c.participants.includes(specId);
   });
-  // Specialist back bar — only on chat list, not inside an open thread
-  const _chatChild=DB.children.find(c=>c.id===S.activeChild);
-  const _chatBackBar=(!S.activeChatId)?mkSpecBackBar(_chatChild?.name):null;
 
-  const displayChats=S.activeChatChildId
-    ? visChats.filter(c=>c.childId===S.activeChatChildId)
-    : visChats;
-
-  const sec=el('div',{class:'section'});
-  if(_chatBackBar)sec.appendChild(_chatBackBar);
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('h2',{class:'page-title'},['Messages']));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[
-    session?.role==='parent'?mkBtn('👥 New Group Chat','btn-sm btn-secondary',()=>showCreateGroupChatModal()):el('span'),
-    session?.role==='specialist'?mkBtn('🤝 Request Consult','btn-sm btn-lav',()=>showConsultModal()):el('span')
-  ]));
-  sec.appendChild(hd);
+  // Filter by child if coming from child profile
   if(S.activeChatChildId){
-    const backRow=el('div',{style:{marginBottom:'10px'}});
-    backRow.appendChild(mkBtn('← All Chats','btn-sm btn-ghost',()=>{S.activeChatChildId=null;re();}));
-    sec.appendChild(backRow);
+    visChats=visChats.filter(c=>c.childId===S.activeChatChildId);
   }
 
-  const isMobile=window.innerWidth<768;
-  const wrap=el('div',{class:'chat-layout',style:{display:'flex',flexDirection:isMobile?'column':'row',gap:'14px',minHeight:isMobile?'auto':'460px'}});
+  // Sort: chats with most recent message first
+  visChats=[...visChats].sort((a,b)=>{
+    const aLast=a.messages[a.messages.length-1]?.id||a.id;
+    const bLast=b.messages[b.messages.length-1]?.id||b.id;
+    return bLast>aLast?1:-1;
+  });
 
-  // Chat list sidebar
-  const list=el('div',{class:'chat-sidebar card',style:{padding:0,overflow:'hidden',width:isMobile?'100%':'200px',minWidth:isMobile?'unset':'200px',maxHeight:isMobile?'160px':'auto',overflowY:'auto',WebkitOverflowScrolling:'touch',borderRight:isMobile?'none':'1.5px solid var(--mint-l)'}});
-  displayChats.forEach(chat=>{
-    const isConsult=chat.type==='specialist-consult';
-    const isGroup=chat.type==='group';
+  const sec=el('div',{class:'section',style:{padding:0,overflow:'hidden'}});
+
+  // ── MOBILE: full-screen thread view ──
+  if(isMobile&&S.activeChatId){
+    const activeChat=allChats.find(c=>c.id===S.activeChatId);
+    if(activeChat){
+      markChatRead(S.activeChatId);
+      sec.appendChild(renderChatThread(activeChat,specId,myId,()=>{S.activeChatId=null;re();}));
+      return sec;
+    }
+  }
+
+  // ── DESKTOP: side-by-side ──
+  // ── MOBILE: list view ──
+  const listWrap=el('div',{style:{padding:'0 0 8px'}});
+
+  // Header
+  const hd=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 16px 8px'}});
+  const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
+  // Back to patient on specialist
+  if(role==='specialist'&&!S.activeChatChildId){
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Patients']);
+    backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
+    titleRow.appendChild(backBtn);
+  } else {
+    titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Messages']));
+  }
+  if(S.activeChatChildId){
+    const backRow=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'All Chats']);
+    backRow.onclick=()=>{S.activeChatChildId=null;re();};
+    hd.appendChild(backRow);
+  } else {
+    hd.appendChild(titleRow);
+  }
+  const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
+  if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
+  if(role==='specialist')hdRight.appendChild(mkBtn('💬 Chat','btn-sm btn-primary',()=>showConsultModal()));
+  hd.appendChild(hdRight);
+  listWrap.appendChild(hd);
+
+  if(!visChats.length){
+    const empty=el('div',{style:{padding:'32px 16px',textAlign:'center',color:'var(--slate)'}});
+    empty.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['💬']));
+    empty.appendChild(el('div',{style:{fontWeight:700}},['No conversations yet']));
+    listWrap.appendChild(empty);
+  }
+
+  // Chat list (WhatsApp style)
+  visChats.forEach(chat=>{
+    const isUnread=(chat.unreadFor||[]).includes(myId);
     const lastMsg=chat.messages[chat.messages.length-1];
     const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
     const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
-    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(otherSpec?.name||'Chat'));
+    const isGroup=chat.type==='group';
+    const isConsult=chat.type==='specialist-consult';
+    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?otherSpec?.name||'Specialist':session?.name?.includes('parent')?'Parent Chat':otherSpec?.name||'Chat'));
+    const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
-    const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--mint)';
+    const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
+    const isActive=!isMobile&&S.activeChatId===chat.id;
 
-    const item=el('div',{style:{padding:'13px 14px',borderBottom:'1.5px solid var(--mint-ll)',cursor:'pointer',background:S.activeChatId===chat.id?'var(--mint-l)':'#fff',transition:'background .12s',minHeight:'52px',borderLeft:S.activeChatChildId?'none':'10px solid '+childColor}});
-    const ciTop=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}});
-    if(isConsult)ciTop.appendChild(el('span',{class:'badge badge-lav',style:{fontSize:'.6rem',padding:'1px 6px'}},['Consult']));
-    if(isGroup)ciTop.appendChild(el('span',{class:'group-badge'},['Group']));
-    ciTop.appendChild(el('span',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
-    item.appendChild(ciTop);
-    item.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},[childName]));
-    const previewText=(lastMsg?.text||'').slice(0,28)+((lastMsg?.text?.length||0)>28?'…':'');
-    item.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate-l)',marginTop:'1px',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}},[previewText]));
-    item.onclick=()=>{S.activeChatId=chat.id;re();};
-    list.appendChild(item);
-  });
-  if(!displayChats.length){
-    list.appendChild(el('div',{style:{padding:'20px 16px',color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['No chats yet.']));
-  }
-  wrap.appendChild(list);
+    // Time label
+    const lastMsgDate=lastMsg?.date;
+    const todayStr=new Date().toISOString().split('T')[0];
+    const timeLabel=lastMsgDate?(lastMsgDate===todayStr?lastMsg.time:new Date(lastMsgDate+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
 
-  // Chat window
-  const activeChat=allChats.find(c=>c.id===S.activeChatId);
-  const win=el('div',{class:'chat-window card',style:{display:'flex',flexDirection:'column',padding:0,overflow:'hidden',flex:1,minHeight:isMobile?'360px':'auto'}});
+    const item=el('div',{class:'chat-list-item'+(isActive?' active':'')});
+    item.style.borderLeft=S.activeChatChildId?'none':`4px solid ${childColor}`;
+    if(isUnread)item.style.background='#f0fdf4';
 
-  if(activeChat){
-    const isConsult=activeChat.type==='specialist-consult';
-    const isGroup=activeChat.type==='group';
-    const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
-    const participantNames=isGroup
-      ?activeChat.participants.map(p=>p==='parent'?'You':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||p).join(', ')
-      :null;
+    // Avatar circle
+    const av=el('div',{class:'chat-list-avatar',style:{background:childColor+'22',border:`2px solid ${childColor}`}});
+    av.appendChild(el('span',{},[isGroup?'👥':isConsult?'🔗':childAvatar]));
+    item.appendChild(av);
 
-    const winHd=d('',[], {padding:'13px 17px',borderBottom:'2px solid var(--mint-ll)',display:'flex',gap:'12px',alignItems:'center'});
-    winHd.appendChild(mkAvatar(isGroup?'👥':isConsult?'🔗':'💬',36,'#d1fae5'));
-    const wi=d('');
-    wi.appendChild(el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)'}},[activeChat.name||(otherSpec?.name||'Chat')]));
-    wi.appendChild(el('div',{style:{fontSize:'.7rem',color:isGroup?'#0369a1':isConsult?'var(--lav-d)':'var(--teal)',fontWeight:700}},
-      [isGroup?'👥 '+participantNames:isConsult?'🔗 Approved specialist consult':'🔒 Secure · Parent-approved']));
-    winHd.appendChild(wi);
-    win.appendChild(winHd);
+    // Body
+    const body=el('div',{class:'chat-list-body'});
+    const nameRow=el('div',{style:{display:'flex',alignItems:'baseline',gap:'4px'}});
+    nameRow.appendChild(el('span',{class:'chat-list-name',style:{fontWeight:isUnread?900:700}},[chatName]));
+    if(childName&&!S.activeChatChildId)nameRow.appendChild(el('span',{style:{fontSize:'.68rem',color:childColor,fontWeight:700}},[' · '+childName]));
+    body.appendChild(nameRow);
+    const previewText=lastMsg?(lastMsg.sender===myId?'You: ':'')+((lastMsg.text||'').slice(0,36)+((lastMsg.text?.length||0)>36?'...':'')):'Tap to open';
+    body.appendChild(el('div',{class:'chat-list-preview',style:{fontWeight:isUnread?700:400,color:isUnread?'var(--navy)':'var(--slate-l)'}},[previewText]));
+    item.appendChild(body);
 
-    const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'14px 16px',display:'flex',flexDirection:'column',gap:'11px',minHeight:'200px'}});
-    activeChat.messages.forEach(m=>{
-      const myId=session?.id||'';
-      const isMe=m.sender===myId;
-      const senderSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
-      const row=d('',[], {display:'flex',justifyContent:isMe?'flex-end':'flex-start'});
-      const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
-      if(!isMe)bub.appendChild(el('div',{class:'bubble-name'},[senderSpec?.name||(m.sender==='parent'?'Parent':'Unknown')]));
-      bub.appendChild(el('div',{},[m.text]));
-      bub.appendChild(el('div',{class:'bubble-time'},[m.time]));
-      row.appendChild(bub);msgArea.appendChild(row);
-    });
-    win.appendChild(msgArea);
-    // FIX F7: scroll after paint, not after an arbitrary timeout
-    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
-    // Real-time message subscription
-    if(session?.id!=='demo'&&activeChat.childId){
-      if(_chatSub)_chatSub.unsubscribe();
-      _chatSub=SB.subscribeToMessages(activeChat.childId,msg=>{
-        const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
-        if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
-          all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
-          DB.chats=all2;re();
-        }
-      });
-    }
+    // Meta (time + unread count)
+    const meta=el('div',{class:'chat-list-meta'});
+    if(timeLabel)meta.appendChild(el('div',{class:'chat-list-time',style:{color:isUnread?'var(--teal)':'var(--slate-l)',fontWeight:isUnread?800:400}},[timeLabel]));
+    const unreadCount=(chat.unreadFor||[]).includes(myId)?1:0;
+    if(unreadCount>0)meta.appendChild(el('div',{class:'chat-unread-badge'},['●']));
+    item.appendChild(meta);
 
-    const inputRow=el('div',{class:'chat-input-row'});
-    const mi=el('input',{class:'inp',placeholder:'Type a message…',style:{flex:'1',fontSize:'16px'}});
-    mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
-    const sb2=el('button',{class:'send-btn',title:'Send message'},['➤']);
-    sb2.onclick=async()=>{
-      const txt=mi.value.trim();if(!txt)return;
-      const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
-      if(ci>-1){
-        const senderKey=session?.id||'unknown';
-        all[ci].messages.push({id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]});track('Message Sent');
-        DB.chats=all;
-        if(session?.id!=='demo'){
-          try{
-            await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:session.id,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
-            // Notify other participant(s)
-            const hid=getChildHouseholdId(activeChat.childId);
-            const senderName=session.name||'Someone';
-            const preview=txt.length>42?txt.slice(0,42)+'…':txt;
-            // Use notifyOtherParty to route to the right user (parent or specialists)
-            await notifyOtherParty('chat',`💬 ${senderName}: "${preview}"`,activeChat.childId,'chat',{chatId:activeChat.id});
-          }catch(e){console.error('send message:',e);}
-        }
-      }
-      S.chatMsg='';re();
-      // FIX F7: use requestAnimationFrame instead of setTimeout to scroll after DOM is rebuilt
-      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+    item.onclick=()=>{
+      S.activeChatId=chat.id;
+      markChatRead(chat.id);
+      if(!isMobile){re();}else{re();}
     };
-    mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
-    inputRow.appendChild(mi);inputRow.appendChild(sb2);
-    win.appendChild(inputRow);
+    listWrap.appendChild(item);
+  });
+
+  if(isMobile){
+    sec.appendChild(listWrap);
+    return sec;
+  }
+
+  // ── DESKTOP: side-by-side layout ──
+  const wrap=el('div',{style:{display:'flex',gap:'0',minHeight:'460px',borderTop:'1px solid var(--mint-l)'}});
+  const sidebar=el('div',{style:{width:'260px',minWidth:'260px',borderRight:'1.5px solid var(--mint-l)',overflowY:'auto',flexShrink:0}});
+  sidebar.appendChild(listWrap);
+  wrap.appendChild(sidebar);
+
+  const activeChat=allChats.find(c=>c.id===S.activeChatId);
+  const win=el('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}});
+  if(activeChat){
+    win.appendChild(renderChatThread(activeChat,specId,myId,null));
   } else {
-    win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600}},['Select a conversation to begin']));
+    win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600,flexDirection:'column',gap:'12px'}},[
+      el('span',{style:{fontSize:'2.5rem'}},['💬']),
+      el('span',{},[visChats.length?'Select a conversation':'No conversations yet'])
+    ]));
   }
   wrap.appendChild(win);
   sec.appendChild(wrap);
   return sec;
+}
+
+function renderChatThread(activeChat,specId,myId,onBack){
+  const isConsult=activeChat.type==='specialist-consult';
+  const isGroup=activeChat.type==='group';
+  const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
+  const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+  const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
+  const chatName=activeChat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Parent'));
+  const participantNames=isGroup
+    ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
+    :null;
+
+  const wrap=el('div',{style:{display:'flex',flexDirection:'column',height:'100%'}});
+
+  // Thread header
+  const threadHd=el('div',{style:{
+    display:'flex',alignItems:'center',gap:'12px',
+    padding:'12px 16px',borderBottom:'2px solid var(--mint-ll)',
+    background:'#fff',flexShrink:0
+  }});
+  if(onBack){
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.5rem',padding:'0 8px 0 0',lineHeight:1}},['‹']);
+    backBtn.onclick=onBack;
+    threadHd.appendChild(backBtn);
+  }
+  const av=el('div',{style:{width:'38px',height:'38px',borderRadius:'50%',background:childColor+'22',border:'2px solid '+childColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.2rem',flexShrink:0}});
+  av.appendChild(el('span',{},[isGroup?'👥':isConsult?'🔗':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'💬')]));
+  threadHd.appendChild(av);
+  const ti=el('div',{style:{flex:1,minWidth:0}});
+  ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
+  ti.appendChild(el('div',{style:{fontSize:'.7rem',color:childColor,fontWeight:700}},
+    [isGroup?'👥 '+participantNames:isConsult?'🔗 Specialist consult':'🔒 Secure - Parent-approved']));
+  threadHd.appendChild(ti);
+  wrap.appendChild(threadHd);
+
+  // Messages
+  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'14px 16px',display:'flex',flexDirection:'column',gap:'10px'}});
+  activeChat.messages.forEach(m=>{
+    const isMe=m.sender===myId;
+    const senderSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
+    const senderName=senderSpec?.name||(m.sender==='parent'?'Parent':'Member');
+    const row=el('div',{style:{display:'flex',justifyContent:isMe?'flex-end':'flex-start',gap:'8px',alignItems:'flex-end'}});
+    if(!isMe){
+      const av2=el('div',{style:{width:'28px',height:'28px',borderRadius:'50%',background:'var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem',flexShrink:0}});
+      av2.textContent=senderSpec?.avatar||senderName[0]?.toUpperCase()||'?';
+      row.appendChild(av2);
+    }
+    const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
+    if(!isMe)bub.appendChild(el('div',{class:'bubble-name'},[senderName]));
+    bub.appendChild(el('div',{},[m.text]));
+    const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'2px'}});
+    timeRow.appendChild(el('span',{class:'bubble-time'},[m.time]));
+    if(isMe){
+      // Tick: if recipient has read (not in unreadFor), show double tick
+      const isRead=!(activeChat.unreadFor||[]).length||(activeChat.unreadFor||[]).every(id=>id===myId);
+      timeRow.appendChild(el('span',{class:'bubble-tick'+(isRead?' read':'')},['✓✓']));
+    }
+    bub.appendChild(timeRow);
+    row.appendChild(bub);
+    msgArea.appendChild(row);
+  });
+  wrap.appendChild(msgArea);
+
+  requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+
+  // Real-time subscription
+  if(session?.id!=='demo'&&activeChat.childId){
+    if(_chatSub)_chatSub.unsubscribe();
+    _chatSub=SB.subscribeToMessages(activeChat.childId,msg=>{
+      const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
+      if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
+        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
+        // Mark unread if not the sender
+        if(msg.sender_id!==session?.id){
+          all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
+          if(!all2[ci2].unreadFor.includes(session?.id||''))all2[ci2].unreadFor.push(session?.id||'');
+        }
+        DB.chats=all2;re();
+      }
+    });
+  }
+
+  // Input row
+  const inputRow=el('div',{class:'chat-input-row'});
+  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
+  mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
+  const sb2=el('button',{class:'send-btn',title:'Send'},['➤']);
+  sb2.onclick=async()=>{
+    const txt=mi.value.trim();if(!txt)return;
+    const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
+    if(ci>-1){
+      const senderKey=myId||'unknown';
+      const newMsg={id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
+      all[ci].messages.push(newMsg);
+      // Mark unread for ALL other participants
+      const others=all[ci].participants.filter(p=>p!==myId&&p!=='parent'||p==='parent'&&myId!==session?.id);
+      all[ci].unreadFor=[...(all[ci].unreadFor||[])];
+      others.forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
+      // Also mark parent as unread if specialist is sending
+      if(session?.role==='specialist'&&!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
+      if(session?.role==='parent'){
+        all[ci].participants.filter(p=>p!=='parent').forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
+      }
+      track('Message Sent');
+      DB.chats=all;
+      if(session?.id!=='demo'){
+        try{
+          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
+          // Update unread_for in DB
+          _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(()=>{});
+          const preview=txt.length>42?txt.slice(0,42)+'...':txt;
+          await notifyOtherParty('chat',`💬 ${session.name||'Someone'}: "${preview}"`,activeChat.childId,'chat',{chatId:activeChat.id});
+        }catch(e){console.error('send message:',e);}
+      }
+    }
+    S.chatMsg='';re();
+    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+  };
+  mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
+  inputRow.appendChild(mi);inputRow.appendChild(sb2);
+  wrap.appendChild(inputRow);
+  return wrap;
 }
 
 function showConsultModal(){
@@ -6115,10 +6270,11 @@ function showConsultModal(){
       let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(specId)&&c.childId===S.activeChild);
       (async()=>{
         if(!chat){
-          chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[]};
+          chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[],unreadFor:['parent']};
           try{
-            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true});
+            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true,unread_for:['parent']});
             const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
+            await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,S.activeChild,'chat',{chatId:chat.id});
           }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
         }
         S.activeChatId=chat.id;S.chatsLoaded=true;
@@ -7757,7 +7913,7 @@ function showCreateGroupChatModal(){
       if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
       const name=ni.value.trim()||'Care Team Group Chat';
       const participants=[session?.role==='parent'?'parent':session.id,...Array.from(selected)];
-      const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[]};
+      const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[],unreadFor:participants.filter(p=>p!==session?.id)};
       (async()=>{
         try{
           await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
