@@ -4163,6 +4163,7 @@ function renderContent(){
   if(t==='credentials')return renderCredentials();
   if(t==='progress')return renderProgress();
   if(t==='email')return renderEmailInbox();
+  if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
   if(t==='request')return renderSpecialistRequest();
   return d('section',[p('Coming soon…')]);
 }
@@ -8350,8 +8351,131 @@ function renderSpecialistSettings(){
   return sec;
 }
 
+function renderAdminDashboard(){
+  const sec=el('div',{class:'section',style:{maxWidth:'900px',margin:'0 auto'}});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'4px'}},['⚙️ Admin Dashboard']));
+  sec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'24px'}},['Live data from Supabase']));
+
+  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'14px',marginBottom:'24px'}});
+
+  function statCard(icon,label,value,sub,color){
+    const c=el('div',{class:'card',style:{padding:'18px 16px',borderTop:'3px solid '+(color||'var(--teal)')}});
+    c.appendChild(el('div',{style:{fontSize:'1.6rem',marginBottom:'6px'}},[icon]));
+    c.appendChild(el('div',{style:{fontSize:'1.5rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},[value]));
+    c.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--slate)',marginTop:'4px'}},[label]));
+    if(sub)c.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'2px'}},[sub]));
+    return c;
+  }
+
+  function sectionHead(title){
+    const h=el('div',{style:{gridColumn:'1/-1',fontWeight:800,color:'var(--navy)',fontSize:'.82rem',textTransform:'uppercase',letterSpacing:'.06em',marginTop:'8px',paddingBottom:'6px',borderBottom:'1.5px solid var(--mint-l)'}});
+    h.textContent=title;
+    return h;
+  }
+
+  // Placeholder cards while loading
+  const placeholders=['👥 Users','🏠 Households','👶 Children','🔗 Specialists','📅 Appointments','💬 Messages','📁 Files','✅ To-Dos','📆 Google Cal','⚠️ At Risk'];
+  grid.appendChild(sectionHead('Users'));
+  placeholders.forEach(p=>{grid.appendChild(statCard(p.split(' ')[0],p.split(' ').slice(1).join(' '),'…','loading','var(--mint-l)'));});
+  sec.appendChild(grid);
+
+  // Load all stats async
+  (async()=>{
+    try{
+      const [
+        profilesRes, householdsRes, childrenRes,
+        appointmentsRes, messagesRes, filesRes,
+        todosRes, specialistsRes, gcalRes, requestsRes
+      ] = await Promise.all([
+        _supa.from('profiles').select('id,role,created_at,google_calendar_enabled'),
+        _supa.from('profiles').select('household_id').not('household_id','is',null),
+        _supa.from('children').select('id,household_id,created_at'),
+        _supa.from('appointments').select('id,created_at'),
+        _supa.from('messages').select('id,created_at'),
+        _supa.from('files').select('id'),
+        _supa.from('todos').select('id,completed'),
+        _supa.from('profiles').select('id').eq('role','specialist'),
+        _supa.from('profiles').select('id').eq('google_calendar_enabled',true),
+        _supa.from('specialist_requests').select('specialist_id,household_id,status').eq('status','approved')
+      ]);
+
+      const profiles=profilesRes.data||[];
+      const parents=profiles.filter(p=>p.role==='parent');
+      const specialists=specialistsRes.data||[];
+      const children=childrenRes.data||[];
+      const apts=appointmentsRes.data||[];
+      const msgs=messagesRes.data||[];
+      const files=filesRes.data||[];
+      const todos=todosRes.data||[];
+      const gcal=gcalRes.data||[];
+      const requests=requestsRes.data||[];
+
+      // Unique households
+      const households=new Set((householdsRes.data||[]).map(p=>p.household_id));
+      // Households with at least one specialist
+      const householdsWithSpec=new Set(requests.map(r=>r.household_id));
+      // Specialists with at least one family
+      const specsWithFamily=new Set(requests.map(r=>r.specialist_id));
+
+      // New this week
+      const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
+      const newUsers=profiles.filter(p=>p.created_at>weekAgo).length;
+      const newApts=apts.filter(a=>a.created_at>weekAgo).length;
+      const newMsgs=msgs.filter(m=>m.created_at>weekAgo).length;
+
+      // At risk: households with no activity (no apts, no msgs) - approximate via no children in last 30 days
+      const monthAgo=new Date(Date.now()-30*24*60*60*1000).toISOString();
+      const activeHouseholds=new Set([
+        ...(appointmentsRes.data||[]).map(()=>null), // placeholder
+      ]);
+      const householdsNoSpec=households.size - householdsWithSpec.size;
+
+      // Rebuild grid with real data
+      grid.innerHTML='';
+
+      grid.appendChild(sectionHead('👥 Users'));
+      grid.appendChild(statCard('👥','Total Users',profiles.length,'all roles','var(--teal)'));
+      grid.appendChild(statCard('👨‍👩‍👧','Parent Accounts',parents.length,'','var(--teal)'));
+      grid.appendChild(statCard('🔬','Specialists',specialists.length,'registered','var(--lavender)'));
+      grid.appendChild(statCard('✨','New This Week',newUsers,'signups','var(--teal-l)'));
+
+      grid.appendChild(sectionHead('🏠 Families'));
+      grid.appendChild(statCard('🏠','Households',households.size,'unique families','var(--coral)'));
+      grid.appendChild(statCard('👶','Children',children.length,'total','var(--coral)'));
+      grid.appendChild(statCard('🔗','Connected',householdsWithSpec.size,'have a specialist','var(--teal)'));
+      grid.appendChild(statCard('⚠️','No Specialist Yet',householdsNoSpec,'onboarding gap','#f59e0b'));
+
+      grid.appendChild(sectionHead('📊 Activity'));
+      grid.appendChild(statCard('📅','Appointments',apts.length,'all time','var(--teal)'));
+      grid.appendChild(statCard('📅','New This Week',newApts,'appointments','var(--teal-l)'));
+      grid.appendChild(statCard('💬','Messages',msgs.length,'all time','var(--lavender)'));
+      grid.appendChild(statCard('💬','New This Week',newMsgs,'messages','var(--lavender)'));
+      grid.appendChild(statCard('📁','Files',files.length,'uploaded','var(--coral)'));
+      grid.appendChild(statCard('✅','To-Dos',todos.length,'created | '+todos.filter(t=>t.completed).length+' done','var(--teal)'));
+
+      grid.appendChild(sectionHead('🔬 Specialists'));
+      grid.appendChild(statCard('🔬','Total',specialists.length,'registered','var(--lavender)'));
+      grid.appendChild(statCard('✅','Active',specsWithFamily.size,'have families','var(--teal)'));
+      grid.appendChild(statCard('📆','Google Cal',gcal.length,'connected','var(--teal-l)'));
+
+      // Refresh button
+      const refreshBtn=mkBtn('🔄 Refresh','btn-sm btn-secondary',()=>{S.activeTab='settings';re();setTimeout(()=>{S.activeTab='admin';re();},50);});
+      refreshBtn.style.marginTop='8px';
+      sec.appendChild(refreshBtn);
+
+    }catch(e){
+      console.error('Admin dashboard error:',e);
+      grid.innerHTML='';
+      grid.appendChild(el('div',{style:{gridColumn:'1/-1',color:'var(--coral)',fontWeight:700}},['Error loading data: '+e.message]));
+    }
+  })();
+
+  return sec;
+}
+
 function renderSettings(){
   if(session?.role==='specialist')return renderSpecialistSettings();
+  if(session?.email==='admin@huddledin.com')return renderAdminDashboard();
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
 
