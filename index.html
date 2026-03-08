@@ -1932,6 +1932,8 @@ let S={
   isDrawerOpen:false,
   calFullscreen:false,
   calFsMonth:0,  // month offset for fullscreen cal navigation
+  calSelectedDate:null, // date string 'YYYY-MM-DD' selected in calendar grid
+  activeFolderId:null, // folder open in grid view
   tourActive:false,       // is guided tour running?
   tourStep:0,             // current step index
   patientStatusFilter:'active',  // filter state for renderPatients — survives re()
@@ -3081,7 +3083,9 @@ function renderNotifBell(){
     ]);
     dd.appendChild(dh);
     (notifs.slice(0,6)).forEach(n=>{
-      const ni=el('div',{class:'notif-item'+(n.read?'':" unread")});
+      const _bnc=DB.children.find(c=>c.id===n.childId);
+      const _bnColor=_bnc?.color||null;
+      const ni=el('div',{class:'notif-item'+(n.read?'':' unread'),style:_bnColor?{borderLeft:`3px solid ${_bnColor}`}:{}});
       ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
       const niBody=el('div',{});
       niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
@@ -3730,7 +3734,29 @@ function renderMiniCalendar(children,allApts){
       dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
     });
     col.appendChild(dots);
-    col.onclick=()=>showAddEventModalForDate(ds,children);
+    col.onclick=()=>{
+      if(dayApts.length>0){
+        // Show what's on this day
+        const dateLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+        openModal('📅 '+dateLabel,(mb,mclose)=>{
+          dayApts.forEach(apt=>{
+            const ch=children.find(c=>c.id===apt.childId);
+            const chip=el('div',{class:'card',style:{marginBottom:'10px',padding:'14px 16px',borderLeft:'4px solid '+(ch?.color||'var(--teal)'),cursor:'pointer'}});
+            chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'3px'}},[aptDisplayTitle(apt)]));
+            chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[apt.time+(apt.endTime?' – '+apt.endTime:'')+(ch?' · '+ch.avatar+' '+ch.name.split(' ')[0]:'')]));
+            if(apt.location)chip.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'3px'}},['📍 '+apt.location]));
+            chip.onclick=()=>{mclose();showAptDetailModal(apt,ch);};
+            mb.appendChild(chip);
+          });
+          if(session?.role==='parent'){
+            mb.appendChild(el('div',{style:{height:'8px'}}));
+            mb.appendChild(mkBtn('＋ Add Appointment','btn-lg btn-ghost btn-full',()=>{mclose();showAddEventModalForDate(ds,children);}));
+          }
+        },420);
+      } else {
+        showAddEventModalForDate(ds,children);
+      }
+    };
     week.appendChild(col);
   });
   card.appendChild(week);
@@ -3834,85 +3860,95 @@ function renderCalFullscreen(){
   const grid=el('div',{class:'cal-grid'});
   ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
   for(let i=0;i<firstDay;i++)grid.appendChild(el('div',{class:'cal-day'}));
+  // Track selected date for inline day view
+  const selDate=S.calSelectedDate;
   for(let day=1;day<=daysInMonth;day++){
-    // FIX B4: build date string dynamically from current year/month
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const dayApts=allApts.filter(a=>a.date===ds);
+    const isSelected=ds===selDate;
+    const isToday=ds===new Date().toISOString().split('T')[0];
     const cell=el('div',{class:'cal-day'});
-    const num=el('div',{class:'cal-num'+(dayApts.length?' has-event':'')},
-      [String(day)]);
-    if(dayApts.length>0){
-      // Use first child's color for background
-      const ci=children.findIndex(c=>c.id===dayApts[0].childId);
-      const color=children[ci]?.color||getChildColor(ci);
-      if(dayApts.length===1){num.style.background=`linear-gradient(135deg,${color},${color}bb)`;}
-    }
-    // ALL dates are tappable — show day modal
-    const _openFsDay=()=>{
-      const dateLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-      openModal('📅 '+dateLabel,(mb,mclose)=>{
-        if(dayApts.length){
-          dayApts.forEach(apt=>{
-            const chip=el('div',{class:'card',style:{marginBottom:'10px',padding:'14px 16px',borderLeft:'4px solid '+(children.find(c=>c.id===apt.childId)?.color||'var(--teal)')}});
-            const ch=children.find(c=>c.id===apt.childId);
-            chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'3px'}},[aptDisplayTitle(apt)]));
-            chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[apt.time+(apt.endTime?' – '+apt.endTime:'')+(ch?' · '+ch.avatar+' '+ch.name.split(' ')[0]:'')]));
-            if(apt.location)chip.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'3px'}},['📍 '+apt.location]));
-            if(apt.notes)chip.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'3px',fontStyle:'italic'}},['📝 '+apt.notes.slice(0,60)]));
-            mb.appendChild(chip);
-          });
-          mb.appendChild(el('div',{style:{height:'4px'}}));
-        } else {
-          mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No events on this day.']));
-        }
-        if(session?.role==='parent'){
-          mb.appendChild(mkBtn('＋ Add Appointment','btn-lg btn-primary btn-full',()=>{mclose();showAddEventModalForDate(ds,children);}));
-        }
-      },420);
+    // Number — selected gets ring, today gets underline, no colored bg anymore
+    const numStyle={
+      fontWeight:isSelected||isToday?900:400,
+      color:isSelected?'#fff':isToday?'var(--teal)':'var(--navy)',
+      background:isSelected?'var(--teal)':isToday?'var(--mint-l)':'transparent',
+      borderRadius:'50%',width:'28px',height:'28px',display:'flex',
+      alignItems:'center',justifyContent:'center',margin:'0 auto',
+      fontSize:'.82rem',cursor:'pointer',transition:'all .15s'
     };
-    num.onclick=e=>{e.stopPropagation();_openFsDay();};
-    cell.onclick=()=>_openFsDay();
-    cell.appendChild(num);
-    // Multi-child dots
-    if(dayApts.length>1){
-      const dotsRow=el('div',{class:'cal-dots-row',style:{display:'flex',gap:'2px',justifyContent:'center',marginTop:'2px'}});
+    const num=el('div',{style:numStyle},[String(day)]);
+    // Dots only — one per child color
+    const dotsRow=el('div',{style:{display:'flex',gap:'2px',justifyContent:'center',marginTop:'2px',minHeight:'6px'}});
+    if(dayApts.length>0){
       const seen=new Set();
       dayApts.forEach(a=>{
         if(seen.has(a.childId))return;seen.add(a.childId);
         const ci=children.findIndex(c=>c.id===a.childId);
-        dotsRow.appendChild(el('div',{class:'cal-dot',style:{background:children[ci]?.color||getChildColor(ci)}}));
+        const dotColor=children[ci]?.color||getChildColor(ci);
+        dotsRow.appendChild(el('div',{style:{width:'5px',height:'5px',borderRadius:'50%',background:isSelected?'#fff':dotColor}}));
       });
-      cell.appendChild(dotsRow);
     }
+    cell.appendChild(num);
+    cell.appendChild(dotsRow);
+    cell.onclick=()=>{S.calSelectedDate=(isSelected?null:ds);re();};
     grid.appendChild(cell);
   }
   calCard.appendChild(grid);
   sec.appendChild(calCard);
 
-  // Upcoming events list
+  // Selected day panel (replaces "Upcoming Events")
   const now2=new Date();
   const todayStr=now2.toISOString().split('T')[0];
-  const upcoming=allApts.filter(a=>a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
-  if(upcoming.length>0){
-    sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},['Upcoming Events']));
-    upcoming.forEach(a=>{
-      const ci=children.findIndex(c=>c.id===a.childId);
-      const child=children[ci];
-      const color=child?.color||getChildColor(ci);
-      const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer'}});
-      card.appendChild(el('div',{style:{width:'5px',minHeight:'44px',borderRadius:'99px',background:color,flexShrink:0}}));
-      const info=el('div',{style:{flex:1}});
-      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
-      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.date+' · '+a.time]));
-      if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
-      card.appendChild(info);
-      if(child){
-        card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},
-          [child.avatar+' '+child.name.split(' ')[0]]));
-      }
-      card.onclick=()=>showAptDetailModal(a,child);
-      sec.appendChild(card);
-    });
+  if(selDate){
+    const selApts=allApts.filter(a=>a.date===selDate).sort((a,b)=>a.time.localeCompare(b.time));
+    const selLabel=new Date(selDate+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    const dayHd=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}});
+    dayHd.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[selLabel]));
+    if(session?.role==='parent'){
+      dayHd.appendChild(mkBtn('＋ Add','btn-sm btn-primary',()=>showAddEventModalForDate(selDate,children)));
+    }
+    sec.appendChild(dayHd);
+    if(selApts.length===0){
+      sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No events on this day.']));
+    } else {
+      selApts.forEach(a=>{
+        const ch=children.find(c=>c.id===a.childId);
+        const color=ch?.color||'var(--teal)';
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',borderLeft:'4px solid '+color}});
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
+        if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
+        card.appendChild(info);
+        if(ch)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[ch.avatar+' '+ch.name.split(' ')[0]]));
+        card.onclick=()=>showAptDetailModal(a,ch);
+        sec.appendChild(card);
+      });
+    }
+  } else {
+    // No date selected — show upcoming
+    const upcoming=allApts.filter(a=>a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+    if(upcoming.length>0){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},['Upcoming Events']));
+      upcoming.forEach(a=>{
+        const ci=children.findIndex(c=>c.id===a.childId);
+        const child=children[ci];
+        const color=child?.color||getChildColor(ci);
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer'}});
+        card.appendChild(el('div',{style:{width:'5px',minHeight:'44px',borderRadius:'99px',background:color,flexShrink:0}}));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.date+' · '+a.time]));
+        if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
+        card.appendChild(info);
+        if(child)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[child.avatar+' '+child.name.split(' ')[0]]));
+        card.onclick=()=>showAptDetailModal(a,child);
+        sec.appendChild(card);
+      });
+    } else {
+      sec.appendChild(el('div',{class:'empty-inline'},['No upcoming events. Tap a date to add one.']));
+    }
   }
 
   body.appendChild(sec);
@@ -4383,6 +4419,237 @@ function mkSubHeader(title,rightEl=null){
   return hd;
 }
 
+
+/* ── Folder File Grid — thumbnail previews ── */
+function getFileThumb(f){
+  const ext=(f.name||'').split('.').pop().toLowerCase();
+  const isImg=['jpg','jpeg','png','gif','webp'].includes(ext);
+  const isPdf=ext==='pdf';
+  const isDoc=['doc','docx'].includes(ext);
+  const isSheet=['xls','xlsx'].includes(ext);
+  const isVideo=['mp4','mov','avi'].includes(ext);
+  const isAudio=['mp3','wav','m4a'].includes(ext);
+  if(isImg&&f.url)return {type:'img',src:f.url};
+  if(isPdf&&f.url)return {type:'pdf',src:f.url};
+  if(isDoc)return {type:'icon',icon:'📝',color:'#2563eb'};
+  if(isSheet)return {type:'icon',icon:'📊',color:'#16a34a'};
+  if(isVideo)return {type:'icon',icon:'🎬',color:'#7c3aed'};
+  if(isAudio)return {type:'icon',icon:'🎵',color:'#ec4899'};
+  if(isPdf)return {type:'icon',icon:'📄',color:'#dc2626'};
+  return {type:'icon',icon:'📎',color:'#64748b'};
+}
+
+function renderFolderGrid(folder,isParent,childColor){
+  const sec=el('div',{class:'section'});
+  // Header with back button
+  const fi2=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi2.id='fileInputFolder';
+  fi2.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+  sec.appendChild(fi2);
+  const hd=el('div',{class:'sec-hd',style:{marginBottom:'16px'}});
+  const left=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+  const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.3rem',color:'var(--slate)',padding:'0 4px',lineHeight:1}},['‹']);
+  backBtn.onclick=()=>{S.activeFolderId=null;re();};
+  left.appendChild(backBtn);
+  left.appendChild(el('span',{style:{fontSize:'1.3rem'}},[folder.icon]));
+  left.appendChild(el('div',{},[
+    el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem'}},[folder.name]),
+    el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'1px'}},[`${folder.files.length} file${folder.files.length!==1?'s':''}`])
+  ]));
+  hd.appendChild(left);
+  if(isParent){
+    const right=el('div',{style:{display:'flex',gap:'6px'}});
+    right.appendChild(mkBtn('📤 Upload','btn-sm btn-primary',()=>document.getElementById('fileInputFolder')?.click()));
+    hd.appendChild(right);
+  }
+  sec.appendChild(hd);
+
+  if(!folder.files||folder.files.length===0){
+    const empty=el('div',{style:{textAlign:'center',padding:'48px 24px',color:'var(--slate)'}});
+    empty.appendChild(el('div',{style:{fontSize:'2.5rem',marginBottom:'12px'}},[folder.icon]));
+    empty.appendChild(el('div',{style:{fontWeight:700,fontSize:'.9rem',marginBottom:'6px'}},['No files yet']));
+    empty.appendChild(el('div',{style:{fontSize:'.8rem'}},['Upload the first file to this folder']));
+    if(isParent){
+      empty.appendChild(el('div',{style:{marginTop:'20px'}},[
+        mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInputFolder')?.click())
+      ]));
+    }
+    sec.appendChild(empty);
+    return sec;
+  }
+
+  // File grid
+  const grid=el('div',{style:{
+    display:'grid',
+    gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',
+    gap:'12px',
+    marginTop:'4px'
+  }});
+
+  folder.files.forEach(f=>{
+    const ext=(f.name||'').split('.').pop().toLowerCase();
+    const thumb=getFileThumb(f);
+    const card=el('div',{style:{
+      background:'#fff',borderRadius:'14px',overflow:'hidden',
+      border:'1.5px solid var(--mint-l)',
+      boxShadow:'0 1px 4px rgba(0,0,0,.06)',
+      cursor:'pointer',transition:'transform .15s,box-shadow .15s',
+      display:'flex',flexDirection:'column'
+    }});
+    card.onmouseover=()=>{card.style.transform='translateY(-2px)';card.style.boxShadow='0 4px 16px rgba(0,0,0,.1)';};
+    card.onmouseout=()=>{card.style.transform='';card.style.boxShadow='0 1px 4px rgba(0,0,0,.06)';};
+
+    // Thumbnail area
+    const thumbArea=el('div',{style:{
+      height:'110px',background:'var(--mint-ll)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      overflow:'hidden',position:'relative',flexShrink:0
+    }});
+
+    if(thumb.type==='img'){
+      const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
+      img.onerror=()=>{thumbArea.innerHTML='<span style="font-size:2.2rem">🖼️</span>';};
+      thumbArea.appendChild(img);
+    } else if(thumb.type==='pdf'&&f.url){
+      // PDF — show iframe thumbnail
+      const frame=el('iframe',{src:`${f.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`,
+        style:{width:'200%',height:'200%',border:'none',transform:'scale(.5)',transformOrigin:'0 0',pointerEvents:'none'},
+        loading:'lazy'});
+      thumbArea.appendChild(frame);
+      // Fallback badge
+      const badge2=el('div',{style:{
+        position:'absolute',bottom:'4px',right:'4px',
+        background:'#dc2626',color:'#fff',fontSize:'.55rem',fontWeight:900,
+        padding:'2px 5px',borderRadius:'4px',letterSpacing:'.05em'
+      }},['PDF']);
+      thumbArea.appendChild(badge2);
+    } else {
+      // Icon fallback
+      thumbArea.style.background=thumb.color+'18';
+      thumbArea.appendChild(el('span',{style:{fontSize:'2.4rem'}},[thumb.icon]));
+    }
+
+    // Lock overlay
+    if(f.locked){
+      const lockOv=el('div',{style:{
+        position:'absolute',inset:0,background:'rgba(0,0,0,.45)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:'1.5rem'
+      }},['🔒']);
+      thumbArea.appendChild(lockOv);
+    }
+    card.appendChild(thumbArea);
+
+    // File info
+    const info=el('div',{style:{padding:'8px 10px',flex:1,minWidth:0}});
+    info.appendChild(el('div',{style:{
+      fontWeight:700,fontSize:'.75rem',color:'var(--navy)',
+      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+      marginBottom:'2px'
+    }},[f.name]));
+    info.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate-l)'}},[f.date||'']));
+    card.appendChild(info);
+
+    // Action row
+    const actions=el('div',{style:{
+      display:'flex',borderTop:'1px solid var(--mint-ll)',
+      overflow:'hidden'
+    }});
+    const mkAct=(icon,label,fn)=>{
+      const b=el('button',{style:{
+        flex:1,background:'none',border:'none',padding:'6px 2px',
+        cursor:'pointer',fontSize:'.65rem',color:'var(--slate)',
+        display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',
+        transition:'background .1s'
+      }},[el('span',{style:{fontSize:'.9rem'}},[icon]),label]);
+      b.onmouseover=()=>{b.style.background='var(--mint-ll)';};
+      b.onmouseout=()=>{b.style.background='none';};
+      b.onclick=e=>{e.stopPropagation();fn();};
+      return b;
+    };
+
+    if(f.url){
+      actions.appendChild(mkAct('👁','View',()=>{
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+        xb.onclick=()=>ov.remove();
+        bar.appendChild(xb);ov.appendChild(bar);
+        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+        } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
+          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
+        } else {
+          const w=el('div',{style:{textAlign:'center',color:'#fff'}});
+          w.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+          w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},['Preview not available']));
+          w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download']));
+          body.appendChild(w);
+        }
+        ov.appendChild(body);
+        ov.onclick=e=>{if(e.target===ov)ov.remove();};
+        document.body.appendChild(ov);
+      }));
+      actions.appendChild(mkAct('⬇','Save',async()=>{
+        try{
+          const resp=await fetch(f.url);
+          const blob=await resp.blob();
+          const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click();
+        }catch(e){window.open(f.url,'_blank');}
+      }));
+    }
+    if(isParent){
+      actions.appendChild(mkAct('✏️','Rename',()=>{
+        openModal('Rename File',(mb,close)=>{
+          mb.appendChild(el('div',{class:'inp-label'},['New name']));
+          const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});
+          mb.appendChild(ni);
+          mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',()=>{
+            if(!ni.value.trim())return;
+            const fls=DB.folders;
+            const fi3=fls.find(x=>x.id===folder.id);
+            const ff=fi3?.files.find(x=>x.id===f.id);
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}
+            close();re();toast('File renamed!');
+          }));
+        },380);
+      }));
+      actions.appendChild(mkAct('🗑','Delete',()=>{
+        openConfirm('Delete "'+f.name+'"?','This permanently removes the file.',true,async()=>{
+          const fls=DB.folders;
+          const fi3=fls.find(x=>x.id===folder.id);
+          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+          re();toast('🗑️ File deleted.');
+        });
+      }));
+    }
+    card.appendChild(actions);
+
+    // Tap the card itself = preview
+    card.onclick=()=>{
+      if(f.url){
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+        xb.onclick=()=>ov.remove();bar.appendChild(xb);ov.appendChild(bar);
+        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+        } else {
+          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
+        }
+        ov.appendChild(body);ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);
+      }
+    };
+    grid.appendChild(card);
+  });
+
+  sec.appendChild(grid);
+  return sec;
+}
+
 function renderFiles(){
   const isParent=session?.role==='parent';
   const spec=getMySpecialistRecord();
@@ -4391,13 +4658,19 @@ function renderFiles(){
   const canAccess=key=>isParent||perms.includes(key);
   const folders=DB.folders.filter(f=>f.childId===S.activeChild);
   const child=DB.children.find(c=>c.id===S.activeChild);
+  const childColor=child?.color||'var(--teal)';
+
+  // If a folder is open, show file grid view instead
+  if(S.activeFolderId){
+    const folder=folders.find(f=>f.id===S.activeFolderId);
+    if(folder)return renderFolderGrid(folder,isParent,childColor);
+    S.activeFolderId=null; // folder not found, reset
+  }
 
   const sec=el('div',{class:'section'});
   if(isParent){
-    // Regular file upload (desktop + file picker)
     const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
     fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
-    // Camera capture (mobile)
     const ci=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});ci.id='cameraInput';
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
@@ -4510,7 +4783,7 @@ function renderFiles(){
       wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
       wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
       // Tap = open (use both touchend and click for Android compatibility)
-      const _openFolder=()=>{if(!moved)showFolderModal(folder,isParent);};
+      const _openFolder=()=>{if(!moved){S.activeFolderId=folder.id;re();}};
       wrap.addEventListener('touchend',(e)=>{
         clearTimeout(pressTimer);
         if(!moved){e.preventDefault();_openFolder();}
@@ -6716,10 +6989,13 @@ function renderNotifications(){
   if(!notifs.length){sec.appendChild(p('All caught up! 🎉'));return sec;}
   const stack=el('div',{class:'stack'});
   notifs.forEach(n=>{
+    const _nc=DB.children.find(c=>c.id===n.childId);
+    const _nColor=_nc?.color||null;
     const card=el('div',{class:'card hov',style:{
       display:'flex',gap:'13px',alignItems:'flex-start',cursor:'pointer',
       background:n.read?'#fff':'#e8faf5',
       border:n.read?'1.5px solid var(--mint-l)':'2px solid #34d399',
+      borderLeft:_nColor?`4px solid ${_nColor}`:(n.read?'1.5px solid var(--mint-l)':'2px solid #34d399'),
       transition:'background .25s,border .25s'
     }});
     card.appendChild(el('span',{style:{fontSize:'1.45rem',flexShrink:0}},[notifIcon[n.type]||'📢']));
@@ -7117,7 +7393,9 @@ function showAddChildModal(){
       const childName=ni.value.trim();
       let newChildId='c_'+Date.now();
       if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
-      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:'#c4b5fd',dob:dob.value,photo:null};
+      const _takenColors=(DB.children||[]).map(c=>c.color);
+      const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
       S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
