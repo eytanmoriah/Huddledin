@@ -29,9 +29,9 @@ export default async function handler(req, res) {
       return res.redirect('https://huddledin.com/#google-auth-error');
     }
 
-    // Use Supabase SQL RPC to bypass any RLS issues
-    const sqlRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/rpc/exec_sql`,
+    // Call Supabase RPC function (security definer — bypasses RLS)
+    const rpcRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/rpc/set_google_calendar`,
       {
         method: 'POST',
         headers: {
@@ -40,36 +40,22 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
         },
         body: JSON.stringify({
-          query: `UPDATE profiles SET google_refresh_token = '${tokens.refresh_token.replace(/'/g, "''")}', google_calendar_enabled = true WHERE id = '${userId}'`
+          user_id: userId,
+          refresh_token: tokens.refresh_token,
+          enabled: true
         })
       }
     );
 
-    console.log('SQL RPC status:', sqlRes.status);
+    const rpcText = await rpcRes.text();
+    console.log('RPC status:', rpcRes.status, 'response:', rpcText);
 
-    // Fallback: try direct PATCH with different headers
-    if (!sqlRes.ok) {
-      console.log('RPC failed, trying direct PATCH...');
-      const patchRes = await fetch(
-        `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': process.env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-            'Prefer': 'return=minimal',
-            'Content-Profile': 'public'
-          },
-          body: JSON.stringify({
-            google_refresh_token: tokens.refresh_token,
-            google_calendar_enabled: true
-          })
-        }
-      );
-      console.log('PATCH status:', patchRes.status, await patchRes.text());
+    if (!rpcRes.ok) {
+      console.error('RPC failed:', rpcText);
+      return res.redirect('https://huddledin.com/#google-auth-error');
     }
 
+    console.log('Success — token saved');
     res.redirect('https://huddledin.com/#google-auth-success');
 
   } catch (err) {
