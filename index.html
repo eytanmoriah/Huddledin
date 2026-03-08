@@ -5956,7 +5956,7 @@ function showAddEventModal(prefilledDate=null){
           if(session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
             fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({userId:session.id,appointment:{
+              body:JSON.stringify({userId:session.id,householdId:calChild?.householdId||getChildHouseholdId(childId)||null,appointment:{
                 title:newApt.title,date:newApt.date,time:tmi.value||'09:00 AM',
                 type:newApt.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
               }})
