@@ -14,27 +14,27 @@
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Huddledin — Collaborative Care Platform</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
-<!-- ══ SUPABASE SDK ══ -->
+<!-- -- SUPABASE SDK -- -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- ══ CROPPER.JS ══ -->
+<!-- -- CROPPER.JS -- -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-<!-- ══ SENTRY — load synchronously before app code ══ -->
+<!-- -- SENTRY — load synchronously before app code -- -->
 <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js"></script>
 <script>
   if(window.Sentry){Sentry.init({dsn:"https://174490d78338801a352d7df3837ced53@o4510981671026688.ingest.us.sentry.io/4510981679022080",environment:"production",release:"huddledin@1.0.0",tracesSampleRate:0.2,beforeSend(e){if(e.user)delete e.user.email;return e;}});}
 </script>
-<!-- ══ PLAUSIBLE ANALYTICS ══ -->
+<!-- -- PLAUSIBLE ANALYTICS -- -->
 <script async src="https://plausible.io/js/pa-KjPiNv5sa31eWkcgbyZce.js"></script>
 <script>
   window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)};
   function track(name,props){try{if(window.plausible)plausible(name,props?{props}:undefined);}catch(e){}}
 </script>
 <style>
-/* ══════════════════════════════════════════════════════════
+/* ----------------------------------------------------------
    HUDDLEDIN v6 — Native Mobile Design System
    iOS HIG + Material Design 3 + Bubbly UI
-══════════════════════════════════════════════════════════ */
+---------------------------------------------------------- */
 :root{
   --teal:#0d9488;--teal-l:#2dd4bf;--teal-d:#0f766e;
   --mint:#a7f3d0;--mint-l:#d1fae5;--mint-ll:#ecfdf5;
@@ -87,7 +87,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 
 #app-shell{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
 
-/* ── GLASSMORPHISM HEADER (sticky) ── */
+/* -- GLASSMORPHISM HEADER (sticky) -- */
 #header{
   position:fixed;top:0;left:0;right:0;z-index:300;
   background:rgba(240,253,249,.88);
@@ -113,7 +113,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .child-avatar-emoji{font-size:.95rem}
 #header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 
-/* ── BODY + SIDEBAR ── */
+/* -- BODY + SIDEBAR -- */
 #body{display:flex;flex:1;padding-top:calc(var(--header-h) + var(--safe-top))}
 #sidenav{width:205px;min-width:205px;background:var(--white);border-right:1px solid var(--mint-l);display:flex;flex-direction:column;padding:16px 10px;gap:2px;overflow-y:auto;position:fixed;left:0;top:calc(var(--header-h) + var(--safe-top));height:calc(100vh - var(--header-h) - var(--safe-top));z-index:100}
 @media(max-width:767px){#sidenav{display:none}}
@@ -128,7 +128,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--bnav-h) + 8px)}
 @media(min-width:768px){#main{margin-left:205px;padding-bottom:24px}}
 
-/* ── BOTTOM NAV — Thumb zone ── */
+/* -- BOTTOM NAV — Thumb zone -- */
 #bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(200%) blur(28px);backdrop-filter:saturate(200%) blur(28px);border-top:1px solid rgba(0,0,0,.06);box-shadow:0 -1px 0 rgba(255,255,255,.8),0 -8px 32px rgba(0,0,0,.08);padding-bottom:var(--safe-bottom)}
 @media(max-width:767px){#bottom-nav{display:block}}
 .bnav-inner{display:flex;height:64px}
@@ -138,7 +138,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .bnav-btn.active .bnav-icon{transform:scale(1.15) translateY(-1px)}
 .bnav-badge{position:absolute;top:4px;right:calc(50% - 18px);background:var(--coral);color:#fff;border-radius:99px;min-width:17px;height:17px;font-size:.54rem;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;animation:badgePop var(--spring)}
 
-/* ── BOTTOM SHEET / MODAL ── */
+/* -- BOTTOM SHEET / MODAL -- */
 .overlay{position:fixed;inset:0;z-index:500;background:rgba(15,23,42,.4);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:fadeIn .2s ease;display:flex;align-items:flex-end}
 .modal{background:#fff;border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:slideUpSheet .35s cubic-bezier(.32,.72,0,1) both;padding-bottom:var(--safe-bottom);box-shadow:0 -8px 48px rgba(0,0,0,.18)}
 @media(min-width:600px){.overlay{align-items:center;justify-content:center;padding:16px}.modal{border-radius:var(--r-xl);max-width:500px;animation:springIn var(--spring) both}}
@@ -151,7 +151,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .modal-x:active{background:var(--rose-l);color:#be123c}
 .modal-body{padding:18px 20px}
 
-/* ── BUBBLY CARDS ── */
+/* -- BUBBLY CARDS -- */
 .card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:18px;transition:transform .15s,box-shadow .15s}
 .card.hov:active{transform:scale(.98);box-shadow:var(--s0)}
 .card.click{cursor:pointer}
@@ -159,7 +159,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .card.sel{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12),var(--s1)}
 @media(hover:hover){.card.hov:hover,.card.click:hover{box-shadow:var(--s2);transform:translateY(-2px)}}
 
-/* ── BUTTONS — pill-shaped, 44px min ── */
+/* -- BUTTONS — pill-shaped, 44px min -- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-full);font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;border:none;transition:transform .12s,opacity .12s;white-space:nowrap;-webkit-user-select:none;user-select:none;min-height:44px;position:relative;overflow:hidden}
 .btn:active{transform:scale(.93);opacity:.85}
 @media(hover:hover){.btn:hover{transform:translateY(-1px)}}
@@ -184,7 +184,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .btn-fab:active{transform:scale(.88);box-shadow:0 2px 12px rgba(13,148,136,.3)}
 @media(min-width:768px){.btn-fab{display:none}}
 
-/* ── BADGES ── */
+/* -- BADGES -- */
 .badge{border-radius:var(--r-full);padding:3px 10px;font-size:.68rem;font-weight:800;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
 .badge-teal{background:var(--mint-l);color:var(--teal-d)}
 .badge-coral{background:var(--coral-l);color:#c2410c}
@@ -196,7 +196,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .badge-sky{background:var(--sky-l);color:#0369a1}
 .badge-navy{background:#e2e8f0;color:var(--navy)}
 
-/* ── INPUTS — 48px touch targets, 16px font (no iOS zoom) ── */
+/* -- INPUTS — 48px touch targets, 16px font (no iOS zoom) -- */
 .inp{width:100%;padding:14px 16px;border-radius:var(--r);border:2px solid #94a3b8;font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
 .inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
 /* Date placeholder fix for mobile */
@@ -208,7 +208,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .inp-group{display:flex;flex-direction:column;gap:11px}
 .inp-label{font-size:.7rem;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 
-/* ── TOGGLE + CHECKBOX ── */
+/* -- TOGGLE + CHECKBOX -- */
 .toggle{width:51px;height:30px;border-radius:99px;background:var(--slate-ll);cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0}
 .toggle.on{background:linear-gradient(135deg,var(--teal),var(--teal-l))}
 .toggle::after{content:'';width:24px;height:24px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -218,7 +218,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Spring animation class — JS adds this then removes for haptic bounce effect */
 .chk.spring{animation:taskSpring .5s cubic-bezier(.34,1.56,.64,1)}
 
-/* ── SECTION / PAGE ── */
+/* -- SECTION / PAGE -- */
 .section{padding:20px 16px 16px;max-width:970px;margin:0 auto;animation:fadeIn .2s ease}
 .page-title{font-family:'Fraunces',serif;font-size:1.45rem;font-weight:800;color:var(--navy);margin-bottom:2px;line-height:1.2}
 .page-sub{color:var(--slate);font-size:.8rem;margin-bottom:16px;font-weight:500}
@@ -226,7 +226,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .sec-hd-left{flex:1;min-width:0}
 .sec-hd-right{display:flex;gap:7px;flex-wrap:wrap;align-items:center;flex-shrink:0}
 
-/* ── GRIDS ── */
+/* -- GRIDS -- */
 .g2{display:grid;grid-template-columns:1fr;gap:12px}
 .g3{display:grid;grid-template-columns:1fr;gap:10px}
 /* 2-col folder grid ALWAYS on mobile */
@@ -236,10 +236,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 @media(min-width:768px){.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g-folder{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}}
 .stack{display:flex;flex-direction:column;gap:10px}
 
-/* ── AVATAR ── */
+/* -- AVATAR -- */
 .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;overflow:hidden}
 
-/* ── FILE EXPLORER — Large folder cards (2-col) + long-press menu ── */
+/* -- FILE EXPLORER — Large folder cards (2-col) + long-press menu -- */
 .folder-card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:20px 14px;text-align:center;cursor:pointer;transition:transform var(--spring),box-shadow .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
 .folder-card:active{transform:scale(.93)}
 @media(hover:hover){.folder-card:hover{transform:translateY(-3px);box-shadow:var(--s2)}}
@@ -255,7 +255,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .file-item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l);transition:background .1s;cursor:pointer;min-height:52px}
 .file-item:active{background:var(--mint-l)}
 
-/* ── CHAT — native bubble layout ── */
+/* -- CHAT — native bubble layout -- */
 .chat-layout{display:flex;flex-direction:column;gap:12px}
 @media(min-width:768px){.chat-layout{flex-direction:row;gap:16px;min-height:480px}}
 .chat-sidebar{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);overflow:hidden;box-shadow:var(--s1)}
@@ -268,7 +268,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .send-btn{width:44px;height:44px;min-width:44px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal-l));border:none;cursor:pointer;color:#fff;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(13,148,136,.35);transition:transform .12s;flex-shrink:0}
 .send-btn:active{transform:scale(.88)}
 
-/* ── CHAT BUBBLES ── */
+/* -- CHAT BUBBLES -- */
 .bubble-me{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;border-radius:22px 22px 6px 22px;padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:0 2px 10px rgba(13,148,136,.25)}
 .bubble-them{background:var(--white);color:var(--navy);border-radius:22px 22px 22px 6px;border:1.5px solid var(--mint-l);padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:var(--s0)}
 .bubble-time{font-size:.64rem;opacity:.55;margin-top:4px;text-align:right}
@@ -286,18 +286,18 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .chat-list-time{font-size:.62rem;color:var(--slate-l);white-space:nowrap}
 .bubble-name{font-size:.68rem;font-weight:800;color:var(--teal);margin-bottom:4px}
 
-/* ── AI SUMMARIZER — Full-screen overlay ── */
+/* -- AI SUMMARIZER — Full-screen overlay -- */
 .ai-fullscreen{position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-top);padding-bottom:var(--safe-bottom);animation:slideUp .25s ease}
 .ai-fs-hd{padding:14px 18px;background:rgba(240,253,249,.95);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-bottom:1px solid var(--mint-l);display:flex;align-items:center;gap:12px}
 .ai-fs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px}
 .ai-fs-footer{padding:12px 16px;padding-bottom:max(12px,var(--safe-bottom));background:#fff;border-top:1px solid var(--mint-l)}
 
-/* ── PULL-TO-REFRESH indicator ── */
+/* -- PULL-TO-REFRESH indicator -- */
 .ptr-indicator{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;color:var(--teal);font-size:.82rem;font-weight:700;transform:translateY(-100%);transition:transform .22s ease;position:relative;z-index:1}
 .ptr-indicator.visible{transform:translateY(0)}
 .ptr-spinner{animation:pullSpin .8s linear infinite;display:inline-block;font-size:1.1rem}
 
-/* ── VAULT ── */
+/* -- VAULT -- */
 .vault-layout{display:flex;flex-direction:column;gap:14px}
 @media(min-width:768px){.vault-layout{flex-direction:row;align-items:flex-start}}
 .vault-sidebar{display:flex;flex-direction:column;gap:10px}
@@ -307,7 +307,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .vault-note-list-item:active{background:var(--mint-ll)}
 .vault-note-list-item.sel{border-color:var(--teal);box-shadow:0 0 0 2px rgba(13,148,136,.12)}
 
-/* ── NOTIF ── */
+/* -- NOTIF -- */
 .notif-wrap{position:relative}
 .notif-btn{background:rgba(255,255,255,.7);border:1px solid rgba(167,243,208,.6);border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;font-size:1.05rem;position:relative;display:flex;align-items:center;transition:background .15s;min-height:40px;min-width:40px;justify-content:center}
 .notif-btn:active{background:var(--mint-l)}
@@ -319,10 +319,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .notif-item:active{background:var(--mint-ll)}
 .notif-item.unread{background:#e8faf5;border-left:3px solid #10b981}
 
-/* ── SPINNER ── */
+/* -- SPINNER -- */
 .spinner{width:18px;height:18px;border:2.5px solid var(--mint);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
 
-/* ── WELCOME + STATS ── */
+/* -- WELCOME + STATS -- */
 .welcome-card{border-radius:var(--r-xl);padding:24px 22px;margin-bottom:18px;background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 50%,var(--teal-l) 100%);border:none;color:#fff;box-shadow:0 8px 32px rgba(13,148,136,.35);position:relative;overflow:hidden}
 .welcome-card::before{content:'';position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.1)}
 .welcome-card::after{content:'';position:absolute;bottom:-20px;left:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.07)}
@@ -336,11 +336,11 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .hw-task{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--mint-ll);align-items:flex-start}
 .hw-task:last-child{border-bottom:none}
 
-/* ── AI BLOCK ── */
+/* -- AI BLOCK -- */
 .ai-block{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));border-radius:var(--r-lg);padding:16px;border:1.5px solid var(--teal-l);animation:springIn var(--spring)}
 .ai-label{font-size:.66rem;font-weight:900;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
 
-/* ── CALENDAR ── */
+/* -- CALENDAR -- */
 .cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:16px 18px;border-radius:var(--r-lg) var(--r-lg) 0 0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px}
 .cal-dl{text-align:center;font-size:.64rem;font-weight:800;color:var(--slate);padding:5px 0}
@@ -351,7 +351,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .cal-num.has-event:active{transform:scale(1.15)}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:var(--teal);margin:1px auto 0}
 
-/* ── PROGRESS ── */
+/* -- PROGRESS -- */
 .progress-bar-wrap{background:#e2e8f0;border-radius:99px;height:10px;overflow:hidden;margin:6px 0}
 .progress-bar-fill{height:100%;border-radius:99px;transition:width .7s cubic-bezier(.34,1.56,.64,1)}
 .milestone-item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l);margin-bottom:8px;min-height:52px}
@@ -363,14 +363,14 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .prog-tab:active{background:var(--mint-l)}
 .prog-tab.active{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 12px rgba(13,148,136,.28)}
 
-/* ── TOASTS ── */
+/* -- TOASTS -- */
 .toast-wrap{position:fixed;bottom:calc(var(--bnav-h) + 14px);left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:calc(100% - 28px);max-width:360px}
 @media(min-width:768px){.toast-wrap{bottom:28px;width:auto}}
 .toast{background:#fff;border:1.5px solid var(--teal);border-radius:var(--r-full);padding:12px 22px;font-weight:800;color:var(--teal-d);box-shadow:var(--s3);animation:bounceIn .38s cubic-bezier(.34,1.56,.64,1);pointer-events:auto;text-align:center;width:100%;font-size:.86rem}
 .toast.error{border-color:var(--rose);color:#be123c}
 .toast.info{border-color:var(--lav);color:var(--lav-d)}
 
-/* ── SPECIAL COMPONENTS ── */
+/* -- SPECIAL COMPONENTS -- */
 .ghost-card{opacity:.62;border-style:dashed !important}
 .unsaved-banner{background:var(--amber-l);border:1.5px solid var(--amber);border-radius:var(--r);padding:12px 16px;color:#92400e;font-weight:700;font-size:.84rem;display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .draft-badge{display:inline-flex;align-items:center;gap:4px;background:var(--sky-l);color:#0369a1;border-radius:99px;padding:3px 10px;font-size:.7rem;font-weight:800}
@@ -405,7 +405,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .search-result-item{padding:13px 18px;border-bottom:1px solid var(--mint-ll);display:flex;align-items:center;gap:12px;cursor:pointer;min-height:52px;transition:background .1s}
 .search-result-item:active{background:var(--mint-ll)}
 
-/* ── AUTH ── */
+/* -- AUTH -- */
 #auth-screen{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:max(env(safe-area-inset-top,16px),20px) 16px max(env(safe-area-inset-bottom,16px),20px);position:relative;overflow:hidden;background:linear-gradient(145deg,#0f766e 0%,#14b8a6 42%,#7dd3fc 75%,#c4b5fd 100%)}
 .auth-orb{position:absolute;border-radius:50%;pointer-events:none}
 .auth-card{background:#fff;border-radius:var(--r-xl);width:100%;max-width:420px;box-shadow:0 24px 60px rgba(0,0,0,.22);position:relative;z-index:1;border:1px solid var(--mint-l);overflow:hidden;animation:springIn var(--spring) both;max-height:calc(100dvh - 40px);overflow-y:auto}
@@ -428,7 +428,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .auth-hint{text-align:center;color:var(--slate);font-size:.76rem;margin-top:10px;font-weight:600}
 .auth-link{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 
-/* ── RESPONSIVE ── */
+/* -- RESPONSIVE -- */
 @media(max-width:767px){
   #sidenav{display:none !important}
   #bottom-nav{display:block !important}
@@ -459,9 +459,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 @media(-webkit-min-device-pixel-ratio:2),(min-resolution:192dpi){.card,.modal,.inp{border-width:0.5px}}
 
-/* ══════════════════════════════════════════
+/* ------------------------------------------
    DRAWER NAVIGATION SYSTEM
-══════════════════════════════════════════ */
+------------------------------------------ */
 
 /* Hamburger trigger */
 .hamburger{
@@ -589,9 +589,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Separator inside drawer */
 .drawer-sep{height:1px;background:var(--mint-ll);margin:6px 12px}
 
-/* ══════════════════════════════════════════
+/* ------------------------------------------
    PREMIUM CHILD SWITCHER IN HEADER
-══════════════════════════════════════════ */
+------------------------------------------ */
 
 /* Switcher strip — center of header */
 #child-switcher{
@@ -664,7 +664,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 .cp-add-label{font-size:.58rem;font-weight:800;color:var(--slate-l);white-space:nowrap}
 
-/* ── Simplified header layout for drawer architecture ── */
+/* -- Simplified header layout for drawer architecture -- */
 #header-right{display:none} /* moved entirely to drawer */
 
 /* Header: logo left, hamburger right, switcher in middle */
@@ -674,15 +674,15 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 #logo{flex-shrink:0}
 
-/* ══════════════════════════════════════════
+/* ------------------------------------------
    BOTTOM BAR — only 3 quick-action tabs
-══════════════════════════════════════════ */
+------------------------------------------ */
 .bnav-icon{font-size:1.35rem;line-height:1;display:block;transition:transform var(--spring)}
 .bnav-btn.active .bnav-icon{transform:scale(1.18) translateY(-2px)}
 
-/* ══════════════════════════════════════════
+/* ------------------------------------------
    GLOBAL HOME — Level 0 Family Landing Page
-══════════════════════════════════════════ */
+------------------------------------------ */
 
 /* Full-page home container — no top padding since header exists */
 .global-home{
@@ -690,7 +690,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   max-width:680px;margin:0 auto;
 }
 
-/* ── Family greeting strip ── */
+/* -- Family greeting strip -- */
 .family-greeting{
   display:flex;align-items:center;gap:14px;
   margin-bottom:22px;
@@ -702,7 +702,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 .family-greeting-sub{font-size:.8rem;color:var(--slate);font-weight:600}
 
-/* ── Child Bubble Row ── */
+/* -- Child Bubble Row -- */
 .child-bubbles-label{
   font-size:.68rem;font-weight:900;color:var(--slate-l);
   text-transform:uppercase;letter-spacing:.09em;margin-bottom:12px;
@@ -797,7 +797,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .child-bubble-add:active .cba-circle{background:var(--mint-l);border-color:var(--teal)}
 .cba-name{font-size:.72rem;font-weight:800;color:var(--slate-l);text-align:center}
 
-/* ── Unified Family Mini-Calendar ── */
+/* -- Unified Family Mini-Calendar -- */
 .mini-cal-card{
   background:#fff;border-radius:var(--r-xl);
   box-shadow:var(--s2);border:1px solid rgba(167,243,208,.5);
@@ -856,7 +856,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   padding:2px 7px;white-space:nowrap;
 }
 
-/* ── Full-screen calendar expansion ── */
+/* -- Full-screen calendar expansion -- */
 .cal-fullscreen{
   position:fixed;inset:0;z-index:350;
   background:var(--bg);display:flex;flex-direction:column;
@@ -873,7 +873,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 }
 .cal-fs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
 
-/* ── Global Vault / Unsorted Inbox ── */
+/* -- Global Vault / Unsorted Inbox -- */
 .global-vault-hd{
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:14px;
@@ -902,7 +902,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   border:2px dashed var(--mint);border-radius:var(--r-lg);background:var(--mint-ll);
 }
 
-/* ── Child Profile Header (Level 1) ── */
+/* -- Child Profile Header (Level 1) -- */
 .child-profile-hd{
   display:flex;align-items:center;gap:12px;
   padding:12px 16px;
@@ -954,9 +954,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .pf-title{font-weight:800;color:var(--navy);font-size:.9rem}
 .pf-desc{font-size:.76rem;color:var(--slate);margin-top:1px}
 
-/* ══════════════════════════════════════════════════
+/* --------------------------------------------------
    ONBOARDING GUIDED TOUR — Floating Bubbles
-══════════════════════════════════════════════════ */
+-------------------------------------------------- */
 
 /* Spotlight overlay — dims everything except the target */
 .tour-overlay{
@@ -1078,9 +1078,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   width:16px;height:16px;accent-color:var(--teal);
 }
 
-/* ══════════════════════════════════════════════════
+/* --------------------------------------------------
    ZERO-STATE / EMPTY STATE COMPONENTS
-══════════════════════════════════════════════════ */
+-------------------------------------------------- */
 
 /* Full empty-state card */
 .empty-state{
@@ -1112,9 +1112,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   background:var(--mint-ll);border:1.5px dashed var(--mint);
 }
 
-/* ══════════════════════════════════════════════════
+/* --------------------------------------------------
    CONNECTION / INVITE SYSTEM
-══════════════════════════════════════════════════ */
+-------------------------------------------------- */
 
 /* Connection code display card */
 .conn-code-card{
@@ -1197,26 +1197,26 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 <script>
 'use strict';
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    TOKENS
    ⚠️  SECURITY WARNING (QA-SEC-1 / OWASP A02):
    Client-side API tokens are visible to all users via DevTools.
    In production, ALL API calls (Anthropic) MUST be proxied
    through a secure backend server. Rotate immediately if leaked.
 
-   ── HOW TO INJECT TOKENS ──────────────────────
+   -- HOW TO INJECT TOKENS ----------------------
    Add a <script> block in the <head> BEFORE this file loads:
 
      <script>
        window.ANTHROPIC_API_KEY = "sk-ant-YOUR_ANTHROPIC_KEY";
      <\/script>
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    SEED DATA — Production zero-state defaults
    All arrays are empty for new users.
    DEMO_SEED is loaded only if user opts in.
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 const SEED = {
   children:[],
   globalInboxFiles:[],
@@ -1248,7 +1248,7 @@ const SEED = {
   specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
 
-/* ── Standardised profession list ── */
+/* -- Standardised profession list -- */
 const PROFESSIONS=[
   {label:'Speech-Language Therapist', key:'speech',  icon:'🗣️'},
   {label:'Occupational Therapist',    key:'ot',      icon:'✋'},
@@ -1354,22 +1354,22 @@ const DEMO_SEED={
   linkedSpecialists:[]
 };
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    PERSISTENCE — hybrid: Supabase for auth/profile,
    localStorage for UI state & demo data cache.
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 const LS={
   get(k,d){try{const v=localStorage.getItem('hd9_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
   set(k,v){try{localStorage.setItem('hd9_'+k,JSON.stringify(v));}catch{}},
   del(k){localStorage.removeItem('hd9_'+k);}
 };
 
-/* ── Supabase config — fill in your values ── */
+/* -- Supabase config — fill in your values -- */
 const SUPABASE_URL  = 'https://smgbojgrdezasxciloll.supabase.co';   // e.g. https://xxxx.supabase.co
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZ2JvamdyZGV6YXN4Y2lsb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDE4MjUsImV4cCI6MjA4ODAxNzgyNX0.TsfWwph6jHpoROzwQzwta50ZBO9tVboTz-uFTOKUnw4';
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-/* ── Supabase DB helpers (async) ── */
+/* -- Supabase DB helpers (async) -- */
 
 // Get household_id for a child from cache
 function getChildHouseholdId(childId){
@@ -1613,7 +1613,7 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh progress:',e)),
         // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
         _supa.from('chats').select('*').eq('household_id',hid||session.id)
-          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[]};});LS.set('chats',merged);}})
+          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
           .catch(e=>console.error('refresh chats:',e))
       ]);
     } else if(session.role==='specialist'){
@@ -1675,7 +1675,7 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh vaultNotes:',e)),
         // Chats
         _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
-          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[]};});LS.set('chats',merged);}})
+          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
           .catch(e=>console.error('refresh spec chats:',e))
       ]);
     }
@@ -1752,7 +1752,7 @@ async function loadChatsFromSupabase(){
     const chatsWithMessages=await Promise.all((chatRows||[]).map(async ch=>{
       const {data:msgs}=await _supa.from('messages').select('*').eq('chat_id',ch.id).order('created_at');
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,
-        messages:(msgs||[]).map(m=>({id:m.id,sender:m.sender_id,text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
+        messages:(msgs||[]).map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
     }));
     LS.set('chats',chatsWithMessages);
   }catch(e){console.error('loadChatsFromSupabase:',e);}
@@ -1797,9 +1797,9 @@ const DB=new Proxy({},{
   set(_,k,v){LS.set(k,v);return true;}
 });
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    AUTH — powered by Supabase Auth
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 let session=null;
 
 async function _loadSessionFromSupabase(s){
@@ -1943,9 +1943,9 @@ async function doLogout(){
   ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    APP STATE
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 let S={
   navLevel:0,
   activeChild:null,       // null until a child is added
@@ -1974,9 +1974,9 @@ let S={
   chatsLoaded:false
 };
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    ONBOARDING TOUR ENGINE
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
 // Tour steps — each targets a CSS selector or a position
 const TOUR_STEPS_PARENT=[
@@ -2217,9 +2217,9 @@ function renderTour(){
   return frag;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CONNECTION CODE SYSTEM
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
 function generateCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2528,9 +2528,9 @@ function showEnterCodeModal(){
   },440);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    DOM HELPERS
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 // iOS date input helper — shows placeholder text when empty
 function makeDateInput(placeholder,extraAttrs={}){
   const inp=el('input',{class:'inp',type:'date','data-placeholder':placeholder,...extraAttrs});
@@ -2594,9 +2594,9 @@ function toast(msg,type='success',ms=3200){
   setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(()=>t.remove(),400);},ms);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    MODAL ENGINE
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function openModal(title,buildFn,maxW=490){
   const ov=el('div',{class:'overlay'});
   const mo=el('div',{class:'modal',style:{maxWidth:maxW+'px'}});
@@ -2622,9 +2622,9 @@ function openConfirm(title,msg,danger,onOk){
   },380);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    TABS
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 const PARENT_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'files',label:'Files',icon:'📁'},
@@ -2653,9 +2653,9 @@ const SPEC_TABS=[
 ];
 const getTabs=()=>session?.role==='parent'?PARENT_TABS:SPEC_TABS;
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    HELPERS
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f59e0b',school:'#ec4899'};
 const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
 const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗'};
@@ -2739,9 +2739,9 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
   }catch(e){console.warn('notifyOtherParty:',e);}
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    AUTH SCREEN
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function showPrivacyPolicy(){
   openModal('🔒 Privacy Policy',(mb)=>{
     mb.style.maxHeight='70vh';mb.style.overflowY='auto';
@@ -2940,9 +2940,9 @@ function renderAuth(){
   return root;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    APP SHELL
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderShell(){
   // Full-screen calendar overlay (always on top)
   if(S.calFullscreen){
@@ -2998,12 +2998,12 @@ function renderShell(){
   return shell;
 }
 
-/* ── HEADER — adapts to nav level ── */
+/* -- HEADER — adapts to nav level -- */
 function renderHeader(){
   const hd=el('header',{id:'header'});
   const inner=el('div',{class:'header-inner'});
 
-  // ── Hamburger (always left) ──
+  // -- Hamburger (always left) --
   const ham=el('button',{class:'hamburger'+(S.isDrawerOpen?' open':''),
     'aria-label':'Open navigation menu','aria-expanded':String(S.isDrawerOpen)});
   ham.appendChild(el('span',{class:'ham-bar'}));
@@ -3013,7 +3013,7 @@ function renderHeader(){
   inner.appendChild(ham);
 
   if(session?.role==='parent' && S.navLevel===1){
-    // ── Level 1: Logo acts as HOME button (returns to Global Home) ──
+    // -- Level 1: Logo acts as HOME button (returns to Global Home) --
     const logo=el('button',{style:{
       display:'flex',alignItems:'center',gap:'8px',background:'none',
       border:'none',cursor:'pointer',padding:'4px 6px',borderRadius:'12px',
@@ -3025,7 +3025,7 @@ function renderHeader(){
     logo.title='Back to Family Home';
     inner.appendChild(logo);
 
-    // ── Centre: Current child name ──
+    // -- Centre: Current child name --
     const child=DB.children.find(c=>c.id===S.activeChild);
     if(child){
       const centre=el('div',{style:{
@@ -3072,7 +3072,7 @@ function renderHeader(){
       inner.appendChild(centre);
     }
   } else if(session?.role==='parent' && S.navLevel===0){
-    // ── Level 0: Logo is just branding ──
+    // -- Level 0: Logo is just branding --
     const lvl0Logo=el('div',{id:'logo',style:{cursor:'default',display:'flex',alignItems:'center',gap:'8px'}});
     lvl0Logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
     lvl0Logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
@@ -3080,7 +3080,7 @@ function renderHeader(){
     // No switcher at Level 0 — child selection lives in the home page bubbles
     inner.appendChild(el('div',{style:{flex:1}})); // spacer
   } else {
-    // ── Specialist: logo → home ──
+    // -- Specialist: logo → home --
     const specLogo=el('div',{id:'logo',style:{cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}});
     specLogo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
     specLogo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
@@ -3098,7 +3098,7 @@ function renderHeader(){
   return hd;
 }
 
-/* ── NOTIF BELL ── */
+/* -- NOTIF BELL -- */
 function renderNotifBell(){
   const notifs=DB.notifications;
   const unread=notifs.filter(n=>!n.read).length;
@@ -3171,12 +3171,12 @@ function renderNotifBell(){
   wrap.appendChild(btn2);return wrap;
 }
 
-/* ── NAVIGATION DRAWER ── */
+/* -- NAVIGATION DRAWER -- */
 function renderDrawer(){
   const drawer=el('div',{class:'drawer'+(S.isDrawerOpen?' open':''),
     id:'nav-drawer','aria-hidden':String(!S.isDrawerOpen)});
 
-  // ── Profile header inside drawer ──
+  // -- Profile header inside drawer --
   const spec=getMySpecialistRecord();
   const displayName=session?.role==='parent'
     ?`${session?.name||'Parent'}`
@@ -3190,7 +3190,7 @@ function renderDrawer(){
   prof.appendChild(el('div',{class:'drawer-role'},[displayRole]));
   drawer.appendChild(prof);
 
-  // ── Scrollable nav area ──
+  // -- Scrollable nav area --
   const scroll=el('div',{class:'drawer-scroll'});
 
   // Helper: build a nav item
@@ -3224,7 +3224,7 @@ function renderDrawer(){
     return item;
   }
 
-  // ── Core sections ──
+  // -- Core sections --
   scroll.appendChild(el('div',{class:'drawer-section-label'},['Navigation']));
 
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
@@ -3266,7 +3266,7 @@ function renderDrawer(){
     scroll.appendChild(srchItem);
   }
 
-  // ── Utilities section ──
+  // -- Utilities section --
   scroll.appendChild(el('div',{class:'drawer-sep'}));
   scroll.appendChild(el('div',{class:'drawer-section-label'},['Utilities']));
 
@@ -3291,7 +3291,7 @@ function renderDrawer(){
     scroll.appendChild(tourItem);
   }
 
-  // ── Sign Out (bottom, danger) ──
+  // -- Sign Out (bottom, danger) --
   scroll.appendChild(el('div',{class:'drawer-sep'}));
   const signOutItem=el('button',{class:'drawer-item danger'});
   signOutItem.appendChild(el('div',{class:'di-icon'},['👋']));
@@ -3312,7 +3312,7 @@ function renderDrawer(){
   return drawer;
 }
 
-/* ── SIDENAV ── */
+/* -- SIDENAV -- */
 function renderSidenav(){
   const tabs=getTabs();
   const spec=getMySpecialistRecord();
@@ -3335,11 +3335,11 @@ function renderSidenav(){
   return nav;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    BACK BUTTON / HISTORY MANAGEMENT
    Intercepts Android back & iOS swipe-back to
    navigate within the app instead of exiting.
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
 // Snapshot the parts of S that define "which screen you're on"
 function _snapNav(){
@@ -3423,11 +3423,11 @@ function switchTab(id){
   }
 }
 
-/* ── BOTTOM NAV — 3 quick tabs + menu ── */
+/* -- BOTTOM NAV — 3 quick tabs + menu -- */
 function renderBottomNav(){
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
   const myId=session?.id||'';
-  const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).length;
+  const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const totalBadge=unreadNotifs; // badge shows unread notifications only
 
   const nav=el('nav',{id:'bottom-nav'});
@@ -3486,7 +3486,7 @@ function renderBottomNav(){
   return nav;
 }
 
-/* ── GLOBAL SEARCH OVERLAY ── */
+/* -- GLOBAL SEARCH OVERLAY -- */
 function renderSearchOverlay(){
   const ov=el('div',{class:'search-overlay'});
   ov.onclick=e=>{if(e.target===ov){S.searchOpen=false;re();}};
@@ -3539,12 +3539,12 @@ function renderSearchOverlay(){
   return ov;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CONTENT ROUTER
-═══════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════
+----------------------------------------------- */
+/* -----------------------------------------------
    LEVEL 0 — GLOBAL FAMILY HOME
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
 // Per-child brand colors used throughout the home (fallback to child.color)
 const CHILD_COLORS=['#0d9488','#7c3aed','#f97316','#ec4899','#0369a1','#16a34a'];
@@ -3557,7 +3557,7 @@ function renderGlobalHome(){
   const hasChildren=children.length>0;
   const sec=el('div',{class:'global-home'});
 
-  // ── If no children yet: full welcome zero-state ──
+  // -- If no children yet: full welcome zero-state --
   if(!hasChildren){
     const banner=el('div',{class:'welcome-banner'});
     banner.appendChild(el('h2',{},[`Welcome, ${session?.name||'there'}! 👋`]));
@@ -3613,7 +3613,7 @@ function renderGlobalHome(){
     return sec;
   }
 
-  // ── Normal home with children ──
+  // -- Normal home with children --
   // Time-aware greeting
   const hour=new Date().getHours();
   const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
@@ -3707,7 +3707,7 @@ function renderGlobalHome(){
   return sec;
 }
 
-/* ── Mini-Calendar widget (aggregated, color-coded) ── */
+/* -- Mini-Calendar widget (aggregated, color-coded) -- */
 function renderMiniCalendar(children,allApts){
   const now=new Date();
   const today=now.toISOString().split('T')[0];
@@ -3831,7 +3831,7 @@ function renderMiniCalendar(children,allApts){
   return card;
 }
 
-/* ── Full-screen calendar (all children, color-coded) ── */
+/* -- Full-screen calendar (all children, color-coded) -- */
 function renderCalFullscreen(){
   const children=LS.get('children',[]).length?LS.get('children',[]):DB.children;
   const allApts=LS.get('appointments',[]);
@@ -3995,7 +3995,7 @@ function renderCalFullscreen(){
   return wrap;
 }
 
-/* ── Global Vault — Unsorted Inbox with Process File ── */
+/* -- Global Vault — Unsorted Inbox with Process File -- */
 function renderGlobalVault(){
   const wrap=el('div',{});
   const hd=el('div',{class:'global-vault-hd'});
@@ -4043,7 +4043,7 @@ function renderGlobalVault(){
   return wrap;
 }
 
-/* ── Process File bottom-sheet ── */
+/* -- Process File bottom-sheet -- */
 function showProcessFileSheet(file){
   const children=DB.children;
   const folders=DB.folders;
@@ -4124,9 +4124,9 @@ function showProcessFileSheet(file){
 }
 
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    APPOINTMENT DISPLAY NAME HELPER
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function aptDisplayTitle(apt){
   const typeLabel={speech:'Speech Therapy',ot:'Occupational Therapy',pt:'Physical Therapy',psychology:'Psychology',general:'Session'}[apt.type]||'Session';
   if(session?.role==='specialist'){
@@ -4166,9 +4166,9 @@ function renderContent(){
   return d('section',[p('Coming soon…')]);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    PARENT DASHBOARD — Level 1 (child-specific)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderParentDashboard(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   if(!child){
@@ -4323,9 +4323,9 @@ function renderParentDashboard(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    SPECIALIST DASHBOARD — zero-state aware
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderSpecDashboard(){
   const specId=session?.specialistId;
   const spec=getMySpecialistRecord();
@@ -4444,9 +4444,9 @@ function renderSpecDashboard(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    FILE MANAGER
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function mkSubHeader(title,rightEl=null){
   const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
   const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
@@ -4469,7 +4469,7 @@ function mkSubHeader(title,rightEl=null){
 }
 
 
-/* ── Folder File Grid — thumbnail previews ── */
+/* -- Folder File Grid — thumbnail previews -- */
 function getFileThumb(f){
   const ext=(f.name||'').split('.').pop().toLowerCase();
   const isImg=['jpg','jpeg','png','gif','webp'].includes(ext);
@@ -4772,7 +4772,7 @@ function renderFiles(){
       wrap.appendChild(el('div',{class:'folder-name'},[folder.name]));
       wrap.appendChild(el('div',{class:'folder-count'},[`${folder.files.length} file${folder.files.length!==1?'s':''}`]));
       
-      // ── LONG-PRESS gesture for action menu ──
+      // -- LONG-PRESS gesture for action menu --
       // Tap = open folder, Long-press = context menu
       let pressTimer=null;
       let moved=false;
@@ -5201,9 +5201,9 @@ function showAccessRequest(folder){
   },400);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CARE TEAM
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderTeam(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
@@ -5243,7 +5243,7 @@ function renderTeam(){
     const joinReqs=allPending.filter(r=>!r.requestType||r.requestType==='join');
     const folderReqs=allPending.filter(r=>r.requestType==='folder');
 
-    // ── Folder access requests (specialist already on team, wants a specific folder) ──
+    // -- Folder access requests (specialist already on team, wants a specific folder) --
     if(folderReqs.length>0){
       sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
       folderReqs.forEach(req=>{
@@ -5267,7 +5267,7 @@ function renderTeam(){
       sec.appendChild(el('div',{class:'sep'}));
     }
 
-    // ── Join requests (specialist wants to join the team) ──
+    // -- Join requests (specialist wants to join the team) --
     if(joinReqs.length>0){
       sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['👥 Pending Team Requests']));
       joinReqs.forEach(req=>{
@@ -5567,11 +5567,11 @@ function showHandshakeModal(spec){
   },480);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CALENDAR
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
-/* ── Appointment Detail Modal with Permission Logic ── */
+/* -- Appointment Detail Modal with Permission Logic -- */
 function showAptDetailModal(apt,child){
   const isParent=session?.role==='parent';
   const isCreator=isParent
@@ -5657,7 +5657,7 @@ function showAptDetailModal(apt,child){
   },480);
 }
 
-/* ── Edit Appointment Modal ── */
+/* -- Edit Appointment Modal -- */
 function showEditAptModal(apt){
   openModal('✏️ Edit Appointment',(mb,close)=>{
     mb.appendChild(el('div',{class:'inp-label'},['Title']));
@@ -5957,9 +5957,9 @@ function showAddEventModal(prefilledDate=null){
     }));
   },580);
 }
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CHAT
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 /* helper: mark chat as read for current user */
 function markChatRead(chatId){
   const myId=session?.id||'';
@@ -5968,8 +5968,8 @@ function markChatRead(chatId){
   const ci=all.findIndex(c=>c.id===chatId);
   if(ci>-1&&(all[ci].unreadFor||[]).includes(myId)){
     all[ci].unreadFor=(all[ci].unreadFor||[]).filter(id=>id!==myId);
+    all[ci].unreadCount=0;
     DB.chats=all;
-    // persist read state to Supabase
     if(session?.id!=='demo'){
       _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(()=>{});
     }
@@ -6012,7 +6012,7 @@ function renderChat(){
 
   const sec=el('div',{class:'section',style:{padding:0,overflow:'hidden'}});
 
-  // ── MOBILE: full-screen thread view ──
+  // -- MOBILE: full-screen thread view --
   if(isMobile&&S.activeChatId){
     const activeChat=allChats.find(c=>c.id===S.activeChatId);
     if(activeChat){
@@ -6022,8 +6022,8 @@ function renderChat(){
     }
   }
 
-  // ── DESKTOP: side-by-side ──
-  // ── MOBILE: list view ──
+  // -- DESKTOP: side-by-side --
+  // -- MOBILE: list view --
   const listWrap=el('div',{style:{padding:'0 0 8px'}});
 
   // Header
@@ -6098,8 +6098,8 @@ function renderChat(){
     // Meta (time + unread count)
     const meta=el('div',{class:'chat-list-meta'});
     if(timeLabel)meta.appendChild(el('div',{class:'chat-list-time',style:{color:isUnread?'var(--teal)':'var(--slate-l)',fontWeight:isUnread?800:400}},[timeLabel]));
-    const unreadCount=(chat.unreadFor||[]).includes(myId)?1:0;
-    if(unreadCount>0)meta.appendChild(el('div',{class:'chat-unread-badge'},['●']));
+    const unreadCount=(chat.unreadFor||[]).includes(myId)?(chat.unreadCount||1):0;
+    if(unreadCount>0)meta.appendChild(el('div',{class:'chat-unread-badge'},[unreadCount>99?'99+':String(unreadCount)]));
     item.appendChild(meta);
 
     item.onclick=()=>{
@@ -6115,7 +6115,7 @@ function renderChat(){
     return sec;
   }
 
-  // ── DESKTOP: side-by-side layout ──
+  // -- DESKTOP: side-by-side layout --
   const wrap=el('div',{style:{display:'flex',gap:'0',minHeight:'460px',borderTop:'1px solid var(--mint-l)'}});
   const sidebar=el('div',{style:{width:'260px',minWidth:'260px',borderRight:'1.5px solid var(--mint-l)',overflowY:'auto',flexShrink:0}});
   sidebar.appendChild(listWrap);
@@ -6136,9 +6136,26 @@ function renderChat(){
   return sec;
 }
 
+function _resolveSenderName(msg, activeChat){
+  // 1. Prefer stored senderName
+  if(msg.senderName)return msg.senderName;
+  // 2. Is it the current user?
+  if(msg.sender===session?.id)return session.name||'You';
+  // 3. Look up in child team (specialists)
+  const spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===msg.sender);
+  if(spec)return spec.name;
+  // 4. 'parent' string (legacy) or co-parent UUID
+  if(msg.sender==='parent')return 'Parent';
+  // 5. Check co-parents in household
+  const hp=(DB.coParents||[]).find(p=>p.id===msg.sender);
+  if(hp)return hp.name||'Parent';
+  return 'Parent';
+}
+
 function renderChatThread(activeChat,specId,myId,onBack){
   const isConsult=activeChat.type==='specialist-consult';
   const isGroup=activeChat.type==='group';
+  const isMobile=window.innerWidth<768;
   const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
   const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
   const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
@@ -6147,106 +6164,122 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  const wrap=el('div',{style:{display:'flex',flexDirection:'column',height:'100%'}});
+  // On mobile: full-screen fixed overlay so flex layout actually works
+  const wrap=el('div',{style:isMobile?{
+    position:'fixed',top:0,left:0,right:0,bottom:0,
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:200
+  }:{
+    display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
+  }});
 
-  // Thread header
+  // -- Header (sticky top) --
   const threadHd=el('div',{style:{
-    display:'flex',alignItems:'center',gap:'12px',
+    display:'flex',alignItems:'center',gap:'10px',
     padding:'12px 16px',borderBottom:'2px solid var(--mint-ll)',
-    background:'#fff',flexShrink:0
+    background:'#fff',flexShrink:0,zIndex:1
   }});
   if(onBack){
-    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.5rem',padding:'0 8px 0 0',lineHeight:1}},['‹']);
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.6rem',padding:'0 6px 0 0',lineHeight:1,flexShrink:0}},['<']);
     backBtn.onclick=onBack;
     threadHd.appendChild(backBtn);
   }
-  const av=el('div',{style:{width:'38px',height:'38px',borderRadius:'50%',background:childColor+'22',border:'2px solid '+childColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.2rem',flexShrink:0}});
-  av.appendChild(el('span',{},[isGroup?'👥':isConsult?'🔗':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'💬')]));
+  const av=el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:childColor+'22',border:'2px solid '+childColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+  av.appendChild(el('span',{},[isGroup?'\u{1F465}':isConsult?'\u{1F517}':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'\u{1F4AC}')]));
   threadHd.appendChild(av);
   const ti=el('div',{style:{flex:1,minWidth:0}});
   ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
-  ti.appendChild(el('div',{style:{fontSize:'.7rem',color:childColor,fontWeight:700}},
-    [isGroup?'👥 '+participantNames:isConsult?'🔗 Specialist consult':'🔒 Secure - Parent-approved']));
+  ti.appendChild(el('div',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+    [isGroup?'\u{1F465} '+participantNames:isConsult?'\u{1F517} Specialist consult':'\u{1F512} Secure chat']));
   threadHd.appendChild(ti);
   wrap.appendChild(threadHd);
 
-  // Messages
-  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'14px 16px',display:'flex',flexDirection:'column',gap:'10px'}});
-  activeChat.messages.forEach(m=>{
+  // -- Messages (scrollable, flex:1) --
+  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
+  const msgs=activeChat.messages||[];
+  msgs.forEach((m,mi)=>{
     const isMe=m.sender===myId;
-    const senderSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
-    const senderName=senderSpec?.name||(m.sender==='parent'?'Parent':'Member');
-    const row=el('div',{style:{display:'flex',justifyContent:isMe?'flex-end':'flex-start',gap:'8px',alignItems:'flex-end'}});
+    const senderName=_resolveSenderName(m,activeChat);
+    const isLastMsg=mi===msgs.length-1;
+
+    const row=el('div',{style:{display:'flex',justifyContent:isMe?'flex-end':'flex-start',gap:'6px',alignItems:'flex-end'}});
+    // Avatar for others
     if(!isMe){
-      const av2=el('div',{style:{width:'28px',height:'28px',borderRadius:'50%',background:'var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem',flexShrink:0}});
-      av2.textContent=senderSpec?.avatar||senderName[0]?.toUpperCase()||'?';
+      const av2=el('div',{style:{width:'26px',height:'26px',borderRadius:'50%',background:'var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.75rem',flexShrink:0,marginBottom:'2px'}});
+      const spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
+      av2.textContent=spec?.avatar||senderName[0]?.toUpperCase()||'?';
       row.appendChild(av2);
     }
     const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
-    if(!isMe)bub.appendChild(el('div',{class:'bubble-name'},[senderName]));
-    bub.appendChild(el('div',{},[m.text]));
-    const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'2px'}});
+    // Always show sender name for non-me bubbles (important in groups)
+    if(!isMe){
+      bub.appendChild(el('div',{class:'bubble-name',style:{color:childColor}},[senderName]));
+    }
+    bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[m.text]));
+    // Time row
+    const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
     timeRow.appendChild(el('span',{class:'bubble-time'},[m.time]));
-    if(isMe){
-      // Tick: if recipient has read (not in unreadFor), show double tick
-      const isRead=!(activeChat.unreadFor||[]).length||(activeChat.unreadFor||[]).every(id=>id===myId);
-      timeRow.appendChild(el('span',{class:'bubble-tick'+(isRead?' read':'')},['✓✓']));
+    // Ticks: only on last sent message, only when actually read by others
+    if(isMe&&isLastMsg){
+      const noOneElseUnread=!(activeChat.unreadFor||[]).filter(id=>id!==myId).length;
+      timeRow.appendChild(el('span',{class:'bubble-tick'+(noOneElseUnread?' read':'')},['vv']));
     }
     bub.appendChild(timeRow);
     row.appendChild(bub);
     msgArea.appendChild(row);
   });
+  if(!msgs.length){
+    const empty=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--slate)',fontSize:'.84rem',fontWeight:600,padding:'32px'}});
+    empty.textContent='No messages yet. Say hello!';
+    msgArea.appendChild(empty);
+  }
   wrap.appendChild(msgArea);
 
+  // Scroll to bottom after paint
   requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
 
-  // Real-time subscription
+  // -- Real-time subscription --
   if(session?.id!=='demo'&&activeChat.childId){
     if(_chatSub)_chatSub.unsubscribe();
     _chatSub=SB.subscribeToMessages(activeChat.childId,msg=>{
+      if(msg.sender_id===session?.id)return;
       const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
       if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
-        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
-        // Mark unread if not the sender
-        if(msg.sender_id!==session?.id){
-          all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
-          if(!all2[ci2].unreadFor.includes(session?.id||''))all2[ci2].unreadFor.push(session?.id||'');
-        }
+        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
+        const uid=session?.id||'';
+        all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
+        if(!all2[ci2].unreadFor.includes(uid))all2[ci2].unreadFor.push(uid);
+        all2[ci2].unreadCount=(all2[ci2].unreadCount||0)+1;
         DB.chats=all2;re();
       }
     });
   }
 
-  // Input row
-  const inputRow=el('div',{class:'chat-input-row'});
-  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
+  // -- Input row (sticky bottom) --
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
+  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px',border:'none',outline:'none',background:'transparent',padding:'0 4px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
-  const sb2=el('button',{class:'send-btn',title:'Send'},['➤']);
+  const sb2=el('button',{class:'send-btn',title:'Send'});
+  sb2.innerHTML='&#10148;';
   sb2.onclick=async()=>{
     const txt=mi.value.trim();if(!txt)return;
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci>-1){
       const senderKey=myId||'unknown';
-      const newMsg={id:'m_'+Date.now(),sender:senderKey,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
+      const senderName=session?.name||'';const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
       all[ci].messages.push(newMsg);
-      // Mark unread for ALL other participants
-      const others=all[ci].participants.filter(p=>p!==myId&&p!=='parent'||p==='parent'&&myId!==session?.id);
+      // Mark others as unread
       all[ci].unreadFor=[...(all[ci].unreadFor||[])];
-      others.forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
-      // Also mark parent as unread if specialist is sending
-      if(session?.role==='specialist'&&!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
-      if(session?.role==='parent'){
-        all[ci].participants.filter(p=>p!=='parent').forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
+      if(session?.role==='specialist'){
+        if(!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
+      } else {
+        all[ci].participants.filter(p=>p!=='parent'&&p!==myId).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
       }
       track('Message Sent');
       DB.chats=all;
       if(session?.id!=='demo'){
         try{
-          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:session.name||'',body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
-          // Update unread_for in DB
+          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(()=>{});
-          const preview=txt.length>42?txt.slice(0,42)+'...':txt;
-          await notifyOtherParty('chat',`💬 ${session.name||'Someone'}: "${preview}"`,activeChat.childId,'chat',{chatId:activeChat.id});
         }catch(e){console.error('send message:',e);}
       }
     }
@@ -6322,9 +6355,9 @@ function showConsultModal(){
   },460);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    VAULT (with draft + unsaved guard)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderVault(){
   const specId=session?.specialistId||null;
   const child=DB.children.find(c=>c.id===S.activeChild);
@@ -6449,7 +6482,7 @@ function renderVault(){
       const aiBtn=mkBtn('✨ AI Summarize','btn-sm btn-secondary',async()=>{
         if(!ta.value.trim()){toast('⚠️ Write some notes first!','error');return;}
 
-        // ── FULL-SCREEN AI OVERLAY ──
+        // -- FULL-SCREEN AI OVERLAY --
         // Gives specialist maximum screen space to review/edit on mobile keyboard
         const overlay=el('div',{class:'ai-fullscreen'});
         
@@ -6585,13 +6618,13 @@ function renderVault(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    HOMEWORK — PARENT VIEW
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    TO-DO LIST WITH REMINDERS
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderTodoList(){
   const isParent=session?.role==='parent';
   const childId=S.activeChild;
@@ -6871,9 +6904,9 @@ function renderHomeworkParent(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    HOMEWORK — SPECIALIST VIEW
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderHomeworkSpec(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const hw=DB.homework.filter(h=>h.childId===S.activeChild);
@@ -6945,9 +6978,9 @@ function showAssignModal(){
   },460);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    PATIENTS LIST (Specialist)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderPatients(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},['My Patients']));
@@ -7059,9 +7092,9 @@ function mkSpecBackBar(childName){
   return bar;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    PATIENT DASHBOARD (Specialist → patient detail)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderPatientDashboard(){
   const specId=session?.specialistId;
   const child=DB.children.find(c=>c.id===S.activeChild)
@@ -7121,9 +7154,9 @@ function renderPatientDashboard(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    CREDENTIALS / PERSONAL FOLDER (Specialist only)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderCredentials(){
   const specId=session?.specialistId||null;
   const spec={...getMySpecialistRecord(),credentials:getMySpecialistRecord().credentials||[]};
@@ -7193,9 +7226,9 @@ function showCredentialUpload(spec,specId){
   document.body.appendChild(fi);fi.click();
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    NOTIFICATIONS
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderNotifications(){
   const sec=el('div',{class:'section'});
   const unreadCount=DB.notifications.filter(n=>!n.read).length;
@@ -7277,12 +7310,12 @@ function renderNotifications(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    SETTINGS
-═══════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════
+----------------------------------------------- */
+/* -----------------------------------------------
    1. SIMULATED EMAIL INBOX
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderEmailInbox(){
   const sec=el('div',{class:'section'});
   const emails=DB.emailInbox;
@@ -7352,9 +7385,9 @@ function renderEmailInbox(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    2. PROGRESS TRACKING (charts + milestones)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderProgress(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const progressData=DB.progress.filter(p=>p.childId===S.activeChild);
@@ -7514,9 +7547,9 @@ function showLogMeasurementModal(){
   },460);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function showEditChildModal(child){
   openModal('✏️ Edit '+child.name,(mb,close)=>{
     // Avatar / photo tappable button
@@ -7727,9 +7760,9 @@ function showDeleteChildModal(child){
   },480);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    4. PUSH NOTIFICATION PERMISSION
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderPushBanner(){
   // FIX B7: use a separate 'pushDismissed' key so pushEnabled stays a clean boolean
   if(DB.pushEnabled===true||!('Notification' in window))return null;
@@ -7765,9 +7798,9 @@ function sendPush(title,body){
   }
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    5. SPECIALIST-INITIATED PATIENT REQUEST
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderSpecialistRequest(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title'},['📨 Request to Join a Care Team']));
@@ -7848,10 +7881,10 @@ function renderSpecialistRequest(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    6. PARENT-EDITABLE PUBLISHED SUMMARIES
       (injected into parent dashboard as a section)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function renderPublishedSummaries(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const published=DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary);
@@ -7887,9 +7920,9 @@ function renderPublishedSummaries(){
   return wrap;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    7. GROUP CHAT (multi-participant)
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 function showCreateGroupChatModal(){
   openModal('👥 Create Group Chat',(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
@@ -7918,6 +7951,8 @@ function showCreateGroupChatModal(){
         try{
           await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
+          // Notify all participants about the new group chat
+          try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
         }catch(e){console.error('create group chat:',e);toast('Could not create chat.','error');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
         close();re();toast('✅ Group chat "'+name+'" created!');
@@ -7926,12 +7961,12 @@ function showCreateGroupChatModal(){
   },480);
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    SETTINGS PATCH — push, delete child, group chat
-═══════════════════════════════════════════════ */
-// ═══════════════════════════════════════════════
+----------------------------------------------- */
+// -----------------------------------------------
 //   HOUSEHOLD / CO-PARENT FEATURE
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 function genHouseholdToken(){
   const arr=new Uint8Array(14);crypto.getRandomValues(arr);
@@ -8453,9 +8488,9 @@ function renderSettings(){
   return sec;
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    ROOT RENDER
-═══════════════════════════════════════════════ */
+----------------------------------------------- */
 let _reTimer=null;
 function re(){
   // Debounce: collapse multiple rapid re() calls into one per animation frame
