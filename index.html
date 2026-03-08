@@ -6177,34 +6177,48 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  // On mobile: fixed panel using dvh (dynamic viewport height) — iOS keyboard-safe
+  // On mobile: fixed panel, hides bottom nav while open, uses visualViewport for keyboard
+  const _bnav=document.getElementById('bottom-nav');
+  if(isMobile && _bnav) _bnav.style.display='none';
+
+  const _headerPx=(()=>{
+    const hh=getComputedStyle(document.documentElement).getPropertyValue('--header-h').trim();
+    return parseInt(hh)||56;
+  })();
+  const _safeTop=(()=>{
+    const st=getComputedStyle(document.documentElement).getPropertyValue('--safe-top').trim();
+    return parseInt(st)||0;
+  })();
+
+  const _vv=window.visualViewport;
+  const _initH=(_vv?_vv.height:window.innerHeight)-_headerPx-_safeTop;
+
   const wrap=el('div',{style:isMobile?{
     position:'fixed',
-    top:'calc(var(--header-h) + var(--safe-top))',
-    bottom:'0',
-    left:0,right:0,
-    display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
-    overflow:'hidden',
-    paddingBottom:'env(safe-area-inset-bottom, 0px)'
+    top:(_headerPx+_safeTop)+'px',
+    left:'0',right:'0',
+    height:_initH+'px',
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:500,
+    overflow:'hidden'
   }:{
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
-  // No JS needed — bottom:0 + the keyboard pushes the viewport on iOS Safari 15+
-  // For older iOS, fall back to visualViewport nudge
-  if(isMobile && window.visualViewport){
+
+  if(isMobile && _vv){
     const _nudge=()=>{
-      const vv=window.visualViewport;
-      // Move wrap up by the amount the viewport has scrolled (keyboard offset)
-      wrap.style.transform='translateY('+(-vv.offsetTop)+'px)';
-      wrap.style.height=(vv.height)+'px';
+      const newH=_vv.height-_headerPx-_safeTop;
+      wrap.style.height=newH+'px';
       requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
     };
-    window.visualViewport.addEventListener('resize',_nudge);
-    window.visualViewport.addEventListener('scroll',_nudge);
+    _vv.addEventListener('resize',_nudge);
+    _vv.addEventListener('scroll',_nudge);
     wrap._vvCleanup=()=>{
-      window.visualViewport.removeEventListener('resize',_nudge);
-      window.visualViewport.removeEventListener('scroll',_nudge);
+      if(_bnav)_bnav.style.display='';
+      _vv.removeEventListener('resize',_nudge);
+      _vv.removeEventListener('scroll',_nudge);
     };
+  } else if(isMobile){
+    wrap._vvCleanup=()=>{if(_bnav)_bnav.style.display='';};
   }
 
   // -- Header (sticky top) --
