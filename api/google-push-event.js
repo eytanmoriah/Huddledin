@@ -1,12 +1,19 @@
-function parse12hr(t) {
+function parseTime(t) {
+  // Handles both "9:00 AM" and "09:00" (24hr from HTML input)
   if (!t) return '09:00';
-  const parts = t.trim().split(' ');
-  const modifier = parts[1] || '';
-  const [h, m] = parts[0].split(':');
-  let hours = parseInt(h);
-  if (modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
-  if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-  return `${String(hours).padStart(2, '0')}:${m || '00'}`;
+  t = t.trim();
+  if (t.toUpperCase().includes('AM') || t.toUpperCase().includes('PM')) {
+    // 12-hour format
+    const parts = t.split(' ');
+    const modifier = parts[1].toUpperCase();
+    const [h, m] = parts[0].split(':');
+    let hours = parseInt(h);
+    if (modifier === 'PM' && hours !== 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${m || '00'}`;
+  }
+  // Already 24-hour — strip seconds if present
+  return t.slice(0, 5);
 }
 
 export default async function handler(req, res) {
@@ -18,7 +25,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get profile from Supabase via REST
+    // Get profile from Supabase
     const profileRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=google_refresh_token,google_calendar_enabled`,
       {
@@ -50,7 +57,6 @@ export default async function handler(req, res) {
     const { access_token, error: tokenError } = await tokenRes.json();
 
     if (tokenError || !access_token) {
-      // Token revoked — disable
       await fetch(
         `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
         {
@@ -67,11 +73,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ skipped: true, reason: 'Token revoked' });
     }
 
-    // Build event
-    const dateStr = appointment.date;
-    const time24 = parse12hr(appointment.time);
+    // Build event times
+    const dateStr = appointment.date; // YYYY-MM-DD
+    const time24 = parseTime(appointment.time);
     const [h, m] = time24.split(':');
-    const endHour = String(parseInt(h) + 1).padStart(2, '0');
+    const endHour = String((parseInt(h) + 1) % 24).padStart(2, '0');
+
+    console.log('Pushing event:', appointment.title, dateStr, time24);
 
     const event = {
       summary: appointment.title,
@@ -97,8 +105,9 @@ export default async function handler(req, res) {
     );
 
     const calData = await calRes.json();
+    console.log('Google Calendar response:', calRes.status, JSON.stringify(calData).slice(0, 200));
+
     if (!calRes.ok) {
-      console.error('Google Calendar error:', calData);
       return res.status(500).json({ error: calData.error?.message || 'Failed' });
     }
 
