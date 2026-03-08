@@ -6177,37 +6177,49 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  // On mobile: fixed panel that fits between app header and bottom nav
+  // On mobile: full-screen chat panel with iOS-safe layout
+  const _headerOffset = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'))||56)
+    + (window.screen.height - window.innerHeight > 40 ? (window.screen.height - window.innerHeight) : 0);
+
   const wrap=el('div',{style:isMobile?{
     position:'fixed',
     top:'calc(var(--header-h) + var(--safe-top))',
-    bottom:'var(--bnav-h)',
     left:0,right:0,
-    display:'flex',flexDirection:'column',background:'#fff',zIndex:200
+    height: window.visualViewport
+      ? (window.visualViewport.height - _headerOffset)+'px'
+      : 'calc(100% - var(--header-h) - var(--safe-top))',
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
+    overflow:'hidden'
   }:{
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
 
-  // iOS Visual Viewport fix: when keyboard opens, adjust bottom so input stays visible
-  if(isMobile && window.visualViewport){
-    const _vvHandler=()=>{
-      const vv=window.visualViewport;
-      const keyboardHeight=window.innerHeight - vv.height - vv.offsetTop;
-      const bottomOffset=Math.max(0, keyboardHeight);
-      wrap.style.bottom = bottomOffset > 10 ? bottomOffset+'px' : 'var(--bnav-h)';
-      // Scroll messages to bottom when keyboard opens
+  // iOS: lock body scroll so fixed layout is stable, then use visualViewport to track keyboard
+  if(isMobile){
+    document.body.style.overflow='hidden';
+    document.body.style.position='fixed';
+    document.body.style.width='100%';
+
+    const _updateHeight=()=>{
+      const vv=window.visualViewport||{height:window.innerHeight,offsetTop:0};
+      const headerH=(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'))||56);
+      const safeTop=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top'))||0;
+      wrap.style.height=(vv.height - headerH - safeTop)+'px';
       requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
     };
-    window.visualViewport.addEventListener('resize', _vvHandler);
-    window.visualViewport.addEventListener('scroll', _vvHandler);
-    // Cleanup when thread is removed from DOM
-    const _origOnBack = onBack;
-    if(onBack) {
-      wrap._vvCleanup = ()=>{
-        window.visualViewport.removeEventListener('resize', _vvHandler);
-        window.visualViewport.removeEventListener('scroll', _vvHandler);
-      };
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize',_updateHeight);
+      window.visualViewport.addEventListener('scroll',_updateHeight);
     }
+    wrap._vvCleanup=()=>{
+      document.body.style.overflow='';
+      document.body.style.position='';
+      document.body.style.width='';
+      if(window.visualViewport){
+        window.visualViewport.removeEventListener('resize',_updateHeight);
+        window.visualViewport.removeEventListener('scroll',_updateHeight);
+      }
+    };
   }
 
   // -- Header (sticky top) --
