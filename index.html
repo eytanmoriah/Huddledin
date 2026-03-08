@@ -1446,7 +1446,7 @@ async function _loadSpecPermissions(specs){
 const SB = {
   async getChildren(parentId){
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
-    return (data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,status:c.status||'active'}));
+    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active'})));
   },
   async addChild(parentId,child,householdId){
     const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
@@ -1533,7 +1533,7 @@ async function refreshFromSupabase(){
       let children=[];
       if(hid){
         const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=(data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id}));
+        children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
       } else {
         children=await SB.getChildren(session.id);
       }
@@ -1617,7 +1617,7 @@ async function refreshFromSupabase(){
         ]);
         const children=childrenRes.data||[];
         if(children.length>0){
-          const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id}));
+          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
           LS.set('children',mapped);
           if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
           // Save appointments immediately — no waiting
@@ -1760,6 +1760,26 @@ function loadDemoData(){
   re();
 }
 
+// Assign distinct colors to any children with null/missing color, save to Supabase
+function _migrateChildColors(children){
+  const _usedColors=new Set(children.filter(c=>c.color&&c.color!=='#0d9488'&&c.color!=='#c4b5fd').map(c=>c.color));
+  let needsSave=false;
+  children.forEach((c,i)=>{
+    if(!c.color||c.color==='#0d9488'&&i>0||c.color==='#c4b5fd'){
+      const assigned=CHILD_COLORS.find(col=>!_usedColors.has(col))||CHILD_COLORS[i%CHILD_COLORS.length];
+      if(c.color!==assigned){
+        c.color=assigned;
+        needsSave=true;
+        _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(()=>{});
+      }
+      _usedColors.add(assigned);
+    } else {
+      _usedColors.add(c.color);
+    }
+  });
+  return children;
+}
+
 const DB=new Proxy({},{
   get(_,k){return LS.get(k,SEED[k]??[]);},
   set(_,k,v){LS.set(k,v);return true;}
@@ -1795,17 +1815,7 @@ async function _loadSessionFromSupabase(s){
           ? SB.getSpecialistsByHousehold(hid).catch(()=>[])
           : SB.getSpecialists(s.user.id).catch(()=>[])
       ]);
-      children=(childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id}));
-      // Auto-assign distinct colors — patch any child with null/missing color from Supabase
-      const _usedColors=new Set(children.filter(c=>c.color).map(c=>c.color));
-      children.forEach((c,i)=>{
-        if(!c.color){
-          const assigned=CHILD_COLORS.find(col=>!_usedColors.has(col))||CHILD_COLORS[i%CHILD_COLORS.length];
-          c.color=assigned;
-          _usedColors.add(assigned);
-          _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(()=>{});
-        }
-      });
+      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id})));
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
       try{
@@ -1828,7 +1838,7 @@ async function _loadSessionFromSupabase(s){
               const mapped=children.map(c=>({
                 id:c.id,name:c.name,dob:c.dob,
                 avatar:c.avatar_emoji||'🌸',
-                color:c.color||'#c4b5fd',
+                color:c.color||null,
                 photo:c.photo_url||null
               }));
               LS.set('children',mapped);
@@ -8403,7 +8413,7 @@ async function _processPendingInvite(){
         if(child){
           const children=LS.get('children',[]);
           if(!children.find(c=>c.id===child.id)){
-            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||'#c4b5fd',photo:child.photo_url||null});
+            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||null,photo:child.photo_url||null});
             LS.set('children',children);
           }
           S.activeChild=child.id;
