@@ -4135,6 +4135,14 @@ function renderParentDashboard(){
       if(apt.location)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginTop:'1px'}},['📍 '+apt.location]));
       if(apt.notes)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginTop:'1px',fontStyle:'italic'}},['📝 '+apt.notes.slice(0,60)+(apt.notes.length>60?'…':'')]));
       row.appendChild(info);
+      // RSVP indicator — visible to specialist
+      if(apt.rsvp==='yes'){
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['✅ Attending']));
+      } else if(apt.rsvp==='no'){
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['❌ Not Attending']));
+      } else {
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['⏳ No reply']));
+      }
       aptCard.appendChild(row);
     });
   }
@@ -5181,6 +5189,20 @@ function showAptDetailModal(apt,child){
     // Action buttons — permission-based
     const actRow=el('div',{style:{display:'flex',gap:'8px',marginTop:'16px',flexWrap:'wrap'}});
     if(isCreator){
+      // Show parent RSVP status to the creator
+      if(apt.rsvp){
+        const rsvpInfo=el('div',{style:{
+          display:'flex',alignItems:'center',gap:'8px',
+          padding:'10px 14px',borderRadius:'12px',marginBottom:'12px',
+          background:apt.rsvp==='yes'?'#d1fae5':'#fee2e2',
+          border:'1.5px solid '+(apt.rsvp==='yes'?'#6ee7b7':'#fca5a5')
+        }});
+        rsvpInfo.appendChild(el('span',{style:{fontSize:'1.1rem'}},[apt.rsvp==='yes'?'✅':'❌']));
+        rsvpInfo.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:apt.rsvp==='yes'?'#065f46':'#991b1b'}},[
+          apt.rsvp==='yes'?'Parent confirmed attending':'Parent marked as not attending'
+        ]));
+        mb.appendChild(rsvpInfo);
+      }
       actRow.appendChild(mkBtn('✏️ Edit','btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
       actRow.appendChild(mkBtn('🗑️ Delete','btn-md btn-danger',()=>{
         openConfirm('Delete Appointment','Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
@@ -5350,6 +5372,16 @@ function renderCalendar(){
     right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
     card.appendChild(right);
     // Tap to open detail modal with permission-based actions
+    // RSVP pill for specialist view
+    if(session?.role==='specialist'){
+      if(apt.rsvp==='yes'){
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['✅']));
+      } else if(apt.rsvp==='no'){
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['❌']));
+      } else {
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['⏳']));
+      }
+    }
     card.onclick=()=>showAptDetailModal(apt,ch||child);
     stack.appendChild(card);
   });
