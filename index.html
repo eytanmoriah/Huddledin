@@ -1574,7 +1574,17 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh homework:',e)),
         // Notifications
         _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
-          .then(({data:notifs})=>LS.set('notifications',(notifs||[]).map(n=>({id:n.id,type:n.type,msg:n.message,read:n.read,childId:n.child_id,time:new Date(n.created_at).toLocaleDateString()}))))
+          .then(({data:notifs})=>{
+            // Merge: if we marked something read locally, keep it read even if Supabase hasn't confirmed yet
+            const localNotifs=LS.get('notifications',[]);
+            const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
+            LS.set('notifications',(notifs||[]).map(n=>({
+              id:n.id,type:n.type,msg:n.message,
+              read:n.read||localReadIds.has(n.id),
+              childId:n.child_id,linkTab:n.link_tab||null,
+              time:new Date(n.created_at).toLocaleDateString()
+            })));
+          })
           .catch(e=>console.error('refresh notifications:',e)),
         // Todos
         _supa.from('todos').select('*').eq('user_id',session.id)
@@ -2302,7 +2312,8 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   if(_supa&&req.specialistId&&selectedFolders.length)
     selectedFolders.forEach(async key=>{try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key});}catch(e){console.error('upsert perm:',e);}});
   const child=DB.children.find(c=>c.id===req.childId);
-  pushNotif('invite',`You approved ${req.specialistName} to access ${child?.name||'your child'}'s folders.`,req.childId);
+  // Notify the specialist they've been approved (not the parent themselves)
+  await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
   re();
   toast('Access granted to '+req.specialistName+'!');
 }
@@ -2582,14 +2593,49 @@ function pushNotif(type,msg,childId,linkTab=null){
     const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
+  // Write to LOCAL DB only — so the current user sees it in their UI immediately
   const notif={id:'n_'+Date.now(),type,msg,time:'Just now',read:false,childId,linkTab};
   const ns=DB.notifications;
   ns.unshift(notif);
   DB.notifications=ns;
-  if(session?.id&&session.id!=='demo'){
-    try{_supa.from('notifications').insert({id:notif.id,user_id:session.id,household_id:getChildHouseholdId(childId),child_id:childId||null,type,message:msg,read:false,link_tab:linkTab});}catch(e){}
-  }
+  // NOTE: We do NOT insert to Supabase for session.id here.
+  // Cross-party notifications (to the OTHER user) are sent via notifyOtherParty() at each call site.
   sendPush('Huddledin 🤝',msg);
+}
+
+/* Push a notification to the OTHER party (not the current user) */
+async function notifyOtherParty(type,msg,childId,linkTab=null){
+  if(session?.id==='demo')return;
+  if(!linkTab){
+    const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
+    linkTab=autoTab[type]||null;
+  }
+  const hid=getChildHouseholdId(childId);
+  try{
+    if(session?.role==='specialist'){
+      // Notify parent: look up parentId from children data
+      const _c=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
+      const parentUserId=_c?.parentId;
+      const targetId=parentUserId||hid; // fallback to household_id
+      if(targetId){
+        await _supa.from('notifications').insert({
+          id:'n_op_'+Date.now(),user_id:targetId,
+          household_id:hid,child_id:childId||null,
+          type,message:msg,read:false,link_tab:linkTab
+        });
+      }
+    } else {
+      // Parent: notify all active specialists for this child
+      const team=getChildTeam(childId).filter(s=>s.status==='active');
+      for(const s of team){
+        await _supa.from('notifications').insert({
+          id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
+          household_id:hid,child_id:childId||null,
+          type,message:msg,read:false,link_tab:linkTab
+        }).catch(()=>{});
+      }
+    }
+  }catch(e){console.warn('notifyOtherParty:',e);}
 }
 
 /* ═══════════════════════════════════════════════
@@ -2964,7 +3010,7 @@ function renderNotifBell(){
     dd=el('div',{class:'notif-dropdown'});
     const dh=el('div',{class:'notif-dd-hd'},[
       el('span',{style:{fontWeight:800,color:'var(--navy)'}},['Notifications']),
-      mkBtn('See all','btn-sm btn-lav',()=>{dd.remove();dd=null;S.activeTab='notifications';re();})
+      mkBtn('See all','btn-sm btn-lav',()=>{dd.remove();dd=null;S.navLevel=1;S.activeTab='notifications';re();})
     ]);
     dd.appendChild(dh);
     (notifs.slice(0,6)).forEach(n=>{
@@ -2974,10 +3020,12 @@ function renderNotifBell(){
       niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
       niBody.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'2px'}},[n.time]));
       ni.appendChild(niBody);
-      ni.onclick=()=>{
+      ni.onclick=async()=>{
         const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
         if(i>-1){ns[i].read=true;DB.notifications=ns;}
-        if(session?.id!=='demo'){try{_supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}}
+        const lsN=LS.get('notifications',[]);const li=lsN.findIndex(x=>x.id===n.id);
+        if(li>-1){lsN[li].read=true;LS.set('notifications',lsN);}
+        if(session?.id!=='demo'){try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}}
         dd.remove();dd=null;S.activeTab='notifications';re();
       };
       dd.appendChild(ni);
@@ -3246,7 +3294,7 @@ function renderBottomNav(){
       {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
       {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
       {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;switchTab('chat');}},
-      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.activeTab='notifications';re();}},
+      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
     ];
     parentTabs.forEach(t=>{
       const b=el('button',{class:'bnav-btn'+(t.isActive?' active':'')});
@@ -5182,44 +5230,12 @@ function showGoogleSyncModal(){
 }
 
 function showAddEventModalForDate(dateStr,availableChildren){
+  // Delegate to the full modal — passes prefilledDate and overrides child selector if needed
   const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
   if(theChildren.length===0){toast('Add a child profile first.','error');return;}
-  openModal('📅 Add Appointment',(mb,close)=>{
-    mb.appendChild(el('div',{class:'inp-label'},['Which child?']));
-    const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
-    theChildren.forEach(c=>{
-      const opt=el('option',{value:c.id},[c.avatar+' '+c.name]);
-      childSel.appendChild(opt);
-    });
-    if(S.activeChild&&theChildren.find(c=>c.id===S.activeChild))childSel.value=S.activeChild;
-    mb.appendChild(childSel);
-    mb.appendChild(el('div',{class:'inp-label'},['Title']));
-    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
-    mb.appendChild(titleInp);
-    mb.appendChild(el('div',{class:'inp-label'},['Date']));
-    const dateInp=el('input',{class:'inp',type:'date',placeholder:'DD/MM/YYYY','data-placeholder':'Select date',style:{marginBottom:'14px'}});
-    dateInp.value=dateStr||new Date().toISOString().split('T')[0];
-    mb.appendChild(dateInp);
-    mb.appendChild(el('div',{class:'inp-label'},['Time']));
-    const timeInp=el('input',{class:'inp',type:'time',style:{marginBottom:'14px'}});
-    timeInp.value='09:00';
-    mb.appendChild(timeInp);
-    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
-    const notesInp=el('input',{class:'inp',placeholder:'Any extra details',style:{marginBottom:'20px'}});
-    mb.appendChild(notesInp);
-    mb.appendChild(mkBtn('Add Appointment','btn-lg btn-primary btn-full',()=>{
-      if(!titleInp.value.trim()){toast('Please enter a title.','error');return;}
-      if(!dateInp.value){toast('Please enter a date.','error');return;}
-      const newApt={id:'a_'+Date.now(),childId:childSel.value,title:titleInp.value.trim(),date:dateInp.value,time:timeInp.value||'09:00',notes:notesInp.value.trim(),specialistId:session?.specialistId||null,sharedWith:[]};
-      (async()=>{
-        try{
-          await _supa.from('appointments').insert({id:newApt.id,child_id:newApt.childId,parent_id:session.id,household_id:session.householdId||null,title:newApt.title,date:newApt.date,time:newApt.time,type:'general',shared_with:[]});
-          const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
-          close();toast('Appointment added!','success');re();
-        }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
-      })();
-    }));
-  });
+  // If only one child available, set activeChild so modal pre-selects it
+  if(theChildren.length===1)S.activeChild=theChildren[0].id;
+  showAddEventModal(dateStr||new Date().toISOString().split('T')[0]);
 }
 
 function showAddEventModal(prefilledDate=null){
@@ -5321,7 +5337,8 @@ function showAddEventModal(prefilledDate=null){
             specialist_name:si.value||session?.name||null
           });
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
-          pushNotif('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar');
+          // Notify the other party (specialist→parent or parent→specialists)
+          await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar');
           close();re();toast('✅ Appointment added!');track('Appointment Added');
         }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
       })();
@@ -5468,16 +5485,8 @@ function renderChat(){
             const hid=getChildHouseholdId(activeChat.childId);
             const senderName=session.name||'Someone';
             const preview=txt.length>42?txt.slice(0,42)+'…':txt;
-            if(session.role==='specialist'){
-              // Notify parent household
-              await _supa.from('notifications').insert({id:'n_'+Date.now()+'m',user_id:hid,household_id:hid,child_id:activeChat.childId,type:'chat',message:`💬 ${senderName}: "${preview}"`,read:false,link_tab:'chat'}).catch(()=>{});
-            } else {
-              // Notify specialist participants
-              const specParticipants=activeChat.participants.filter(p=>p!=='parent'&&p!==session.id);
-              for(const sid of specParticipants){
-                await _supa.from('notifications').insert({id:'n_'+Date.now()+'_'+sid,user_id:sid,household_id:hid,child_id:activeChat.childId,type:'chat',message:`💬 ${senderName}: "${preview}"`,read:false,link_tab:'chat'}).catch(()=>{});
-              }
-            }
+            // Use notifyOtherParty to route to the right user (parent or specialists)
+            await notifyOtherParty('chat',`💬 ${senderName}: "${preview}"`,activeChat.childId,'chat');
           }catch(e){console.error('send message:',e);}
         }
       }
@@ -5546,7 +5555,7 @@ function showConsultModal(){
             requested_folder_name:s.name,
             requested_at:new Date().toISOString()
           });
-          pushNotif('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild);
+          await notifyOtherParty('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild,'team');
           close();toast('✅ Request sent! Parent will be notified to approve.');
         }catch(e){
           console.error('consult request:',e);
@@ -5805,7 +5814,7 @@ function renderVault(){
                 }
               }
             }catch(e){console.error('publish note:',e);}
-            pushNotif('report',`${session?.name||'Specialist'} published a new session summary for ${child?.name}`,S.activeChild);
+            // notifyOtherParty called via parent insert above
             S.vaultHasUnsaved=false;re();toast('🎉 Summary published!');
           });
         });
@@ -6084,18 +6093,8 @@ function renderHomeworkParent(){
         if(i>-1){all[i].completed=nowDone;DB.homework=all;}
         const child=DB.children.find(c=>c.id===S.activeChild);
         if(nowDone){
-          pushNotif('homework',`"${task.task.slice(0,38)}" marked complete ✅`,S.activeChild);
-          if(task.specialistId&&session?.id!=='demo'){
-            try{await _supa.from('notifications').insert({
-              id:'n_'+Date.now()+'s',user_id:task.specialistId,
-              household_id:getChildHouseholdId(S.activeChild),
-              child_id:S.activeChild,type:'homework',
-              message:`✅ ${child?.name||'Child'} completed: "${task.task.slice(0,42)}"`,
-              read:false
-            });}catch(e){}
-          }
-        } else {
-          pushNotif('homework',`"${task.task.slice(0,38)}" marked incomplete`,S.activeChild);
+          // Notify the specialist — not the parent themselves
+          await notifyOtherParty('homework',`✅ ${child?.name||'Child'} completed: "${task.task.slice(0,42)}"`,S.activeChild,'homework');
         }
         re();
       }catch(e){toast('Could not update task.','error');}
@@ -6134,11 +6133,11 @@ function renderHomeworkSpec(){
   hw.forEach(task=>{
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
     const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
-    chk.onclick=()=>{
+    chk.onclick=async()=>{
       const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
       if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
         _supa.from('homework').update({completed:nv}).eq('id',task.id).then(()=>{}).catch(e=>console.error('hw complete:',e));
-        if(nv){pushNotif('homework',`✅ ${DB.children.find(c=>c.id===task.childId)?.name||'Child'} completed: "${task.task.slice(0,42)}"`,task.childId,'homework');}
+        if(nv){await notifyOtherParty('homework',`✅ ${DB.children.find(c=>c.id===task.childId)?.name||'Child'} completed: "${task.task.slice(0,42)}"`,task.childId,'homework');}
       }re();
     };
     card.appendChild(chk);
@@ -6178,12 +6177,9 @@ function showAssignModal(){
         try{
           await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:getChildHouseholdId(newHw.childId),specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
           const all=DB.homework;all.unshift(newHw);DB.homework=all;
-          pushNotif('homework',`New task from ${session?.name||'your specialist'}: "${ta.value.slice(0,42)}"`,S.activeChild,'homework');
-          // Notify parent household too
-          if(session?.id!=='demo'){
-            const _child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
-            const _hid=getChildHouseholdId(S.activeChild);
-            if(_hid){try{await _supa.from('notifications').insert({id:'n_'+Date.now()+'p',user_id:_child?.parentId||_hid,household_id:_hid,child_id:S.activeChild,type:'homework',message:`📋 New task for ${_child?.name||'your child'}: "${ta.value.slice(0,42)}"`,read:false,link_tab:'homework'});}catch(e){}}}
+          // Notify parent (not self)
+          const _child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])||[]).find(c=>c.id===S.activeChild);
+          await notifyOtherParty('homework',`📋 New task for ${_child?.name||'your child'}: "${ta.value.slice(0,42)}"`,S.activeChild,'homework');
           close();re();toast('✅ Task assigned!');
         }catch(e){console.error('assign homework:',e);toast('Could not save task.','error');}
       })();
@@ -6434,10 +6430,18 @@ function renderNotifications(){
     ncBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[n.time]));
     card.appendChild(ncBody);
     if(!n.read)card.appendChild(badge('New','teal'));
-    card.onclick=()=>{
+    card.onclick=async()=>{
+      // Mark read in memory + LS immediately
       const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
       if(i>-1){ns[i].read=true;DB.notifications=ns;}
-      if(session?.id!=='demo'){try{_supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}}
+      // Patch the LS copy directly so it survives the next Supabase refresh
+      const lsNotifs=LS.get('notifications',[]);
+      const li=lsNotifs.findIndex(x=>x.id===n.id);
+      if(li>-1){lsNotifs[li].read=true;LS.set('notifications',lsNotifs);}
+      // Persist to Supabase (awaited so it completes before the next refresh)
+      if(session?.id!=='demo'){
+        try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}
+      }
       // Navigate to relevant tab
       const tab=n.linkTab||n.link_tab;
       if(tab){
@@ -6445,9 +6449,7 @@ function renderNotifications(){
         if(n.childId)S.activeChild=n.childId;
         S.calFullscreen=(tab==='calendar');
         S.activeTab=tab==='calendar'?'calendar':tab;
-        if(session?.role==='parent')S.navLevel=1;
-      } else {
-        re();
+        S.navLevel=1;
       }
       re();
     };
@@ -6613,7 +6615,7 @@ function renderProgress(){
           const ms=DB.milestones,i=ms.findIndex(x=>x.id===m.id);
           if(i>-1){ms[i].achieved=true;ms[i].date=today;DB.milestones=ms;}
           try{await _supa.from('milestones').update({achieved:true,date:today}).eq('id',m.id);}catch(e){console.error('mark milestone:',e);}
-          pushNotif('report','🏆 Milestone achieved: "'+m.title+'"',S.activeChild);re();toast('🏆 Milestone marked as achieved!');
+          await notifyOtherParty('report','🏆 Milestone achieved: "'+m.title+'"',S.activeChild,'progress');re();toast('🏆 Milestone marked as achieved!');
         }));
         acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Milestone','Remove this milestone?',true,()=>{
           const ms=DB.milestones;DB.milestones=ms.filter(x=>x.id!==m.id);re();
