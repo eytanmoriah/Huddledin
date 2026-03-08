@@ -20,6 +20,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { userId, appointment } = req.body;
+  console.log('push-event called - userId:', userId, 'appointment:', appointment?.title);
   if (!userId || !appointment) {
     return res.status(400).json({ error: 'Missing userId or appointment' });
   }
@@ -38,7 +39,10 @@ export default async function handler(req, res) {
     const profiles = await profileRes.json();
     const profile = profiles?.[0];
 
+    console.log('profile found:', !!profile, 'enabled:', profile?.google_calendar_enabled, 'has_token:', !!profile?.google_refresh_token);
+
     if (!profile?.google_calendar_enabled || !profile?.google_refresh_token) {
+      console.log('Skipping - not connected');
       return res.status(200).json({ skipped: true, reason: 'Not connected' });
     }
 
