@@ -6164,10 +6164,13 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  // On mobile: full-screen fixed overlay so flex layout actually works
+  // On mobile: fixed panel that fits between app header and bottom nav
   const wrap=el('div',{style:isMobile?{
-    position:'fixed',top:0,left:0,right:0,bottom:0,
-    display:'flex',flexDirection:'column',background:'#fff',zIndex:500
+    position:'fixed',
+    top:'calc(var(--header-h) + var(--safe-top))',
+    bottom:'var(--bnav-h)',
+    left:0,right:0,
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:200
   }:{
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
@@ -6175,7 +6178,7 @@ function renderChatThread(activeChat,specId,myId,onBack){
   // -- Header (sticky top) --
   const threadHd=el('div',{style:{
     display:'flex',alignItems:'center',gap:'10px',
-    padding:isMobile?'calc(env(safe-area-inset-top,12px) + 12px) 16px 12px':'12px 16px',
+    padding:'12px 16px',
     borderBottom:'2px solid var(--mint-ll)',
     background:'#fff',flexShrink:0,zIndex:1
   }});
@@ -6257,7 +6260,7 @@ function renderChatThread(activeChat,specId,myId,onBack){
   }
 
   // -- Input row (sticky bottom) --
-  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',paddingBottom:isMobile?'max(12px,env(safe-area-inset-bottom,12px))':'12px'}});
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
   const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
   const sb2=el('button',{class:'send-btn',title:'Send'});
