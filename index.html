@@ -1813,7 +1813,8 @@ async function _loadSessionFromSupabase(s){
       || s.user.email.split('@')[0];
     session={id:s.user.id,email:s.user.email,role:profile.role,
       name:_displayName,specialistId:profile.id,isNew:false,
-      householdId:profile.household_id,isPrimary:profile.is_primary!==false};
+      householdId:profile.household_id,isPrimary:profile.is_primary!==false,
+      googleCalendarEnabled:profile.google_calendar_enabled||false};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
@@ -5951,6 +5952,18 @@ function showAddEventModal(prefilledDate=null){
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           // Notify the other party (specialist→parent or parent→specialists)
           await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+          // Push to Google Calendar (fire and forget)
+          if(session?.googleCalendarEnabled){
+            const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
+            fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({userId:session.id,appointment:{
+                title:newApt.title,date:newApt.date,time:tmi.value||'09:00 AM',
+                type:newApt.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
+              }})
+            }).then(r=>r.json()).then(d=>{
+              if(d.ok)toast('📅 Added to Google Calendar!','success',3000);
+            }).catch(()=>{});
+          }
           close();re();toast('✅ Appointment added!');track('Appointment Added');
         }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
       })();
@@ -8490,6 +8503,28 @@ function renderSettings(){
   });
   sec.appendChild(od);
 
+  // Google Calendar integration card
+  const gcCard=el('div',{class:'card',style:{marginBottom:'16px'}});
+  gcCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px'}},['📅 Google Calendar']));
+  const gcEnabled=session?.googleCalendarEnabled||false;
+  if(gcEnabled){
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--teal)',fontWeight:700,marginBottom:'12px'}},['✅ Connected — appointments sync automatically']));
+    const disconnBtn=mkBtn('Disconnect','btn-sm btn-danger',async()=>{
+      try{
+        await fetch('/api/google-disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:session.id})});
+        session.googleCalendarEnabled=false;
+        toast('Google Calendar disconnected.','info');re();
+      }catch(e){toast('Could not disconnect. Try again.','error');}
+    });
+    gcCard.appendChild(disconnBtn);
+  }else{
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.55'}},['Connect your Google Calendar and every appointment you add will appear there automatically.']));
+    gcCard.appendChild(mkBtn('🔗 Connect Google Calendar','btn-md btn-primary',()=>{
+      window.location.href='/api/google-auth?userId='+session.id;
+    }));
+  }
+  sec.appendChild(gcCard);
+
   return sec;
 }
 
@@ -8540,6 +8575,19 @@ initData();
       if(session){clearInterval(ri);await processHouseholdInvite(localStorage.getItem('pendingHouseholdToken'));}
       if(retries>20)clearInterval(ri);
     },500);
+  }
+})();
+
+(function handleGoogleAuthCallback(){
+  const hash=window.location.hash;
+  if(hash==='#google-auth-success'){
+    history.replaceState(null,'','/');
+    const ri=setInterval(()=>{
+      if(session){clearInterval(ri);session.googleCalendarEnabled=true;toast('✅ Google Calendar connected!','success',5000);re();}
+    },300);setTimeout(()=>clearInterval(ri),8000);
+  }else if(hash==='#google-auth-error'){
+    history.replaceState(null,'','/');
+    setTimeout(()=>toast('Could not connect Google Calendar. Try again.','error',5000),800);
   }
 })();
 
