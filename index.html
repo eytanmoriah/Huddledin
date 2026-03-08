@@ -1564,7 +1564,7 @@ async function refreshFromSupabase(){
       await Promise.allSettled([
         // Appointments
         _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
-          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
+          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
           .catch(e=>console.error('refresh appointments:',e)),
         // Homework — parent: by household_id; specialist: by specialist_id
         (hid
@@ -2676,24 +2676,28 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
           if(_c?.parentId)householdUserIds=[_c.parentId];
         }
         for(const uid of householdUserIds){
-          await _supa.from('notifications').insert({
-            id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
-            household_id:hid,child_id:childId||null,
-            type,message:msg,read:false,link_tab:linkTab,
-            link_data:linkData?JSON.stringify(linkData):null
-          }).catch(()=>{});
+          try{
+            await _supa.from('notifications').insert({
+              id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
+              household_id:hid,child_id:childId||null,
+              type,message:msg,read:false,link_tab:linkTab,
+              link_data:linkData?JSON.stringify(linkData):null
+            });
+          }catch(e){console.warn('notifyOtherParty specialist insert:',e);}
         }
       }
     } else {
       // Parent: notify all active specialists for this child
       const team=getChildTeam(childId).filter(s=>s.status==='active');
       for(const s of team){
-        await _supa.from('notifications').insert({
-          id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
-          household_id:hid,child_id:childId||null,
-          type,message:msg,read:false,link_tab:linkTab,
-          link_data:linkData?JSON.stringify(linkData):null
-        }).catch(()=>{});
+        try{
+          await _supa.from('notifications').insert({
+            id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
+            household_id:hid,child_id:childId||null,
+            type,message:msg,read:false,link_tab:linkTab,
+            link_data:linkData?JSON.stringify(linkData):null
+          });
+        }catch(e){console.warn('notifyOtherParty parent insert:',e);}
       }
     }
   }catch(e){console.warn('notifyOtherParty:',e);}
@@ -3096,8 +3100,19 @@ function renderNotifBell(){
         if(n.childId)S.activeChild=n.childId;
         S.navLevel=1;
         if(tab==='chat'){
-          S.calFullscreen=false;S.activeTab='chat';S.chatsLoaded=true;
-          if(ld?.chatId)S.activeChatId=ld.chatId;
+          S.calFullscreen=false;S.activeTab='chat';
+          if(ld?.chatId){
+            S.pendingChatId=ld.chatId;
+            if(!S.chatsLoaded){
+              S.chatsLoaded=true;
+              loadChatsFromSupabase().then(()=>{
+                if(S.pendingChatId){S.activeChatId=S.pendingChatId;S.pendingChatId=null;}
+                re();
+              });
+            } else {
+              S.activeChatId=ld.chatId;
+            }
+          } else {S.chatsLoaded=true;}
         } else if(tab==='calendar'){
           S.calFullscreen=true;S.activeTab='calendar';
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
@@ -6711,17 +6726,22 @@ function renderNotifications(){
         if(n.childId)S.activeChild=n.childId;
         S.navLevel=1;
         if(tab==='chat'){
-          S.calFullscreen=false;
-          S.activeTab='chat';
-          S.chatsLoaded=true;
-          if(ld?.chatId)S.activeChatId=ld.chatId;
+          S.calFullscreen=false;S.activeTab='chat';
+          if(ld?.chatId){
+            S.pendingChatId=ld.chatId;
+            if(!S.chatsLoaded){
+              S.chatsLoaded=true;
+              loadChatsFromSupabase().then(()=>{
+                if(S.pendingChatId){S.activeChatId=S.pendingChatId;S.pendingChatId=null;}
+                re();
+              });
+            } else {S.activeChatId=ld.chatId;}
+          } else {S.chatsLoaded=true;}
         } else if(tab==='calendar'){
-          S.calFullscreen=true;
-          S.activeTab='calendar';
-          if(ld?.aptDate)S.calJumpDate=ld.aptDate; // store date to scroll/highlight
+          S.calFullscreen=true;S.activeTab='calendar';
+          if(ld?.aptDate)S.calJumpDate=ld.aptDate;
         } else {
-          S.calFullscreen=false;
-          S.activeTab=tab;
+          S.calFullscreen=false;S.activeTab=tab;
         }
       }
       re();
@@ -7866,6 +7886,20 @@ function renderSettings(){
     {
       icon:'🎭',title:'Load Demo Data',desc:'Populate with sample data for Lily & Noah Carter to explore all features.',
       btn:'Load Demo',action:()=>openConfirm('Load Demo Data','This replaces your current data with demo data. Are you sure?',true,()=>loadDemoData())
+    },
+    {
+      icon:'📅',title:'Clear All Appointments',desc:'Delete all appointments from this device and Supabase.',
+      btn:'Clear Appointments',danger:true,
+      action:()=>openConfirm('Clear All Appointments','Permanently delete ALL appointments? This cannot be undone.',true,async()=>{
+        try{
+          if(session?.id!=='demo'){
+            const hid=session?.householdId;
+            if(hid){await _supa.from('appointments').delete().neq('id','x').eq('household_id',hid);}
+            else if(session?.id){await _supa.from('appointments').delete().neq('id','x').eq('parent_id',session.id);}
+          }
+          LS.set('appointments',[]);re();toast('✅ All appointments cleared.');
+        }catch(e){LS.set('appointments',[]);re();toast('Local cleared. DB: '+e.message,'error');}
+      })
     },
     {
       icon:'🗑️',title:'Clear All Data',desc:'Reset everything to a clean slate. This cannot be undone.',
