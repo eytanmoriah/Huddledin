@@ -3382,13 +3382,14 @@ function switchTab(id){
   S.calFullscreen=false; // always exit fullscreen when switching tabs
   if(id==='calendar'){
     S.calendarMode='joint';S.calFullscreen=false;
-    // If specialist has children but no appointments cached, refresh immediately
     if(session?.role==='specialist'){
       const kids=LS.get('children',[]);
       const apts=LS.get('appointments',[]);
       if(kids.length>0&&apts.length===0)refreshFromSupabase().then(()=>re());
     }
   }
+  // Always reset folder view when navigating to files tab
+  if(id==='files')S.activeFolderId=null;
   if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
@@ -4540,18 +4541,12 @@ function renderFolderGrid(folder,isParent,childColor){
       img.onerror=()=>{thumbArea.innerHTML='<span style="font-size:2.2rem">🖼️</span>';};
       thumbArea.appendChild(img);
     } else if(thumb.type==='pdf'&&f.url){
-      // PDF — show iframe thumbnail
-      const frame=el('iframe',{src:`${f.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`,
-        style:{width:'200%',height:'200%',border:'none',transform:'scale(.5)',transformOrigin:'0 0',pointerEvents:'none'},
-        loading:'lazy'});
-      thumbArea.appendChild(frame);
-      // Fallback badge
-      const badge2=el('div',{style:{
-        position:'absolute',bottom:'4px',right:'4px',
-        background:'#dc2626',color:'#fff',fontSize:'.55rem',fontWeight:900,
-        padding:'2px 5px',borderRadius:'4px',letterSpacing:'.05em'
-      }},['PDF']);
-      thumbArea.appendChild(badge2);
+      // PDF — styled placeholder (iframes blocked by X-Frame-Options/CSP on desktop browsers)
+      thumbArea.style.background='#fff1f2';
+      const pdfWrap=el('div',{style:{textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:'6px'}});
+      pdfWrap.appendChild(el('div',{style:{fontSize:'2.2rem',lineHeight:1}},['📄']));
+      pdfWrap.appendChild(el('div',{style:{background:'#dc2626',color:'#fff',fontSize:'.58rem',fontWeight:900,padding:'2px 7px',borderRadius:'4px',letterSpacing:'.06em'}},['PDF']));
+      thumbArea.appendChild(pdfWrap);
     } else {
       // Icon fallback
       thumbArea.style.background=thumb.color+'18';
@@ -4820,7 +4815,11 @@ function renderFiles(){
         if(!moved){e.preventDefault();_openFolder();}
         moved=false;
       },{passive:false});
-      wrap.onclick=(e)=>{if(!moved)_openFolder();};
+      // Desktop: onclick fires after pointerup; only block if this was a long-press that showed a menu
+      wrap.onclick=(e)=>{
+        if(document.querySelector('.long-press-menu'))return; // long-press menu is showing
+        if(e.pointerType!=='touch')_openFolder(); // desktop mouse click — always open
+      };
       // Context menu (right-click on desktop = long-press equivalent)
       wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
       
