@@ -1796,6 +1796,16 @@ async function _loadSessionFromSupabase(s){
           : SB.getSpecialists(s.user.id).catch(()=>[])
       ]);
       children=(childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id}));
+      // Auto-assign distinct colors — patch any child with null/missing color from Supabase
+      const _usedColors=new Set(children.filter(c=>c.color).map(c=>c.color));
+      children.forEach((c,i)=>{
+        if(!c.color){
+          const assigned=CHILD_COLORS.find(col=>!_usedColors.has(col))||CHILD_COLORS[i%CHILD_COLORS.length];
+          c.color=assigned;
+          _usedColors.add(assigned);
+          _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(()=>{});
+        }
+      });
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
       try{
@@ -3001,7 +3011,8 @@ function renderHeader(){
       }});
       const av=el('div',{style:{
         width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',
-        background:child.color+'44',display:'flex',alignItems:'center',
+        background:child.color+'22',border:'2.5px solid '+(child.color||'var(--teal)'),
+        display:'flex',alignItems:'center',
         justifyContent:'center',fontSize:'1rem',flexShrink:0
       }});
       if(child.photo){av.appendChild(el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));}
@@ -3021,7 +3032,7 @@ function renderHeader(){
         csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
         allChildren.forEach(ch=>{
           const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:ch.id===S.activeChild?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
-          const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'44',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+          const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'22',border:'2px solid '+(ch.color||'var(--teal)'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
           if(ch.photo){const img=el('img',{src:ch.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}});av2.appendChild(img);}
           else{av2.textContent=ch.avatar;}
           item.appendChild(av2);
@@ -3611,7 +3622,7 @@ function renderGlobalHome(){
     });
     if(hasEvents)bubble.classList.add('has-events');
 
-    const circle=el('div',{class:'cb-circle'+(c.photo?'':' placeholder'),style:{background:color+'18'}});
+    const circle=el('div',{class:'cb-circle'+(c.photo?'':' placeholder'),style:{background:S.activeChild===c.id?color+'33':color+'18',border:'2px solid '+(S.activeChild===c.id?color:'transparent'),transition:'all .2s'}});
     if(c.photo){
       circle.className='cb-circle';
       circle.appendChild(el('img',{src:c.photo,alt:c.name}));
@@ -4413,7 +4424,17 @@ function mkSubHeader(title,rightEl=null){
   const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
   backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
   hd.appendChild(backBtn);
-  hd.appendChild(el('h2',{class:'page-title',style:{flex:1,textAlign:'center',margin:'0',fontSize:'1rem'}},[title]));
+  // Child color chip in center alongside title
+  const titleRow=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}});
+  titleRow.appendChild(el('h2',{class:'page-title',style:{margin:'0',fontSize:'1rem'}},[title]));
+  if(session?.role==='parent'&&S.activeChild){
+    const ch=DB.children.find(c=>c.id===S.activeChild);
+    if(ch){
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'50%',background:ch.color||'var(--teal)',flexShrink:0,border:'1.5px solid rgba(255,255,255,.5)',boxShadow:'0 0 0 2px '+(ch.color||'var(--teal)')+'33'}});
+      titleRow.appendChild(dot);
+    }
+  }
+  hd.appendChild(titleRow);
   if(rightEl)hd.appendChild(rightEl);
   else hd.appendChild(el('div',{style:{width:'80px',flexShrink:0}}));
   return hd;
@@ -5749,7 +5770,7 @@ function renderCalendar(){
   [...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
     const ch=DB.children.find(c=>c.id===apt.childId);
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer'}});
-    const barColor=(isParent&&S.calendarMode==='joint')?(ch?.color||'var(--teal)'):(TC[apt.type]||'var(--teal)');
+    const barColor=ch?.color||TC[apt.type]||'var(--teal)';
     const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
     card.appendChild(bar);
     const info=d('',[], {flex:1});
@@ -6651,8 +6672,9 @@ function renderHomeworkParent(){
   sec.appendChild(el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assigned tasks`]));
 
   if(!hw.length){sec.appendChild(p('No tasks assigned yet. Your care team will add them here!'));return sec;}
+  const _hwChildColor=child?.color||'var(--teal)';
   hw.forEach(task=>{
-    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px',borderLeft:'4px solid '+_hwChildColor}});
     const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
     chk.onclick=async()=>{
       try{
@@ -6898,6 +6920,7 @@ function renderPatientDashboard(){
     border:'1.5px solid var(--lav)',
     display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
   }});
+  hdrCard.style.borderLeft='5px solid '+(child.color||'var(--teal)');
   hdrCard.appendChild(mkChildAvatar(child,56,'16px'));
   const hInfo=el('div',{style:{flex:1}});
   hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
@@ -7030,8 +7053,8 @@ function renderNotifications(){
     const _nColor=_nc?.color||null;
     const card=el('div',{class:'card hov',style:{
       display:'flex',gap:'13px',alignItems:'flex-start',cursor:'pointer',
-      background:n.read?'#fff':'#e8faf5',
-      border:n.read?'1.5px solid var(--mint-l)':'2px solid #34d399',
+      background:n.read?'#fff':(_nColor?_nColor+'0d':'#e8faf5'),
+      border:n.read?'1.5px solid var(--mint-l)':'1.5px solid var(--mint-l)',
       borderLeft:_nColor?`4px solid ${_nColor}`:(n.read?'1.5px solid var(--mint-l)':'2px solid #34d399'),
       transition:'background .25s,border .25s'
     }});
@@ -7429,9 +7452,9 @@ function showAddChildModal(){
       const age=new Date().getFullYear()-dobDate.getFullYear();
       const childName=ni.value.trim();
       let newChildId='c_'+Date.now();
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:'#c4b5fd',photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
       const _takenColors=(DB.children||[]).map(c=>c.color);
       const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
       const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
