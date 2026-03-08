@@ -26,20 +26,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get profile from Supabase
+    // Get profile via RPC (bypasses RLS)
     const profileRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=google_refresh_token,google_calendar_enabled`,
+      `${process.env.SUPABASE_URL}/rest/v1/rpc/get_google_calendar`,
       {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'apikey': process.env.SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
-        }
+        },
+        body: JSON.stringify({ user_id: userId })
       }
     );
     const profiles = await profileRes.json();
     const profile = profiles?.[0];
-
-    console.log('profile found:', !!profile, 'enabled:', profile?.google_calendar_enabled, 'has_token:', !!profile?.google_refresh_token);
 
     if (!profile?.google_calendar_enabled || !profile?.google_refresh_token) {
       return res.status(200).json({ 
