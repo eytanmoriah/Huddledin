@@ -43,11 +43,7 @@ export default async function handler(req, res) {
     const profile = profiles?.[0];
 
     if (!profile?.google_calendar_enabled || !profile?.google_refresh_token) {
-      return res.status(200).json({ 
-        skipped: true, 
-        reason: 'Not connected',
-        debug: { userId, profileFound: !!profile, enabled: profile?.google_calendar_enabled, hasToken: !!profile?.google_refresh_token }
-      });
+      return res.status(200).json({ skipped: true, reason: 'Not connected' });
     }
 
     // Get fresh access token
