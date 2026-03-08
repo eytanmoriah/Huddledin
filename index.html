@@ -4449,6 +4449,15 @@ function renderFolderGrid(folder,isParent,childColor){
   const left=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
   const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.3rem',color:'var(--slate)',padding:'0 4px',lineHeight:1}},['‹']);
   backBtn.onclick=()=>{S.activeFolderId=null;re();};
+  // Specialist: also show a back-to-patient crumb above
+  if(session?.role==='specialist'){
+    const crumb=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',marginBottom:'8px',fontSize:'.75rem',color:'var(--slate)'}});
+    const patLink=el('span',{style:{color:'var(--teal)',fontWeight:700,cursor:'pointer'}},['← '+(_c?.name||'Patient')]);
+    patLink.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
+    crumb.appendChild(patLink);
+    crumb.appendChild(el('span',{},[' / '+folder.name]));
+    sec.appendChild(crumb);
+  }
   left.appendChild(backBtn);
   left.appendChild(el('span',{style:{fontSize:'1.3rem'}},[folder.icon]));
   left.appendChild(el('div',{},[
@@ -4668,6 +4677,7 @@ function renderFiles(){
   }
 
   const sec=el('div',{class:'section'});
+  const _fBar=mkSpecBackBar(child?.name);if(_fBar)sec.appendChild(_fBar);
   if(isParent){
     const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
     fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
@@ -5922,12 +5932,16 @@ function renderChat(){
     if(!specId)return false; // no specialist ID means no accessible chats
     return c.participants.includes(specId);
   });
+  // Specialist back bar — only on chat list, not inside an open thread
+  const _chatChild=DB.children.find(c=>c.id===S.activeChild);
+  const _chatBackBar=(!S.activeChatId)?mkSpecBackBar(_chatChild?.name):null;
 
   const displayChats=S.activeChatChildId
     ? visChats.filter(c=>c.childId===S.activeChatChildId)
     : visChats;
 
   const sec=el('div',{class:'section'});
+  if(_chatBackBar)sec.appendChild(_chatBackBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('h2',{class:'page-title'},['Messages']));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -6132,6 +6146,7 @@ function renderVault(){
   const activeNote=myNotes.find(n=>n.id===S.activeVaultId)||null;
 
   const sec=el('div',{class:'section'});
+  const _vBar=mkSpecBackBar(child?.name);if(_vBar)sec.appendChild(_vBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Clinical Notes']),
@@ -6676,6 +6691,7 @@ function renderHomeworkSpec(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const hw=DB.homework.filter(h=>h.childId===S.activeChild);
   const sec=el('div',{class:'section'});
+  const _hwBar=mkSpecBackBar(child?.name);if(_hwBar)sec.appendChild(_hwBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Homework & Tasks']),
@@ -6833,6 +6849,27 @@ function renderPatients(){
   si.oninput=e=>doFilter(e.target.value);
   sec.appendChild(stack);
   return sec;
+}
+
+// Specialist back-to-patient bar — insert at top of any section when role=specialist
+function mkSpecBackBar(childName){
+  if(session?.role!=='specialist')return null;
+  const bar=el('div',{style:{
+    display:'flex',alignItems:'center',gap:'8px',
+    marginBottom:'14px',paddingBottom:'12px',
+    borderBottom:'1.5px solid var(--mint-l)'
+  }});
+  const btn=el('button',{style:{
+    display:'flex',alignItems:'center',gap:'6px',
+    background:'none',border:'none',cursor:'pointer',
+    color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'
+  }},[
+    el('span',{style:{fontSize:'1.1rem'}},['‹']),
+    'Back to '+(childName||'Patient')
+  ]);
+  btn.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
+  bar.appendChild(btn);
+  return bar;
 }
 
 /* ═══════════════════════════════════════════════
