@@ -6177,47 +6177,34 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  // On mobile: full-screen chat panel with iOS-safe layout
-  const _headerOffset = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'))||56)
-    + (window.screen.height - window.innerHeight > 40 ? (window.screen.height - window.innerHeight) : 0);
-
+  // On mobile: fixed panel pinned to top, height tracks visualViewport (iOS keyboard-safe)
   const wrap=el('div',{style:isMobile?{
     position:'fixed',
     top:'calc(var(--header-h) + var(--safe-top))',
     left:0,right:0,
-    height: window.visualViewport
-      ? (window.visualViewport.height - _headerOffset)+'px'
-      : 'calc(100% - var(--header-h) - var(--safe-top))',
+    height:'calc(var(--chat-vh, 100vh) - var(--header-h) - var(--safe-top))',
     display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
     overflow:'hidden'
   }:{
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
 
-  // iOS: lock body scroll so fixed layout is stable, then use visualViewport to track keyboard
   if(isMobile){
-    document.body.style.overflow='hidden';
-    document.body.style.position='fixed';
-    document.body.style.width='100%';
-
-    const _updateHeight=()=>{
-      const vv=window.visualViewport||{height:window.innerHeight,offsetTop:0};
-      const headerH=(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'))||56);
-      const safeTop=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top'))||0;
-      wrap.style.height=(vv.height - headerH - safeTop)+'px';
+    const _updateVh=()=>{
+      const vv=window.visualViewport||{height:window.innerHeight};
+      document.documentElement.style.setProperty('--chat-vh', vv.height+'px');
       requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
     };
+    _updateVh();
     if(window.visualViewport){
-      window.visualViewport.addEventListener('resize',_updateHeight);
-      window.visualViewport.addEventListener('scroll',_updateHeight);
+      window.visualViewport.addEventListener('resize',_updateVh);
+      window.visualViewport.addEventListener('scroll',_updateVh);
     }
     wrap._vvCleanup=()=>{
-      document.body.style.overflow='';
-      document.body.style.position='';
-      document.body.style.width='';
+      document.documentElement.style.removeProperty('--chat-vh');
       if(window.visualViewport){
-        window.visualViewport.removeEventListener('resize',_updateHeight);
-        window.visualViewport.removeEventListener('scroll',_updateHeight);
+        window.visualViewport.removeEventListener('resize',_updateVh);
+        window.visualViewport.removeEventListener('scroll',_updateVh);
       }
     };
   }
