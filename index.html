@@ -5952,8 +5952,8 @@ function showAddEventModal(prefilledDate=null){
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           // Notify the other party (specialist→parent or parent→specialists)
           await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
-          // Push to Google Calendar (fire and forget)
-          if(session?.googleCalendarEnabled){
+          // Push to Google Calendar (server decides if connected)
+          if(session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
             fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
               body:JSON.stringify({userId:session.id,appointment:{
