@@ -1605,31 +1605,35 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh chats:',e))
       ]);
     } else if(session.role==='specialist'){
-      // Use specialist_requests as the multi-child junction (supports multiple patients per specialist)
       const specId=session.specialistId||session.id;
+      // Step 1: get child IDs from specialist_requests
       const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
       const childIds=[...new Set((reqRows||[]).map(r=>r.child_id).filter(Boolean))];
       if(childIds.length>0){
-        const {data:children}=await _supa.from('children').select('*').in('id',childIds);
-        if(children&&children.length>0){
+        // Step 2: fetch children + appointments IN PARALLEL (biggest speedup)
+        const [childrenRes,aptsRes]=await Promise.all([
+          _supa.from('children').select('*').in('id',childIds),
+          _supa.from('appointments').select('*').in('child_id',childIds).order('date')
+        ]);
+        const children=childrenRes.data||[];
+        if(children.length>0){
           const mapped=children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||'#c4b5fd',photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id}));
           LS.set('children',mapped);
           if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
-          // Load care team for each patient in parallel (other specialists on the child)
-          await Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[])));
-          // Load folders for each patient in parallel
-          const folderResults2=await Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
-          const allFolders=folderResults2.flat();
-          if(allFolders.length>0)LS.set('folders',allFolders);
-          // Load appointments for all patients
-          try{
-            const childIds2=mapped.map(c=>c.id);
-            if(childIds2.length>0){
-              const {data:apts}=await _supa.from('appointments').select('*').in('child_id',childIds2).order('date');
-              LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
-            }
-          }catch(e){console.error('refresh spec appointments:',e);}
-          // Re-run specialist sync now that children are loaded — sets up per-child appointment subscriptions
+          // Save appointments immediately — no waiting
+          if(aptsRes.data&&aptsRes.data.length>0){
+            LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+          }
+          // Render now with children + appointments — don't wait for folders/care team
+          re();
+          // Step 3: load care team + folders in parallel (non-blocking background)
+          Promise.all([
+            Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
+            Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
+          ]).then(([,folderResults2])=>{
+            const allFolders=folderResults2.flat();
+            if(allFolders.length>0)LS.set('folders',allFolders);
+          });
           setupSpecialistSync();
         }
       }
@@ -1666,24 +1670,28 @@ async function refreshFromSupabase(){
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
 
+// Debounced refresh — collapses burst real-time events into one refresh
+let _refreshTimer=null;
+function _debouncedRefresh(){
+  if(_refreshTimer)clearTimeout(_refreshTimer);
+  _refreshTimer=setTimeout(()=>{
+    _refreshTimer=null;
+    refreshFromSupabase().then(()=>re());
+  },300);
+}
+
 // Real-time household sync — subscribes to children/specialists changes
 let _householdChannel=null;
 function setupHouseholdSync(){
   if(!session||session.role!=='parent'||!session.householdId)return;
   if(_householdChannel)_householdChannel.unsubscribe();
   _householdChannel=_supa.channel('household:'+session.householdId)
-    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
-    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{refreshFromSupabase().then(()=>re());})
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{refreshFromSupabase().then(()=>re());})
-    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'household_id=eq.'+session.householdId},()=>{refreshFromSupabase().then(()=>re());})
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .subscribe();
 }
 
@@ -1700,25 +1708,17 @@ function setupSpecialistSync(){
   // Subscribe to all specialist-relevant tables in one channel
   const childIds=(LS.get('children',[])||[]).map(c=>c.id);
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
-    .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{
-      refreshFromSupabase().then(()=>re());
-    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
     .subscribe();
   // Subscribe to appointment updates for each patient child
   // (catches rsvp updates and new appointments from parents)
   const childIds2=(LS.get('children',[])||[]).map(c=>c.id);
   childIds2.forEach(cid=>{
     _supa.channel('spec_apts:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{
-        refreshFromSupabase().then(()=>re());
-      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
   });
 }
@@ -1786,19 +1786,20 @@ async function _loadSessionFromSupabase(s){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
       let children=[];
-      if(hid){
-        const {data:hChildren}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=(hChildren||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id}));
-      } else {
-        children=await SB.getChildren(s.user.id);
-      }
+      // Fetch children + specialists in parallel
+      const [childrenData,specsData]=await Promise.all([
+        hid
+          ? _supa.from('children').select('*').eq('household_id',hid).order('created_at')
+          : _supa.from('children').select('*').eq('parent_id',s.user.id).order('created_at'),
+        hid
+          ? SB.getSpecialistsByHousehold(hid).catch(()=>[])
+          : SB.getSpecialists(s.user.id).catch(()=>[])
+      ]);
+      children=(childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||'#0d9488',dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id}));
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
-      // Load specialists by household_id
       try{
-        const specs=hid
-          ? await SB.getSpecialistsByHousehold(hid)
-          : await SB.getSpecialists(s.user.id);
+        const specs=specsData;
         if(specs&&specs.length>0){
           const localSpecs2=DB.specialists||[];
           specs.forEach(s=>{const local=localSpecs2.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
@@ -1853,6 +1854,7 @@ async function _loadSessionFromSupabase(s){
       if(session){
         S.navLevel=session.role==='parent'?0:1;
         S.activeChild=LS.get('children',[])[0]?.id||null;
+        re(); // Render immediately from cache while background refresh runs
       }
       // Seed browser history so back button works inside app
       _seedHistory();
@@ -3363,7 +3365,15 @@ function switchTab(id){
   }
   _pushNav();
   S.calFullscreen=false; // always exit fullscreen when switching tabs
-  if(id==='calendar'){S.calendarMode='joint';S.calFullscreen=false;}
+  if(id==='calendar'){
+    S.calendarMode='joint';S.calFullscreen=false;
+    // If specialist has children but no appointments cached, refresh immediately
+    if(session?.role==='specialist'){
+      const kids=LS.get('children',[]);
+      const apts=LS.get('appointments',[]);
+      if(kids.length>0&&apts.length===0)refreshFromSupabase().then(()=>re());
+    }
+  }
   if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
@@ -5352,7 +5362,21 @@ function renderCalendar(){
   const isParent=session?.role==='parent';
   const allChildren=DB.children;
   const _allApts=LS.get('appointments',[]);
-  const _myPatientIds=isParent?[]:(LS.get('children',[])).map(c=>c.id);
+  const _myChildren=LS.get('children',[]);
+  const _myPatientIds=isParent?[]:_myChildren.map(c=>c.id);
+  // Specialist: if children are loaded but appointments cache is empty, trigger a background refresh
+  if(!isParent&&_myPatientIds.length>0&&_allApts.length===0&&!S._calRefreshing){
+    S._calRefreshing=true;
+    (async()=>{
+      try{
+        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).order('date');
+        if(apts&&apts.length>0){
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+          S._calRefreshing=false;re();
+        } else {S._calRefreshing=false;}
+      }catch(e){S._calRefreshing=false;}
+    })();
+  }
   const childApts=isParent
     ?(S.calendarMode==='joint'
       ?_allApts
@@ -7929,8 +7953,23 @@ function renderSettings(){
 /* ═══════════════════════════════════════════════
    ROOT RENDER
 ═══════════════════════════════════════════════ */
+let _reTimer=null;
 function re(){
+  // Debounce: collapse multiple rapid re() calls into one per animation frame
+  if(_reTimer)cancelAnimationFrame(_reTimer);
+  _reTimer=requestAnimationFrame(()=>{
+    _reTimer=null;
+    const root=document.getElementById('root');
+    if(!root)return;
+    root.innerHTML='';
+    root.appendChild(session?renderShell():renderAuth());
+  });
+}
+// Immediate re() — use only when timing is critical (e.g. after modal close)
+function reNow(){
+  if(_reTimer){cancelAnimationFrame(_reTimer);_reTimer=null;}
   const root=document.getElementById('root');
+  if(!root)return;
   root.innerHTML='';
   root.appendChild(session?renderShell():renderAuth());
 }
