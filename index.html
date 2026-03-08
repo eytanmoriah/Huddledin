@@ -6177,48 +6177,34 @@ function renderChatThread(activeChat,specId,myId,onBack){
     ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
     :null;
 
-  // On mobile: fixed panel, hides bottom nav while open, uses visualViewport for keyboard
-  const _bnav=document.getElementById('bottom-nav');
-  if(isMobile && _bnav) _bnav.style.display='none';
-
-  const _headerPx=(()=>{
-    const hh=getComputedStyle(document.documentElement).getPropertyValue('--header-h').trim();
-    return parseInt(hh)||56;
-  })();
-  const _safeTop=(()=>{
-    const st=getComputedStyle(document.documentElement).getPropertyValue('--safe-top').trim();
-    return parseInt(st)||0;
-  })();
-
-  const _vv=window.visualViewport;
-  const _initH=(_vv?_vv.height:window.innerHeight)-_headerPx-_safeTop;
-
+  // Mobile: fixed panel between header and bottom nav
   const wrap=el('div',{style:isMobile?{
     position:'fixed',
-    top:(_headerPx+_safeTop)+'px',
-    left:'0',right:'0',
-    height:_initH+'px',
-    display:'flex',flexDirection:'column',background:'#fff',zIndex:500,
+    top:'calc(var(--header-h) + var(--safe-top))',
+    bottom:'var(--bnav-h)',
+    left:0,right:0,
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
     overflow:'hidden'
   }:{
     display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
   }});
 
-  if(isMobile && _vv){
+  // iOS only: visualViewport tracks keyboard — adjust bottom so input stays visible
+  const _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
+    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isMobile && _isIOS && window.visualViewport){
+    const _vv=window.visualViewport;
     const _nudge=()=>{
-      const newH=_vv.height-_headerPx-_safeTop;
-      wrap.style.height=newH+'px';
+      // keyboard height = window height minus visible viewport height
+      const kbH=Math.max(0, window.innerHeight - _vv.height);
+      wrap.style.bottom=kbH>50?(kbH+'px'):'var(--bnav-h)';
       requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
     };
     _vv.addEventListener('resize',_nudge);
-    _vv.addEventListener('scroll',_nudge);
     wrap._vvCleanup=()=>{
-      if(_bnav)_bnav.style.display='';
       _vv.removeEventListener('resize',_nudge);
-      _vv.removeEventListener('scroll',_nudge);
+      wrap.style.bottom='var(--bnav-h)';
     };
-  } else if(isMobile){
-    wrap._vvCleanup=()=>{if(_bnav)_bnav.style.display='';};
   }
 
   // -- Header (sticky top) --
