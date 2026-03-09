@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       q('messages', 'select=id,created_at,chat_id'),
       q('files', 'select=id,created_at'),
       q('todos', 'select=id,created_at,completed,user_id'),
-      q('specialist_requests', 'select=id,specialist_id,household_id,status,created_at,specialist_name,child_id'),
+      q('specialist_requests', 'select=id,specialist_id,household_id,status,requested_at,specialist_name,child_id'),
       q('chats', 'select=id,household_id,created_at,type'),
       q('vault_notes', 'select=id,created_at,specialist_id,published')
     ]);
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
 
     // Pending specialist requests with details
     const pendingList = pendingReqs
-      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+      .sort((a,b) => (b.requested_at||'').localeCompare(a.requested_at||''))
       .map(r => ({
         id: r.id,
         specialistId: r.specialist_id,
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
         role: r.role || '—',
         householdId: r.household_id,
         childId: r.child_id,
-        created_at: r.created_at
+        created_at: r.requested_at
       }));
 
     // Stuck households: signed up 7+ days ago, no children OR no specialist
