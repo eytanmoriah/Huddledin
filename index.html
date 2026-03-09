@@ -6176,7 +6176,7 @@ function renderChat(){
   }
   const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
   if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
-  // Consult requests are initiated from the Patients list, not here
+  if(role==='specialist')hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>showNewMessageModal()));
   hd.appendChild(hdRight);
   listWrap.appendChild(hd);
 
@@ -6457,6 +6457,70 @@ function renderChatThread(activeChat,specId,myId,onBack){
   return wrap;
 }
 
+
+function showNewMessageModal(){
+  const mySpecId=session?.specialistId||session?.id;
+  const activeChildId=S.activeChatChildId||S.activeChild||null;
+  const activeChild=DB.children.find(c=>c.id===activeChildId)||(LS.get('children',[])||[]).find(c=>c.id===activeChildId);
+
+  openModal('💬 New Message',(mb,close)=>{
+    // Path A — Message Parent
+    const pathA=el('div',{style:{
+      borderRadius:'14px',border:'2px solid var(--mint-l)',
+      marginBottom:'14px',overflow:'hidden',cursor:'pointer'
+    }});
+    const pathATop=el('div',{style:{
+      padding:'16px',background:'var(--mint-ll)',
+      display:'flex',alignItems:'center',gap:'14px'
+    }});
+    pathATop.appendChild(el('div',{style:{fontSize:'2rem',flexShrink:0}},['💬']));
+    const pathAInfo=el('div',{style:{flex:1}});
+    pathAInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'.95rem',marginBottom:'3px'}},['Message Parent']));
+    pathAInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},['Open a direct chat with the family — no approval required.']));
+    pathATop.appendChild(pathAInfo);
+    pathATop.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.2rem',fontWeight:900}},['›']));
+    pathA.appendChild(pathATop);
+    pathA.onclick=async()=>{
+      // Need a child context
+      if(!activeChildId){toast('Please open a patient first, then start a new message.','error');close();return;}
+      let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(mySpecId)&&c.childId===activeChildId);
+      if(!chat){
+        chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',mySpecId],childId:activeChildId,approved:true,messages:[],unreadFor:['parent']};
+        try{
+          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:null,participants:chat.participants,approved:true,unread_for:['parent']});
+          const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
+          await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id});
+        }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
+      }
+      S.activeChatId=chat.id;S.chatsLoaded=true;
+      close();switchTab('chat');
+    };
+    mb.appendChild(pathA);
+
+    // Path B — Request Consultation
+    const pathB=el('div',{style:{
+      borderRadius:'14px',border:'2px solid var(--lav)',
+      overflow:'hidden',cursor:'pointer'
+    }});
+    const pathBTop=el('div',{style:{
+      padding:'16px',background:'var(--lav-l)',
+      display:'flex',alignItems:'center',gap:'14px'
+    }});
+    pathBTop.appendChild(el('div',{style:{fontSize:'2rem',flexShrink:0}},['🤝']));
+    const pathBInfo=el('div',{style:{flex:1}});
+    pathBInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'.95rem',marginBottom:'3px'}},['Request Consultation']));
+    pathBInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},['Request a professional consultation with another specialist. Requires parent approval.']));
+    pathBTop.appendChild(pathBInfo);
+    pathBTop.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.2rem',fontWeight:900}},['›']));
+    pathB.appendChild(pathBTop);
+    pathB.onclick=()=>{
+      close();
+      if(!activeChildId){toast('Please open a patient first to request a consultation.','error');return;}
+      showConsultModal(activeChildId);
+    };
+    mb.appendChild(pathB);
+  },460);
+}
 function showConsultModal(childId){
   // childId can be passed directly or fall back to active child
   const cid=childId||S.activeChild;
@@ -6564,6 +6628,14 @@ function showConsultModal(childId){
         const visText=state.inclusive
           ?'inclusive — you will be included in the conversation'
           :'private — specialists only (you will be able to see the chat exists but not read messages)';
+        // Delete any existing consult request for this specialist+child before inserting
+        // (avoids unique constraint conflicts from prior attempts)
+        await _supa.from('specialist_requests')
+          .delete()
+          .eq('specialist_id',mySpecId)
+          .eq('child_id',cid)
+          .eq('request_type','consult')
+          .neq('status','approved');
         const {error:insertErr}=await _supa.from('specialist_requests').insert({
           specialist_id:mySpecId,
           specialist_name:spec?.name||session?.name||'Specialist',
@@ -7583,15 +7655,7 @@ function renderPatients(){
         re();
       };
       card.appendChild(toggle);
-      // Consult button — only for active patients
-      if(!isInactive){
-        const consultBtn=mkBtn('🤝 Consult','btn-sm btn-lav',e=>{
-          e.stopPropagation();
-          S.activeChild=c.id;
-          showConsultModal(c.id);
-        });
-        card.appendChild(consultBtn);
-      }
+      // Consult is triggered from New Message in Chat, not here
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
       card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
       stack.appendChild(card);
