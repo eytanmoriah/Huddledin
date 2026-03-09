@@ -1885,7 +1885,9 @@ async function _loadSessionFromSupabase(s){
                 id:c.id,name:c.name,dob:c.dob,
                 avatar:c.avatar_emoji||'🌸',
                 color:c.color||null,
-                photo:c.photo_url||null
+                photo:c.photo_url||null,
+                parentId:c.parent_id||null,
+                householdId:c.household_id||null
               }));
               LS.set('children',mapped);
               if(!S.activeChild)S.activeChild=mapped[0].id;
@@ -6547,13 +6549,22 @@ function showConsultModal(childId){
     const sendBtn=mkBtn('📤 Send Consultation Request','btn-md btn-primary btn-full',async()=>{
       sendBtn.disabled=true;sendBtn.textContent='Sending…';
       try{
-        const hhid=getChildHouseholdId(cid);
-        const childParentId=child?.parentId||null;
+        // Resolve household_id and parent_id — look up from children table if not in local state
+        let hhid=getChildHouseholdId(cid);
+        let childParentId=child?.parentId||child?.parent_id||null;
+        if(!hhid||!childParentId){
+          try{
+            const {data:_ch}=await _supa.from('children').select('household_id,parent_id').eq('id',cid).single();
+            if(_ch?.household_id)hhid=_ch.household_id;
+            if(_ch?.parent_id)childParentId=_ch.parent_id;
+          }catch(e2){console.error('child lookup:',e2);}
+        }
+        console.log('[consult insert] cid:',cid,'hhid:',hhid,'parentId:',childParentId,'mySpecId:',mySpecId);
         const visLabel=state.inclusive?'inclusive':'private';
         const visText=state.inclusive
           ?'inclusive — you will be included in the conversation'
           :'private — specialists only (you will be able to see the chat exists but not read messages)';
-        await _supa.from('specialist_requests').insert({
+        const {error:insertErr}=await _supa.from('specialist_requests').insert({
           specialist_id:mySpecId,
           specialist_name:spec?.name||session?.name||'Specialist',
           role:spec?.role||session?.profession||'Specialist',
@@ -6566,6 +6577,13 @@ function showConsultModal(childId){
           requested_folder_name:state.targetName+'|'+visLabel,
           requested_at:new Date().toISOString()
         });
+        if(insertErr){
+          console.error('[consult insert] FAILED:',insertErr);
+          sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
+          toast('Could not send request: '+insertErr.message,'error');
+          return;
+        }
+        console.log('[consult insert] success');
         await notifyOtherParty('consult',
           `${spec?.name||'A specialist'} has requested to consult with ${state.targetName} regarding ${child?.name||'your patient'}. This conversation will be ${visText}.`,
           cid,'team');
