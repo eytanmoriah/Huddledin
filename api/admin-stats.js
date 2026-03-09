@@ -5,7 +5,6 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    // Verify JWT and check admin email
     const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_KEY }
     });
@@ -20,6 +19,10 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
         }
       });
+      if (!r.ok) {
+        console.error(`Query failed for ${table}:`, await r.text());
+        return [];
+      }
       return r.json();
     };
 
@@ -27,8 +30,18 @@ export default async function handler(req, res) {
     const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
     const monthAgo = new Date(now - 30*24*60*60*1000).toISOString();
 
+    // Fetch auth users for last_sign_in_at (from admin API)
+    const authUsersRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+      }
+    });
+    const authData = authUsersRes.ok ? await authUsersRes.json() : { users: [] };
+    const authUsers = authData.users || [];
+
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
-      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,last_sign_in_at'),
+      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled'),
       q('children', 'select=id,household_id,created_at'),
       q('appointments', 'select=id,created_at,household_id,child_id,type'),
       q('messages', 'select=id,created_at,chat_id'),
@@ -47,24 +60,20 @@ export default async function handler(req, res) {
     const householdsWithSpec = new Set(approvedReqs.map(r => r.household_id));
     const specsWithFamily = new Set(approvedReqs.map(r => r.specialist_id));
 
-    // Retention
-    const activeUsersWeek = profiles.filter(p => p.last_sign_in_at > weekAgo).length;
-    const activeUsersMonth = profiles.filter(p => p.last_sign_in_at > monthAgo).length;
-    const dormantUsers = profiles.filter(p => p.last_sign_in_at && p.last_sign_in_at < monthAgo).length;
+    // Retention from auth users
+    const activeUsersWeek = authUsers.filter(u => u.last_sign_in_at > weekAgo).length;
+    const activeUsersMonth = authUsers.filter(u => u.last_sign_in_at > monthAgo).length;
+    const dormantUsers = authUsers.filter(u => u.last_sign_in_at && u.last_sign_in_at < monthAgo).length;
 
-    // Households with no children (signed up but stuck)
     const householdsWithChildren = new Set(children.map(c => c.household_id));
     const emptyHouseholds = [...households].filter(hid => !householdsWithChildren.has(hid)).length;
 
-    // Feature usage per household
     const householdsUsingApts = new Set(appointments.map(a => a.household_id).filter(Boolean));
     const householdsUsingFiles = new Set(files.map(f => f.household_id).filter(Boolean));
     const householdsUsingChats = new Set(chats.map(c => c.household_id).filter(Boolean));
 
-    // Specialists: registered but no family
     const specsNoFamily = specialists.filter(s => !specsWithFamily.has(s.id)).length;
 
-    // Specialists with 2+ families
     const specFamilyCount = {};
     approvedReqs.forEach(r => { specFamilyCount[r.specialist_id] = (specFamilyCount[r.specialist_id]||0)+1; });
     const powerSpecialists = Object.values(specFamilyCount).filter(c => c >= 2).length;
@@ -83,7 +92,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Children distribution
     const childrenPerHousehold = {};
     children.forEach(c => { childrenPerHousehold[c.household_id] = (childrenPerHousehold[c.household_id]||0)+1; });
     const childDist = { one: 0, two: 0, threePlus: 0 };
@@ -93,7 +101,6 @@ export default async function handler(req, res) {
       else childDist.threePlus++;
     });
 
-    // Appointment types
     const aptTypes = {};
     appointments.forEach(a => { const t=a.type||'other'; aptTypes[t]=(aptTypes[t]||0)+1; });
 
