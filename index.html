@@ -1407,6 +1407,20 @@ async function loadChildSpecialists(childId){
       return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
         avatar:'🩺',status:r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
     });
+    // Also pick up any specialists in the specialists table for this child
+    // who may have joined via email invite (no specialist_requests row)
+    try{
+      const {data:directSpecs}=await _supa.from('specialists')
+        .select('id,name,role,email,status,child_id')
+        .eq('child_id',childId).eq('status','active');
+      (directSpecs||[]).forEach(ds=>{
+        if(!specs.find(s=>s.id===ds.id)){
+          specs.push({id:ds.id,name:ds.name||'Specialist',role:ds.role||'Specialist',
+            email:ds.email||'',avatar:'🩺',status:'active',
+            permissions:{[childId]:permMap[ds.id]||[]},childId});
+        }
+      });
+    }catch(e){}
     LS.set('child_specialists_'+childId,specs);
     return specs;
   }catch(e){console.error('loadChildSpecialists:',e);return[];}
@@ -9717,6 +9731,25 @@ async function _processPendingInvite(){
         role:data.specialist_role||'Specialist',
         status:'active'
       }).then(({error:e})=>{if(e)console.error('Specialists upsert error:',e.code);});
+      // Also write an approved specialist_requests row so this specialist appears
+      // in getChildTeam() for other specialists (loadChildSpecialists uses this table)
+      try{
+        const {data:existsReq}=await _supa.from('specialist_requests')
+          .select('id').eq('specialist_id',session.id).eq('child_id',data.child_id).maybeSingle();
+        if(!existsReq){
+          await _supa.from('specialist_requests').insert({
+            specialist_id:session.id,
+            specialist_name:session.name||session.email,
+            role:data.specialist_role||'Specialist',
+            child_id:data.child_id,
+            parent_id:data.parent_id,
+            household_id:data.household_id||null,
+            status:'approved',
+            request_type:'join',
+            requested_at:new Date().toISOString()
+          });
+        }
+      }catch(e){console.error('invite specialist_requests insert:',e);}
       // Load the child into local state
       if(data.child_id){
         let child=null;
