@@ -160,6 +160,62 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, sent });
     }
 
+    // ── Send direct email to user ──
+    if (action === 'send_email') {
+      const { to, toName, subject, body } = payload;
+      if (!to || !subject || !body) return res.status(400).json({ error: 'Missing fields' });
+
+      // Use same email provider as send-invite (Resend / SendGrid / SMTP)
+      // Try Resend first, then SendGrid
+      const RESEND_KEY = process.env.RESEND_API_KEY;
+      const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
+
+      if (RESEND_KEY) {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_KEY}` },
+          body: JSON.stringify({
+            from: 'Huddledin <admin@huddledin.com>',
+            to: [to],
+            subject,
+            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+              <h2 style="color:#0d9488">Message from Huddledin</h2>
+              <p>Hi ${toName || ''},</p>
+              <div style="white-space:pre-wrap;line-height:1.6">${body.replace(/</g,'&lt;')}</div>
+              <hr style="margin:24px 0;border:none;border-top:1px solid #e2e8f0"/>
+              <p style="color:#64748b;font-size:12px">This message was sent by the Huddledin admin team.</p>
+            </div>`
+          })
+        });
+        if (!r.ok) {
+          const err = await r.text();
+          console.error('Resend error:', err);
+          return res.status(500).json({ error: 'Email failed: ' + err });
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      if (SENDGRID_KEY) {
+        const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SENDGRID_KEY}` },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: to, name: toName }] }],
+            from: { email: 'admin@huddledin.com', name: 'Huddledin' },
+            subject,
+            content: [{ type: 'text/plain', value: body }]
+          })
+        });
+        if (!r.ok) {
+          const err = await r.text();
+          return res.status(500).json({ error: 'Email failed: ' + err });
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      return res.status(500).json({ error: 'No email provider configured (need RESEND_API_KEY or SENDGRID_API_KEY)' });
+    }
+
     return res.status(400).json({ error: 'Unknown action: ' + action });
 
   } catch (err) {
