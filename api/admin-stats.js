@@ -1,153 +1,9072 @@
-export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).end();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Huddledin"/>
+<meta name="theme-color" content="#0d9488"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="application-name" content="Huddledin"/>
+<meta name="description" content="Collaborative care platform for children"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<title>Huddledin — Collaborative Care Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
+<!-- -- SUPABASE SDK -- -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- -- CROPPER.JS -- -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<!-- -- SENTRY — load synchronously before app code -- -->
+<script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js"></script>
+<script>
+  if(window.Sentry){Sentry.init({dsn:"https://174490d78338801a352d7df3837ced53@o4510981671026688.ingest.us.sentry.io/4510981679022080",environment:"production",release:"huddledin@1.0.0",tracesSampleRate:0.2,beforeSend(e){if(e.user)delete e.user.email;return e;}});}
+</script>
+<!-- -- PLAUSIBLE ANALYTICS -- -->
+<script async src="https://plausible.io/js/pa-KjPiNv5sa31eWkcgbyZce.js"></script>
+<script>
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)};
+  function track(name,props){try{if(window.plausible)plausible(name,props?{props}:undefined);}catch(e){}}
+</script>
+<style>
+/* ----------------------------------------------------------
+   HUDDLEDIN v6 — Native Mobile Design System
+   iOS HIG + Material Design 3 + Bubbly UI
+---------------------------------------------------------- */
+:root{
+  --teal:#0d9488;--teal-l:#2dd4bf;--teal-d:#0f766e;
+  --mint:#a7f3d0;--mint-l:#d1fae5;--mint-ll:#ecfdf5;
+  --lav:#c4b5fd;--lav-l:#ede9fe;--lav-d:#7c3aed;
+  --coral:#fb923c;--coral-l:#ffedd5;
+  --rose:#fb7185;--rose-l:#ffe4e6;
+  --amber:#fbbf24;--amber-l:#fef3c7;
+  --sky:#38bdf8;--sky-l:#e0f2fe;
+  --navy:#0f172a;--slate:#64748b;--slate-l:#94a3b8;--slate-ll:#cbd5e1;
+  --bg:#f0fdf9;--white:#ffffff;--border:#c7f7e5;
+  --s0:0 1px 3px rgba(0,0,0,.06);
+  --s1:0 4px 16px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.04);
+  --s2:0 12px 32px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.06);
+  --s3:0 24px 64px rgba(0,0,0,.18),0 8px 24px rgba(0,0,0,.08);
+  --s4:0 40px 80px rgba(0,0,0,.22),0 16px 40px rgba(0,0,0,.10);
+  --r-sm:14px;--r:20px;--r-lg:28px;--r-xl:32px;--r-full:999px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --header-h:56px;
+  --bnav-h:calc(64px + var(--safe-bottom));
+  --spring:.38s cubic-bezier(.34,1.56,.64,1);
+  --ease-out:.22s cubic-bezier(0,0,.2,1);
+}
 
-  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--navy);font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overscroll-behavior:none;padding-left:var(--safe-left);padding-right:var(--safe-right)}
+.ff{font-family:'Fraunces',serif}
+*::-webkit-scrollbar{width:0;height:0}
+@media(min-width:768px){*::-webkit-scrollbar{width:4px;height:4px}*::-webkit-scrollbar-thumb{background:var(--mint);border-radius:99px}}
 
-  try {
-    // Verify JWT and check admin email
-    const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_KEY }
+@keyframes springIn{0%{opacity:0;transform:scale(.82) translateY(28px)}60%{transform:scale(1.04) translateY(-6px)}80%{transform:scale(.98) translateY(1px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUpSheet{from{transform:translateY(110%)}to{transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes badgePop{0%{transform:scale(0)}65%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes bounceIn{0%{opacity:0;transform:scale(.5)}55%{transform:scale(1.12)}75%{transform:scale(.96)}100%{opacity:1;transform:scale(1)}}
+/* Haptic-feel spring for homework complete — simulates device vibration bounce */
+@keyframes taskSpring{0%{transform:scale(1)}20%{transform:scale(1.22) rotate(-3deg)}40%{transform:scale(.9) rotate(2deg)}60%{transform:scale(1.08) rotate(-1deg)}80%{transform:scale(.97)}100%{transform:scale(1)}}
+@keyframes pullSpin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+/* Ripple effect on button tap */
+@keyframes ripple{0%{transform:scale(0);opacity:.4}100%{transform:scale(5);opacity:0}}
+
+.spring-in{animation:springIn var(--spring) both}
+.fade-in{animation:fadeIn .2s ease both}
+.task-spring{animation:taskSpring .5s cubic-bezier(.34,1.56,.64,1) both}
+
+#app-shell{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
+
+/* -- GLASSMORPHISM HEADER (sticky) -- */
+#header{
+  position:fixed;top:0;left:0;right:0;z-index:300;
+  background:rgba(240,253,249,.88);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  backdrop-filter:saturate(180%) blur(24px);
+  border-bottom:1px solid rgba(167,243,208,.4);
+  box-shadow:0 1px 0 rgba(255,255,255,.5),0 2px 20px rgba(13,148,136,.06);
+  padding-top:var(--safe-top);
+  height:calc(var(--header-h) + var(--safe-top));
+  display:flex;align-items:flex-end;
+}
+.header-inner{display:flex;align-items:center;gap:10px;padding:0 16px;height:var(--header-h);width:100%}
+#logo{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0}
+.logo-bubble{width:34px;height:34px;border-radius:12px;background:linear-gradient(135deg,var(--teal),var(--teal-l));display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 3px 10px rgba(13,148,136,.35)}
+.logo-name{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:800;color:var(--teal-d);letter-spacing:-.01em}
+
+/* FIX F8: removed first #child-switcher declaration — it was overridden by the second one below
+   (the second declaration is authoritative and complete) */
+.child-pill{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-full);border:1.5px solid transparent;background:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:.78rem;font-weight:700;color:var(--slate);white-space:nowrap;flex-shrink:0;scroll-snap-align:start;min-height:36px;-webkit-user-select:none;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.child-pill:active{transform:scale(.92);background:var(--mint-l)}
+.child-pill.active{border-color:var(--teal);background:var(--teal);color:#fff;box-shadow:0 4px 14px rgba(13,148,136,.35)}
+.child-avatar-img{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.6)}
+.child-avatar-emoji{font-size:.95rem}
+#header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+/* -- BODY + SIDEBAR -- */
+#body{display:flex;flex:1;padding-top:calc(var(--header-h) + var(--safe-top))}
+#sidenav{width:205px;min-width:205px;background:var(--white);border-right:1px solid var(--mint-l);display:flex;flex-direction:column;padding:16px 10px;gap:2px;overflow-y:auto;position:fixed;left:0;top:calc(var(--header-h) + var(--safe-top));height:calc(100vh - var(--header-h) - var(--safe-top));z-index:100}
+@media(max-width:767px){#sidenav{display:none}}
+.sidenav-profile{margin-bottom:10px;padding:12px 13px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l)}
+.sp-label{font-size:.64rem;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.sp-name{font-weight:800;color:var(--navy);font-size:.86rem;margin:2px 0 5px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:16px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.85rem;color:var(--slate);text-align:left;transition:all .15s;width:100%;min-height:44px}
+.nav-btn:hover{background:var(--mint-ll);color:var(--navy)}
+.nav-btn:active{background:var(--mint-l);transform:scale(.98)}
+.nav-btn.active{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));color:var(--teal-d);font-weight:800;box-shadow:0 2px 10px rgba(13,148,136,.12)}
+.nav-btn .ni{font-size:1.1rem;width:20px;text-align:center}
+#main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--bnav-h) + 8px)}
+@media(min-width:768px){#main{margin-left:205px;padding-bottom:24px}}
+
+/* -- BOTTOM NAV — Thumb zone -- */
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(200%) blur(28px);backdrop-filter:saturate(200%) blur(28px);border-top:1px solid rgba(0,0,0,.06);box-shadow:0 -1px 0 rgba(255,255,255,.8),0 -8px 32px rgba(0,0,0,.08);padding-bottom:var(--safe-bottom)}
+@media(max-width:767px){#bottom-nav{display:block}}
+.bnav-inner{display:flex;height:64px}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.56rem;font-weight:700;transition:color .15s;position:relative;padding:8px 2px 4px;-webkit-user-select:none;user-select:none;min-height:44px}
+.bnav-btn.active{color:var(--teal)}
+.bnav-icon{font-size:1.4rem;line-height:1;transition:transform var(--spring);display:block}
+.bnav-btn.active .bnav-icon{transform:scale(1.15) translateY(-1px)}
+.bnav-badge{position:absolute;top:4px;right:calc(50% - 18px);background:var(--coral);color:#fff;border-radius:99px;min-width:17px;height:17px;font-size:.54rem;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;animation:badgePop var(--spring)}
+
+/* -- BOTTOM SHEET / MODAL -- */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(15,23,42,.4);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:fadeIn .2s ease;display:flex;align-items:flex-end}
+.modal{background:#fff;border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:slideUpSheet .35s cubic-bezier(.32,.72,0,1) both;padding-bottom:var(--safe-bottom);box-shadow:0 -8px 48px rgba(0,0,0,.18)}
+@media(min-width:600px){.overlay{align-items:center;justify-content:center;padding:16px}.modal{border-radius:var(--r-xl);max-width:500px;animation:springIn var(--spring) both}}
+.modal-hd{padding:16px 20px 14px;border-bottom:1px solid var(--mint-ll);position:sticky;top:0;background:#fff;z-index:1;display:flex;justify-content:space-between;align-items:center}
+/* Drag handle on mobile sheets */
+.modal-hd::before{content:'';display:block;width:36px;height:4px;border-radius:99px;background:#e2e8f0;position:absolute;top:8px;left:50%;transform:translateX(-50%)}
+@media(min-width:600px){.modal-hd::before{display:none}}
+.modal-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:800;color:var(--navy)}
+.modal-x{width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;background:var(--mint-ll);color:var(--slate);font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .15s;min-height:32px}
+.modal-x:active{background:var(--rose-l);color:#be123c}
+.modal-body{padding:18px 20px}
+
+/* -- BUBBLY CARDS -- */
+.card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:18px;transition:transform .15s,box-shadow .15s}
+.card.hov:active{transform:scale(.98);box-shadow:var(--s0)}
+.card.click{cursor:pointer}
+.card.click:active{transform:scale(.97);box-shadow:var(--s0);opacity:.9}
+.card.sel{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12),var(--s1)}
+@media(hover:hover){.card.hov:hover,.card.click:hover{box-shadow:var(--s2);transform:translateY(-2px)}}
+
+/* -- BUTTONS — pill-shaped, 44px min -- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-full);font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;border:none;transition:transform .12s,opacity .12s;white-space:nowrap;-webkit-user-select:none;user-select:none;min-height:44px;position:relative;overflow:hidden}
+.btn:active{transform:scale(.93);opacity:.85}
+@media(hover:hover){.btn:hover{transform:translateY(-1px)}}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-sm{padding:8px 16px;font-size:.8rem;min-height:38px}
+.btn-md{padding:12px 22px;font-size:.9rem}
+.btn-lg{padding:14px 28px;font-size:.95rem}
+.btn-xl{padding:16px 32px;font-size:1rem}
+.btn-primary{background:linear-gradient(135deg,var(--teal) 0%,var(--teal-l) 100%);color:#fff;box-shadow:0 4px 16px rgba(13,148,136,.35)}
+.btn-secondary{background:var(--mint-l);color:var(--teal-d)}
+.btn-lav{background:var(--lav-l);color:var(--lav-d)}
+.btn-ghost{background:transparent;color:var(--teal);border:1.5px solid rgba(13,148,136,.3)}
+.btn-ghost:active{background:var(--mint-ll)}
+.btn-danger{background:var(--rose-l);color:#be123c}
+.btn-amber{background:var(--amber-l);color:#92400e}
+.btn-white{background:#fff;color:var(--teal-d);box-shadow:var(--s1)}
+.btn-full{width:100%;justify-content:center}
+.btn-slate{background:#f1f5f9;color:var(--slate)}
+.btn-sky{background:var(--sky-l);color:#0369a1}
+/* FAB — floating action button for mobile thumb zone */
+.btn-fab{position:fixed;bottom:calc(var(--bnav-h) + 16px);right:20px;width:56px;height:56px;border-radius:50%;z-index:100;background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-size:1.5rem;border:none;cursor:pointer;box-shadow:0 6px 24px rgba(13,148,136,.45);display:flex;align-items:center;justify-content:center;transition:transform var(--spring),box-shadow .15s}
+.btn-fab:active{transform:scale(.88);box-shadow:0 2px 12px rgba(13,148,136,.3)}
+@media(min-width:768px){.btn-fab{display:none}}
+
+/* -- BADGES -- */
+.badge{border-radius:var(--r-full);padding:3px 10px;font-size:.68rem;font-weight:800;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.badge-teal{background:var(--mint-l);color:var(--teal-d)}
+.badge-coral{background:var(--coral-l);color:#c2410c}
+.badge-amber{background:var(--amber-l);color:#92400e}
+.badge-slate{background:#f1f5f9;color:var(--slate)}
+.badge-lav{background:var(--lav-l);color:var(--lav-d)}
+.badge-rose{background:var(--rose-l);color:#be123c}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-sky{background:var(--sky-l);color:#0369a1}
+.badge-navy{background:#e2e8f0;color:var(--navy)}
+
+/* -- INPUTS — 48px touch targets, 16px font (no iOS zoom) -- */
+.inp{width:100%;padding:14px 16px;border-radius:var(--r);border:2px solid #94a3b8;font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;background:var(--white);color:var(--navy);transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none;min-height:48px}
+.inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+/* Date placeholder fix for mobile */
+input[type="date"].inp::-webkit-datetime-edit{color:var(--navy)}
+input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0.6;cursor:pointer;min-width:20px;min-height:20px}
+.inp::placeholder{color:var(--slate-l);font-weight:500}
+textarea.inp{resize:vertical;min-height:120px;line-height:1.65}
+select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
+.inp-group{display:flex;flex-direction:column;gap:11px}
+.inp-label{font-size:.7rem;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+
+/* -- TOGGLE + CHECKBOX -- */
+.toggle{width:51px;height:30px;border-radius:99px;background:var(--slate-ll);cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0}
+.toggle.on{background:linear-gradient(135deg,var(--teal),var(--teal-l))}
+.toggle::after{content:'';width:24px;height:24px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.on::after{left:24px}
+.chk{width:28px;height:28px;border-radius:10px;border:2px solid var(--mint);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s;font-size:.8rem;font-weight:900;color:#fff;min-width:28px}
+.chk.done{background:linear-gradient(135deg,var(--teal),var(--teal-l));border-color:var(--teal);box-shadow:0 4px 12px rgba(13,148,136,.35)}
+/* Spring animation class — JS adds this then removes for haptic bounce effect */
+.chk.spring{animation:taskSpring .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* -- SECTION / PAGE -- */
+.section{padding:20px 16px 16px;max-width:970px;margin:0 auto;animation:fadeIn .2s ease}
+.page-title{font-family:'Fraunces',serif;font-size:1.45rem;font-weight:800;color:var(--navy);margin-bottom:2px;line-height:1.2}
+.page-sub{color:var(--slate);font-size:.8rem;margin-bottom:16px;font-weight:500}
+.sec-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.sec-hd-left{flex:1;min-width:0}
+.sec-hd-right{display:flex;gap:7px;flex-wrap:wrap;align-items:center;flex-shrink:0}
+
+/* -- GRIDS -- */
+.g2{display:grid;grid-template-columns:1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr;gap:10px}
+/* 2-col folder grid ALWAYS on mobile */
+.g-folder{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:520px){.g3{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:768px){.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g-folder{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}}
+.stack{display:flex;flex-direction:column;gap:10px}
+
+/* -- AVATAR -- */
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;overflow:hidden}
+
+/* -- FILE EXPLORER — Large folder cards (2-col) + long-press menu -- */
+.folder-card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:20px 14px;text-align:center;cursor:pointer;transition:transform var(--spring),box-shadow .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.folder-card:active{transform:scale(.93)}
+@media(hover:hover){.folder-card:hover{transform:translateY(-3px);box-shadow:var(--s2)}}
+.folder-icon-wrap{width:64px;height:64px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.folder-name{font-weight:800;color:var(--navy);font-size:.9rem;margin-bottom:4px;line-height:1.3}
+.folder-count{font-size:.72rem;color:var(--slate);font-weight:600}
+/* Long-press context menu */
+.long-press-menu{position:fixed;z-index:700;background:#fff;border-radius:var(--r-lg);box-shadow:var(--s4);border:1px solid var(--mint-l);min-width:180px;overflow:hidden;animation:springIn .25s cubic-bezier(.34,1.56,.64,1) both;padding:6px 0}
+.long-press-item{padding:13px 18px;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;color:var(--navy);transition:background .1s;display:flex;align-items:center;gap:10px;min-height:44px}
+.long-press-item:active{background:var(--mint-ll)}
+.long-press-item.danger{color:#be123c}
+/* File list items */
+.file-item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l);transition:background .1s;cursor:pointer;min-height:52px}
+.file-item:active{background:var(--mint-l)}
+
+/* -- CHAT — native bubble layout -- */
+.chat-layout{display:flex;flex-direction:column;gap:12px}
+@media(min-width:768px){.chat-layout{flex-direction:row;gap:16px;min-height:480px}}
+.chat-sidebar{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);overflow:hidden;box-shadow:var(--s1)}
+@media(max-width:767px){.chat-sidebar{max-height:150px;overflow-y:auto;-webkit-overflow-scrolling:touch}}
+@media(min-width:768px){.chat-sidebar{width:200px;min-width:200px;overflow-y:auto}}
+.chat-window{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:360px}
+/* Input bar FIXED above keyboard */
+.chat-input-row{display:flex;gap:9px;align-items:flex-end;padding:10px 14px;padding-bottom:max(12px,env(safe-area-inset-bottom,12px));background:#fff;border-top:1px solid var(--mint-l);position:sticky;bottom:0}
+.chat-input-row .inp{min-height:44px;padding:11px 14px;font-size:16px;border-radius:var(--r-full)}
+.send-btn{width:44px;height:44px;min-width:44px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal-l));border:none;cursor:pointer;color:#fff;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(13,148,136,.35);transition:transform .12s;flex-shrink:0}
+.send-btn:active{transform:scale(.88)}
+
+/* -- CHAT BUBBLES -- */
+.bubble-me{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;border-radius:22px 22px 6px 22px;padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:0 2px 10px rgba(13,148,136,.25)}
+.bubble-them{background:var(--white);color:var(--navy);border-radius:22px 22px 22px 6px;border:1.5px solid var(--mint-l);padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:var(--s0)}
+.bubble-time{font-size:.64rem;opacity:.55;margin-top:4px;text-align:right}
+.bubble-tick{font-size:.64rem;color:rgba(255,255,255,.6);margin-left:3px}
+.bubble-tick.read{color:#a7f3d0}
+.chat-unread-badge{min-width:18px;height:18px;background:var(--teal);color:#fff;border-radius:99px;font-size:.58rem;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0}
+.chat-list-item{padding:13px 14px;border-bottom:1.5px solid var(--mint-ll);cursor:pointer;transition:background .12s;min-height:56px;display:flex;align-items:center;gap:10px}
+.chat-list-item:active{background:var(--mint-ll)}
+.chat-list-item.active{background:var(--mint-l)}
+.chat-list-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.chat-list-body{flex:1;min-width:0}
+.chat-list-name{font-weight:800;font-size:.84rem;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-preview{font-size:.71rem;color:var(--slate-l);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-list-time{font-size:.62rem;color:var(--slate-l);white-space:nowrap}
+.bubble-name{font-size:.68rem;font-weight:800;color:var(--teal);margin-bottom:4px}
+
+/* -- AI SUMMARIZER — Full-screen overlay -- */
+.ai-fullscreen{position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-top);padding-bottom:var(--safe-bottom);animation:slideUp .25s ease}
+.ai-fs-hd{padding:14px 18px;background:rgba(240,253,249,.95);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-bottom:1px solid var(--mint-l);display:flex;align-items:center;gap:12px}
+.ai-fs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px}
+.ai-fs-footer{padding:12px 16px;padding-bottom:max(12px,var(--safe-bottom));background:#fff;border-top:1px solid var(--mint-l)}
+
+/* -- PULL-TO-REFRESH indicator -- */
+.ptr-indicator{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;color:var(--teal);font-size:.82rem;font-weight:700;transform:translateY(-100%);transition:transform .22s ease;position:relative;z-index:1}
+.ptr-indicator.visible{transform:translateY(0)}
+.ptr-spinner{animation:pullSpin .8s linear infinite;display:inline-block;font-size:1.1rem}
+
+/* -- VAULT -- */
+.vault-layout{display:flex;flex-direction:column;gap:14px}
+@media(min-width:768px){.vault-layout{flex-direction:row;align-items:flex-start}}
+.vault-sidebar{display:flex;flex-direction:column;gap:10px}
+@media(min-width:768px){.vault-sidebar{width:255px;min-width:255px}}
+.vault-content{flex:1;min-width:0}
+.vault-note-list-item{cursor:pointer;border-radius:var(--r);padding:13px 14px;border:1.5px solid var(--mint-l);background:var(--white);transition:all .15s;min-height:52px}
+.vault-note-list-item:active{background:var(--mint-ll)}
+.vault-note-list-item.sel{border-color:var(--teal);box-shadow:0 0 0 2px rgba(13,148,136,.12)}
+
+/* -- NOTIF -- */
+.notif-wrap{position:relative}
+.notif-btn{background:rgba(255,255,255,.7);border:1px solid rgba(167,243,208,.6);border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;font-size:1.05rem;position:relative;display:flex;align-items:center;transition:background .15s;min-height:40px;min-width:40px;justify-content:center}
+.notif-btn:active{background:var(--mint-l)}
+.notif-count{position:absolute;top:-5px;right:-5px;background:linear-gradient(135deg,var(--coral),var(--rose));color:#fff;border-radius:99px;min-width:17px;height:17px;display:flex;align-items:center;justify-content:center;font-size:.56rem;font-weight:900;animation:badgePop var(--spring);border:2px solid #fff}
+.notif-dropdown{position:fixed;left:12px;right:12px;bottom:calc(var(--bnav-h) + 12px);background:#fff;border-radius:var(--r-xl);border:1px solid var(--mint-l);box-shadow:var(--s4);max-height:70vh;overflow-y:auto;z-index:450;animation:springIn var(--spring)}
+@media(min-width:768px){.notif-dropdown{position:absolute;left:auto;right:0;bottom:auto;top:calc(100% + 8px);width:310px;max-height:420px}}
+.notif-dd-hd{padding:14px 18px 12px;border-bottom:1px solid var(--mint-ll);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff}
+.notif-item{padding:13px 16px;border-bottom:1px solid var(--mint-ll);display:flex;gap:11px;align-items:flex-start;transition:background .1s;cursor:pointer;min-height:52px}
+.notif-item:active{background:var(--mint-ll)}
+.notif-item.unread{background:#e8faf5;border-left:3px solid #10b981}
+
+/* -- SPINNER -- */
+.spinner{width:18px;height:18px;border:2.5px solid var(--mint);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+
+/* -- WELCOME + STATS -- */
+.welcome-card{border-radius:var(--r-xl);padding:24px 22px;margin-bottom:18px;background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 50%,var(--teal-l) 100%);border:none;color:#fff;box-shadow:0 8px 32px rgba(13,148,136,.35);position:relative;overflow:hidden}
+.welcome-card::before{content:'';position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.1)}
+.welcome-card::after{content:'';position:absolute;bottom:-20px;left:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.07)}
+.stat-card{display:flex;align-items:center;gap:13px}
+.stat-icon{width:46px;height:46px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0}
+.stat-val{font-size:1.7rem;font-weight:900;color:var(--navy);line-height:1}
+.stat-lbl{font-size:.7rem;color:var(--slate);margin-top:2px;font-weight:600}
+.apt-card{border-radius:var(--r-lg);background:#fff;box-shadow:var(--s1);border:1px solid rgba(167,243,208,.5);padding:16px 18px;display:flex;align-items:center;gap:14px;transition:transform .15s;cursor:pointer}
+.apt-card:active{transform:scale(.97)}
+.apt-color-bar{width:5px;min-height:50px;border-radius:99px;flex-shrink:0}
+.hw-task{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--mint-ll);align-items:flex-start}
+.hw-task:last-child{border-bottom:none}
+
+/* -- AI BLOCK -- */
+.ai-block{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));border-radius:var(--r-lg);padding:16px;border:1.5px solid var(--teal-l);animation:springIn var(--spring)}
+.ai-label{font-size:.66rem;font-weight:900;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+
+/* -- CALENDAR -- */
+.cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:16px 18px;border-radius:var(--r-lg) var(--r-lg) 0 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px}
+.cal-dl{text-align:center;font-size:.64rem;font-weight:800;color:var(--slate);padding:5px 0}
+.cal-day{min-height:44px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:8px;transition:background .12s}.cal-day:hover{background:var(--mint-ll)}.cal-day:active{background:var(--mint-l)}
+.cal-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600;transition:transform .12s}
+.cal-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
+.cal-num.has-event{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,.3)}
+.cal-num.has-event:active{transform:scale(1.15)}
+.cal-dot{width:5px;height:5px;border-radius:50%;background:var(--teal);margin:1px auto 0}
+
+/* -- PROGRESS -- */
+.progress-bar-wrap{background:#e2e8f0;border-radius:99px;height:10px;overflow:hidden;margin:6px 0}
+.progress-bar-fill{height:100%;border-radius:99px;transition:width .7s cubic-bezier(.34,1.56,.64,1)}
+.milestone-item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l);margin-bottom:8px;min-height:52px}
+.milestone-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.milestone-dot.done{background:var(--teal);box-shadow:0 2px 8px rgba(13,148,136,.4)}
+.milestone-dot.pending{background:var(--slate-l)}
+.prog-tabs{display:flex;gap:7px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.prog-tab{padding:9px 18px;border-radius:var(--r-full);border:1.5px solid var(--mint-l);background:var(--mint-ll);cursor:pointer;font-size:.82rem;font-weight:700;color:var(--slate);transition:all .15s;white-space:nowrap;flex-shrink:0;min-height:40px}
+.prog-tab:active{background:var(--mint-l)}
+.prog-tab.active{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 3px 12px rgba(13,148,136,.28)}
+
+/* -- TOASTS -- */
+.toast-wrap{position:fixed;bottom:calc(var(--bnav-h) + 14px);left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:calc(100% - 28px);max-width:360px}
+@media(min-width:768px){.toast-wrap{bottom:28px;width:auto}}
+.toast{background:#fff;border:1.5px solid var(--teal);border-radius:var(--r-full);padding:12px 22px;font-weight:800;color:var(--teal-d);box-shadow:var(--s3);animation:bounceIn .38s cubic-bezier(.34,1.56,.64,1);pointer-events:auto;text-align:center;width:100%;font-size:.86rem}
+.toast.error{border-color:var(--rose);color:#be123c}
+.toast.info{border-color:var(--lav);color:var(--lav-d)}
+
+/* -- SPECIAL COMPONENTS -- */
+.ghost-card{opacity:.62;border-style:dashed !important}
+.unsaved-banner{background:var(--amber-l);border:1.5px solid var(--amber);border-radius:var(--r);padding:12px 16px;color:#92400e;font-weight:700;font-size:.84rem;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.draft-badge{display:inline-flex;align-items:center;gap:4px;background:var(--sky-l);color:#0369a1;border-radius:99px;padding:3px 10px;font-size:.7rem;font-weight:800}
+.locked-badge{display:inline-flex;align-items:center;gap:4px;background:var(--amber-l);color:#92400e;border-radius:99px;padding:3px 10px;font-size:.7rem;font-weight:800}
+.personal-folder{background:linear-gradient(135deg,var(--lav-l),#fff);border:1.5px solid var(--lav);border-radius:var(--r-lg)}
+.blur-wrap{position:relative;border-radius:var(--r-lg);overflow:hidden}
+.blur-content{filter:blur(4px);pointer-events:none;user-select:none}
+.blur-lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;z-index:2;background:rgba(255,255,255,.2);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);border-radius:var(--r-lg)}
+.email-inbox{background:var(--mint-ll);border-radius:var(--r-lg);border:1px solid var(--mint-l);overflow:hidden;margin-bottom:20px}
+.email-item{padding:14px 16px;border-bottom:1px solid var(--mint-l);display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:background .1s;min-height:56px}
+.email-item:active{background:var(--mint-l)}
+.email-item.unread{background:#fff;border-left:3px solid var(--teal)}
+.email-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:6px}
+.group-badge{background:linear-gradient(135deg,var(--lav-d),var(--lav));color:#fff;border-radius:99px;padding:2px 9px;font-size:.62rem;font-weight:800}
+.photo-upload-area{border:2px dashed var(--mint);border-radius:var(--r-lg);padding:24px;text-align:center;cursor:pointer;transition:all .15s;background:var(--mint-ll);min-height:100px}
+.photo-upload-area:active{border-color:var(--teal);background:var(--mint-l)}
+.photo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:var(--s2);display:block;margin:0 auto 10px}
+.invite-link-box{background:var(--lav-l);border:1px solid var(--lav);border-radius:var(--r);padding:13px 16px;font-size:.8rem;font-weight:700;color:var(--lav-d);word-break:break-all;margin-bottom:14px;cursor:pointer;transition:background .15s}
+.invite-link-box:active{background:var(--lav)}
+.push-banner{background:linear-gradient(135deg,var(--amber-l),#fffbeb);border:1px solid var(--amber);border-radius:var(--r-lg);padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.danger-zone{background:#fff5f5;border:1px solid #fecdd3;border-radius:var(--r-lg);padding:16px;margin-top:18px}
+.spec-request-card{background:linear-gradient(135deg,var(--sky-l),#fff);border:1px solid var(--sky);border-radius:var(--r-lg);padding:16px;margin-bottom:12px}
+.perm-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l);margin-bottom:8px;min-height:48px}
+.event-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;font-size:.76rem;font-weight:700;margin-bottom:5px}
+.sep{border:none;border-top:1px solid var(--mint-ll);margin:14px 0}
+.camera-btn{background:linear-gradient(135deg,var(--lav-d),var(--lav));color:#fff;border:none;border-radius:var(--r-full);padding:11px 20px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.86rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:opacity .15s;min-height:44px}
+.camera-btn:active{opacity:.8}
+.search-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding:max(56px,var(--safe-top)) 12px 12px}
+.search-box{background:#fff;border-radius:var(--r-xl);width:100%;max-width:560px;box-shadow:var(--s4);border:1px solid var(--mint-l);overflow:hidden;animation:springIn var(--spring)}
+.search-inp{width:100%;padding:16px 18px;border:none;font-family:'Nunito',sans-serif;font-size:16px;font-weight:600;outline:none;color:var(--navy)}
+.search-results{max-height:min(380px,50vh);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.search-result-item{padding:13px 18px;border-bottom:1px solid var(--mint-ll);display:flex;align-items:center;gap:12px;cursor:pointer;min-height:52px;transition:background .1s}
+.search-result-item:active{background:var(--mint-ll)}
+
+/* -- AUTH -- */
+#auth-screen{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:max(env(safe-area-inset-top,16px),20px) 16px max(env(safe-area-inset-bottom,16px),20px);position:relative;overflow:hidden;background:linear-gradient(145deg,#0f766e 0%,#14b8a6 42%,#7dd3fc 75%,#c4b5fd 100%)}
+.auth-orb{position:absolute;border-radius:50%;pointer-events:none}
+.auth-card{background:#fff;border-radius:var(--r-xl);width:100%;max-width:420px;box-shadow:0 24px 60px rgba(0,0,0,.22);position:relative;z-index:1;border:1px solid var(--mint-l);overflow:hidden;animation:springIn var(--spring) both;max-height:calc(100dvh - 40px);overflow-y:auto}
+.auth-hero{background:linear-gradient(135deg,var(--teal) 0%,var(--teal-l) 50%,#7dd3fc 100%);padding:28px 28px 22px;text-align:center;position:relative;overflow:hidden}
+.auth-hero::before{content:'';position:absolute;top:-24px;right:-24px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.12)}
+.auth-logo-wrap{width:58px;height:58px;border-radius:18px;background:rgba(255,255,255,.22);border:2.5px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 10px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.auth-title{font-family:'Fraunces',serif;font-size:1.85rem;font-weight:800;color:#fff;margin-bottom:4px}
+.auth-sub{color:rgba(255,255,255,.8);font-size:.84rem;font-weight:500;line-height:1.5}
+.auth-body{padding:22px}
+.auth-tab-row{display:flex;background:var(--mint-ll);border-radius:var(--r);padding:3px;margin-bottom:18px}
+.auth-tab{flex:1;padding:10px;border-radius:var(--r-sm);border:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:.86rem;cursor:pointer;transition:all .15s;color:var(--slate);background:transparent;min-height:42px}
+.auth-tab.active{background:#fff;color:var(--teal-d);box-shadow:var(--s1)}
+.role-pick{display:flex;gap:10px;margin-bottom:14px}
+.role-opt{flex:1;padding:14px 10px;border-radius:var(--r-lg);border:1.5px solid var(--mint-l);background:var(--mint-ll);cursor:pointer;transition:all .15s;text-align:center;font-family:'Nunito',sans-serif;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.role-opt:active{transform:scale(.96)}
+.role-opt.sel{border-color:var(--teal);background:var(--mint-l);box-shadow:0 4px 14px rgba(13,148,136,.18)}
+.role-opt .re{font-size:1.6rem;margin-bottom:4px}
+.role-opt .rl{font-size:.76rem;font-weight:800;color:var(--navy)}
+.auth-error{background:var(--rose-l);border:1.5px solid var(--rose);border-radius:var(--r);padding:10px 14px;color:#be123c;font-size:.82rem;font-weight:700;margin-bottom:10px}
+.auth-hint{text-align:center;color:var(--slate);font-size:.76rem;margin-top:10px;font-weight:600}
+.auth-link{color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* -- RESPONSIVE -- */
+@media(max-width:767px){
+  #sidenav{display:none !important}
+  #bottom-nav{display:block !important}
+  #main{padding-bottom:calc(var(--bnav-h) + 8px)}
+  .section{padding:16px 14px 20px}
+  .g2,.g3,.g4{grid-template-columns:1fr !important;gap:10px}
+  .logo-name{display:none}
+  .page-title{font-size:1.3rem}
+  .welcome-card{padding:20px 18px;margin-bottom:14px}
+  .bubble-me,.bubble-them{max-width:88%}
+  .prog-tabs{flex-wrap:nowrap}
+}
+@media(min-width:380px){.logo-name{display:block}}
+@media(min-width:768px){
+  #bottom-nav{display:none !important}
+  #sidenav{display:flex !important}
+  .section{padding:24px 26px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .page-title{font-size:1.55rem}
+}
+@media(min-width:1200px){.section{padding:28px 32px}}
+@media(hover:none){.card.hov:hover,.nav-btn:hover,.btn:hover{transform:none}}
+@media(max-height:500px) and (orientation:landscape){
+  #header{height:calc(44px + var(--safe-top))}
+  .header-inner{height:44px}
+}
+@media(-webkit-min-device-pixel-ratio:2),(min-resolution:192dpi){.card,.modal,.inp{border-width:0.5px}}
+
+/* ------------------------------------------
+   DRAWER NAVIGATION SYSTEM
+------------------------------------------ */
+
+/* Hamburger trigger */
+.hamburger{
+  width:40px;height:40px;border-radius:14px;border:none;cursor:pointer;
+  background:rgba(255,255,255,.72);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(167,243,208,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;flex-shrink:0;transition:background .15s,transform .12s;
+  box-shadow:0 1px 6px rgba(0,0,0,.07);
+}
+.hamburger:active{transform:scale(.9);background:var(--mint-l)}
+.ham-bar{
+  width:18px;height:2px;border-radius:2px;
+  background:var(--navy);transition:transform .3s,opacity .3s,width .3s;
+  transform-origin:center;
+}
+/* Animated X state */
+.hamburger.open .ham-bar:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.hamburger.open .ham-bar:nth-child(2){opacity:0;transform:scaleX(0)}
+.hamburger.open .ham-bar:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+/* Drawer backdrop */
+.drawer-backdrop{
+  position:fixed;inset:0;z-index:390;
+  background:rgba(15,23,42,.38);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  animation:fadeIn .2s ease;
+}
+
+/* The drawer panel itself */
+.drawer{
+  position:fixed;top:0;left:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:400;
+  width:min(300px,82vw);
+  background:#fff;
+  box-shadow:6px 0 40px rgba(0,0,0,.18),2px 0 8px rgba(0,0,0,.08);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  /* Slide in from left */
+  transform:translateX(-100%);
+  transition:transform .35s cubic-bezier(.32,.72,0,1);
+  will-change:transform;
+}
+.drawer.open{transform:translateX(0)}
+
+/* Drawer header — user profile area */
+.drawer-profile{
+  padding:calc(var(--safe-top) + 20px) 20px 20px;
+  background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 60%,var(--teal-l) 100%);
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.drawer-profile::before{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1)
+}
+.drawer-profile::after{
+  content:'';position:absolute;bottom:-20px;left:-20px;
+  width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07)
+}
+.drawer-avatar{
+  width:52px;height:52px;border-radius:18px;
+  background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;margin-bottom:12px;
+  box-shadow:0 4px 14px rgba(0,0,0,.15);position:relative;z-index:1;
+}
+.drawer-name{
+  font-family:'Fraunces',serif;font-size:1.05rem;font-weight:800;
+  color:#fff;margin-bottom:3px;position:relative;z-index:1;
+}
+.drawer-role{
+  font-size:.74rem;font-weight:700;color:rgba(255,255,255,.75);
+  position:relative;z-index:1;
+}
+
+/* Drawer scroll area */
+.drawer-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 10px calc(80px + env(safe-area-inset-bottom,0px)) 10px}
+
+/* Section label inside drawer */
+.drawer-section-label{
+  font-size:.62rem;font-weight:900;color:var(--slate-l);
+  text-transform:uppercase;letter-spacing:.09em;
+  padding:14px 12px 6px;
+}
+
+/* Nav items inside drawer */
+.drawer-item{
+  display:flex;align-items:center;gap:13px;
+  padding:13px 14px;border-radius:var(--r);
+  border:none;background:transparent;cursor:pointer;
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:.9rem;
+  color:var(--slate);text-align:left;transition:all .14s;
+  width:100%;min-height:50px;position:relative;
+  -webkit-user-select:none;user-select:none;
+}
+.drawer-item:active{background:var(--mint-l);transform:scale(.98)}
+@media(hover:hover){.drawer-item:hover{background:var(--mint-ll);color:var(--navy)}}
+.drawer-item.active{
+  background:linear-gradient(135deg,var(--mint-l) 0%,var(--lav-l) 100%);
+  color:var(--teal-d);font-weight:800;
+  box-shadow:0 2px 12px rgba(13,148,136,.1);
+}
+.drawer-item.active .di-icon{
+  background:linear-gradient(135deg,var(--teal),var(--teal-l));
+  color:#fff;box-shadow:0 3px 10px rgba(13,148,136,.35);
+}
+.di-icon{
+  width:36px;height:36px;border-radius:12px;
+  background:var(--mint-ll);display:flex;align-items:center;
+  justify-content:center;font-size:1rem;flex-shrink:0;
+  transition:background .14s,box-shadow .14s;
+}
+.di-label{flex:1}
+.di-badge{
+  background:var(--coral);color:#fff;border-radius:99px;
+  min-width:20px;height:20px;font-size:.6rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;padding:0 5px;
+}
+
+/* Danger / sign-out item */
+.drawer-item.danger{color:#be123c}
+.drawer-item.danger .di-icon{background:var(--rose-l);color:#be123c}
+.drawer-item.danger:active{background:var(--rose-l)}
+
+/* Separator inside drawer */
+.drawer-sep{height:1px;background:var(--mint-ll);margin:6px 12px}
+
+/* ------------------------------------------
+   PREMIUM CHILD SWITCHER IN HEADER
+------------------------------------------ */
+
+/* Switcher strip — center of header */
+#child-switcher{
+  flex:1;display:flex;gap:6px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:x mandatory;
+  padding:2px 4px;
+  /* Hide scrollbar completely */
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+#child-switcher::-webkit-scrollbar{display:none}
+
+/* Avatar-style pill — premium feel */
+.child-pill{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 8px;border-radius:var(--r);
+  border:1.5px solid transparent;
+  background:transparent;cursor:pointer;
+  transition:all .18s;flex-shrink:0;
+  scroll-snap-align:start;
+  min-height:44px;min-width:48px;
+  -webkit-user-select:none;user-select:none;
+  position:relative;
+}
+.child-pill:active{transform:scale(.92)}
+/* Active state: teal pill background */
+.child-pill.active{
+  background:rgba(13,148,136,.1);
+  border-color:rgba(13,148,136,.25);
+  border-radius:var(--r);
+}
+/* Avatar circle */
+.cp-avatar{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;background:var(--mint-l);
+  border:2px solid transparent;transition:border-color .18s,box-shadow .18s;
+  overflow:hidden;flex-shrink:0;
+}
+.child-pill.active .cp-avatar{
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(13,148,136,.18);
+}
+.cp-avatar img{width:100%;height:100%;object-fit:cover}
+/* Name label under avatar */
+.cp-name{
+  font-size:.58rem;font-weight:800;color:var(--slate);
+  white-space:nowrap;line-height:1;letter-spacing:.01em;
+  transition:color .18s;
+}
+.child-pill.active .cp-name{color:var(--teal-d)}
+
+/* Add-child pill */
+.child-pill-add{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 8px;border-radius:var(--r);
+  border:1.5px dashed var(--slate-ll);
+  background:transparent;cursor:pointer;
+  transition:all .18s;flex-shrink:0;
+  min-height:44px;min-width:48px;
+  -webkit-user-select:none;user-select:none;
+}
+.child-pill-add:active{transform:scale(.92);background:var(--mint-ll)}
+.cp-add-circle{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--mint-ll);border:2px dashed var(--slate-ll);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;color:var(--slate-l);
+}
+.cp-add-label{font-size:.58rem;font-weight:800;color:var(--slate-l);white-space:nowrap}
+
+/* -- Simplified header layout for drawer architecture -- */
+#header-right{display:none} /* moved entirely to drawer */
+
+/* Header: logo left, hamburger right, switcher in middle */
+.header-inner{
+  display:flex;align-items:center;gap:10px;
+  padding:0 14px;height:var(--header-h);width:100%;
+}
+#logo{flex-shrink:0}
+
+/* ------------------------------------------
+   BOTTOM BAR — only 3 quick-action tabs
+------------------------------------------ */
+.bnav-icon{font-size:1.35rem;line-height:1;display:block;transition:transform var(--spring)}
+.bnav-btn.active .bnav-icon{transform:scale(1.18) translateY(-2px)}
+
+/* ------------------------------------------
+   GLOBAL HOME — Level 0 Family Landing Page
+------------------------------------------ */
+
+/* Full-page home container — no top padding since header exists */
+.global-home{
+  padding:20px 16px calc(var(--bnav-h) + 16px);
+  max-width:680px;margin:0 auto;
+}
+
+/* -- Family greeting strip -- */
+.family-greeting{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:22px;
+}
+.family-greeting-text{}
+.family-greeting-title{
+  font-family:'Fraunces',serif;font-size:1.5rem;font-weight:800;
+  color:var(--navy);line-height:1.1;margin-bottom:2px;
+}
+.family-greeting-sub{font-size:.8rem;color:var(--slate);font-weight:600}
+
+/* -- Child Bubble Row -- */
+.child-bubbles-label{
+  font-size:.68rem;font-weight:900;color:var(--slate-l);
+  text-transform:uppercase;letter-spacing:.09em;margin-bottom:12px;
+}
+.child-bubbles-row{
+  display:flex;gap:14px;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;
+  padding-bottom:6px;scrollbar-width:none;margin-bottom:24px;
+}
+.child-bubbles-row::-webkit-scrollbar{display:none}
+
+/* Each child bubble */
+.child-bubble{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;flex-shrink:0;scroll-snap-align:start;
+  min-width:72px;border:none;background:none;
+  padding:4px;border-radius:var(--r-lg);
+  transition:transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.child-bubble:active{transform:scale(.88)}
+@media(hover:hover){.child-bubble:hover{transform:translateY(-4px)}}
+
+/* The circle itself */
+.cb-circle{
+  width:68px;height:68px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;position:relative;
+  border:3px solid transparent;
+  transition:border-color .18s,box-shadow .18s;
+  box-shadow:var(--s1);
+  background:#fff;
+  overflow:hidden;
+}
+.cb-circle img{width:100%;height:100%;object-fit:cover}
+/* Colored ring matching child color */
+.child-bubble.selected .cb-circle{
+  border-color:var(--cb-color,var(--teal));
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--cb-color,var(--teal)) 18%,transparent),var(--s2);
+}
+/* Online-style dot at bottom-right */
+.cb-circle::after{
+  content:'';position:absolute;bottom:4px;right:4px;
+  width:0;height:0;border-radius:50%;
+  background:var(--cb-color,var(--teal));
+  box-shadow:0 0 0 2px #fff;
+  opacity:0;transition:all .2s;
+}
+.child-bubble.has-events .cb-circle::after{
+  width:10px;height:10px;opacity:1;
+}
+/* Upload placeholder bubble */
+.cb-circle.placeholder{
+  background:var(--mint-ll);border:2.5px dashed var(--mint);
+  font-size:1.6rem;color:var(--teal);
+}
+.cb-circle.placeholder .cb-upload-hint{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(13,148,136,.75);
+  font-size:.5rem;font-weight:800;color:#fff;text-align:center;
+  padding:2px 0;
+}
+.cb-name{
+  font-size:.72rem;font-weight:800;color:var(--navy);
+  text-align:center;line-height:1.2;max-width:72px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.child-bubble.selected .cb-name{color:var(--teal-d)}
+.cb-tasks{
+  font-size:.6rem;font-weight:700;color:var(--slate-l);
+  background:var(--mint-ll);border-radius:99px;
+  padding:1px 7px;white-space:nowrap;
+}
+.child-bubble.selected .cb-tasks{background:var(--mint-l);color:var(--teal)}
+
+/* Add-child bubble */
+.child-bubble-add{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;flex-shrink:0;
+  min-width:72px;border:none;background:none;padding:4px;
+  border-radius:var(--r-lg);transition:transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.child-bubble-add:active{transform:scale(.88)}
+.cba-circle{
+  width:68px;height:68px;border-radius:50%;
+  background:var(--mint-ll);border:2.5px dashed var(--teal-l);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;color:var(--teal);box-shadow:var(--s0);
+  transition:background .15s,border-color .15s;
+}
+.child-bubble-add:active .cba-circle{background:var(--mint-l);border-color:var(--teal)}
+.cba-name{font-size:.72rem;font-weight:800;color:var(--slate-l);text-align:center}
+
+/* -- Unified Family Mini-Calendar -- */
+.mini-cal-card{
+  background:#fff;border-radius:var(--r-xl);
+  box-shadow:var(--s2);border:1px solid rgba(167,243,208,.5);
+  overflow:hidden;margin-bottom:22px;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.mini-cal-card:active{transform:scale(.99)}
+@media(hover:hover){.mini-cal-card:hover{transform:translateY(-2px);box-shadow:var(--s3)}}
+.mini-cal-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px 12px;
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+}
+.mini-cal-hd-left{}
+.mini-cal-month{
+  font-family:'Fraunces',serif;font-size:1.05rem;font-weight:800;
+  color:#fff;margin-bottom:2px;
+}
+.mini-cal-sub{font-size:.74rem;color:rgba(255,255,255,.75);font-weight:600}
+.mini-cal-expand{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);padding:6px 13px;
+  font-size:.74rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito',sans-serif;
+}
+/* Week strip inside mini cal */
+.mini-cal-week{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  padding:12px 12px 14px;gap:4px;
+}
+.mcw-day{display:flex;flex-direction:column;align-items:center;gap:3px}
+.mcw-label{font-size:.6rem;font-weight:800;color:var(--slate-l);text-transform:uppercase;letter-spacing:.04em}
+.mcw-num{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;font-weight:700;color:var(--navy);
+  position:relative;
+}
+.mcw-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
+/* Dot strip for events — one dot per child */
+.mcw-dots{display:flex;gap:2px;justify-content:center;min-height:6px}
+.mcw-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Upcoming events list below week strip */
+.mini-cal-events{padding:0 14px 14px;display:flex;flex-direction:column;gap:7px}
+.mce-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:var(--r);
+  background:var(--mint-ll);
+}
+.mce-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.mce-title{font-size:.82rem;font-weight:700;color:var(--navy);flex:1}
+.mce-when{font-size:.7rem;color:var(--slate);font-weight:600}
+.mce-child-pill{
+  font-size:.62rem;font-weight:800;border-radius:99px;
+  padding:2px 7px;white-space:nowrap;
+}
+
+/* -- Full-screen calendar expansion -- */
+.cal-fullscreen{
+  position:fixed;inset:0;z-index:350;
+  background:var(--bg);display:flex;flex-direction:column;
+  padding-top:var(--safe-top);
+  padding-bottom:calc(64px + var(--safe-bottom,env(safe-area-inset-bottom,0px)));
+  animation:slideUp .25s ease;
+}
+.cal-fs-hd{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  background:rgba(240,253,249,.95);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--mint-l);flex-shrink:0;
+}
+.cal-fs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+
+/* -- Global Vault / Unsorted Inbox -- */
+.global-vault-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.global-vault-title{
+  font-family:'Fraunces',serif;font-size:1.1rem;font-weight:800;color:var(--navy);
+}
+.global-vault-sub{font-size:.76rem;color:var(--slate);font-weight:500;margin-top:2px}
+.gv-file-item{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-radius:var(--r);
+  background:#fff;border:1px solid var(--mint-l);
+  box-shadow:var(--s0);margin-bottom:8px;
+  cursor:pointer;transition:all .14s;min-height:56px;
+}
+.gv-file-item:active{background:var(--mint-ll);transform:scale(.98)}
+.gv-file-icon{
+  width:40px;height:40px;border-radius:var(--r-sm);
+  background:var(--mint-ll);display:flex;align-items:center;
+  justify-content:center;font-size:1.3rem;flex-shrink:0;
+}
+.gv-file-name{font-weight:700;color:var(--navy);font-size:.88rem;flex:1;line-height:1.3}
+.gv-file-date{font-size:.7rem;color:var(--slate-l);font-weight:600;margin-top:2px}
+.gv-empty{
+  text-align:center;padding:28px;color:var(--slate);font-weight:600;
+  border:2px dashed var(--mint);border-radius:var(--r-lg);background:var(--mint-ll);
+}
+
+/* -- Child Profile Header (Level 1) -- */
+.child-profile-hd{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  background:rgba(240,253,249,.94);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--mint-l);
+}
+.cpf-back{
+  width:36px;height:36px;border-radius:12px;border:1.5px solid var(--mint);
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;cursor:pointer;color:var(--teal-d);font-weight:800;
+  flex-shrink:0;transition:all .14s;
+}
+.cpf-back:active{background:var(--mint-l);transform:scale(.92)}
+.cpf-avatar{
+  width:36px;height:36px;border-radius:12px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;flex-shrink:0;
+}
+.cpf-name{
+  font-family:'Fraunces',serif;font-size:.95rem;font-weight:800;
+  color:var(--navy);flex:1;line-height:1.2;
+}
+/* Section header with back-to-home context */
+.level-breadcrumb{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px 0;font-size:.72rem;font-weight:700;
+  color:var(--slate-l);
+}
+.level-breadcrumb .bc-sep{color:var(--slate-ll)}
+.level-breadcrumb .bc-home{color:var(--teal);cursor:pointer}
+.level-breadcrumb .bc-home:active{opacity:.7}
+
+/* Process file bottom sheet */
+.process-file-sheet{}
+.pf-option{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 18px;border-radius:var(--r);
+  border:1.5px solid var(--mint-l);background:var(--mint-ll);
+  cursor:pointer;margin-bottom:10px;min-height:60px;
+  transition:all .15s;
+}
+.pf-option:active{background:var(--mint-l);transform:scale(.98)}
+.pf-icon{
+  width:42px;height:42px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+}
+.pf-title{font-weight:800;color:var(--navy);font-size:.9rem}
+.pf-desc{font-size:.76rem;color:var(--slate);margin-top:1px}
+
+/* --------------------------------------------------
+   ONBOARDING GUIDED TOUR — Floating Bubbles
+-------------------------------------------------- */
+
+/* Spotlight overlay — dims everything except the target */
+.tour-overlay{
+  position:fixed;inset:0;z-index:800;
+  pointer-events:none; /* clicks pass through to highlighted elements */
+}
+/* The cutout spotlight — animated ring on target */
+.tour-spotlight{
+  position:fixed;z-index:801;
+  border-radius:inherit;
+  box-shadow:0 0 0 4000px rgba(15,23,42,.62);
+  pointer-events:none;
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  border:2.5px solid var(--teal-l);
+  animation:tourPulse 2s ease infinite;
+}
+@keyframes tourPulse{
+  0%,100%{box-shadow:0 0 0 4000px rgba(15,23,42,.62),0 0 0 0 rgba(45,212,191,.4);}
+  50%{box-shadow:0 0 0 4000px rgba(15,23,42,.62),0 0 0 10px rgba(45,212,191,.0);}
+}
+
+/* The floating instruction bubble */
+.tour-bubble{
+  position:fixed;z-index:802;
+  width:min(310px,88vw);
+  background:#fff;
+  border-radius:var(--r-xl);
+  box-shadow:0 20px 60px rgba(0,0,0,.22),0 6px 20px rgba(0,0,0,.10);
+  padding:20px;
+  animation:bubbleIn .4s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:all;
+}
+@keyframes bubbleIn{
+  0%{opacity:0;transform:scale(.7) translateY(20px);}
+  100%{opacity:1;transform:scale(1) translateY(0);}
+}
+
+/* Tail / arrow pointing to the target */
+.tour-bubble::before{
+  content:'';position:absolute;
+  width:0;height:0;
+}
+.tour-bubble.arrow-bottom::before{
+  bottom:-10px;left:50%;transform:translateX(-50%);
+  border-left:10px solid transparent;border-right:10px solid transparent;
+  border-top:10px solid #fff;
+}
+.tour-bubble.arrow-top::before{
+  top:-10px;left:50%;transform:translateX(-50%);
+  border-left:10px solid transparent;border-right:10px solid transparent;
+  border-bottom:10px solid #fff;
+}
+.tour-bubble.arrow-left::before{
+  left:-10px;top:50%;transform:translateY(-50%);
+  border-top:10px solid transparent;border-bottom:10px solid transparent;
+  border-right:10px solid #fff;
+}
+.tour-bubble.arrow-right::before{
+  right:-10px;top:50%;transform:translateY(-50%);
+  border-top:10px solid transparent;border-bottom:10px solid transparent;
+  border-left:10px solid #fff;
+}
+
+/* Bubble internals */
+.tour-step-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--mint-l);color:var(--teal-d);
+  border-radius:99px;padding:3px 10px;
+  font-size:.66rem;font-weight:900;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:10px;
+}
+.tour-bubble-title{
+  font-family:'Fraunces',serif;font-size:1rem;font-weight:800;
+  color:var(--navy);margin-bottom:6px;line-height:1.25;
+}
+.tour-bubble-body{
+  font-size:.82rem;color:var(--slate);font-weight:500;
+  line-height:1.6;margin-bottom:14px;
+}
+.tour-bubble-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.tour-btn-next{
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+  color:#fff;border:none;border-radius:var(--r-full);
+  padding:9px 18px;font-size:.82rem;font-weight:800;
+  cursor:pointer;font-family:'Nunito',sans-serif;
+  transition:transform var(--spring),box-shadow .15s;
+  box-shadow:0 4px 14px rgba(13,148,136,.35);
+}
+.tour-btn-next:active{transform:scale(.94)}
+.tour-btn-skip{
+  background:none;border:none;color:var(--slate-l);
+  font-size:.78rem;font-weight:700;cursor:pointer;
+  font-family:'Nunito',sans-serif;padding:6px;
+  border-radius:var(--r-full);transition:color .14s;
+}
+.tour-btn-skip:hover{color:var(--slate)}
+.tour-progress-dots{
+  display:flex;gap:5px;align-items:center;
+}
+.tour-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--mint);transition:all .22s;
+}
+.tour-dot.active{
+  width:18px;border-radius:4px;background:var(--teal);
+}
+.tour-dsa-row{
+  margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--mint-l);
+  display:flex;align-items:center;gap:8px;
+}
+.tour-dsa-row label{
+  font-size:.74rem;font-weight:600;color:var(--slate);
+  display:flex;align-items:center;gap:7px;cursor:pointer;flex:1;
+}
+.tour-dsa-row input[type=checkbox]{
+  width:16px;height:16px;accent-color:var(--teal);
+}
+
+/* --------------------------------------------------
+   ZERO-STATE / EMPTY STATE COMPONENTS
+-------------------------------------------------- */
+
+/* Full empty-state card */
+.empty-state{
+  text-align:center;padding:40px 24px;
+  border:2px dashed var(--mint);border-radius:var(--r-xl);
+  background:linear-gradient(135deg,var(--mint-ll),rgba(237,233,254,.4));
+  margin:8px 0;
+}
+.empty-state-icon{
+  font-size:3rem;margin-bottom:14px;display:block;
+  animation:springIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+.empty-state-title{
+  font-family:'Fraunces',serif;font-size:1.15rem;font-weight:800;
+  color:var(--navy);margin-bottom:7px;
+}
+.empty-state-body{
+  font-size:.84rem;color:var(--slate);font-weight:500;
+  line-height:1.65;max-width:280px;margin:0 auto 20px;
+}
+.empty-state-actions{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+}
+
+/* Inline mini empty state (inside cards) */
+.empty-inline{
+  padding:18px;text-align:center;color:var(--slate);
+  font-size:.82rem;font-weight:600;border-radius:var(--r);
+  background:var(--mint-ll);border:1.5px dashed var(--mint);
+}
+
+/* --------------------------------------------------
+   CONNECTION / INVITE SYSTEM
+-------------------------------------------------- */
+
+/* Connection code display card */
+.conn-code-card{
+  background:linear-gradient(135deg,var(--teal-d),var(--teal));
+  border-radius:var(--r-xl);padding:24px;
+  text-align:center;position:relative;overflow:hidden;
+}
+.conn-code-card::before{
+  content:'🔗';position:absolute;top:-10px;right:-10px;
+  font-size:5rem;opacity:.08;
+}
+.conn-code-label{
+  font-size:.72rem;font-weight:800;color:rgba(255,255,255,.75);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;
+}
+.conn-code-value{
+  font-family:'Fraunces',serif;font-size:2.2rem;font-weight:800;
+  color:#fff;letter-spacing:.18em;margin-bottom:14px;
+  text-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.conn-code-expiry{
+  font-size:.72rem;color:rgba(255,255,255,.65);font-weight:600;
+}
+.conn-code-btns{
+  display:flex;gap:10px;justify-content:center;margin-top:16px;
+}
+.conn-code-btn{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);padding:8px 16px;
+  font-size:.78rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito',sans-serif;
+  transition:background .15s;
+}
+.conn-code-btn:active{background:rgba(255,255,255,.35)}
+
+/* Connection step in specialist onboarding */
+.conn-enter-wrap{
+  background:var(--lav-l);border-radius:var(--r-xl);padding:22px;
+  border:2px dashed var(--lav);text-align:center;
+}
+
+/* New user welcome banner shown before first action */
+.welcome-banner{
+  background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 60%,#38bdf8 100%);
+  border-radius:var(--r-xl);padding:26px 22px;
+  position:relative;overflow:hidden;margin-bottom:22px;
+}
+.welcome-banner::after{
+  content:'🤝';position:absolute;right:16px;top:50%;
+  transform:translateY(-50%);font-size:4rem;opacity:.15;
+}
+.welcome-banner h2{
+  font-family:'Fraunces',serif;font-size:1.35rem;font-weight:800;
+  color:#fff;margin-bottom:6px;line-height:1.2;
+}
+.welcome-banner p{
+  font-size:.84rem;color:rgba(255,255,255,.85);font-weight:500;
+  line-height:1.55;margin-bottom:16px;
+}
+.welcome-banner-actions{
+  display:flex;flex-wrap:wrap;gap:10px;
+}
+.wb-btn{
+  background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;border-radius:var(--r-full);
+  padding:10px 18px;font-size:.82rem;font-weight:800;
+  cursor:pointer;font-family:'Nunito',sans-serif;
+  transition:background .15s,transform var(--spring);
+  -webkit-user-select:none;user-select:none;
+}
+.wb-btn:active{transform:scale(.94);background:rgba(255,255,255,.35)}
+.wb-btn.primary{background:#fff;color:var(--teal-d);}
+.wb-btn.primary:active{background:rgba(255,255,255,.9)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+'use strict';
+
+/* -----------------------------------------------
+   TOKENS
+   ⚠️  SECURITY WARNING (QA-SEC-1 / OWASP A02):
+   Client-side API tokens are visible to all users via DevTools.
+   In production, ALL API calls (Anthropic) MUST be proxied
+   through a secure backend server. Rotate immediately if leaked.
+
+   -- HOW TO INJECT TOKENS ----------------------
+   Add a <script> block in the <head> BEFORE this file loads:
+
+     <script>
+       window.ANTHROPIC_API_KEY = "sk-ant-YOUR_ANTHROPIC_KEY";
+     <\/script>
+----------------------------------------------- */
+
+/* -----------------------------------------------
+   SEED DATA — Production zero-state defaults
+   All arrays are empty for new users.
+   DEMO_SEED is loaded only if user opts in.
+----------------------------------------------- */
+const SEED = {
+  children:[],
+  globalInboxFiles:[],
+  specialists:[],
+  folders:[
+    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",files:[]},
+    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",files:[]},
+    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",files:[]},
+    {id:"f4",name:"Medical Records",icon:"📋",key:"general",files:[]},
+    {id:"f5",name:"Medications",icon:"💊",key:"meds",files:[]},
+    {id:"f6",name:"School Reports",icon:"🏫",key:"school",files:[]}
+  ],
+  homework:[],
+  appointments:[],
+  vaultNotes:[],
+  chats:[],
+  notifications:[],
+  notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
+  users:[],
+  legacyArchive:[],
+  pushEnabled:false,
+  emailInbox:[],
+  progress:[],
+  milestones:[],
+  specialistRequests:[],
+  connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
+  todos:[], // [{id, childId, title, note, dueDate, dueTime, completed, reminders:{inApp,email,push}, createdAt}]
+  linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
+  specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
+};
+
+/* -- Standardised profession list -- */
+const PROFESSIONS=[
+  {label:'Speech-Language Therapist', key:'speech',  icon:'🗣️'},
+  {label:'Occupational Therapist',    key:'ot',      icon:'✋'},
+  {label:'Physical Therapist',        key:'pt',      icon:'🏃'},
+  {label:'ABA / Behavioral Therapist',key:'aba',     icon:'🧩'},
+  {label:'Psychologist',              key:'psych',   icon:'🧠'},
+  {label:'Psychiatrist',              key:'psych',   icon:'🧠'},
+  {label:'Developmental Pediatrician',key:'dev',     icon:'👶'},
+  {label:'Pediatrician',              key:'general', icon:'🏥'},
+  {label:'Neurologist',               key:'neuro',   icon:'🧬'},
+  {label:'Audiologist',               key:'audio',   icon:'👂'},
+  {label:'Vision Therapist',          key:'vision',  icon:'👁️'},
+  {label:'Special Education Teacher', key:'edu',     icon:'📚'},
+  {label:'Educational Therapist',     key:'edu',     icon:'📚'},
+  {label:'Social Worker',             key:'social',  icon:'🤝'},
+  {label:'Feeding Therapist',         key:'feeding', icon:'🍽️'},
+  {label:'Music Therapist',           key:'music',   icon:'🎵'},
+  {label:'Art Therapist',             key:'art',     icon:'🎨'},
+  {label:'Dietitian / Nutritionist',  key:'diet',    icon:'🥗'},
+  {label:'Orthopedic Specialist',     key:'ortho',   icon:'🦴'},
+  {label:'Genetic Counselor',         key:'genetics',icon:'🧬'},
+  {label:'Case Manager / Coordinator',key:'case',    icon:'📋'},
+  {label:'Other / General',           key:'general', icon:'📁'}
+];
+
+// Demo data loaded when user clicks "Try Demo"
+const DEMO_SEED={
+  children:[
+    {id:"c1",name:"Lily Carter",age:7,avatar:"🌸",color:"#f0a8c0",dob:"2017-03-14",photo:null,status:"active"},
+    {id:"c2",name:"Noah Carter",age:5,avatar:"🚀",color:"#8ecae6",dob:"2019-07-22",photo:null,status:"active"}
+  ],
+  globalInboxFiles:[
+    {id:"gi1",name:"Annual_Insurance_Card.pdf",type:"pdf",date:"2025-02-28",size:"142 KB"},
+    {id:"gi2",name:"OT_Referral_Letter.pdf",type:"pdf",date:"2025-03-01",size:"89 KB"},
+    {id:"gi3",name:"School_IEP_Draft_2025.pdf",type:"pdf",date:"2025-02-20",size:"312 KB"}
+  ],
+  specialists:[
+    {id:"s1",name:"Dr. Sarah Okafor",role:"Speech Therapist",email:"sarah@clinic.com",avatar:"👩‍⚕️",permissions:{c1:["speech","general"],c2:["speech"]},status:"active",credentials:[]},
+    {id:"s2",name:"James Whitfield",role:"Occupational Therapist",email:"james@ot.com",avatar:"🧑‍⚕️",permissions:{c1:["ot","general"],c2:[]},status:"active",credentials:[]},
+    {id:"s3",name:"Dr. Priya Nair",role:"Physical Therapist",email:"priya@pt.com",avatar:"👩‍⚕️",permissions:{c1:[],c2:["pt","general"]},status:"active",credentials:[]},
+    {id:"s4",name:"Dr. Marcus Webb",role:"Behavioral Therapist",email:"marcus@behavior.com",avatar:"🧑‍⚕️",permissions:{c1:[],c2:[]},status:"pending",credentials:[]}
+  ],
+  folders:[
+    {id:"f1",name:"Speech Therapy",icon:"🗣️",key:"speech",childId:"c1",files:[
+      {id:"fl1",name:"Session_Jan.pdf",date:"2025-01-15",locked:true,sharedWith:["s1"],uploadedBy:"s1"},
+      {id:"fl2",name:"Goals_Q1.pdf",date:"2025-02-01",locked:false,sharedWith:["s1","s2"],uploadedBy:"parent"}
+    ]},
+    {id:"f2",name:"Occupational Therapy",icon:"✋",key:"ot",childId:"c1",files:[
+      {id:"fl3",name:"OT_Assessment.pdf",date:"2025-01-20",locked:true,sharedWith:["s2"],uploadedBy:"s2"}
+    ]},
+    {id:"f3",name:"Physical Therapy",icon:"🏃",key:"pt",childId:"c1",files:[
+      {id:"fl4",name:"PT_Progress.pdf",date:"2025-02-10",locked:false,sharedWith:["s3"],uploadedBy:"s3"}
+    ]},
+    {id:"f4",name:"Medical Records",icon:"📋",key:"general",childId:"c1",files:[
+      {id:"fl5",name:"Annual_Physical.pdf",date:"2024-12-01",locked:true,sharedWith:["s1","s2","s3"],uploadedBy:"parent"}
+    ]},
+    {id:"f5",name:"Medications",icon:"💊",key:"meds",childId:"c1",files:[
+      {id:"fl6",name:"Med_Schedule.pdf",date:"2025-01-01",locked:true,sharedWith:[],uploadedBy:"parent"}
+    ]},
+    {id:"f6",name:"School Reports",icon:"🏫",key:"school",childId:"c1",files:[
+      {id:"fl7",name:"IEP_2025.pdf",date:"2025-01-08",locked:false,sharedWith:["s1"],uploadedBy:"parent"}
+    ]}
+  ],
+  homework:[
+    {id:"h1",childId:"c1",task:"Practice 'S' sound blends for 10 min daily",specialist:"Dr. Sarah Okafor",specialistId:"s1",due:"2025-03-05",completed:false,category:"Speech"},
+    {id:"h2",childId:"c1",task:"Sensory bin — rice textures (15 min)",specialist:"James Whitfield",specialistId:"s2",due:"2025-02-28",completed:true,category:"OT"},
+    {id:"h3",childId:"c2",task:"Morning balance beam walk before school",specialist:"Dr. Priya Nair",specialistId:"s3",due:"2025-03-06",completed:false,category:"PT"},
+    {id:"h4",childId:"c2",task:"Social story reading — 'Making Friends'",specialist:"Dr. Sarah Okafor",specialistId:"s1",due:"2025-03-04",completed:false,category:"Speech"}
+  ],
+  appointments:[
+    {id:"a1",childId:"c1",title:"Speech Session",specialist:"Dr. Sarah Okafor",specialistId:"s1",date:"2025-03-03",time:"10:00 AM",type:"speech",sharedWith:["s1"]},
+    {id:"a2",childId:"c1",title:"OT Session",specialist:"James Whitfield",specialistId:"s2",date:"2025-03-05",time:"2:00 PM",type:"ot",sharedWith:["s2"]},
+    {id:"a3",childId:"c2",title:"PT Session",specialist:"Dr. Priya Nair",specialistId:"s3",date:"2025-03-04",time:"11:30 AM",type:"pt",sharedWith:["s3"]},
+    {id:"a4",childId:"c2",title:"Speech Session",specialist:"Dr. Sarah Okafor",specialistId:"s1",date:"2025-03-06",time:"9:00 AM",type:"speech",sharedWith:["s1"]}
+  ],
+  vaultNotes:[
+    {id:"v1",specialistId:"s1",childId:"c1",date:"2025-02-24",title:"Session #14 — Clinical Notes",content:"Patient demonstrated improved phonological awareness during /s/ cluster production. Scored 78% on CELF-5 subtest.",published:false,locked:false,isDraft:true,summary:"",lastSaved:"2025-02-24 14:32"},
+    {id:"v2",specialistId:"s1",childId:"c1",date:"2025-02-10",title:"Session #13 — Clinical Notes",content:"Baseline re-assessment completed. Good engagement throughout.",published:true,locked:true,isDraft:false,summary:"Lily had a wonderful session today! She's making great progress. 🌟",lastSaved:"2025-02-10 16:00"}
+  ],
+  chats:[
+    {id:"ch1",type:"direct",participants:["parent","s1"],childId:"c1",approved:true,name:"",messages:[
+      {id:"m1",sender:"s1",text:"Hi! Lily did wonderfully today 🌟 She really nailed those S blends!",time:"10:32 AM",date:"2025-02-24"},
+      {id:"m2",sender:"parent",text:"That's amazing! She was practising all week 😊",time:"11:05 AM",date:"2025-02-24"}
+    ]}
+  ],
+  notifications:[
+    {id:"n1",type:"report",msg:"Dr. Sarah Okafor published a new session summary for Lily",time:"2h ago",read:false,childId:"c1"},
+    {id:"n2",type:"homework",msg:"Sensory bin task marked complete ✅",time:"1d ago",read:false,childId:"c1"}
+  ],
+  notifPrefs:{reports:true,chat:true,homework:true,appointments:false,consult:true},
+  emailInbox:[
+    {id:"e1",from:"huddledin@app.com",to:"parent@example.com",subject:"🤝 Dr. Sarah Okafor joined Lily's care team",body:"Dr. Sarah Okafor accepted your invitation.",date:"2025-02-20",read:false,type:"invite"}
+  ],
+  progress:[
+    {id:"p1",childId:"c1",category:"Speech",label:"S-blend accuracy",value:78,maxValue:100,unit:"%",date:"2025-02-24",specialistId:"s1"},
+    {id:"p2",childId:"c1",category:"Speech",label:"S-blend accuracy",value:65,maxValue:100,unit:"%",date:"2025-01-15",specialistId:"s1"}
+  ],
+  milestones:[
+    {id:"ml1",childId:"c1",title:"First successful /s/ blend in conversation",date:"2025-02-01",achieved:true,category:"Speech",specialistId:"s1"}
+  ],
+  specialistRequests:[],
+  connectionCodes:[],
+  linkedSpecialists:[]
+};
+
+/* -----------------------------------------------
+   PERSISTENCE — hybrid: Supabase for auth/profile,
+   localStorage for UI state & demo data cache.
+----------------------------------------------- */
+const LS={
+  get(k,d){try{const v=localStorage.getItem('hd9_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
+  set(k,v){try{localStorage.setItem('hd9_'+k,JSON.stringify(v));}catch{}},
+  del(k){localStorage.removeItem('hd9_'+k);}
+};
+
+/* -- Supabase config — fill in your values -- */
+const SUPABASE_URL  = 'https://smgbojgrdezasxciloll.supabase.co';   // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZ2JvamdyZGV6YXN4Y2lsb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDE4MjUsImV4cCI6MjA4ODAxNzgyNX0.TsfWwph6jHpoROzwQzwta50ZBO9tVboTz-uFTOKUnw4';
+const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+/* -- Supabase DB helpers (async) -- */
+
+// Get household_id for a child from cache
+function getChildHouseholdId(childId){
+  if(!childId)return session?.householdId||null;
+  const child=(LS.get('children',[])).find(c=>c.id===childId)||DB.children?.find(c=>c.id===childId);
+  return child?.householdId||session?.householdId||null;
+}
+
+// Load all specialists for a specific child from Supabase
+// Used by specialist sessions to see the full care team
+async function loadChildSpecialists(childId){
+  if(!childId||!_supa)return[];
+  try{
+    // Get all approved specialist_requests for this child
+    const {data:reqs}=await _supa.from('specialist_requests')
+      .select('specialist_id,specialist_name,role,status')
+      .eq('child_id',childId)
+      .in('status',['approved','pending']);
+    if(!reqs||!reqs.length)return[];
+    // Get their profiles
+    const specIds=reqs.map(r=>r.specialist_id).filter(Boolean);
+    const {data:profiles}=await _supa.from('profiles')
+      .select('id,display_name,email,role')
+      .in('id',specIds);
+    // Get their folder permissions for this child
+    const {data:perms}=await _supa.from('folder_permissions')
+      .select('specialist_id,folder_key')
+      .in('specialist_id',specIds)
+      .eq('child_id',childId);
+    const permMap={};
+    (perms||[]).forEach(p=>{if(!permMap[p.specialist_id])permMap[p.specialist_id]=[];permMap[p.specialist_id].push(p.folder_key);});
+    const specs=reqs.map(r=>{
+      const prof=(profiles||[]).find(p=>p.id===r.specialist_id);
+      const name=prof?.display_name||r.specialist_name||'Specialist';
+      return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
+        avatar:'🩺',status:r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
     });
-    if (!userRes.ok) return res.status(401).json({ error: 'Invalid token' });
-    const user = await userRes.json();
-    if (user.email !== 'admin@huddledin.com') return res.status(403).json({ error: 'Forbidden' });
+    LS.set('child_specialists_'+childId,specs);
+    return specs;
+  }catch(e){console.error('loadChildSpecialists:',e);return[];}
+}
 
-    const q = async (table, params = '') => {
-      const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`, {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+// Get specialists for a child — from cache or DB.specialists (for parents)
+// This is the universal getter that works for both roles
+function getChildTeam(childId){
+  if(session?.role==='parent'){
+    // Parents have DB.specialists loaded from their household
+    return DB.specialists.filter(s=>
+      childId?(s.permissions?.[childId]?.length>0||s.status==='pending'||s.childId===childId):true
+    );
+  }
+  // Specialists: use the per-child cache loaded by loadChildSpecialists
+  return LS.get('child_specialists_'+(childId||S.activeChild),[]);
+}
+
+// Get the current specialist's own record from session (no DB lookup needed)
+function getMySpecialistRecord(){
+  return{
+    id:session?.specialistId||session?.id,
+    name:session?.name||'',
+    role:session?.profession||session?.role||'Specialist',
+    email:session?.email||'',
+    avatar:'🩺',
+    status:'active',
+    permissions:LS.get('my_perms',{}),
+    credentials:LS.get('my_credentials',[])
+  };
+}
+
+// Load folder_permissions from Supabase into specialist objects
+async function _loadSpecPermissions(specs){
+  if(!specs||!specs.length||!_supa)return;
+  try{
+    const specIds=specs.map(s=>s.id);
+    const {data:perms}=await _supa.from('folder_permissions').select('specialist_id,child_id,folder_key').in('specialist_id',specIds);
+    (perms||[]).forEach(p=>{
+      const spec=specs.find(s=>s.id===p.specialist_id);
+      if(spec){
+        if(!spec.permissions[p.child_id])spec.permissions[p.child_id]=[];
+        if(!spec.permissions[p.child_id].includes(p.folder_key))spec.permissions[p.child_id].push(p.folder_key);
+      }
+    });
+  }catch(e){console.error('_loadSpecPermissions:',e);}
+}
+
+const SB = {
+  async getChildren(parentId){
+    const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
+    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active'})));
+  },
+  async addChild(parentId,child,householdId){
+    const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
+    return data;
+  },
+  async updateChild(id,patch){await _supa.from('children').update(patch).eq('id',id);},
+  async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
+  async getSpecialists(parentId){
+    const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
+    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    await _loadSpecPermissions(specs);
+    return specs;
+  },
+  async getSpecialistsByHousehold(householdId){
+    const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
+    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    await _loadSpecPermissions(specs);
+    return specs;
+  },
+  async addSpecialist(spec){const {data}=await _supa.from('specialists').insert(spec).select().single();return data;},
+  async updateSpecialist(id,patch){await _supa.from('specialists').update(patch).eq('id',id);},
+  async getMessages(childId){const {data}=await _supa.from('messages').select('*').eq('child_id',childId).order('created_at');return data||[];},
+  async sendMessage(msg){const {data}=await _supa.from('messages').insert(msg).select().single();return data;},
+  async getFolders(childId){
+    const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
+    if(!fData||!fData.length)return[];
+    const folderIds=fData.map(f=>f.id);
+    const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type').eq('child_id',childId);
+    return fData.map(f=>({
+      id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
+      files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
+        id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
+        sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
+        url:fi.storage_path?_supa.storage.from('huddledin-files').getPublicUrl(fi.storage_path).data.publicUrl:null
+      }))
+    }));
+  },
+  async addFile(file){
+    const payload={child_id:file.childId,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
+    const {data,error}=await _supa.from('files').insert(payload).select('id').single();
+    if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
+    return data;
+  },
+  async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
+  async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
+  async deleteFolder(folderId){await _supa.from('folders').delete().eq('id',folderId);},
+  async addFolder(folder){
+    const {data,error}=await _supa.from('folders').insert({id:folder.id,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
+    if(error)throw error;
+    return data;
+  },
+  async uploadFile(storagePath,file){
+    const path=`${storagePath}/${Date.now()}_${file.name}`;
+    const {error}=await _supa.storage.from('huddledin-files').upload(path,file,{contentType:file.type,upsert:false});
+    if(error)throw error;
+    const {data}=_supa.storage.from('huddledin-files').getPublicUrl(path);
+    return {path,url:data.publicUrl};
+  },
+  async acceptInvite(token){
+    const {data}=await _supa.from('invites').select('*').eq('token',token).eq('accepted',false).single();
+    if(!data)return null;
+    if(new Date(data.expires_at)<new Date())return{expired:true};
+    await _supa.from('invites').update({accepted:true}).eq('id',data.id);
+    await _supa.from('specialists').update({status:'active'}).eq('id',data.specialist_id);
+    return data;
+  },
+  subscribeToMessages(childId,callback){
+    return _supa.channel(`messages:${childId}`)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`child_id=eq.${childId}`},p=>callback(p.new))
+      .subscribe();
+  }
+};
+
+async function _provisionDefaultFolders(){
+  return[];
+}
+
+async function refreshFromSupabase(){
+  if(!session||session.id==='demo')return;
+  try{
+    if(session.role==='parent'){
+      // Always use household_id so co-parents see the same data
+      const hid=session.householdId;
+      let children=[];
+      if(hid){
+        const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+        children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
+      } else {
+        children=await SB.getChildren(session.id);
+      }
+      LS.set('children',children);
+      // Load specialists by household
+      const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
+      // Merge local permissions so approvals survive a Supabase sync
+      const localSpecs=DB.specialists||[];
+      (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+      LS.set('specialists',specs||[]);
+      // Load folders for all children in parallel
+      try{
+        const folderResults=await Promise.all(children.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
+        const allFolders=folderResults.flat();
+        if(allFolders.length>0)LS.set('folders',allFolders);
+      }catch(e){}
+      // Load pending specialist requests from Supabase
+      try{
+        let _reqQ=_supa.from('specialist_requests').select('*').eq('status','pending');
+        _reqQ=session.householdId?_reqQ.eq('household_id',session.householdId):_reqQ.eq('parent_id',session.id);
+        const {data:reqs}=await _reqQ;
+        if(reqs&&reqs.length>0){
+          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
+          DB.specialistRequests=mapped;
         }
+      }catch(e){}
+      // Fetch all secondary data in parallel for speed
+      await Promise.allSettled([
+        // Appointments
+        _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
+          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
+          .catch(e=>console.error('refresh appointments:',e)),
+        // Homework — parent: by household_id; specialist: by specialist_id
+        (hid
+          ? _supa.from('homework').select('*').eq('household_id',hid)
+          : _supa.from('homework').select('*').eq('specialist_id',session.id)
+        ).then(({data:hw})=>LS.set('homework',(hw||[]).map(h=>({id:h.id,childId:h.child_id,task:h.task,category:h.category,due:h.due,completed:h.completed,specialist:h.specialist_name||'',specialistId:h.specialist_id||''}))))
+          .catch(e=>console.error('refresh homework:',e)),
+        // Notifications
+        _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
+          .then(({data:notifs})=>{
+            // Merge: if we marked something read locally, keep it read even if Supabase hasn't confirmed yet
+            const localNotifs=LS.get('notifications',[]);
+            const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
+            LS.set('notifications',(notifs||[]).map(n=>({
+              id:n.id,type:n.type,msg:n.message,
+              read:n.read||localReadIds.has(n.id),
+              childId:n.child_id,linkTab:n.link_tab||null,
+              linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,
+              time:new Date(n.created_at).toLocaleDateString()
+            })));
+          })
+          .catch(e=>console.error('refresh notifications:',e)),
+        // Todos
+        _supa.from('todos').select('*').eq('user_id',session.id)
+          .then(({data:tds})=>LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}}))))
+          .catch(e=>console.error('refresh todos:',e)),
+        // Milestones
+        _supa.from('milestones').select('*').eq('household_id',hid||session.id)
+          .then(({data:miles})=>LS.set('milestones',(miles||[]).map(m=>({id:m.id,childId:m.child_id,title:m.label,date:m.date||'',achieved:m.achieved||false,category:m.category||'General',specialistId:m.specialist_id||null}))))
+          .catch(e=>console.error('refresh milestones:',e)),
+        // Progress
+        _supa.from('progress').select('*').eq('household_id',hid||session.id)
+          .then(({data:prog})=>LS.set('progress',(prog||[]).map(p=>({id:p.id,childId:p.child_id,category:p.category||'General',label:p.label||'',value:p.value||0,maxValue:p.max_value||100,unit:p.unit||'',date:p.date||'',specialistId:p.specialist_id||null}))))
+          .catch(e=>console.error('refresh progress:',e)),
+        // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
+        _supa.from('chats').select('*').eq('household_id',hid||session.id)
+          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
+          .catch(e=>console.error('refresh chats:',e))
+      ]);
+    } else if(session.role==='specialist'){
+      const specId=session.specialistId||session.id;
+      // Step 1: get child IDs from specialist_requests
+      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
+      const childIds=[...new Set((reqRows||[]).map(r=>r.child_id).filter(Boolean))];
+      if(childIds.length>0){
+        // Step 2: fetch children + appointments IN PARALLEL (biggest speedup)
+        const [childrenRes,aptsRes]=await Promise.all([
+          _supa.from('children').select('*').in('id',childIds),
+          _supa.from('appointments').select('*').in('child_id',childIds).order('date')
+        ]);
+        const children=childrenRes.data||[];
+        if(children.length>0){
+          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
+          LS.set('children',mapped);
+          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
+          // Save appointments immediately — no waiting
+          if(aptsRes.data&&aptsRes.data.length>0){
+            LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+          }
+          // Render now with children + appointments — don't wait for folders/care team
+          re();
+          // Step 3: load care team + folders in parallel (non-blocking background)
+          Promise.all([
+            Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
+            Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
+          ]).then(([,folderResults2])=>{
+            const allFolders=folderResults2.flat();
+            if(allFolders.length>0)LS.set('folders',allFolders);
+          });
+          setupSpecialistSync();
+        }
+      }
+      // Load specialist secondary data in parallel
+      await Promise.allSettled([
+        // Notifications — specialist receives via user_id
+        _supa.from('notifications').select('*').eq('user_id',specId).order('created_at',{ascending:false}).limit(50)
+          .then(({data:notifs})=>{
+            const localNotifs=LS.get('notifications',[]);
+            const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
+            LS.set('notifications',(notifs||[]).map(n=>({
+              id:n.id,type:n.type,msg:n.message,
+              read:n.read||localReadIds.has(n.id),
+              childId:n.child_id,linkTab:n.link_tab||null,
+              linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,
+              time:new Date(n.created_at).toLocaleDateString()
+            })));
+          })
+          .catch(e=>console.error('refresh spec notifications:',e)),
+        // Folder permissions
+        _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
+          .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);})
+          .catch(()=>{}),
+        // Vault notes
+        _supa.from('vault_notes').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
+          .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
+          .catch(e=>console.error('refresh vaultNotes:',e)),
+        // Chats
+        _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
+          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
+          .catch(e=>console.error('refresh spec chats:',e))
+      ]);
+    }
+  }catch(e){console.log('refreshFromSupabase error:',e);}
+}
+
+// Debounced refresh — collapses burst real-time events into one refresh
+let _refreshTimer=null;
+function _debouncedRefresh(){
+  if(_refreshTimer)clearTimeout(_refreshTimer);
+  _refreshTimer=setTimeout(()=>{
+    _refreshTimer=null;
+    refreshFromSupabase().then(()=>re());
+  },300);
+}
+
+// Real-time household sync — subscribes to children/specialists changes
+let _householdChannel=null;
+function setupHouseholdSync(){
+  if(!session||session.role!=='parent'||!session.householdId)return;
+  if(_householdChannel)_householdChannel.unsubscribe();
+  _householdChannel=_supa.channel('household:'+session.householdId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .subscribe();
+}
+
+// Real-time chat message subscription handle
+let _chatSub=null;
+
+// Real-time permissions sync for specialist — picks up permission grants instantly
+let _specPermsChannel=null;
+function setupSpecialistSync(){
+  if(!session||session.role!=='specialist'||!_supa)return;
+  const specId=session.specialistId||session.id;
+  if(!specId)return;
+  if(_specPermsChannel)_specPermsChannel.unsubscribe();
+  // Subscribe to all specialist-relevant tables in one channel
+  const childIds=(LS.get('children',[])||[]).map(c=>c.id);
+  _specPermsChannel=_supa.channel('spec_sync:'+specId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // Real-time notifications — fires when parent sends specialist a notification
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
+    .subscribe();
+  // Subscribe to appointment updates for each patient child
+  // (catches rsvp updates and new appointments from parents)
+  const childIds2=(LS.get('children',[])||[]).map(c=>c.id);
+  childIds2.forEach(cid=>{
+    _supa.channel('spec_apts:'+cid)
+      .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
+      .subscribe();
+  });
+}
+
+async function loadChatsFromSupabase(){
+  if(!session||session.id==='demo')return;
+  try{
+    const hid=session.householdId;
+    let q=_supa.from('chats').select('*');
+    if(session.role==='specialist'){
+      const sid=session.specialistId||session.id;
+      q=q.contains('participants',JSON.stringify([sid]));
+    } else if(hid){
+      q=q.eq('household_id',hid);
+    } else {
+      q=q.eq('child_id',S.activeChild);
+    }
+    const {data:chatRows}=await q;
+    const chatsWithMessages=await Promise.all((chatRows||[]).map(async ch=>{
+      const {data:msgs}=await _supa.from('messages').select('*').eq('chat_id',ch.id).order('created_at');
+      return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,
+        messages:(msgs||[]).map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
+    }));
+    LS.set('chats',chatsWithMessages);
+  }catch(e){console.error('loadChatsFromSupabase:',e);}
+}
+
+function initData(){
+  if(!LS.get('seeded_v9',false)){
+    Object.entries(SEED).forEach(([k,v])=>LS.set(k,v));
+    LS.set('seeded_v9',true);
+  }
+}
+
+function loadDemoData(){
+  Object.entries(DEMO_SEED).forEach(([k,v])=>LS.set(k,v));
+  toast('🎉 Demo data loaded! Explore Lily & Noah\'s profiles.','success',4000);
+  S.activeChild=DEMO_SEED.children[0].id;
+  re();
+}
+
+// Assign distinct colors to any children with null/missing color, save to Supabase
+function _migrateChildColors(children){
+  const _usedColors=new Set(children.filter(c=>c.color&&c.color!=='#0d9488'&&c.color!=='#c4b5fd').map(c=>c.color));
+  let needsSave=false;
+  children.forEach((c,i)=>{
+    if(!c.color||c.color==='#0d9488'&&i>0||c.color==='#c4b5fd'){
+      const assigned=CHILD_COLORS.find(col=>!_usedColors.has(col))||CHILD_COLORS[i%CHILD_COLORS.length];
+      if(c.color!==assigned){
+        c.color=assigned;
+        needsSave=true;
+        _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(()=>{});
+      }
+      _usedColors.add(assigned);
+    } else {
+      _usedColors.add(c.color);
+    }
+  });
+  return children;
+}
+
+const DB=new Proxy({},{
+  get(_,k){return LS.get(k,SEED[k]??[]);},
+  set(_,k,v){LS.set(k,v);return true;}
+});
+
+/* -----------------------------------------------
+   AUTH — powered by Supabase Auth
+----------------------------------------------- */
+let session=null;
+
+async function _loadSessionFromSupabase(s){
+  if(!s)return;
+  const {data:profile}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
+  if(profile){
+    // Use display_name → Google full_name → email prefix
+    const _displayName=profile.display_name&&!profile.display_name.includes('@')
+      ? profile.display_name.split(' ')[0]
+      : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'').split(' ')[0]
+      || s.user.email.split('@')[0];
+    session={id:s.user.id,email:s.user.email,role:profile.role,
+      name:_displayName,specialistId:profile.id,isNew:false,
+      householdId:profile.household_id,isPrimary:profile.is_primary!==false,
+      googleCalendarEnabled:profile.google_calendar_enabled||false};
+    if(profile.role==='parent'){
+      // Load children by household_id so co-parents see same children
+      const hid=profile.household_id;
+      let children=[];
+      // Fetch children + specialists in parallel
+      const [childrenData,specsData]=await Promise.all([
+        hid
+          ? _supa.from('children').select('*').eq('household_id',hid).order('created_at')
+          : _supa.from('children').select('*').eq('parent_id',s.user.id).order('created_at'),
+        hid
+          ? SB.getSpecialistsByHousehold(hid).catch(()=>[])
+          : SB.getSpecialists(s.user.id).catch(()=>[])
+      ]);
+      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id})));
+      LS.set('children',children);
+      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      try{
+        const specs=specsData;
+        if(specs&&specs.length>0){
+          const localSpecs2=DB.specialists||[];
+          specs.forEach(s=>{const local=localSpecs2.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+          LS.set('specialists',specs);
+        }
+      }catch(e){}
+    } else if(profile.role==='specialist'){
+      // Load specialist's patients from Supabase (works across devices)
+      try{
+        const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',s.user.id).eq('status','active');
+        if(specRows&&specRows.length>0){
+          const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+          if(childIds.length>0){
+            const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+            if(children&&children.length>0){
+              const mapped=children.map(c=>({
+                id:c.id,name:c.name,dob:c.dob,
+                avatar:c.avatar_emoji||'🌸',
+                color:c.color||null,
+                photo:c.photo_url||null
+              }));
+              LS.set('children',mapped);
+              if(!S.activeChild)S.activeChild=mapped[0].id;
+            }
+          }
+        }
+      }catch(e){console.log('Specialist children load error:',e);}
+    }
+  }
+}
+
+// Boot: restore Supabase session and wire auth listener
+(async()=>{
+  const {data:{session:s}}=await _supa.auth.getSession();
+  if(s){await _loadSessionFromSupabase(s);}
+  // Handle Google OAuth redirect back
+  _supa.auth.onAuthStateChange(async(event,s2)=>{
+    if(event==='SIGNED_IN'&&s2&&!session){
+      // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
+      const pendingRole=localStorage.getItem('pendingGoogleRole');
+      if(pendingRole){
+        localStorage.removeItem('pendingGoogleRole');
+        // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
+        await _supa.from('profiles').upsert({
+          id:s2.user.id,
+          email:s2.user.email,
+          role:pendingRole,
+          display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
+        },{onConflict:'id'});
+      }
+      await _loadSessionFromSupabase(s2);
+      if(session){
+        S.navLevel=session.role==='parent'?0:1;
+        S.activeChild=LS.get('children',[])[0]?.id||null;
+        re(); // Render immediately from cache while background refresh runs
+      }
+      // Seed browser history so back button works inside app
+      _seedHistory();
+      // Process pending invite if any
+      const _pi=localStorage.getItem('pendingInviteToken');
+      if(_pi){setTimeout(()=>_processPendingInvite(),800);}
+      re();
+      setupHouseholdSync();setupSpecialistSync();
+      // Show household invite modal for parents
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1500);
+      }
+    }
+    if(event==='SIGNED_OUT'){session=null;re();}
+  });
+  if(session)_seedHistory();
+  re(); // initial render
+  // Refresh data from Supabase on boot (ensures cross-device consistency)
+  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();setupSpecialistSync();});}
+})();
+
+async function doGoogleSignIn(role){
+  // Store selected role so we can apply it after OAuth redirect
+  if(role) localStorage.setItem('pendingGoogleRole', role);
+  await _supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}});
+}
+
+// doLogin is async now — wraps Supabase email auth, falls back to demo mode
+async function doLogin(email,password,role,name='',profession=''){
+  if(password==='demo'&&email==='demo@huddledin.com'){
+    session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true};
+    _seedHistory();
+    return{ok:true,isNew:true};
+  }
+  // Try sign-in first
+  let {data,error}=await _supa.auth.signInWithPassword({email,password});
+  if(error&&error.message.includes('Invalid')){
+    // Account doesn't exist — sign up
+    const res=await _supa.auth.signUp({email,password,options:{data:{role,display_name:name||email.split('@')[0],profession}}});
+    if(res.error)return{error:res.error.message};
+    data=res.data;
+    // Client-side profile bootstrap — handles case where DB trigger is absent
+    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
+  } else if(error){return{error:error.message};}
+  await _loadSessionFromSupabase(data.session||{user:data.user});
+  if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
+  return{ok:true,isNew:false};
+}
+
+async function doLogout(){
+  await _supa.auth.signOut();
+  session=null;
+  Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+  ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
+}
+
+/* -----------------------------------------------
+   APP STATE
+----------------------------------------------- */
+let S={
+  navLevel:0,
+  activeChild:null,       // null until a child is added
+  activeTab:'dashboard',
+  activeChatId:null,
+  chatMsg:'',
+  activeVaultId:null,
+  vaultSummary:'',
+  vaultSummarizing:false,
+  vaultHasUnsaved:false,
+  searchOpen:false,
+  searchQuery:'',
+  activeProgressTab:'overview',
+  emailOpen:false,
+  activeEmailId:null,
+  isDrawerOpen:false,
+  calFullscreen:false,
+  calFsMonth:0,  // month offset for fullscreen cal navigation
+  calSelectedDate:null, // date string 'YYYY-MM-DD' selected in calendar grid
+  activeFolderId:null, // folder open in grid view
+  tourActive:false,       // is guided tour running?
+  tourStep:0,             // current step index
+  patientStatusFilter:'active',  // filter state for renderPatients — survives re()
+  calendarMode:'child',          // 'joint' = all children; 'child' = active child only
+  activeChatChildId:null,
+  chatsLoaded:false
+};
+
+/* -----------------------------------------------
+   ONBOARDING TOUR ENGINE
+----------------------------------------------- */
+
+// Tour steps — each targets a CSS selector or a position
+const TOUR_STEPS_PARENT=[
+  {
+    id:'welcome',
+    title:'Welcome to Huddledin! 🤝',
+    body:'This quick tour will show you the key features. You can skip it any time or restart it from Settings.',
+    target:null, // modal-style, no spotlight
+    arrow:'',
+    action:null
+  },
+  {
+    id:'add-child',
+    title:'Add Your First Child',
+    body:'Tap the ＋ Add Child bubble to create a profile. Upload their photo and date of birth.',
+    target:'.child-bubble-add',
+    arrow:'arrow-bottom',
+    action:null
+  },
+  {
+    id:'connect-specialist',
+    title:'Connect a Specialist',
+    body:'Generate a Connection Code and share it with a therapist. They enter the code to instantly join your care team.',
+    target:'#tour-target-team',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=1;S.activeTab='team';re();}
+  },
+  {
+    id:'files',
+    title:'Organise Reports & Files',
+    body:'Each therapy folder holds reports and documents. Parents can upload files; specialists can access only the folders you permit.',
+    target:'#tour-target-files',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=1;S.activeTab='files';re();}
+  },
+  {
+    id:'global-inbox',
+    title:'File Upload & Sorting',
+    body:'Drop any document here first — then use "Process File" to move it into the right child\'s folder or share it with a specialist.',
+    target:'.global-vault-hd',
+    arrow:'arrow-bottom',
+    action:()=>{S.navLevel=0;re();}
+  },
+  {
+    id:'settings',
+    title:'Settings & Notifications',
+    body:'Customise notification preferences, manage your account, and restart this tour any time from the Settings menu.',
+    target:'#tour-target-settings',
+    arrow:'arrow-top',
+    action:()=>{S.navLevel=1;S.activeTab='settings';re();}
+  }
+];
+
+const TOUR_STEPS_SPEC=[
+  {
+    id:'welcome',
+    title:'Welcome, Specialist! 🩺',
+    body:'Huddledin connects you with the families you serve. Let\'s get you set up.',
+    target:null,arrow:'',action:null
+  },
+  {
+    id:'enter-code',
+    title:'Connect to a Patient',
+    body:'Ask the family for their Connection Code, then enter it here to join their care team and access permitted folders.',
+    target:'#tour-target-patients',
+    arrow:'arrow-bottom',
+    action:null
+  },
+  {
+    id:'vault',
+    title:'Clinical Notes & Vault',
+    body:'Write session notes here. Use AI to generate a parent-friendly summary — then publish when ready.',
+    target:'#tour-target-vault',
+    arrow:'arrow-bottom',
+    action:()=>{S.activeTab='vault';re();}
+  },
+  {
+    id:'credentials',
+    title:'Your Professional Profile',
+    body:'Upload your credentials and qualifications here. Parents can view these to verify your expertise.',
+    target:'#tour-target-creds',
+    arrow:'arrow-bottom',
+    action:()=>{S.activeTab='credentials';re();}
+  }
+];
+
+function getTourSteps(){
+  return session?.role==='parent'?TOUR_STEPS_PARENT:TOUR_STEPS_SPEC;
+}
+
+function shouldShowTour(){
+  if(LS.get('tourDismissed',false))return false;
+  return LS.get('tourNeedsShow',false);
+}
+
+function startTour(){
+  S.tourActive=true;
+  S.tourStep=0;
+  S.navLevel=0;
+  re();
+}
+
+function advanceTour(){
+  const steps=getTourSteps();
+  const next=S.tourStep+1;
+  if(next>=steps.length){
+    // Tour complete
+    S.tourActive=false;
+    LS.set('tourNeedsShow',false);
+    toast('🎉 Tour complete! You\'re all set.','success',3500);
+    re();
+    return;
+  }
+  const nextStep=steps[next];
+  S.tourStep=next;
+  if(nextStep.action)nextStep.action();
+  else re();
+}
+
+function closeTour(dismiss=false){
+  S.tourActive=false;
+  if(dismiss){
+    LS.set('tourDismissed',true);
+    LS.set('tourNeedsShow',false);
+  }
+  re();
+}
+
+function renderTour(){
+  const steps=getTourSteps();
+  const step=steps[S.tourStep];
+  if(!step)return null;
+
+  const frag=document.createDocumentFragment();
+
+  // Spotlight the target element
+  if(step.target){
+    const targetEl=document.querySelector(step.target);
+    if(targetEl){
+      const rect=targetEl.getBoundingClientRect();
+      const pad=8;
+      const spot=el('div',{class:'tour-spotlight',style:{
+        top:(rect.top-pad)+'px',left:(rect.left-pad)+'px',
+        width:(rect.width+pad*2)+'px',height:(rect.height+pad*2)+'px',
+        borderRadius: getComputedStyle(targetEl).borderRadius||'14px'
+      }});
+      frag.appendChild(spot);
+    }
+  } else {
+    // Dim overlay only, no spotlight
+    const overlay=el('div',{class:'tour-overlay',style:{background:'rgba(15,23,42,.65)',pointerEvents:'all'}});
+    overlay.onclick=()=>{}; // block clicks
+    frag.appendChild(overlay);
+  }
+
+  // Build bubble
+  const bubble=el('div',{class:'tour-bubble '+(step.arrow||'')});
+  // Position the bubble
+  const positionBubble=()=>{
+    if(!step.target){
+      // Centre of screen
+      bubble.style.top='50%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+      return;
+    }
+    const targetEl=document.querySelector(step.target);
+    if(!targetEl){
+      bubble.style.top='30%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+      return;
+    }
+    const rect=targetEl.getBoundingClientRect();
+    const bw=310,bh=220;
+    const vw=window.innerWidth,vh=window.innerHeight;
+
+    if(step.arrow==='arrow-bottom'){
+      // Bubble above target
+      let top=rect.top-bh-24;
+      let left=rect.left+(rect.width/2)-(bw/2);
+      if(top<10)top=rect.bottom+24;
+      if(left<10)left=10;
+      if(left+bw>vw-10)left=vw-bw-10;
+      bubble.style.top=top+'px';bubble.style.left=left+'px';
+    } else if(step.arrow==='arrow-top'){
+      let top=rect.bottom+24;
+      let left=rect.left+(rect.width/2)-(bw/2);
+      if(top+bh>vh-10)top=rect.top-bh-24;
+      if(left<10)left=10;
+      if(left+bw>vw-10)left=vw-bw-10;
+      bubble.style.top=top+'px';bubble.style.left=left+'px';
+    } else {
+      bubble.style.top='30%';bubble.style.left='50%';
+      bubble.style.transform='translate(-50%,-50%)';
+    }
+  };
+
+  // Step badge
+  bubble.appendChild(el('div',{class:'tour-step-badge'},
+    ['✦ Step '+(S.tourStep+1)+' of '+steps.length]));
+  bubble.appendChild(el('div',{class:'tour-bubble-title'},[step.title]));
+  bubble.appendChild(el('div',{class:'tour-bubble-body'},[step.body]));
+
+  // Progress dots
+  const actions=el('div',{class:'tour-bubble-actions'});
+  const dots=el('div',{class:'tour-progress-dots'});
+  steps.forEach((_,i)=>{
+    dots.appendChild(el('div',{class:'tour-dot'+(i===S.tourStep?' active':'')}));
+  });
+  actions.appendChild(dots);
+
+  const isLast=S.tourStep===steps.length-1;
+  const nextBtn=el('button',{class:'tour-btn-next'},
+    [isLast?'Finish Tour ✓':'Next →']);
+  nextBtn.onclick=()=>advanceTour();
+  actions.appendChild(nextBtn);
+  bubble.appendChild(actions);
+
+  // Skip link
+  const skipRow=el('div',{class:'tour-dsa-row'});
+  const skipBtn=el('button',{class:'tour-btn-skip'},['Skip tour']);
+  skipBtn.onclick=()=>closeTour(false);
+  skipRow.appendChild(skipBtn);
+  const dsaLabel=el('label',{});
+  const dsaCb=el('input',{type:'checkbox'});
+  dsaCb.onchange=e=>{if(e.target.checked)LS.set('tourDismissed',true);};
+  dsaLabel.appendChild(dsaCb);
+  dsaLabel.appendChild(document.createTextNode(" Don't show again"));
+  skipRow.appendChild(dsaLabel);
+  bubble.appendChild(skipRow);
+
+  frag.appendChild(bubble);
+
+  // FIX F2: use setTimeout(0) to ensure the fragment has been appended to the DOM
+  // before measuring target element positions for bubble placement.
+  // requestAnimationFrame fires before the fragment is actually in the document.
+  setTimeout(positionBubble,0);
+
+  return frag;
+}
+
+/* -----------------------------------------------
+   CONNECTION CODE SYSTEM
+----------------------------------------------- */
+
+function generateCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr=new Uint8Array(6);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>chars[b%chars.length]).join('');
+}
+
+async function createConnectionCode(childId){
+  const code=generateCode();
+  const now=new Date();
+  const exp=new Date(now);exp.setHours(exp.getHours()+48);
+  // Save to Supabase so specialist can redeem from any device
+  if(session&&session.id!=='demo'){
+    try{await _supa.from('connection_codes').upsert({
+      code,child_id:childId,parent_id:session.id,
+      household_id:session.householdId||null,
+      expires_at:exp.toISOString(),used:false
+    });}catch(e){}
+  }
+  // Also keep in localStorage as fallback
+  const codes=DB.connectionCodes||[];
+  codes.push({code,childId,createdAt:now.toISOString(),expiresAt:exp.toISOString(),used:false});
+  DB.connectionCodes=codes;
+  return code;
+}
+
+async function redeemConnectionCode(code,specialistId,specialistName,role){
+  let childId=null;
+  // Try Supabase
+  if(session&&session.id!=='demo'){
+    let row=null;
+    try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){}
+    if(!row){
+      // Also try case-insensitive search as fallback
+      try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){}
+    }
+    if(row){
+      if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
+      try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
+      childId=row.child_id;
+      if(!session.householdId&&row.household_id){
+        session.householdId=row.household_id;
+        try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
+      }
+      const parentId=row.parent_id;
+      // Save specialist request to Supabase so parent sees it cross-device
+      try{
+        // Only create if no existing request (don't overwrite already-approved)
+        const {data:existingReq}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).maybeSingle();
+        if(!existingReq){
+          await _supa.from('specialist_requests').insert({
+            specialist_id:specialistId,
+            specialist_name:specialistName,
+            role,
+            child_id:childId,
+            parent_id:parentId,
+            household_id:row.household_id||null,
+            status:'pending',
+            requested_at:new Date().toISOString()
+          });
+        }
+      }catch(e){console.log('specialist_requests insert error:',e);}
+      // Update specialist profile in specialists table (single row per specialist — profile info only)
+      try{
+        await _supa.from('specialists').upsert({
+          id:specialistId,
+          name:specialistName,
+          role,
+          email:session.email,
+          parent_id:parentId,
+          child_id:childId,
+          household_id:row.household_id||null,
+          status:'pending',
+          invite_token:code
+        },{onConflict:'id'});
+      }catch(e){console.log('specialists upsert error:',e);}
+      let child={name:'your patient'};
+      try{const r=await _supa.from('children').select('*').eq('id',childId).single();if(r.data)child=r.data;}catch(e){}
+      return{ok:true,childId,child:{name:child.name,avatar:child.avatar_emoji||'🧒'}};
+    }
+    return{error:'Invalid or expired code. Please check with the family for a new one.'};
+  }
+  // Fallback: localStorage
+  const codes=DB.connectionCodes||[];
+  const idx=codes.findIndex(c=>c.code===code.toUpperCase()&&!c.used&&new Date(c.expiresAt)>new Date());
+  if(idx===-1)return{error:'Invalid or expired code. Please check with the family for a new one.'};
+  codes[idx].used=true;DB.connectionCodes=codes;
+  childId=codes[idx].childId;
+  const requests2=DB.specialistRequests||[];
+  if(!requests2.some(r=>r.specialistId===specialistId&&r.childId===childId&&r.status==='pending')){
+    requests2.push({id:'req_'+Date.now(),specialistId,specialistName,role,childId,requestedAt:new Date().toISOString(),status:'pending'});
+    DB.specialistRequests=requests2;
+  }
+  const child=DB.children.find(c=>c.id===childId)||{name:'your patient'};
+  return{ok:true,childId,child};
+}
+
+async function approveSpecialistRequest(requestId,selectedFolders){
+  const requests=DB.specialistRequests||[];
+  const reqIdx=requests.findIndex(r=>r.id===requestId);
+  if(reqIdx===-1)return;
+  const req=requests[reqIdx];
+  requests[reqIdx].status='approved';
+  DB.specialistRequests=requests;
+  // Now grant the selected folder permissions
+  const specs=DB.specialists||[];
+  const specIdx=specs.findIndex(s=>s.id===req.specialistId);
+  if(specIdx>-1){
+    if(!specs[specIdx].permissions[req.childId])specs[specIdx].permissions[req.childId]=[];
+    selectedFolders.forEach(key=>{
+      if(!specs[specIdx].permissions[req.childId].includes(key))
+        specs[specIdx].permissions[req.childId].push(key);
+    });
+    DB.specialists=specs;
+  }
+  // Record linked specialist
+  const linked=DB.linkedSpecialists||[];
+  linked.push({specialistId:req.specialistId,specialistName:req.specialistName,role:req.role,childId:req.childId,linkedAt:new Date().toISOString()});
+  DB.linkedSpecialists=linked;
+  // Task 4 — create a personal Vault folder for this specialist+child (hard-locked to others)
+  const vaults=DB.specialistVaults||[];
+  const vaultExists=vaults.some(v=>v.specialistId===req.specialistId&&v.childId===req.childId);
+  if(!vaultExists){
+    vaults.push({vaultId:'vault_'+Date.now(),specialistId:req.specialistId,specialistName:req.specialistName,childId:req.childId,authorizedSpecialistIds:[],createdAt:new Date().toISOString()});
+    DB.specialistVaults=vaults;
+  }
+  // Persist approval to Supabase so it survives page refresh
+  try{
+    if(_supa&&req.specialistId){
+      await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
+      // Mark the request as approved so it stops appearing in parent notifications
+      await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
+    }
+  }catch(e){}
+  // Auto-create folder + grant permission for specialist's profession
+  const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
+  const folderKey=prof?prof.key:'spec_'+req.specialistId;
+  const folderName=prof?prof.label:req.specialistName+"'s Folder";
+  const folderIcon=prof?prof.icon:'📁';
+  if(prof){
+    // Grant profession key permission immediately
+    const specs2=DB.specialists;
+    const si2=specs2.findIndex(s=>s.id===req.specialistId);
+    if(si2>-1){
+      if(!specs2[si2].permissions[req.childId])specs2[si2].permissions[req.childId]=[];
+      if(!specs2[si2].permissions[req.childId].includes(prof.key))
+        specs2[si2].permissions[req.childId].push(prof.key);
+      DB.specialists=specs2;
+    }
+    // Persist profession permission to folder_permissions table
+    if(_supa&&req.specialistId)
+      try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:prof.key});}catch(e){console.error('upsert folder_permissions:',e);}
+  }
+  // Create folder if it doesn't exist yet — always runs regardless of prof match
+  const existing=DB.folders.filter(f=>f.childId===req.childId);
+  if(!existing.some(f=>f.key===folderKey)){
+    const newF={id:'f_'+req.childId+'_'+folderKey+'_'+Date.now(),name:folderName,icon:folderIcon,key:folderKey,childId:req.childId};
+    SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(e=>console.error('addFolder:',e));
+  }
+  // Persist all manually selected folder permissions too
+  if(_supa&&req.specialistId&&selectedFolders.length)
+    selectedFolders.forEach(async key=>{try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key});}catch(e){console.error('upsert perm:',e);}});
+  const child=DB.children.find(c=>c.id===req.childId);
+  // Notify the specialist they've been approved (not the parent themselves)
+  await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
+  re();
+  toast('Access granted to '+req.specialistName+'!');
+}
+
+async function denySpecialistRequest(requestId){
+  const requests=DB.specialistRequests||[];
+  const idx=requests.findIndex(r=>r.id===requestId);
+  if(idx>-1){requests[idx].status='denied';DB.specialistRequests=requests;}
+  if(_supa){try{await _supa.from('specialist_requests').update({status:'denied'}).eq('id',requestId);}catch(e){console.error('deny request:',e);}}
+  re();
+  toast('Request declined.');
+}
+
+async function approveFolderRequest(req){
+  // Grant the specific folder key that was requested
+  const specs=DB.specialists;
+  const si=specs.findIndex(s=>s.id===req.specialistId);
+  if(si>-1){
+    if(!specs[si].permissions[req.childId])specs[si].permissions[req.childId]=[];
+    if(!specs[si].permissions[req.childId].includes(req.requestedFolder))
+      specs[si].permissions[req.childId].push(req.requestedFolder);
+    DB.specialists=specs;
+  }
+  // Also update my_perms in case specialist is on same device
+  const myPerms=LS.get('my_perms',{});
+  if(!myPerms[req.childId])myPerms[req.childId]=[];
+  if(!myPerms[req.childId].includes(req.requestedFolder))myPerms[req.childId].push(req.requestedFolder);
+  LS.set('my_perms',myPerms);
+  // Mark request approved
+  const reqs=DB.specialistRequests;
+  const ri=reqs.findIndex(r=>r.id===req.id);
+  if(ri>-1){reqs[ri].status='approved';DB.specialistRequests=reqs;}
+  // Persist to Supabase
+  if(_supa&&req.specialistId){
+    try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:req.requestedFolder});}catch(e){console.error('approveFolderRequest perm:',e);}
+    try{await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);}catch(e){console.error('approveFolderRequest req:',e);}
+  }
+  const folder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===req.childId);
+  re();
+  toast('✅ Access granted to '+(folder?.name||req.requestedFolder)+' for '+req.specialistName+'!');
+}
+
+function showConnectionCodeModal(childId){
+  const child=DB.children.find(c=>c.id===childId);
+  openModal('🔗 Connection Code — '+child?.name,async(mb,close)=>{
+    // Check for an existing valid code
+    const existing=(DB.connectionCodes||[]).find(c=>c.childId===childId&&!c.used&&new Date(c.expiresAt)>new Date());
+    const code=existing?existing.code:await createConnectionCode(childId);
+
+    const card=el('div',{class:'conn-code-card',style:{marginBottom:'18px'}});
+    card.appendChild(el('div',{class:'conn-code-label'},['Share this code with the specialist']));
+    card.appendChild(el('div',{class:'conn-code-value'},[code]));
+    const exp=existing?existing.expiresAt:(DB.connectionCodes||[]).find(c=>c.code===code)?.expiresAt;
+    if(exp){
+      const d=new Date(exp);
+      card.appendChild(el('div',{class:'conn-code-expiry'},
+        ['Expires '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})]));
+    }
+    const btns=el('div',{class:'conn-code-btns'});
+    const copyBtn=el('button',{class:'conn-code-btn'},['📋 Copy Code']);
+    copyBtn.onclick=()=>{
+      navigator.clipboard?.writeText(code).then(()=>toast('✅ Code copied!'))
+        .catch(()=>{toast('Code: '+code,'info',6000);});
+    };
+    btns.appendChild(copyBtn);
+    const newBtn=el('button',{class:'conn-code-btn'},['🔄 New Code']);
+    newBtn.onclick=()=>{createConnectionCode(childId);close();showConnectionCodeModal(childId);};
+    btns.appendChild(newBtn);
+    card.appendChild(btns);
+    mb.appendChild(card);
+
+    // Email the code
+    const emailSection=el('div',{style:{marginBottom:'18px'}});
+    emailSection.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'8px'}},['📧 Or send code by email']));
+    const emailRow=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
+    const emailInp=el('input',{class:'inp',type:'email',placeholder:'specialist@example.com',style:{flex:1,marginBottom:'0'}});
+    const sendBtn=mkBtn('Send','btn-sm btn-primary',async()=>{
+      const to=emailInp.value.trim();
+      if(!to||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){toast('⚠️ Enter a valid email address.','error');return;}
+      sendBtn.disabled=true;sendBtn.textContent='Sending…';
+      try{
+        const resp=await fetch('/api/send-invite',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({to,childName:child?.name,connectionCode:code,fromName:session?.displayName||session?.email||'A parent'})
+        });
+        if(resp.ok){toast('✅ Code sent to '+to);}
+        else{const err=await resp.json().catch(()=>({}));toast('❌ '+(err.error||'Could not send email.'),'error');}
+      }catch(e){toast('❌ Network error: '+e.message,'error');}
+      sendBtn.disabled=false;sendBtn.textContent='Send';
+    });
+    emailRow.appendChild(emailInp);
+    emailRow.appendChild(sendBtn);
+    emailSection.appendChild(emailRow);
+    mb.appendChild(emailSection);
+
+    mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.6',fontWeight:500}},
+      ['The specialist enters this 6-character code in their app. They\'ll instantly gain access to '+child?.name+'\'s permitted folders. Codes expire after 48 hours.']));
+  },440);
+}
+
+function showEnterCodeModal(){
+  const specId=session?.specialistId;
+  const spec=getMySpecialistRecord();
+  openModal('🔗 Enter Connection Code',(mb,close)=>{
+    const wrap=el('div',{class:'conn-enter-wrap',style:{marginBottom:'18px'}});
+    wrap.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'10px'}},['🏥']));
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'6px',fontSize:'.95rem'}},['Join a Family\'s Care Team']));
+    wrap.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.55'}},
+      ['Ask the parent to generate a code from their Family Home screen. Enter it below to instantly connect.']));
+    mb.appendChild(wrap);
+
+    const codeInp=el('input',{class:'inp',placeholder:'Enter 6-character code (e.g. A3KF9X)',
+      style:{textAlign:'center',fontSize:'1.4rem',fontWeight:800,letterSpacing:'.18em',
+        textTransform:'uppercase',marginBottom:'8px'}});
+    codeInp.oninput=e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);};
+    mb.appendChild(codeInp);
+
+    // Show profession read-only (auto-filled from specialist profile)
+    const profDisplay=el('div',{style:{background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',padding:'12px 16px',marginBottom:'16px',fontSize:'.88rem',fontWeight:700,color:'var(--navy)'}});
+    profDisplay.textContent='Profession: '+(spec?.role||'Specialist');
+    mb.appendChild(profDisplay);
+
+    const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'20px'}});
+    mb.appendChild(errDiv);
+
+    mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',async()=>{
+      const code=codeInp.value.trim();
+      if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
+      const result=await redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
+      if(result.error){errDiv.textContent=result.error;return;}
+      close();
+      toast('🎉 Connected! You can now access '+result.child?.name+"'s permitted files.",'success',4500);
+      S.activeChild=result.childId;
+      S.activeTab='dashboard';
+      await refreshFromSupabase();
+      re();
+    }));
+  },440);
+}
+
+/* -----------------------------------------------
+   DOM HELPERS
+----------------------------------------------- */
+// iOS date input helper — shows placeholder text when empty
+function makeDateInput(placeholder,extraAttrs={}){
+  const inp=el('input',{class:'inp',type:'date','data-placeholder':placeholder,...extraAttrs});
+  // iOS workaround: use type=text when empty, switch to date on focus
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  if(isIOS){
+    inp.type='text';
+    inp.placeholder=placeholder;
+    inp.addEventListener('focus',()=>{inp.type='date';if(!inp.value)inp.placeholder='';});
+    inp.addEventListener('blur',()=>{if(!inp.value){inp.type='text';inp.placeholder=placeholder;}});
+  }
+  return inp;
+}
+
+function el(tag,attrs={},kids=[]){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs)){
+    if(k==='class')e.className=v;
+    else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='html')e.innerHTML=v;
+    else e.setAttribute(k,v);
+  }
+  for(const k of kids){if(k==null)continue;e.appendChild(typeof k==='string'?document.createTextNode(k):k);}
+  return e;
+}
+const d=(cls,kids=[],s={})=>el('div',{class:cls,style:s},kids);
+const p=(t,s={})=>el('p',{style:{color:'var(--slate)',lineHeight:'1.65',fontSize:'.86rem',fontWeight:500,...s}},[t]);
+function mkBtn(label,cls,onClick,attrs={}){
+  const b=el('button',{class:'btn '+cls,...attrs});
+  if(typeof label==='string')b.innerHTML=label;else b.appendChild(label);
+  b.addEventListener('click',onClick);return b;
+}
+function badge(t,c='teal'){return el('span',{class:`badge badge-${c}`},[t]);}
+function mkAvatar(emoji,sz=40,bg='#d1fae5'){
+  return el('div',{class:'avatar',style:{width:sz+'px',height:sz+'px',background:bg,fontSize:(sz*.42)+'px'}},[emoji]);
+}
+function mkChildAvatar(child,sz=48,radius='12px'){
+  const wrap=el('div',{style:{
+    width:sz+'px',height:sz+'px',borderRadius:radius,
+    background:(child.color||'#0d9488')+'44',
+    display:'flex',alignItems:'center',justifyContent:'center',
+    fontSize:(sz*.42)+'px',flexShrink:0,overflow:'hidden'
+  }});
+  if(child.photo){
+    const img=el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover',display:'block'}});
+    img.onerror=()=>{img.remove();wrap.textContent=child.avatar||'🧒';};
+    wrap.appendChild(img);
+  } else {
+    wrap.textContent=child.avatar||'🧒';
+  }
+  return wrap;
+}
+function spinner(){return el('span',{class:'spinner'});}
+
+function toast(msg,type='success',ms=3200){
+  const w=document.getElementById('toast-wrap');
+  if(!w)return;
+  const t=el('div',{class:'toast'+(type==='error'?' error':type==='info'?' info':'')},[msg]);
+  w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(()=>t.remove(),400);},ms);
+}
+
+/* -----------------------------------------------
+   MODAL ENGINE
+----------------------------------------------- */
+function openModal(title,buildFn,maxW=490){
+  const ov=el('div',{class:'overlay'});
+  const mo=el('div',{class:'modal',style:{maxWidth:maxW+'px'}});
+  const mh=el('div',{class:'modal-hd'},[
+    el('span',{class:'modal-title'},[title]),
+    el('button',{class:'modal-x',html:'✕'})
+  ]);
+  mh.querySelector('.modal-x').onclick=()=>ov.remove();
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const mb=el('div',{class:'modal-body'});
+  buildFn(mb,()=>ov.remove());
+  mo.appendChild(mh);mo.appendChild(mb);ov.appendChild(mo);
+  document.body.appendChild(ov);
+  return ()=>ov.remove();
+}
+function openConfirm(title,msg,danger,onOk){
+  openModal(title,(mb,close)=>{
+    mb.appendChild(p(msg,{marginBottom:'20px'}));
+    const row=d('',[], {display:'flex',gap:'11px',justifyContent:'flex-end'});
+    row.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    row.appendChild(mkBtn('Confirm','btn-md '+(danger?'btn-danger':'btn-primary'),()=>{onOk();close();}));
+    mb.appendChild(row);
+  },380);
+}
+
+/* -----------------------------------------------
+   TABS
+----------------------------------------------- */
+const PARENT_TABS=[
+  {id:'dashboard',label:'Home',icon:'🏠'},
+  {id:'files',label:'Files',icon:'📁'},
+  {id:'team',label:'Team',icon:'👥'},
+  {id:'calendar',label:'Calendar',icon:'📅'},
+  {id:'progress',label:'Progress',icon:'📈'},
+  {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
+  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'email',label:'Inbox',icon:'📧'},
+  {id:'settings',label:'Settings',icon:'⚙️'}
+];
+const SPEC_TABS=[
+  {id:'dashboard',label:'Home',icon:'🏠'},
+  {id:'patients',label:'Patients',icon:'👤'},
+  {id:'calendar',label:'Calendar',icon:'📅'},
+  {id:'vault',label:'Clinical Notes',icon:'📋'},
+  {id:'homework',label:'Tasks',icon:'📋'},
+  {id:'files',label:'Files',icon:'📁'},
+  {id:'chat',label:'Chat',icon:'💬'},
+  {id:'todo',label:'To-Do',icon:'✅'},
+  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'credentials',label:'My Folder',icon:'🗂️'},
+  {id:'request',label:'Join Team',icon:'📨'},
+  {id:'settings',label:'Settings',icon:'⚙️'}
+];
+const getTabs=()=>session?.role==='parent'?PARENT_TABS:SPEC_TABS;
+
+/* -----------------------------------------------
+   HELPERS
+----------------------------------------------- */
+const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f59e0b',school:'#ec4899'};
+const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
+const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗'};
+
+function pushNotif(type,msg,childId,linkTab=null){
+  // Auto-derive linkTab from type if not provided
+  if(!linkTab){
+    const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
+    linkTab=autoTab[type]||null;
+  }
+  // Write to LOCAL DB only — so the current user sees it in their UI immediately
+  const notif={id:'n_'+Date.now(),type,msg,time:'Just now',read:false,childId,linkTab};
+  const ns=DB.notifications;
+  ns.unshift(notif);
+  DB.notifications=ns;
+  // NOTE: We do NOT insert to Supabase for session.id here.
+  // Cross-party notifications (to the OTHER user) are sent via notifyOtherParty() at each call site.
+  sendPush('Huddledin 🤝',msg);
+}
+
+/* Push a notification to the OTHER party (not the current user) */
+async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
+  if(session?.id==='demo')return;
+  if(!linkTab){
+    const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
+    linkTab=autoTab[type]||null;
+  }
+  // Get household_id — try cache first, then live Supabase lookup as fallback
+  let hid=getChildHouseholdId(childId);
+  if(!hid&&childId&&session?.id!=='demo'){
+    try{
+      const {data:cRow}=await _supa.from('children').select('household_id').eq('id',childId).single();
+      if(cRow?.household_id){
+        hid=cRow.household_id;
+        // Also patch LS so future calls are fast
+        const kids=LS.get('children',[]);
+        const ki=kids.findIndex(c=>c.id===childId);
+        if(ki>-1){kids[ki].householdId=hid;LS.set('children',kids);}
+      }
+    }catch(e){}
+  }
+  try{
+    if(session?.role==='specialist'){
+      // Notify ALL users in the household (parent + co-parents)
+      if(hid){
+        let householdUserIds=[];
+        try{
+          const {data:hhMembers}=await _supa.from('profiles').select('id').eq('household_id',hid);
+          householdUserIds=(hhMembers||[]).map(m=>m.id).filter(id=>id!==session.id);
+        }catch(e){}
+        // Fallback: use child's parentId if household lookup fails
+        if(householdUserIds.length===0){
+          const _c=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
+          if(_c?.parentId)householdUserIds=[_c.parentId];
+        }
+        for(const uid of householdUserIds){
+          try{
+            await _supa.from('notifications').insert({
+              id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
+              household_id:hid,child_id:childId||null,
+              type,message:msg,read:false,link_tab:linkTab,
+              link_data:linkData?JSON.stringify(linkData):null
+            });
+          }catch(e){console.warn('notifyOtherParty specialist insert:',e);}
+        }
+      }
+    } else {
+      // Parent: notify all active specialists for this child
+      const team=getChildTeam(childId).filter(s=>s.status==='active');
+      for(const s of team){
+        try{
+          await _supa.from('notifications').insert({
+            id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
+            household_id:hid,child_id:childId||null,
+            type,message:msg,read:false,link_tab:linkTab,
+            link_data:linkData?JSON.stringify(linkData):null
+          });
+        }catch(e){console.warn('notifyOtherParty parent insert:',e);}
+      }
+    }
+  }catch(e){console.warn('notifyOtherParty:',e);}
+}
+
+/* -----------------------------------------------
+   AUTH SCREEN
+----------------------------------------------- */
+function showPrivacyPolicy(){
+  openModal('🔒 Privacy Policy',(mb)=>{
+    mb.style.maxHeight='70vh';mb.style.overflowY='auto';
+    const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+    const sections=[
+      ['1. Introduction',"Huddledin operates the collaborative care platform at huddledin.com. We protect the privacy of all users with particular care for sensitive health data about children."],
+      ['2. Who We Are',"Huddledin is operated from Israel. Contact us at admin@huddledin.com."],
+      ['3. Information We Collect',"We collect: account details (name, email, password), child profile data (name, date of birth, photo, therapy goals), health and therapy data (session notes, reports, appointments, progress), messages between parents and specialists, payment details (when introduced), and technical usage data."],
+      ['4. How We Use Your Information',"We use data to provide and improve the platform, enable secure communication, send invitations, process payments, and comply with legal obligations. We never sell your data or use it for advertising."],
+      ["5. Children Privacy","Children do not create their own accounts. All child data is managed by a parent or guardian. Parents control specialist access and may delete a child profile at any time. We do not collect data directly from children under 13."],
+      ['6. How We Share Your Information',"We share data only with: specialists you invite, trusted service providers (Supabase, Vercel, Resend, Sentry, Plausible), and where required by law. We never sell your data."],
+      ['7. Data Security',"All data is encrypted in transit (HTTPS) and at rest. Row Level Security controls access. Contact admin@huddledin.com immediately if you believe your account is compromised."],
+      ['8. Your Rights',"You may have rights to access, correct, delete or export your data. EU users have GDPR rights. Israeli users have rights under Israeli Privacy Protection Law. US users may have HIPAA rights. Email admin@huddledin.com to exercise any right."],
+      ['9. Data Retention',"Data is kept while your account is active. Child profiles are deleted immediately when removed by a parent. You may request full deletion at any time."],
+      ['10. Contact Us',"For any privacy questions: admin@huddledin.com | huddledin.com"],
+    ];
+    sections.forEach(s=>{
+      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
+      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
+    });
+    mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
+  },540);
+}
+
+function showTermsOfService(){
+  openModal('📋 Terms of Service',(mb)=>{
+    mb.style.maxHeight='70vh';mb.style.overflowY='auto';
+    const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+    const sections=[
+      ['1. Acceptance of Terms',"By accessing or using Huddledin, you agree to be bound by these Terms of Service. If you do not agree, please do not use the platform."],
+      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together."],
+      ['3. User Accounts',"You must provide accurate information when creating an account. You are responsible for maintaining your password confidentiality and all activity under your account."],
+      ['4. Parent Responsibilities',"Parents must ensure all information about their child is accurate, manage specialist access permissions appropriately, and ensure their use complies with applicable laws."],
+      ['5. Specialist Responsibilities',"Specialists must maintain professional standards in all communications, use the platform for legitimate professional purposes only, and comply with all applicable regulations."],
+      ['6. Prohibited Uses',"You may not use the platform for unlawful purposes, share false health information, attempt to access another account, harass any person, reverse-engineer the platform, or use it for commercial advertising."],
+      ['7. Health Information Disclaimer',"Huddledin is a coordination tool, not a medical device. Information shared does not constitute medical advice. Always consult qualified healthcare professionals for medical decisions."],
+      ['8. Data and Privacy',"Your use is governed by our Privacy Policy, which is incorporated into these Terms by reference."],
+      ['9. Intellectual Property',"The Huddledin platform, design, features and code are owned by Huddledin and protected by law. You may not copy or distribute any part without written consent."],
+      ['10. Termination',"We may suspend accounts that violate these Terms. You may terminate your account at any time by contacting admin@huddledin.com."],
+      ['11. Limitation of Liability',"Huddledin is provided as-is without warranties. To the maximum extent permitted by law, we are not liable for indirect or consequential damages."],
+      ['12. Governing Law',"These Terms are governed by the laws of the State of Israel. Disputes are subject to the exclusive jurisdiction of Israeli courts."],
+      ['13. Contact',"For questions about these Terms: admin@huddledin.com | huddledin.com"],
+    ];
+    sections.forEach(s=>{
+      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
+      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
+    });
+    mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
+  },540);
+}
+
+
+function renderAuth(){
+  const root=el('div',{id:'auth-screen'});
+  [{top:'-80px',right:'-80px',w:'250px',bg:'rgba(255,255,255,.10)'},
+   {bottom:'-60px',left:'-60px',w:'170px',bg:'rgba(255,255,255,.07)'},
+   {top:'40%',left:'8%',w:'110px',bg:'rgba(196,181,253,.14)'}
+  ].forEach(o=>{root.appendChild(el('div',{class:'auth-orb',style:{...o,width:o.w,height:o.w,background:o.bg}}));});
+
+  const card=el('div',{class:'auth-card'});
+  const hero=el('div',{class:'auth-hero'});
+  hero.appendChild(el('div',{class:'auth-logo-wrap'},['🤝']));
+  hero.appendChild(el('h1',{class:'auth-title ff'},['Huddledin']));
+  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children']));
+  card.appendChild(hero);
+
+  const body=el('div',{class:'auth-body'});
+  let mode='signin',selRole='parent';
+
+  const tabRow=el('div',{class:'auth-tab-row'});
+  const t1=el('button',{class:'auth-tab active'},['Sign In']);
+  const t2=el('button',{class:'auth-tab'},['Create Account']);
+  const setMode=m=>{mode=m;t1.className='auth-tab'+(m==='signin'?' active':'');t2.className='auth-tab'+(m==='signup'?' active':'');buildForm();};
+  t1.onclick=()=>setMode('signin');t2.onclick=()=>setMode('signup');
+  tabRow.appendChild(t1);tabRow.appendChild(t2);
+  body.appendChild(tabRow);
+
+  const formArea=el('div');body.appendChild(formArea);
+
+  function buildForm(){
+    formArea.innerHTML='';
+    const rp=el('div',{class:'role-pick'});
+    [{r:'parent',e:'👨‍👩‍👧',l:'Parent'},{r:'specialist',e:'🩺',l:'Specialist'}].forEach(({r,e,l})=>{
+      const o=el('div',{class:'role-opt'+(selRole===r?' sel':'')});
+      o.innerHTML=`<div class="re">${e}</div><div class="rl">${l}</div>`;
+      o.onclick=()=>{selRole=r;buildForm();};
+      rp.appendChild(o);
+    });
+    formArea.appendChild(rp);
+
+    const errBox=el('div');formArea.appendChild(errBox);
+    const ig=el('div',{class:'inp-group'});
+
+    if(mode==='signup'){
+      const ni=el('input',{class:'inp',placeholder:'Your full name',type:'text'});ni.id='auth-name';ig.appendChild(ni);
+      if(selRole==='specialist'){
+        const pi2=el('select',{class:'inp'});pi2.id='auth-profession';PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;pi2.appendChild(o);});ig.appendChild(pi2);
+      }
+    }
+    const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
+    const pi=el('input',{class:'inp',placeholder:'Password',type:'password'});pi.id='auth-pass';
+    ig.appendChild(ei);ig.appendChild(pi);
+
+    const sb=mkBtn(mode==='signin'?'Sign In ✨':'Create Account 🎉','btn-lg btn-primary btn-full',async()=>{
+      const email=ei.value.trim(),pass=pi.value.trim();
+      const name=mode==='signup'?(formArea.querySelector('#auth-name')?.value.trim()||''):'';
+      const profession=mode==='signup'&&selRole==='specialist'?(formArea.querySelector('#auth-profession')?.value.trim()||''):'';
+      errBox.innerHTML='';
+      if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
+      if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},['Please enter your profession.']));return;}
+      sb.disabled=true;sb.textContent='Signing in…';
+      const res=await doLogin(email,pass,selRole,name,profession);
+      sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
+      if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
+      track(mode==='signin'?'Login':'Signup',{role:selRole});
+      // Parents land on Global Home (Level 0); specialists go straight to dashboard
+      if(session.role==='parent'){
+        S.navLevel=0;
+        S.activeTab='dashboard';
+        const children=LS.get('children',[]);
+        S.activeChild=children[0]?.id||null;
+      } else {
+        S.navLevel=1;
+        S.activeTab='dashboard';
+        const myPatients=DB.children;
+        S.activeChild=myPatients[0]?.id||null;
+      }
+      // Schedule guided tour for new users (or returning users who haven't dismissed it)
+      if(res.isNew){
+        LS.set('tourNeedsShow',true);
+        LS.del('tourDismissed');
+        S.tourActive=true;S.tourStep=0;
+      } else if(shouldShowTour()){
+        S.tourActive=true;S.tourStep=0;
+      }
+      re();
+      // Process pending invite AFTER re() so session is fully set
+      const _pi=localStorage.getItem('pendingInviteToken');
+      if(_pi){setTimeout(()=>_processPendingInvite(),300);}
+      setupHouseholdSync();setupSpecialistSync();
+      // Show household invite modal for parents (if not dismissed/skipped)
+      if(session?.role==='parent'&&shouldShowHouseholdModal()){
+        setTimeout(()=>showHouseholdInviteModal(false),1200);
+      }
+    });
+    ig.appendChild(sb);
+    formArea.appendChild(ig);
+    formArea.appendChild(el('p',{class:'auth-hint'},[
+      mode==='signin'?'No account? ':'Have an account? ',
+      el('span',{class:'auth-link',onclick:()=>setMode(mode==='signin'?'signup':'signin')},
+        [mode==='signin'?'Create one free':'Sign in instead'])
+    ]));
+    // Google SSO
+    const orDiv=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',margin:'14px 0 10px'}});
+    orDiv.appendChild(el('div',{style:{flex:1,height:'1px',background:'var(--mint-l)'}}));
+    orDiv.appendChild(el('span',{style:{fontSize:'.74rem',color:'var(--slate-l)',fontWeight:600}},['or']));
+    orDiv.appendChild(el('div',{style:{flex:1,height:'1px',background:'var(--mint-l)'}}));
+    formArea.appendChild(orDiv);
+    const gBtn=el('button',{class:'btn btn-lg btn-white btn-full',style:{gap:'10px',justifyContent:'center',border:'1.5px solid var(--mint-l)'}});
+    gBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google';
+    gBtn.onclick=()=>doGoogleSignIn(selRole);
+    formArea.appendChild(gBtn);
+    // Demo mode quick button
+    const demoDiv=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)',textAlign:'center'}});
+    demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},['Or explore with sample data:']));
+    const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},['👀 Try Demo Mode']);
+    demoBtn2.onclick=async()=>{
+      // Quick demo login + load data
+      const r=await doLogin('demo@huddledin.com','demo','parent','Demo Parent');
+      if(r.ok){
+        S.navLevel=0;S.activeTab='dashboard';
+        // Don't show tour in demo mode
+        LS.set('tourDismissed',true);
+        LS.del('tourNeedsShow');
+        // FIX F6: loadDemoData() already calls re() internally — do not call re() again here
+        loadDemoData();
+      }
+    };
+    demoDiv.appendChild(demoBtn2);
+    formArea.appendChild(demoDiv);
+  }
+  buildForm();
+  card.appendChild(body);
+
+  // Privacy & Terms footer
+  const authFooter=el('div',{style:{textAlign:'center',marginTop:'18px',padding:'0 8px'}});
+  authFooter.appendChild(el('p',{style:{fontSize:'.72rem',color:'var(--slate-l)',lineHeight:'1.7'}}, [
+    'By using Huddledin you agree to our ',
+    el('span',{class:'auth-link',style:{fontSize:'.72rem'},onclick:()=>showPrivacyPolicy()},['Privacy Policy']),
+    ' and ',
+    el('span',{class:'auth-link',style:{fontSize:'.72rem'},onclick:()=>showTermsOfService()},['Terms of Service']),
+    '.'
+  ]));
+  card.appendChild(authFooter);
+  root.appendChild(card);
+  return root;
+}
+
+/* -----------------------------------------------
+   APP SHELL
+----------------------------------------------- */
+function renderShell(){
+  // Full-screen calendar overlay (always on top)
+  if(S.calFullscreen){
+    const shell=el('div',{id:'app-shell'});
+    shell.appendChild(renderHeader());
+    shell.appendChild(renderCalFullscreen());
+    shell.appendChild(renderBottomNav());
+    return shell;
+  }
+
+  const shell=el('div',{id:'app-shell'});
+  shell.appendChild(renderHeader());
+
+  // Drawer backdrop
+  if(S.isDrawerOpen){
+    const bd=el('div',{class:'drawer-backdrop'});
+    bd.onclick=()=>{S.isDrawerOpen=false;re();};
+    shell.appendChild(bd);
+  }
+  shell.appendChild(renderDrawer());
+
+  const body=el('div',{id:'body'});
+
+  if(session?.role==='parent'){
+    if(S.navLevel===0){
+      // Level 0: Global Family Home — no sidenav, no bottom tab bar content routing
+      const main=el('main',{id:'main'});
+      main.appendChild(renderGlobalHome());
+      body.appendChild(main);
+    } else {
+      // Level 1: Inside a child's profile
+      body.appendChild(renderSidenav());
+      const main=el('main',{id:'main'});
+      main.appendChild(renderContent());
+      body.appendChild(main);
+    }
+  } else {
+    // Specialist — always at Level 1 equivalent
+    body.appendChild(renderSidenav());
+    const main=el('main',{id:'main'});
+    main.appendChild(renderContent());
+    body.appendChild(main);
+  }
+
+  shell.appendChild(body);
+  shell.appendChild(renderBottomNav());
+  if(S.searchOpen)shell.appendChild(renderSearchOverlay());
+  // Tour overlay — always rendered on top
+  if(S.tourActive){
+    const tourEl=renderTour();
+    if(tourEl)shell.appendChild(tourEl);
+  }
+  return shell;
+}
+
+/* -- HEADER — adapts to nav level -- */
+function renderHeader(){
+  const hd=el('header',{id:'header'});
+  const inner=el('div',{class:'header-inner'});
+
+  // -- Hamburger (always left) --
+  const ham=el('button',{class:'hamburger'+(S.isDrawerOpen?' open':''),
+    'aria-label':'Open navigation menu','aria-expanded':String(S.isDrawerOpen)});
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.appendChild(el('span',{class:'ham-bar'}));
+  ham.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+  inner.appendChild(ham);
+
+  if(session?.role==='parent' && S.navLevel===1){
+    // -- Level 1: Logo acts as HOME button (returns to Global Home) --
+    const logo=el('button',{style:{
+      display:'flex',alignItems:'center',gap:'8px',background:'none',
+      border:'none',cursor:'pointer',padding:'4px 6px',borderRadius:'12px',
+      transition:'background .14s',flexShrink:0
+    }});
+    logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    logo.onclick=()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();};
+    logo.title='Back to Family Home';
+    inner.appendChild(logo);
+
+    // -- Centre: Current child name --
+    const child=DB.children.find(c=>c.id===S.activeChild);
+    if(child){
+      const centre=el('div',{style:{
+        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'
+      }});
+      const av=el('div',{style:{
+        width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',
+        background:child.color+'22',border:'2.5px solid '+(child.color||'var(--teal)'),
+        display:'flex',alignItems:'center',
+        justifyContent:'center',fontSize:'1rem',flexShrink:0
+      }});
+      if(child.photo){av.appendChild(el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));}
+      else {av.textContent=child.avatar;}
+      centre.appendChild(av);
+      centre.appendChild(el('span',{style:{
+        fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'
+      }},[child.name.split(' ')[0]]));
+      // Child switcher dropdown — always active
+      const allChildren=DB.children;
+      centre.style.cursor='pointer';
+      centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
+      let csDd=null;
+      centre.onclick=e=>{
+        e.stopPropagation();
+        if(csDd){csDd.remove();csDd=null;return;}
+        csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
+        allChildren.forEach(ch=>{
+          const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:ch.id===S.activeChild?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
+          const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'22',border:'2px solid '+(ch.color||'var(--teal)'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+          if(ch.photo){const img=el('img',{src:ch.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}});av2.appendChild(img);}
+          else{av2.textContent=ch.avatar;}
+          item.appendChild(av2);
+          item.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[ch.name]));
+          if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
+          item.onmouseenter=()=>item.style.background='var(--mint-ll)';
+          item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
+          csDd.appendChild(item);
+        });
+        (document.getElementById('header')||document.body).appendChild(csDd);
+        const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
+        setTimeout(()=>document.addEventListener('click',out),10);
+      };
+      inner.appendChild(centre);
+    }
+  } else if(session?.role==='parent' && S.navLevel===0){
+    // -- Level 0: Logo is just branding --
+    const lvl0Logo=el('div',{id:'logo',style:{cursor:'default',display:'flex',alignItems:'center',gap:'8px'}});
+    lvl0Logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    lvl0Logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    inner.appendChild(lvl0Logo);
+    // No switcher at Level 0 — child selection lives in the home page bubbles
+    inner.appendChild(el('div',{style:{flex:1}})); // spacer
+  } else {
+    // -- Specialist: logo → home --
+    const specLogo=el('div',{id:'logo',style:{cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}});
+    specLogo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+    specLogo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+    specLogo.onclick=()=>{S.activeTab='dashboard';re();};
+    specLogo.title='Back to Dashboard';
+    inner.appendChild(specLogo);
+    const spec=getMySpecialistRecord();
+    const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
+    nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
+      [spec?.role||'Specialist']));
+    inner.appendChild(nameTag);
+  }
+
+  hd.appendChild(inner);
+  return hd;
+}
+
+/* -- NOTIF BELL -- */
+function renderNotifBell(){
+  const notifs=DB.notifications;
+  const unread=notifs.filter(n=>!n.read).length;
+  const wrap=el('div',{class:'notif-wrap'});
+  const btn2=el('button',{class:'notif-btn'},['🔔']);
+  if(unread>0)btn2.appendChild(el('span',{class:'notif-count'},[String(unread)]));
+  let dd=null;
+  btn2.onclick=e=>{
+    e.stopPropagation();
+    if(dd){dd.remove();dd=null;return;}
+    dd=el('div',{class:'notif-dropdown'});
+    const dh=el('div',{class:'notif-dd-hd'},[
+      el('span',{style:{fontWeight:800,color:'var(--navy)'}},['Notifications']),
+      mkBtn('See all','btn-sm btn-lav',()=>{dd.remove();dd=null;S.navLevel=1;S.activeTab='notifications';re();})
+    ]);
+    dd.appendChild(dh);
+    (notifs.slice(0,6)).forEach(n=>{
+      const _bnc=DB.children.find(c=>c.id===n.childId);
+      const _bnColor=_bnc?.color||null;
+      const ni=el('div',{class:'notif-item'+(n.read?'':' unread'),style:_bnColor?{borderLeft:`3px solid ${_bnColor}`}:{}});
+      ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
+      const niBody=el('div',{});
+      niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
+      niBody.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'2px'}},[n.time]));
+      ni.appendChild(niBody);
+      ni.onclick=async()=>{
+        // Mark read
+        const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
+        if(i>-1){ns[i].read=true;DB.notifications=ns;}
+        const lsN=LS.get('notifications',[]);const li=lsN.findIndex(x=>x.id===n.id);
+        if(li>-1){lsN[li].read=true;LS.set('notifications',lsN);}
+        if(session?.id!=='demo'){try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}}
+        dd.remove();dd=null;
+        // Deep-link — same logic as full notification page
+        const tab=n.linkTab||n.link_tab;
+        const ld=n.linkData||null;
+        _pushNav();
+        if(n.childId)S.activeChild=n.childId;
+        S.navLevel=1;
+        if(tab==='chat'){
+          S.calFullscreen=false;S.activeTab='chat';
+          if(ld?.chatId){
+            S.pendingChatId=ld.chatId;
+            if(!S.chatsLoaded){
+              S.chatsLoaded=true;
+              loadChatsFromSupabase().then(()=>{
+                if(S.pendingChatId){S.activeChatId=S.pendingChatId;S.pendingChatId=null;}
+                re();
+              });
+            } else {
+              S.activeChatId=ld.chatId;
+            }
+          } else {S.chatsLoaded=true;}
+        } else if(tab==='calendar'){
+          S.calFullscreen=true;S.activeTab='calendar';
+          if(ld?.aptDate)S.calJumpDate=ld.aptDate;
+        } else if(tab){
+          S.calFullscreen=false;S.activeTab=tab;
+        } else {
+          S.activeTab='notifications';
+        }
+        re();
+      };
+      dd.appendChild(ni);
+    });
+    wrap.appendChild(dd);
+    const out=e2=>{if(!wrap.contains(e2.target)){dd?.remove();dd=null;document.removeEventListener('click',out);}};
+    setTimeout(()=>document.addEventListener('click',out),10);
+  };
+  wrap.appendChild(btn2);return wrap;
+}
+
+/* -- NAVIGATION DRAWER -- */
+function renderDrawer(){
+  const drawer=el('div',{class:'drawer'+(S.isDrawerOpen?' open':''),
+    id:'nav-drawer','aria-hidden':String(!S.isDrawerOpen)});
+
+  // -- Profile header inside drawer --
+  const spec=getMySpecialistRecord();
+  const displayName=session?.role==='parent'
+    ?`${session?.name||'Parent'}`
+    :(spec?.name||session?.name||'Specialist');
+  const displayRole=session?.role==='parent'?'Parent · Managing Care':'🩺 '+( spec?.role||'Specialist');
+  const avatar=session?.role==='parent'?'👨‍👩‍👧':'🩺';
+
+  const prof=el('div',{class:'drawer-profile'});
+  prof.appendChild(el('div',{class:'drawer-avatar'},[avatar]));
+  prof.appendChild(el('div',{class:'drawer-name'},[displayName]));
+  prof.appendChild(el('div',{class:'drawer-role'},[displayRole]));
+  drawer.appendChild(prof);
+
+  // -- Scrollable nav area --
+  const scroll=el('div',{class:'drawer-scroll'});
+
+  // Helper: build a nav item
+  function drawerItem(icon,label,tabId,badgeCount=0,isDanger=false){
+    const isActive=S.activeTab===tabId && S.navLevel===1;
+    const isHomeActive=tabId==='home' && S.navLevel===0;
+    const item=el('button',{
+      class:'drawer-item'+((isActive||isHomeActive)?' active':'')+(isDanger?' danger':'')
+    });
+    const ic=el('div',{class:'di-icon'},[icon]);
+    item.appendChild(ic);
+    item.appendChild(el('span',{class:'di-label'},[label]));
+    if(badgeCount>0){
+      item.appendChild(el('span',{class:'di-badge'},[badgeCount>9?'9+':String(badgeCount)]));
+    }
+    if(!isDanger){
+      item.onclick=()=>{
+        S.isDrawerOpen=false;
+        if(tabId==='home'){
+          // Return to Global Family Home
+          _pushNav();
+          S.navLevel=0;
+          re();
+        } else {
+          // Enter child profile at the correct tab
+          if(session?.role==='parent') S.navLevel=1;
+          switchTab(tabId);
+        }
+      };
+    }
+    return item;
+  }
+
+  // -- Core sections --
+  scroll.appendChild(el('div',{class:'drawer-section-label'},['Navigation']));
+
+  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const unreadEmails=(DB.emailInbox||[]).filter(e=>!e.read).length;
+
+  if(session?.role==='parent'){
+    const coreItems=[
+      {icon:'🏠',label:'Family Home',id:'home'},
+      {icon:'📊',label:'Dashboard',id:'dashboard'},
+      {icon:'📁',label:'Files',id:'files'},
+      {icon:'👥',label:'Care Team',id:'team'},
+      {icon:'📅',label:'Calendar',id:'calendar'},
+      {icon:'📈',label:'Progress',id:'progress'},
+      {icon:'💬',label:'Chat',id:'chat'},
+    ];
+    coreItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
+  } else {
+    const specItems=[
+      {icon:'🏠',label:'Home',id:'dashboard'},
+      {icon:'👤',label:'Patients',id:'patients'},
+      {icon:'📋',label:'Clinical Notes',id:'vault'},
+      {icon:'📋',label:'Tasks',id:'homework'},
+      {icon:'📁',label:'Files',id:'files'},
+      {icon:'💬',label:'Chat',id:'chat'},
+      {icon:'🔔',label:'Alerts',id:'notifications'},
+      {icon:'⚙️',label:'Settings',id:'settings'},
+    ];
+    specItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
+    // Specialist-only extras
+    scroll.appendChild(el('div',{class:'drawer-sep'}));
+    scroll.appendChild(el('div',{class:'drawer-section-label'},['My Account']));
+    scroll.appendChild(drawerItem('🗂️','My Credentials','credentials'));
+    scroll.appendChild(drawerItem('📨','Join Team','request'));
+    // Search button for specialists
+    const srchItem=el('button',{class:'drawer-item'});
+    srchItem.appendChild(el('div',{class:'di-icon'},['🔍']));
+    srchItem.appendChild(el('span',{class:'di-label'},['Search']));
+    srchItem.onclick=()=>{S.isDrawerOpen=false;S.searchOpen=true;re();};
+    scroll.appendChild(srchItem);
+  }
+
+  // -- Utilities section --
+  scroll.appendChild(el('div',{class:'drawer-sep'}));
+  scroll.appendChild(el('div',{class:'drawer-section-label'},['Utilities']));
+
+  // Notifications
+  const notifItem=drawerItem('🔔','Notifications','notifications',unreadNotifs);
+  scroll.appendChild(notifItem);
+
+  // Email/Inbox
+  const emailItem=drawerItem('📧',session?.role==='parent'?'Inbox':'Alerts','email',unreadEmails);
+  scroll.appendChild(emailItem);
+
+  // Settings (if in tabs)
+  if(session?.role==='parent'){
+    const settingsItem=drawerItem('⚙️','Settings','settings');
+    settingsItem.id='tour-target-settings';
+    scroll.appendChild(settingsItem);
+    // Quick tour restart in drawer
+    const tourItem=el('button',{class:'drawer-item'});
+    tourItem.appendChild(el('div',{class:'di-icon'},['🗺️']));
+    tourItem.appendChild(el('span',{class:'di-label'},['Restart Tour']));
+    tourItem.onclick=()=>{S.isDrawerOpen=false;startTour();};
+    scroll.appendChild(tourItem);
+  }
+
+  // -- Sign Out (bottom, danger) --
+  scroll.appendChild(el('div',{class:'drawer-sep'}));
+  const signOutItem=el('button',{class:'drawer-item danger'});
+  signOutItem.appendChild(el('div',{class:'di-icon'},['👋']));
+  signOutItem.appendChild(el('span',{class:'di-label'},['Sign Out']));
+  signOutItem.onclick=()=>{S.isDrawerOpen=false;doLogout();re();};
+  scroll.appendChild(signOutItem);
+
+  drawer.appendChild(scroll);
+
+  // Animate open via rAF so CSS transition fires
+  if(S.isDrawerOpen){
+    requestAnimationFrame(()=>{
+      const d=document.getElementById('nav-drawer');
+      if(d){d.style.transform='translateX(0)';}
+    });
+  }
+
+  return drawer;
+}
+
+/* -- SIDENAV -- */
+function renderSidenav(){
+  const tabs=getTabs();
+  const spec=getMySpecialistRecord();
+  const nav=el('nav',{id:'sidenav'});
+  const prof=el('div',{class:'sidenav-profile'});
+  // FIX F9/QA-SEC-2: avoid innerHTML with user-controlled data to prevent XSS
+  prof.appendChild(el('div',{class:'sp-label'},['Signed in as']));
+  const profName=session?.role==='parent'?(session?.name||'Parent'):(spec?.name||session?.name||'Specialist');
+  prof.appendChild(el('div',{class:'sp-name'},[profName]));
+  prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 Specialist','teal'));
+  nav.appendChild(prof);
+  const tourTargets={files:'tour-target-files',team:'tour-target-team',vault:'tour-target-vault',credentials:'tour-target-creds',patients:'tour-target-patients',settings:'tour-target-settings'};
+  tabs.forEach(t=>{
+    const b=el('button',{class:'nav-btn'+(S.activeTab===t.id?' active':'')});
+    if(tourTargets[t.id])b.id=tourTargets[t.id];
+    b.innerHTML=`<span class="ni">${t.icon}</span>${t.label}`;
+    b.onclick=()=>switchTab(t.id);
+    nav.appendChild(b);
+  });
+  return nav;
+}
+
+/* -----------------------------------------------
+   BACK BUTTON / HISTORY MANAGEMENT
+   Intercepts Android back & iOS swipe-back to
+   navigate within the app instead of exiting.
+----------------------------------------------- */
+
+// Snapshot the parts of S that define "which screen you're on"
+function _snapNav(){
+  return{
+    navLevel:S.navLevel,
+    activeTab:S.activeTab,
+    activeChild:S.activeChild,
+    calFullscreen:S.calFullscreen,
+    activeChatId:S.activeChatId,
+    calFsMonth:S.calFsMonth||0,
+    activeVaultId:S.activeVaultId,
+    activeChatChildId:S.activeChatChildId,
+    isDrawerOpen:S.isDrawerOpen,
+    patientStatusFilter:S.patientStatusFilter,
+    activeProgressTab:S.activeProgressTab,
+    calendarMode:S.calendarMode,
+  };
+}
+
+// Push a new history entry (call BEFORE mutating S)
+function _pushNav(){
+  const snap=_snapNav();
+  window.history.pushState(snap,'');
+}
+
+// On popstate (back button / swipe back): restore snapshot
+window.addEventListener('popstate',function(e){
+  if(!session)return; // let browser handle if logged out
+  const snap=e.state;
+  if(!snap){
+    // No state means we're at the very first entry — push a fresh one so
+    // the next back press has somewhere to go, but don't exit the app
+    window.history.pushState(_snapNav(),'');
+    return;
+  }
+  // Restore S from snapshot
+  Object.assign(S,snap);
+  // Close drawer on back
+  S.isDrawerOpen=false;
+  re();
+});
+
+// Seed the initial history entry once session is available
+// Called from login success path
+function _seedHistory(){
+  // Replace the current (empty) entry with our initial state
+  window.history.replaceState(_snapNav(),'');
+}
+
+function switchTab(id){
+  // Guard unsaved vault changes
+  if(S.activeTab==='vault'&&S.vaultHasUnsaved&&id!=='vault'){
+    openConfirm('Unsaved Changes','You have unsaved notes in the Vault. Leave without saving?',true,()=>{
+      _pushNav();
+      S.vaultHasUnsaved=false;S.activeTab=id;
+      if(session?.role==='parent')S.navLevel=1;
+      S.isDrawerOpen=false;re();
+    });
+    return;
+  }
+  _pushNav();
+  S.calFullscreen=false; // always exit fullscreen when switching tabs
+  if(id==='calendar'){
+    S.calendarMode='joint';S.calFullscreen=false;
+    if(session?.role==='specialist'){
+      const kids=LS.get('children',[]);
+      const apts=LS.get('appointments',[]);
+      if(kids.length>0&&apts.length===0)refreshFromSupabase().then(()=>re());
+    }
+  }
+  // Always reset folder view when navigating to files tab
+  if(id==='files')S.activeFolderId=null;
+  if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
+  S.activeTab=id;
+  if(session?.role==='parent' && id!=='home') S.navLevel=1;
+  S.isDrawerOpen=false;
+  re();
+  // Refresh folders+files from Supabase when opening File Manager
+  if(id==='files'&&session?.id!=='demo'){
+    refreshFromSupabase().then(()=>re()).catch(()=>{});
+  }
+}
+
+/* -- BOTTOM NAV — 3 quick tabs + menu -- */
+function renderBottomNav(){
+  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const myId=session?.id||'';
+  const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).reduce((s,c)=>s+(c.unreadCount||1),0);
+  const totalBadge=unreadNotifs; // badge shows unread notifications only
+
+  const nav=el('nav',{id:'bottom-nav'});
+  const inner=el('div',{class:'bnav-inner'});
+
+  if(session?.role==='parent'){
+    // 4-icon fixed bar for parents
+    const parentTabs=[
+      {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
+      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
+      {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;switchTab('chat');}},
+      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
+    ];
+    parentTabs.forEach(t=>{
+      const b=el('button',{class:'bnav-btn'+(t.isActive?' active':'')});
+      b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
+      b.appendChild(document.createTextNode(t.label));
+      if(t.id==='notifications'&&totalBadge>0){
+        b.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+      }
+      if(t.id==='chat'&&unreadChats>0){
+        b.appendChild(el('span',{class:'bnav-badge',style:{background:'var(--coral)'}},[unreadChats>9?'9+':String(unreadChats)]));
+      }
+      b.onclick=t.action;
+      inner.appendChild(b);
+    });
+  } else {
+    // Specialists keep their existing 3-tab layout
+    const specTabs=[
+      {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
+      {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
+      {id:'vault',label:'Clinical Notes',icon:'📋',action:()=>switchTab('vault')},
+    ];
+    specTabs.forEach(t=>{
+      const isActive=S.activeTab===t.id;
+      const b=el('button',{class:'bnav-btn'+(isActive?' active':'')});
+      b.appendChild(el('span',{class:'bnav-icon'},[t.icon]));
+      b.appendChild(document.createTextNode(t.label));
+      b.onclick=t.action;
+      inner.appendChild(b);
+    });
+    // Menu tab for specialists
+    const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
+    const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
+    menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
+    menuBtn.appendChild(menuIcon);
+    menuBtn.appendChild(document.createTextNode('Menu'));
+    if(totalBadge>0){
+      menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
+    }
+    menuBtn.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+    inner.appendChild(menuBtn);
+  }
+
+  nav.appendChild(inner);
+  return nav;
+}
+
+/* -- GLOBAL SEARCH OVERLAY -- */
+function renderSearchOverlay(){
+  const ov=el('div',{class:'search-overlay'});
+  ov.onclick=e=>{if(e.target===ov){S.searchOpen=false;re();}};
+  const box=el('div',{class:'search-box'});
+  const si=el('input',{class:'search-inp',placeholder:'🔍 Search patients, notes, files...',type:'text'});
+  si.value=S.searchQuery||'';
+  box.appendChild(si);
+  const results=el('div',{class:'search-results'});
+  const doSearch=q=>{
+    results.innerHTML='';
+    if(!q.trim())return;
+    // Search patients
+    DB.children.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())).forEach(c=>{
+      const item=el('div',{class:'search-result-item'});
+      item.appendChild(mkChildAvatar(c,36,'50%'));
+      const siBody=el('div',{});
+      siBody.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[c.name]));
+      siBody.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['Patient · Age '+c.age]));
+      item.appendChild(siBody);
+      item.onclick=()=>{S.activeChild=c.id;S.activeTab='vault';S.searchOpen=false;S.searchQuery='';re();};
+      results.appendChild(item);
+    });
+    // Search notes
+    const specId=session?.specialistId||null;
+    DB.vaultNotes.filter(n=>{
+      if(!n.title.toLowerCase().includes(q.toLowerCase())&&!n.content.toLowerCase().includes(q.toLowerCase()))return false;
+      if(!specId)return false; // parents have no vault tab — skip vault notes in search
+      if(n.specialistId===specId)return true; // own notes always visible
+      const vault=(DB.specialistVaults||[]).find(v=>v.specialistId===n.specialistId&&v.childId===n.childId);
+      return vault&&(vault.authorizedSpecialistIds||[]).includes(specId); // explicitly authorized only
+    }).forEach(n=>{
+      const c=DB.children.find(x=>x.id===n.childId);
+      const item=el('div',{class:'search-result-item'});
+      item.appendChild(el('span',{style:{fontSize:'1.5rem'}},['📝']));
+      const niBody2=el('div',{});
+      niBody2.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)'}},[n.title]));
+      niBody2.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[(c?.avatar||'')+' '+(c?.name||'')+' · '+n.date]));
+      item.appendChild(niBody2);
+      item.onclick=()=>{_pushNav();S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;S.searchOpen=false;S.searchQuery='';re();};
+      results.appendChild(item);
+    });
+    if(!results.children.length){
+      results.appendChild(el('div',{style:{padding:'20px',color:'var(--slate)',textAlign:'center',fontWeight:600}},['No results found.']));
+    }
+  };
+  si.oninput=e=>{S.searchQuery=e.target.value;doSearch(e.target.value);};
+  doSearch(S.searchQuery||'');
+  box.appendChild(results);ov.appendChild(box);
+  setTimeout(()=>si.focus(),50);
+  return ov;
+}
+
+/* -----------------------------------------------
+   CONTENT ROUTER
+----------------------------------------------- */
+/* -----------------------------------------------
+   LEVEL 0 — GLOBAL FAMILY HOME
+----------------------------------------------- */
+
+// Per-child brand colors used throughout the home (fallback to child.color)
+const CHILD_COLORS=['#0d9488','#7c3aed','#f97316','#ec4899','#0369a1','#16a34a'];
+function getChildColor(idx){return CHILD_COLORS[idx%CHILD_COLORS.length];}
+
+function renderGlobalHome(){
+  const children=DB.children;
+  const allApts=LS.get('appointments',[]);
+  const allHW=DB.homework;
+  const hasChildren=children.length>0;
+  const sec=el('div',{class:'global-home'});
+
+  // -- If no children yet: full welcome zero-state --
+  if(!hasChildren){
+    const banner=el('div',{class:'welcome-banner'});
+    banner.appendChild(el('h2',{},[`Welcome, ${session?.name||'there'}! 👋`]));
+    banner.appendChild(el('p',{},[
+      'Huddledin is your family\'s care coordination hub. Start by adding your first child, then invite their specialists to collaborate.'
+    ]));
+    const bannerBtns=el('div',{class:'welcome-banner-actions'});
+    const addBtn=el('button',{class:'wb-btn primary'},['＋ Add First Child']);
+    addBtn.onclick=()=>showAddChildModal();
+    bannerBtns.appendChild(addBtn);
+    const demoBtn=el('button',{class:'wb-btn'},['👀 Try Demo Mode']);
+    demoBtn.onclick=()=>openConfirm('Load Demo Data','This will populate the app with sample data for Lily & Noah Carter so you can explore all features. You can clear it from Settings.',false,()=>loadDemoData());
+    bannerBtns.appendChild(demoBtn);
+    banner.appendChild(bannerBtns);
+    sec.appendChild(banner);
+
+    // Quick action cards
+    const howTitle=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem',marginBottom:'14px',marginTop:'4px'}},['How it works']);
+    sec.appendChild(howTitle);
+
+    const steps=[
+      {icon:'👶',title:'Add a Child',desc:'Create a profile with their name and date of birth.',btn:'＋ Add Child',action:()=>showAddChildModal()},
+      {icon:'🔗',title:'Invite Specialists',desc:'Generate a Connection Code and share it with their therapists.',btn:'Generate Code (add child first)',action:null},
+      {icon:'📁',title:'Upload Reports',desc:'Drop documents into the Global Inbox and sort them into folders.',btn:'Upload File',action:()=>{
+        const inp=el('input',{type:'file',style:{display:'none'}});
+        inp.onchange=e=>{
+          const f=e.target.files[0];if(!f)return;
+          const files=DB.globalInboxFiles||[];
+          files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});
+          DB.globalInboxFiles=files;toast('📥 File added to inbox!');re();
+        };
+        document.body.appendChild(inp);inp.click();
+      }}
+    ];
+    steps.forEach(s=>{
+      const card=el('div',{class:'card',style:{display:'flex',gap:'14px',alignItems:'flex-start',marginBottom:'11px'}});
+      card.appendChild(el('div',{style:{fontSize:'1.8rem',flexShrink:0}},s.icon?[s.icon]:[s.icon]));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[s.title]));
+      info.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.55',marginBottom:'10px'}},[s.desc]));
+      // FIX FS4: setAttribute('disabled','false') still disables the button in HTML.
+      // Set .disabled property directly after element creation instead.
+      const sb=el('button',{class:'btn btn-sm '+(s.action?'btn-primary':'btn-slate'),
+        style:{opacity:s.action?1:.5,cursor:s.action?'pointer':'default'}
+      },[s.btn]);
+      if(!s.action)sb.disabled=true;
+      if(s.action)sb.onclick=s.action;
+      info.appendChild(sb);
+      card.appendChild(info);
+      sec.appendChild(card);
+    });
+
+    return sec;
+  }
+
+  // -- Normal home with children --
+  // Time-aware greeting
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const greet=el('div',{class:'family-greeting'});
+  const gt=el('div',{class:'family-greeting-text'});
+  gt.appendChild(el('div',{class:'family-greeting-title'},
+    [`${hour<12?'🌅':hour<17?'☀️':'🌙'} ${greeting}!`]));
+  const pendingCount=allHW.filter(h=>!h.completed).length;
+  gt.appendChild(el('div',{class:'family-greeting-sub'},
+    [`${children.length} child${children.length!==1?'ren':''} · ${pendingCount} pending task${pendingCount!==1?'s':''}`]));
+  greet.appendChild(gt);
+  // Tour restart button (subtle)
+  const tourBtn=el('button',{
+    style:{background:'var(--mint-l)',border:'none',borderRadius:'99px',padding:'6px 12px',
+      fontSize:'.7rem',fontWeight:800,color:'var(--teal-d)',cursor:'pointer',flexShrink:0}
+  },['🗺️ Tour']);
+  tourBtn.onclick=()=>startTour();
+  greet.appendChild(tourBtn);
+  sec.appendChild(greet);
+
+  // Child Bubbles
+  sec.appendChild(el('div',{class:'child-bubbles-label'},['Your Children']));
+  const row=el('div',{class:'child-bubbles-row'});
+
+  children.forEach((c,idx)=>{
+    const color=c.color||getChildColor(idx);
+    const childApts=allApts.filter(a=>a.childId===c.id);
+    const childHW=allHW.filter(h=>h.childId===c.id&&!h.completed);
+    const hasEvents=childApts.length>0;
+
+    const bubble=el('button',{
+      class:'child-bubble'+(S.activeChild===c.id&&S.navLevel===1?' selected':''),
+      style:{'--cb-color':color}
+    });
+    if(hasEvents)bubble.classList.add('has-events');
+
+    const circle=el('div',{class:'cb-circle'+(c.photo?'':' placeholder'),style:{background:S.activeChild===c.id?color+'33':color+'18',border:'2px solid '+(S.activeChild===c.id?color:'transparent'),transition:'all .2s'}});
+    if(c.photo){
+      circle.className='cb-circle';
+      circle.appendChild(el('img',{src:c.photo,alt:c.name}));
+    } else {
+      circle.textContent=c.avatar;
+      circle.appendChild(el('div',{class:'cb-upload-hint'},['+ photo']));
+    }
+    bubble.appendChild(circle);
+    bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
+    if(childHW.length>0){
+      bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
+    }
+    bubble.onclick=()=>{_pushNav();S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
+    bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
+    row.appendChild(bubble);
+  });
+
+  // Add-child bubble
+  const addBubble=el('button',{class:'child-bubble-add'});
+  addBubble.appendChild(el('div',{class:'cba-circle'},['＋']));
+  addBubble.appendChild(el('div',{class:'cba-name'},['Add Child']));
+  addBubble.onclick=()=>showAddChildModal();
+  row.appendChild(addBubble);
+  sec.appendChild(row);
+
+  // Connection code shortcut strip (when children exist but no specialists yet)
+  const specialists=DB.specialists||[];
+  const activeSpecs=specialists.filter(s=>s.status==='active');
+  if(activeSpecs.length===0 && children.length>0){
+    const connBanner=el('div',{style:{
+      background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+      borderRadius:'var(--r-lg)',padding:'14px 16px',
+      border:'1.5px solid var(--lav)',marginBottom:'20px',
+      display:'flex',alignItems:'center',gap:'12px'
+    }});
+    connBanner.appendChild(el('div',{style:{fontSize:'1.6rem'}},'🔗'));
+    const connInfo=el('div',{style:{flex:1}});
+    connInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'3px'}},
+      ['Invite a specialist to collaborate']));
+    connInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
+      ['Share a Connection Code with a therapist so they can join your care team.']));
+    connBanner.appendChild(connInfo);
+    const connBtn=mkBtn('Get Code','btn-sm btn-secondary',()=>showConnectionCodeModal(children[0].id));
+    connBanner.appendChild(connBtn);
+    sec.appendChild(connBanner);
+  }
+
+  // Mini Calendar
+  sec.appendChild(renderMiniCalendar(children,allApts));
+
+  // Global Vault
+  sec.appendChild(renderGlobalVault());
+
+  return sec;
+}
+
+/* -- Mini-Calendar widget (aggregated, color-coded) -- */
+function renderMiniCalendar(children,allApts){
+  const now=new Date();
+  const today=now.toISOString().split('T')[0];
+  // Build 7-day lookahead
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(now);d.setDate(d.getDate()+i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const DAY_LABELS=['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+  // Upcoming apts (next 14 days)
+  const cutoff=new Date(now);cutoff.setDate(cutoff.getDate()+14);
+  const cutoffStr=cutoff.toISOString().split('T')[0];
+  const upcoming=allApts
+    .filter(a=>a.date>=today&&a.date<=cutoffStr)
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+
+  const card=el('div',{class:'mini-cal-card'});
+
+  // Header
+  const hd=el('div',{class:'mini-cal-hd'});
+  const hl=el('div',{class:'mini-cal-hd-left'});
+  hl.appendChild(el('div',{class:'mini-cal-month'},
+    [now.toLocaleDateString('en-US',{month:'long',year:'numeric'})]));
+  hl.appendChild(el('div',{class:'mini-cal-sub'},
+    [`${upcoming.length} event${upcoming.length!==1?'s':''} in next 14 days`]));
+  hd.appendChild(hl);
+  const calHdRight=el('div',{style:{display:'flex',gap:'7px',alignItems:'center'}});
+  // Add Event shortcut for parents (Task 5 — editable calendar)
+  const miniAddBtn=el('button',{class:'mini-cal-expand',style:{background:'rgba(255,255,255,.35)',marginRight:'4px'}},['+ Event']);
+  miniAddBtn.onclick=e=>{
+    e.stopPropagation();
+    if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+    if(!S.activeChild){toast('Add a child profile first.','error');return;}
+    showAddEventModal();
+  };
+  calHdRight.appendChild(miniAddBtn);
+  const expandBtn=el('button',{class:'mini-cal-expand'},['See Full ›']);
+  expandBtn.onclick=e=>{e.stopPropagation();_pushNav();S.calFullscreen=true;re();};
+  calHdRight.appendChild(expandBtn);
+  hd.appendChild(calHdRight);
+  card.appendChild(hd);
+
+  // 7-day strip
+  const week=el('div',{class:'mini-cal-week'});
+  days.forEach(ds=>{
+    const d=new Date(ds+'T12:00');
+    const dayApts=allApts.filter(a=>a.date===ds);
+    const col=el('div',{class:'mcw-day',style:{cursor:'pointer'}});
+    col.title='Add appointment on '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    col.appendChild(el('div',{class:'mcw-label'},[DAY_LABELS[d.getDay()]]));
+    const num=el('div',{class:'mcw-num'+(ds===today?' today':'')},
+      [String(d.getDate())]);
+    col.appendChild(num);
+    // Dots: one per child color
+    const dots=el('div',{class:'mcw-dots'});
+    const seen=new Set();
+    dayApts.forEach(a=>{
+      if(seen.has(a.childId))return;seen.add(a.childId);
+      const ci=children.findIndex(c=>c.id===a.childId);
+      const color=children[ci]?.color||getChildColor(ci);
+      dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
+    });
+    col.appendChild(dots);
+    col.onclick=()=>{
+      if(dayApts.length>0){
+        // Show what's on this day
+        const dateLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+        openModal('📅 '+dateLabel,(mb,mclose)=>{
+          dayApts.forEach(apt=>{
+            const ch=children.find(c=>c.id===apt.childId);
+            const chip=el('div',{class:'card',style:{marginBottom:'10px',padding:'14px 16px',borderLeft:'4px solid '+(ch?.color||'var(--teal)'),cursor:'pointer'}});
+            chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'3px'}},[aptDisplayTitle(apt)]));
+            chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[apt.time+(apt.endTime?' – '+apt.endTime:'')+(ch?' · '+ch.avatar+' '+ch.name.split(' ')[0]:'')]));
+            if(apt.location)chip.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'3px'}},['📍 '+apt.location]));
+            chip.onclick=()=>{mclose();showAptDetailModal(apt,ch);};
+            mb.appendChild(chip);
+          });
+          if(session?.role==='parent'){
+            mb.appendChild(el('div',{style:{height:'8px'}}));
+            mb.appendChild(mkBtn('＋ Add Appointment','btn-lg btn-ghost btn-full',()=>{mclose();showAddEventModalForDate(ds,children);}));
+          }
+        },420);
+      } else {
+        showAddEventModalForDate(ds,children);
+      }
+    };
+    week.appendChild(col);
+  });
+  card.appendChild(week);
+
+  // Upcoming list (max 4)
+  if(upcoming.length>0){
+    const evList=el('div',{class:'mini-cal-events'});
+    upcoming.slice(0,4).forEach(a=>{
+      const ci=children.findIndex(c=>c.id===a.childId);
+      const child=children[ci];
+      const color=child?.color||getChildColor(ci);
+      const aptDate=new Date(a.date+'T12:00');
+      const isToday=a.date===today;
+      const dateLabel=isToday?'Today':aptDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+      const row=el('div',{class:'mce-item'});
+      row.appendChild(el('div',{class:'mce-dot',style:{background:color}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{class:'mce-title'},[aptDisplayTitle(a)]));
+      info.appendChild(el('div',{class:'mce-when'},[dateLabel+' · '+a.time]));
+      row.appendChild(info);
+      if(child){
+        row.appendChild(el('span',{class:'mce-child-pill',style:{background:color+'22',color}},
+          [child.avatar+' '+child.name.split(' ')[0]]));
+      }
+      evList.appendChild(row);
+    });
+    card.appendChild(evList);
+  }
+
+  // Tap whole card to expand
+  card.onclick=()=>{_pushNav();S.calFullscreen=true;re();};
+  return card;
+}
+
+/* -- Full-screen calendar (all children, color-coded) -- */
+function renderCalFullscreen(){
+  const children=LS.get('children',[]).length?LS.get('children',[]):DB.children;
+  const allApts=LS.get('appointments',[]);
+  // Support month navigation via S.calFsMonth offset
+  const baseNow=new Date();
+  const monthOffset=S.calFsMonth||0;
+  const now=new Date(baseNow.getFullYear(),baseNow.getMonth()+monthOffset,1);
+  const year=now.getFullYear();
+  const month=now.getMonth();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const firstDay=new Date(year,month,1).getDay();
+
+  const wrap=el('div',{class:'cal-fullscreen'});
+
+  // Header — Logo + hamburger style (consistent with rest of app)
+  const hd=el('div',{class:'cal-fs-hd',style:{gap:'10px'}});
+  // Logo (acts as close/home)
+  const fsLogo=el('div',{style:{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',flexShrink:0}});
+  fsLogo.appendChild(el('div',{class:'logo-bubble',style:{width:'32px',height:'32px',fontSize:'1rem'}},['🤝']));
+  fsLogo.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)'}},['Huddledin']));
+  fsLogo.onclick=()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;re();};
+  hd.appendChild(fsLogo);
+  // Month nav
+  const monthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flex:1,justifyContent:'center'}});
+  const prevMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px'}},['‹']);
+  prevMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)-1;re();};
+  const nextMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px'}},['›']);
+  nextMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)+1;re();};
+  const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  monthNav.appendChild(prevMonBtn);
+  monthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)',minWidth:'130px',textAlign:'center'}},[calFsMonthLabel]));
+  monthNav.appendChild(nextMonBtn);
+  hd.appendChild(monthNav);
+  // Add Event button
+  if(session?.role==='parent'){
+    const addEvtBtn=mkBtn('＋ Add','btn-sm btn-primary',()=>{
+      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      if(!S.activeChild){toast('Add a child profile first.','error');return;}
+      showAddEventModal();
+    });
+    hd.appendChild(addEvtBtn);
+  }
+  // Legend
+  const legend=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
+  children.forEach((c,i)=>{
+    const color=c.color||getChildColor(i);
+    const dot=el('span',{style:{display:'flex',alignItems:'center',gap:'3px',fontSize:'.65rem',fontWeight:800,color:'var(--slate)',whiteSpace:'nowrap'}});
+    dot.appendChild(el('span',{style:{width:'8px',height:'8px',borderRadius:'50%',background:color,display:'inline-block'}}));
+    dot.appendChild(document.createTextNode(c.name.split(' ')[0]));
+    legend.appendChild(dot);
+  });
+  hd.appendChild(legend);
+  wrap.appendChild(hd);
+
+  const body=el('div',{class:'cal-fs-body'});
+  const sec=el('div',{class:'section',style:{paddingTop:'16px'}});
+
+  // Calendar grid
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'20px'}});
+  const calHead=el('div',{class:'cal-hd'});
+  // FIX B4: dynamic month header
+  calHead.innerHTML=`<span class="ff" style="font-size:1.05rem;font-weight:800">${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span>`;
+  calCard.appendChild(calHead);
+
+  const grid=el('div',{class:'cal-grid'});
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
+  for(let i=0;i<firstDay;i++)grid.appendChild(el('div',{class:'cal-day'}));
+  // Track selected date for inline day view
+  const selDate=S.calSelectedDate;
+  for(let day=1;day<=daysInMonth;day++){
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dayApts=allApts.filter(a=>a.date===ds);
+    const isSelected=ds===selDate;
+    const isToday=ds===new Date().toISOString().split('T')[0];
+    const cell=el('div',{class:'cal-day'});
+    // Number — selected gets ring, today gets underline, no colored bg anymore
+    const numStyle={
+      fontWeight:isSelected||isToday?900:400,
+      color:isSelected?'#fff':isToday?'var(--teal)':'var(--navy)',
+      background:isSelected?'var(--teal)':isToday?'var(--mint-l)':'transparent',
+      borderRadius:'50%',width:'28px',height:'28px',display:'flex',
+      alignItems:'center',justifyContent:'center',margin:'0 auto',
+      fontSize:'.82rem',cursor:'pointer',transition:'all .15s'
+    };
+    const num=el('div',{style:numStyle},[String(day)]);
+    // Dots only — one per child color
+    const dotsRow=el('div',{style:{display:'flex',gap:'2px',justifyContent:'center',marginTop:'2px',minHeight:'6px'}});
+    if(dayApts.length>0){
+      const seen=new Set();
+      dayApts.forEach(a=>{
+        if(seen.has(a.childId))return;seen.add(a.childId);
+        const ci=children.findIndex(c=>c.id===a.childId);
+        const dotColor=children[ci]?.color||getChildColor(ci);
+        dotsRow.appendChild(el('div',{style:{width:'5px',height:'5px',borderRadius:'50%',background:isSelected?'#fff':dotColor}}));
       });
-      return r.json();
+    }
+    cell.appendChild(num);
+    cell.appendChild(dotsRow);
+    cell.onclick=()=>{S.calSelectedDate=(isSelected?null:ds);re();};
+    grid.appendChild(cell);
+  }
+  calCard.appendChild(grid);
+  sec.appendChild(calCard);
+
+  // Selected day panel (replaces "Upcoming Events")
+  const now2=new Date();
+  const todayStr=now2.toISOString().split('T')[0];
+  if(selDate){
+    const selApts=allApts.filter(a=>a.date===selDate).sort((a,b)=>a.time.localeCompare(b.time));
+    const selLabel=new Date(selDate+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    const dayHd=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}});
+    dayHd.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[selLabel]));
+    if(session?.role==='parent'){
+      dayHd.appendChild(mkBtn('＋ Add','btn-sm btn-primary',()=>showAddEventModalForDate(selDate,children)));
+    }
+    sec.appendChild(dayHd);
+    if(selApts.length===0){
+      sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No events on this day.']));
+    } else {
+      selApts.forEach(a=>{
+        const ch=children.find(c=>c.id===a.childId);
+        const color=ch?.color||'var(--teal)';
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',borderLeft:'4px solid '+color}});
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
+        if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
+        card.appendChild(info);
+        if(ch)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[ch.avatar+' '+ch.name.split(' ')[0]]));
+        card.onclick=()=>showAptDetailModal(a,ch);
+        sec.appendChild(card);
+      });
+    }
+  } else {
+    // No date selected — show upcoming
+    const upcoming=allApts.filter(a=>a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+    if(upcoming.length>0){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},['Upcoming Events']));
+      upcoming.forEach(a=>{
+        const ci=children.findIndex(c=>c.id===a.childId);
+        const child=children[ci];
+        const color=child?.color||getChildColor(ci);
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer'}});
+        card.appendChild(el('div',{style:{width:'5px',minHeight:'44px',borderRadius:'99px',background:color,flexShrink:0}}));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.date+' · '+a.time]));
+        if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
+        card.appendChild(info);
+        if(child)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[child.avatar+' '+child.name.split(' ')[0]]));
+        card.onclick=()=>showAptDetailModal(a,child);
+        sec.appendChild(card);
+      });
+    } else {
+      sec.appendChild(el('div',{class:'empty-inline'},['No upcoming events. Tap a date to add one.']));
+    }
+  }
+
+  body.appendChild(sec);
+  wrap.appendChild(body);
+  return wrap;
+}
+
+/* -- Global Vault — Unsorted Inbox with Process File -- */
+function renderGlobalVault(){
+  const wrap=el('div',{});
+  const hd=el('div',{class:'global-vault-hd'});
+  const left=el('div',{});
+  left.appendChild(el('div',{class:'global-vault-title'},['📁 File Upload & Sorting']));
+  left.appendChild(el('div',{class:'global-vault-sub'},['Unsorted files — tap to process']));
+  hd.appendChild(left);
+  hd.appendChild(mkBtn('➕ Upload','btn-sm btn-secondary',()=>{
+    const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
+    inp.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const files=DB.globalInboxFiles;
+      files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});
+      DB.globalInboxFiles=files;
+      toast('📥 File added to inbox!');re();
+    };
+    document.body.appendChild(inp);inp.click();
+  }));
+  wrap.appendChild(hd);
+
+  const files=DB.globalInboxFiles||[];
+  if(!files.length){
+    // FIX F4: \n does not render in HTML; use two separate text nodes with a <br>
+    const emptyMsg=el('div',{class:'gv-empty'});
+    emptyMsg.appendChild(document.createTextNode('No files in your inbox yet.'));
+    emptyMsg.appendChild(el('br'));
+    emptyMsg.appendChild(document.createTextNode('Upload documents to sort them into child profiles.'));
+    wrap.appendChild(emptyMsg);
+    return wrap;
+  }
+
+  files.forEach(f=>{
+    const typeIcon={pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',mp4:'🎥',mp3:'🎵',doc:'📝',docx:'📝'}[f.type?.toLowerCase()]||'📎';
+    const item=el('div',{class:'gv-file-item'});
+    item.appendChild(el('div',{class:'gv-file-icon'},[typeIcon]));
+    const info=el('div',{style:{flex:1,minWidth:0}});
+    info.appendChild(el('div',{class:'gv-file-name'},[f.name]));
+    info.appendChild(el('div',{class:'gv-file-date'},[f.date+' · '+(f.size||'')]));
+    item.appendChild(info);
+    item.appendChild(el('span',{style:{color:'var(--slate-l)',fontWeight:800,fontSize:'1.1rem'}},['›']));
+    item.onclick=()=>showProcessFileSheet(f);
+    wrap.appendChild(item);
+  });
+
+  return wrap;
+}
+
+/* -- Process File bottom-sheet -- */
+function showProcessFileSheet(file){
+  const children=DB.children;
+  const folders=DB.folders;
+
+  openModal('📎 Process: '+file.name.slice(0,28)+'…',(mb,close)=>{
+    mb.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},
+      ['Choose what to do with this file:']));
+
+    // Option 1: Move/Copy to Child Folder
+    const opt1=el('div',{class:'pf-option'});
+    opt1.appendChild(el('div',{class:'pf-icon',style:{background:'var(--mint-l)'}},['📂']));
+    const o1t=el('div',{});
+    o1t.appendChild(el('div',{class:'pf-title'},['Move to Child Profile']));
+    o1t.appendChild(el('div',{class:'pf-desc'},['Assign to a specific child and therapy folder']));
+    opt1.appendChild(o1t);
+    opt1.onclick=()=>{
+      mb.innerHTML='';
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Select Child']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;childSel.appendChild(o);});
+      mb.appendChild(childSel);
+
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Select Folder']));
+      const folderSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
+      folders.forEach(f=>{const o=el('option');o.value=f.key;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+      mb.appendChild(folderSel);
+
+      mb.appendChild(mkBtn('✅ Move File','btn-lg btn-primary btn-full',()=>{
+        // Remove from global inbox
+        const gi=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);DB.globalInboxFiles=gi;
+        // Add to target folder
+        const fArr=DB.folders;
+        const fi=fArr.findIndex(f2=>f2.key===folderSel.value);
+        if(fi>-1){
+          fArr[fi].files.push({id:'fl_'+Date.now(),name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:'parent'});
+          DB.folders=fArr;
+        }
+        close();toast('📂 Moved to '+folderSel.options[folderSel.selectedIndex].text+'!');re();
+      }));
+    };
+    mb.appendChild(opt1);
+
+    // Option 2: Share with Specialist
+    const opt2=el('div',{class:'pf-option'});
+    opt2.appendChild(el('div',{class:'pf-icon',style:{background:'var(--lav-l)'}},['🤝']));
+    const o2t=el('div',{});
+    o2t.appendChild(el('div',{class:'pf-title'},['Share with Specialist']));
+    o2t.appendChild(el('div',{class:'pf-desc'},['Grant a specialist direct access to this file']));
+    opt2.appendChild(o2t);
+    opt2.onclick=()=>{
+      mb.innerHTML='';
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Choose Specialist']));
+      const specSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
+      DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+        const o=el('option');o.value=s.id;o.textContent=s.avatar+' '+s.name+' — '+s.role;specSel.appendChild(o);
+      });
+      mb.appendChild(specSel);
+      mb.appendChild(mkBtn('📤 Share File','btn-lg btn-primary btn-full',()=>{
+        const spec=DB.specialists.find(s=>s.id===specSel.value);
+        close();toast('📤 Shared with '+(spec?.name||'specialist')+'!');
+      }));
+    };
+    mb.appendChild(opt2);
+
+    // Option 3: Delete
+    const opt3=el('div',{class:'pf-option',style:{background:'var(--rose-l)',borderColor:'var(--rose)'}});
+    opt3.appendChild(el('div',{class:'pf-icon',style:{background:'rgba(251,113,133,.2)'}},['🗑️']));
+    const o3t=el('div',{});
+    o3t.appendChild(el('div',{class:'pf-title',style:{color:'#be123c'}},['Delete File']));
+    o3t.appendChild(el('div',{class:'pf-desc'},['Remove this file permanently']));
+    opt3.appendChild(o3t);
+    opt3.onclick=()=>openConfirm('Delete File?','This will permanently remove this file from your inbox.',true,()=>{
+      DB.globalInboxFiles=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);
+      close();toast('🗑️ File deleted.');re();
+    });
+    mb.appendChild(opt3);
+  },480);
+}
+
+
+/* -----------------------------------------------
+   APPOINTMENT DISPLAY NAME HELPER
+----------------------------------------------- */
+function aptDisplayTitle(apt){
+  const typeLabel={speech:'Speech Therapy',ot:'Occupational Therapy',pt:'Physical Therapy',psychology:'Psychology',general:'Session'}[apt.type]||'Session';
+  if(session?.role==='specialist'){
+    const child=DB.children.find(c=>c.id===apt.childId)||(LS.get('children',[])||[]).find(c=>c.id===apt.childId);
+    return (child?.avatar?child.avatar+' ':'')+( child?.name||apt.title);
+  }
+  // Parent: show type + specialist name
+  const specPart=apt.specialist&&apt.specialist!=='TBD'?typeLabel+' · '+apt.specialist:apt.title;
+  return specPart;
+}
+function aptDisplaySub(apt){
+  if(session?.role==='specialist'){
+    const typeLabel={speech:'Speech Therapy',ot:'Occupational Therapy',pt:'Physical Therapy',psychology:'Psychology',general:'Session'}[apt.type]||'Session';
+    return typeLabel+(apt.location?' · '+apt.location:'');
+  }
+  return apt.location||apt.specialist||'';
+}
+
+function renderContent(){
+  const t=S.activeTab,r=session?.role;
+  if(t==='dashboard')return r==='parent'?renderParentDashboard():renderSpecDashboard();
+  if(t==='files')return renderFiles();
+  if(t==='team'&&r==='parent')return renderTeam();
+  if(t==='calendar')return renderCalendar();
+  if(t==='chat')return renderChat();
+  if(t==='notifications')return renderNotifications();
+  if(t==='settings')return renderSettings();
+  if(t==='patients')return renderPatients();
+  if(t==='patient-detail')return renderPatientDashboard();
+  if(t==='vault')return renderVault();
+  if(t==='todo')return renderTodoList();
+  if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
+  if(t==='credentials')return renderCredentials();
+  if(t==='progress')return renderProgress();
+  if(t==='email')return renderEmailInbox();
+  if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
+  if(t==='request')return renderSpecialistRequest();
+  return d('section',[p('Coming soon…')]);
+}
+
+/* -----------------------------------------------
+   PARENT DASHBOARD — Level 1 (child-specific)
+----------------------------------------------- */
+function renderParentDashboard(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  if(!child){
+    // No child selected / child deleted
+    const sec=el('div',{class:'section'});
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👶']),
+      el('div',{class:'empty-state-title'},['No child selected']),
+      el('div',{class:'empty-state-body'},['Go back to Family Home and tap a child\'s bubble to view their profile.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('← Family Home','btn-md btn-primary',()=>{_pushNav();S.navLevel=0;re();})
+      ])
+    ]));
+    return sec;
+  }
+
+  const childHW=DB.homework.filter(h=>h.childId===child.id);
+  const childApts=DB.appointments.filter(a=>a.childId===child.id);
+  const specialists=getChildTeam(child?.id).filter(s=>s.status==='active');
+  const childSpecs=specialists.filter(s=>(s.permissions?.[child.id]?.length>0)||s.childId===child.id);
+
+  const sec=el('div',{class:'section'});
+
+  // Push notification banner
+  const pushBanner=renderPushBanner();
+  if(pushBanner)sec.appendChild(pushBanner);
+
+  // PTR
+  const ptr=el('div',{class:'ptr-indicator',id:'ptr-indicator'});
+  ptr.innerHTML='<span class="ptr-spinner">🔄</span> <span>Refreshing…</span>';
+  sec.appendChild(ptr);
+  let ptrStart=0;
+  sec.addEventListener('touchstart',e=>{ptrStart=e.touches[0].clientY;},{passive:true});
+  sec.addEventListener('touchmove',e=>{
+    const scrollEl=document.getElementById('main');
+    if(scrollEl&&scrollEl.scrollTop===0&&e.touches[0].clientY-ptrStart>60)ptr.classList.add('visible');
+  },{passive:true});
+  sec.addEventListener('touchend',()=>{
+    if(ptr.classList.contains('visible')){
+      setTimeout(()=>{ptr.classList.remove('visible');toast('✅ Dashboard refreshed!');},900);
+    }
+  });
+
+  // Welcome card
+  const welcome=el('div',{class:'welcome-card'});
+  // FIX QA-SEC-2: build welcome card with safe text nodes to avoid XSS from user-controlled data
+  const wc1=el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:'700',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},
+    [child.avatar+' '+child.name+"'s Profile"]);
+  const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
+    [child.name]);
+  const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
+    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
+  welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
+  welcome.style.position='relative';
+  const editBtn=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'rgba(255,255,255,.2)',border:'none',borderRadius:'50%',width:'34px',height:'34px',fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}},['✏️']);
+  editBtn.onclick=()=>showEditChildModal(child);
+  welcome.appendChild(editBtn);
+  sec.appendChild(welcome);
+
+  // Big square navigation grid (like file manager)
+  const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  [
+    {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
+    {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+    {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
+    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
+    {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+    {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
+  ].forEach(({icon,label,color,bg,tab,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
+    sq.onclick=()=>{if(fn)fn();else{S.activeTab=tab;re();}};
+    navGrid.appendChild(sq);
+  });
+  sec.appendChild(navGrid);
+
+  // Empty state if truly new
+  const hasAnyData=childHW.length||childApts.length||childSpecs.length;
+  if(!hasAnyData){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['🌱']),
+      el('div',{class:'empty-state-title'},["Let's get "+child.name.split(' ')[0]+" set up!"]),
+      el('div',{class:'empty-state-body'},['Add specialists to the care team, schedule appointments, and upload files — all in one place.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Invite Specialist','btn-md btn-primary',()=>showConnectionCodeModal(child.id)),
+        mkBtn('📅 Add Appointment','btn-md btn-secondary',()=>{_pushNav();S.activeTab='calendar';re();})
+      ])
+    ]));
+    return sec;
+  }
+
+  const grid=el('div',{class:'g2'});
+
+  // Tasks card
+  const hwCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+  hwCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📋 Tasks'));
+  if(!childHW.length){
+    hwCard.appendChild(el('div',{class:'empty-inline'},['No tasks yet. Specialists will assign homework here.']));
+  } else {
+    childHW.slice(0,3).forEach(hw=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'flex-start'}});
+      const chk=el('div',{class:'chk'+(hw.completed?' done':'')},hw.completed?['✓']:[]);
+      chk.onclick=()=>{
+        const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
+        if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
+          if(nv)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);
+          _supa.from('homework').update({completed:nv}).eq('id',hw.id).then(()=>{}).catch(e=>console.error('hw complete:',e));}
+        re();
+      };
+      const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},[hw.task]);
+      row.appendChild(chk);row.appendChild(info);
+      hwCard.appendChild(row);
+    });
+    if(childHW.length>3)hwCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'8px',fontWeight:600}},[`+${childHW.length-3} more tasks`]));
+  }
+  grid.appendChild(hwCard);
+
+  // Appointments card
+  const aptCard=el('div',{class:'card',style:{border:'1px solid var(--mint-l)'}});
+  aptCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.92rem'}},'📅 Appointments'));
+  if(!childApts.length){
+    aptCard.appendChild(el('div',{class:'empty-inline'},['No appointments yet. Add one in Calendar.']));
+  } else {
+    childApts.slice(0,3).forEach(apt=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',alignItems:'center'}});
+      row.appendChild(el('div',{style:{width:'5px',height:'36px',borderRadius:'3px',background:TC[apt.type]||'var(--teal)',flexShrink:0}}));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)'}},[aptDisplayTitle(apt)]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'1px'}},[apt.date+' · '+apt.time]));
+      if(apt.location)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginTop:'1px'}},['📍 '+apt.location]));
+      if(apt.notes)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginTop:'1px',fontStyle:'italic'}},['📝 '+apt.notes.slice(0,60)+(apt.notes.length>60?'…':'')]));
+      row.appendChild(info);
+      // RSVP indicator — visible to specialist
+      if(apt.rsvp==='yes'){
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['✅ Attending']));
+      } else if(apt.rsvp==='no'){
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['❌ Not Attending']));
+      } else {
+        row.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'3px 8px',borderRadius:'99px',flexShrink:0}},['⏳ No reply']));
+      }
+      aptCard.appendChild(row);
+    });
+  }
+  grid.appendChild(aptCard);
+  sec.appendChild(grid);
+
+  // Published summaries
+  const pubSummaries=renderPublishedSummaries();
+  if(pubSummaries)sec.appendChild(pubSummaries);
+
+  return sec;
+}
+
+/* -----------------------------------------------
+   SPECIALIST DASHBOARD — zero-state aware
+----------------------------------------------- */
+function renderSpecDashboard(){
+  const specId=session?.specialistId;
+  const spec=getMySpecialistRecord();
+  // For specialists who joined via invite, load children from LS directly
+  // since they may not have a local spec record with permissions
+  const localChildren=LS.get('children',[]);
+  const myPatients=localChildren.length>0?localChildren:DB.children.filter(c=>{
+    const perm=spec?.permissions?.[c.id];
+    return perm&&perm.length>0;
+  });
+  const myApts=DB.appointments.filter(a=>a.specialistId===specId||a.sharedWith?.includes(specId));
+  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId);
+
+  const sec=el('div',{class:'section'});
+
+  // Welcome card
+  const welcome=el('div',{class:'welcome-card',style:{background:'linear-gradient(135deg,var(--lav-d) 0%,var(--lav) 60%,#7dd3fc 100%)'}});
+  welcome.appendChild(el('div',{style:{color:'rgba(255,255,255,.7)',fontSize:'.78rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.07em',marginBottom:'6px'}},['Welcome back']));
+  const wName=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:800,color:'#fff',marginBottom:'5px'}},[(spec?.name||session?.name||'Specialist')+' 👋']);
+  welcome.appendChild(wName);
+  const wRole=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:500}});
+  wRole.appendChild(document.createTextNode((spec?.role||'Specialist')+' · '));
+  const wPt=el('strong',{style:{color:'#fff'}},[String(myPatients.length)]);
+  wRole.appendChild(wPt);
+  wRole.appendChild(document.createTextNode(' patient'+(myPatients.length!==1?'s':'')));
+  welcome.appendChild(wRole);
+  const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
+  [
+    ['🔗 Enter Patient Code',()=>showEnterCodeModal()],
+    ['📝 New Note',()=>{S.activeTab='vault';re();}]
+  ].forEach(([label,fn])=>{
+    const b=el('button',{style:{background:'rgba(255,255,255,.2)',border:'1.5px solid rgba(255,255,255,.3)',color:'#fff',borderRadius:'99px',padding:'7px 13px',fontSize:'.76rem',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}},[label]);
+    b.onclick=fn;wBtns.appendChild(b);
+  });
+  welcome.appendChild(wBtns);
+  sec.appendChild(welcome);
+
+  // Zero state — no patients yet
+  if(myPatients.length===0){
+    sec.appendChild(el('div',{class:'empty-state',style:{marginTop:'4px'}},[
+      el('span',{class:'empty-state-icon'},['🏥']),
+      el('div',{class:'empty-state-title'},['No patients connected yet']),
+      el('div',{class:'empty-state-body'},['Ask a family for their Connection Code, then enter it to join their care team and access permitted files.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Enter Connection Code','btn-md btn-primary',()=>showEnterCodeModal())
+      ])
+    ]));
+
+    // How-it-works for specialists
+    const howCard=el('div',{class:'card',style:{marginTop:'16px'}});
+    howCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['How connecting works']));
+    [
+      ['1️⃣','Family generates a code','They tap "Invite Specialist" in their Family Home.'],
+      ['2️⃣','You enter the code','Use the button above to enter the 6-character code.'],
+      ['3️⃣','Instant access','You\'ll see the child\'s permitted folders and can write notes.']
+    ].forEach(([n,title,desc])=>{
+      const row=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'12px'}});
+      row.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},[n]));
+      const info=el('div',{});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'2px'}},[title]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:500}},[desc]));
+      row.appendChild(info);
+      howCard.appendChild(row);
+    });
+    sec.appendChild(howCard);
+    return sec;
+  }
+
+  // Stats
+  const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
+  [{icon:'👤',color:'#0d9488',lbl:'Patients',tab:'patients'},
+   {icon:'📅',color:'#7c3aed',lbl:'Calendar',tab:'calendar'},
+   {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
+  ].forEach(({icon,color,lbl,tab})=>{
+    const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
+    sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),el('div',{class:'stat-lbl'},[lbl])]));
+    sc.onclick=()=>{S.activeTab=tab;re();};
+    stats.appendChild(sc);
+  });
+  sec.appendChild(stats);
+
+  // Promotion block — shown when specialist has at least 1 patient
+  if(myPatients.length>=1){
+    const promoCard=el('div',{class:'card',style:{background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',border:'1.5px solid var(--lav)',marginBottom:'22px',display:'flex',gap:'14px',alignItems:'flex-start'}});
+    promoCard.appendChild(el('div',{style:{fontSize:'1.8rem',flexShrink:0}},['🌟']));
+    const promoInfo=el('div',{style:{flex:1}});
+    promoInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px',fontSize:'.92rem'}},['Grow Your Practice']));
+    promoInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.55',marginBottom:'10px'}},
+      ['You have '+myPatients.length+' patient'+(myPatients.length!==1?'s':'')+' on Huddledin. Share your profile link to connect with more families.']));
+    promoInfo.appendChild(mkBtn('Share Profile','btn-sm btn-lav',()=>toast('Profile link copied — coming soon!','info')));
+    promoCard.appendChild(promoInfo);
+    sec.appendChild(promoCard);
+  }
+
+  sec.appendChild(renderMiniCalendar(myPatients, myApts));
+
+  // Recent notes
+  if(myNotes.length>0){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🕐 Recent Notes']));
+    const stack=el('div',{class:'stack'});
+    [...myNotes].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).forEach(n=>{
+      const ch=DB.children.find(c=>c.id===n.childId);
+      const card=el('div',{class:'card hov click',style:{display:'flex',gap:'13px',alignItems:'center'}});
+      card.innerHTML=`<span style="font-size:1.6rem">${ch?.avatar||'👤'}</span>`;
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
+      card.appendChild(info);
+      card.appendChild(n.locked?el('span',{class:'locked-badge'},['🔒 Locked']):n.isDraft?el('span',{class:'draft-badge'},['Draft']):badge('Published','green'));
+      card.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
+      stack.appendChild(card);
+    });
+    sec.appendChild(stack);
+  }
+
+  return sec;
+}
+
+/* -----------------------------------------------
+   FILE MANAGER
+----------------------------------------------- */
+function mkSubHeader(title,rightEl=null){
+  const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
+  const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
+  backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
+  hd.appendChild(backBtn);
+  // Child color chip in center alongside title
+  const titleRow=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}});
+  titleRow.appendChild(el('h2',{class:'page-title',style:{margin:'0',fontSize:'1rem'}},[title]));
+  if(session?.role==='parent'&&S.activeChild){
+    const ch=DB.children.find(c=>c.id===S.activeChild);
+    if(ch){
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'50%',background:ch.color||'var(--teal)',flexShrink:0,border:'1.5px solid rgba(255,255,255,.5)',boxShadow:'0 0 0 2px '+(ch.color||'var(--teal)')+'33'}});
+      titleRow.appendChild(dot);
+    }
+  }
+  hd.appendChild(titleRow);
+  if(rightEl)hd.appendChild(rightEl);
+  else hd.appendChild(el('div',{style:{width:'80px',flexShrink:0}}));
+  return hd;
+}
+
+
+/* -- Folder File Grid — thumbnail previews -- */
+function getFileThumb(f){
+  const ext=(f.name||'').split('.').pop().toLowerCase();
+  const isImg=['jpg','jpeg','png','gif','webp'].includes(ext);
+  const isPdf=ext==='pdf';
+  const isDoc=['doc','docx'].includes(ext);
+  const isSheet=['xls','xlsx'].includes(ext);
+  const isVideo=['mp4','mov','avi'].includes(ext);
+  const isAudio=['mp3','wav','m4a'].includes(ext);
+  if(isImg&&f.url)return {type:'img',src:f.url};
+  if(isPdf&&f.url)return {type:'pdf',src:f.url};
+  if(isDoc)return {type:'icon',icon:'📝',color:'#2563eb'};
+  if(isSheet)return {type:'icon',icon:'📊',color:'#16a34a'};
+  if(isVideo)return {type:'icon',icon:'🎬',color:'#7c3aed'};
+  if(isAudio)return {type:'icon',icon:'🎵',color:'#ec4899'};
+  if(isPdf)return {type:'icon',icon:'📄',color:'#dc2626'};
+  return {type:'icon',icon:'📎',color:'#64748b'};
+}
+
+function renderFolderGrid(folder,isParent,childColor){
+  const sec=el('div',{class:'section'});
+  // Header with back button
+  const fi2=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi2.id='fileInputFolder';
+  fi2.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+  sec.appendChild(fi2);
+  const hd=el('div',{class:'sec-hd',style:{marginBottom:'16px'}});
+  const left=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+  const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.3rem',color:'var(--slate)',padding:'0 4px',lineHeight:1}},['‹']);
+  backBtn.onclick=()=>{S.activeFolderId=null;re();};
+  // Specialist: also show a back-to-patient crumb above
+  if(session?.role==='specialist'){
+    const crumb=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',marginBottom:'8px',fontSize:'.75rem',color:'var(--slate)'}});
+    const patLink=el('span',{style:{color:'var(--teal)',fontWeight:700,cursor:'pointer'}},['← '+(_c?.name||'Patient')]);
+    patLink.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
+    crumb.appendChild(patLink);
+    crumb.appendChild(el('span',{},[' / '+folder.name]));
+    sec.appendChild(crumb);
+  }
+  left.appendChild(backBtn);
+  left.appendChild(el('span',{style:{fontSize:'1.3rem'}},[folder.icon]));
+  left.appendChild(el('div',{},[
+    el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem'}},[folder.name]),
+    el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'1px'}},[`${folder.files.length} file${folder.files.length!==1?'s':''}`])
+  ]));
+  hd.appendChild(left);
+  if(isParent){
+    const right=el('div',{style:{display:'flex',gap:'6px'}});
+    right.appendChild(mkBtn('📤 Upload','btn-sm btn-primary',()=>document.getElementById('fileInputFolder')?.click()));
+    hd.appendChild(right);
+  }
+  sec.appendChild(hd);
+
+  if(!folder.files||folder.files.length===0){
+    const empty=el('div',{style:{textAlign:'center',padding:'48px 24px',color:'var(--slate)'}});
+    empty.appendChild(el('div',{style:{fontSize:'2.5rem',marginBottom:'12px'}},[folder.icon]));
+    empty.appendChild(el('div',{style:{fontWeight:700,fontSize:'.9rem',marginBottom:'6px'}},['No files yet']));
+    empty.appendChild(el('div',{style:{fontSize:'.8rem'}},['Upload the first file to this folder']));
+    if(isParent){
+      empty.appendChild(el('div',{style:{marginTop:'20px'}},[
+        mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInputFolder')?.click())
+      ]));
+    }
+    sec.appendChild(empty);
+    return sec;
+  }
+
+  // File grid
+  const grid=el('div',{style:{
+    display:'grid',
+    gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',
+    gap:'12px',
+    marginTop:'4px'
+  }});
+
+  folder.files.forEach(f=>{
+    const ext=(f.name||'').split('.').pop().toLowerCase();
+    const thumb=getFileThumb(f);
+    const card=el('div',{style:{
+      background:'#fff',borderRadius:'14px',overflow:'hidden',
+      border:'1.5px solid var(--mint-l)',
+      boxShadow:'0 1px 4px rgba(0,0,0,.06)',
+      cursor:'pointer',transition:'transform .15s,box-shadow .15s',
+      display:'flex',flexDirection:'column'
+    }});
+    card.onmouseover=()=>{card.style.transform='translateY(-2px)';card.style.boxShadow='0 4px 16px rgba(0,0,0,.1)';};
+    card.onmouseout=()=>{card.style.transform='';card.style.boxShadow='0 1px 4px rgba(0,0,0,.06)';};
+
+    // Thumbnail area
+    const thumbArea=el('div',{style:{
+      height:'110px',background:'var(--mint-ll)',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      overflow:'hidden',position:'relative',flexShrink:0
+    }});
+
+    if(thumb.type==='img'){
+      const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
+      img.onerror=()=>{thumbArea.innerHTML='<span style="font-size:2.2rem">🖼️</span>';};
+      thumbArea.appendChild(img);
+    } else if(thumb.type==='pdf'&&f.url){
+      // PDF — styled placeholder (iframes blocked by X-Frame-Options/CSP on desktop browsers)
+      thumbArea.style.background='#fff1f2';
+      const pdfWrap=el('div',{style:{textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:'6px'}});
+      pdfWrap.appendChild(el('div',{style:{fontSize:'2.2rem',lineHeight:1}},['📄']));
+      pdfWrap.appendChild(el('div',{style:{background:'#dc2626',color:'#fff',fontSize:'.58rem',fontWeight:900,padding:'2px 7px',borderRadius:'4px',letterSpacing:'.06em'}},['PDF']));
+      thumbArea.appendChild(pdfWrap);
+    } else {
+      // Icon fallback
+      thumbArea.style.background=thumb.color+'18';
+      thumbArea.appendChild(el('span',{style:{fontSize:'2.4rem'}},[thumb.icon]));
+    }
+
+    // Lock overlay
+    if(f.locked){
+      const lockOv=el('div',{style:{
+        position:'absolute',inset:0,background:'rgba(0,0,0,.45)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:'1.5rem'
+      }},['🔒']);
+      thumbArea.appendChild(lockOv);
+    }
+    card.appendChild(thumbArea);
+
+    // File info
+    const info=el('div',{style:{padding:'8px 10px',flex:1,minWidth:0}});
+    info.appendChild(el('div',{style:{
+      fontWeight:700,fontSize:'.75rem',color:'var(--navy)',
+      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+      marginBottom:'2px'
+    }},[f.name]));
+    info.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate-l)'}},[f.date||'']));
+    card.appendChild(info);
+
+    // Action row
+    const actions=el('div',{style:{
+      display:'flex',borderTop:'1px solid var(--mint-ll)',
+      overflow:'hidden'
+    }});
+    const mkAct=(icon,label,fn)=>{
+      const b=el('button',{style:{
+        flex:1,background:'none',border:'none',padding:'6px 2px',
+        cursor:'pointer',fontSize:'.65rem',color:'var(--slate)',
+        display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',
+        transition:'background .1s'
+      }},[el('span',{style:{fontSize:'.9rem'}},[icon]),label]);
+      b.onmouseover=()=>{b.style.background='var(--mint-ll)';};
+      b.onmouseout=()=>{b.style.background='none';};
+      b.onclick=e=>{e.stopPropagation();fn();};
+      return b;
     };
 
-    const now = Date.now();
-    const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
-    const monthAgo = new Date(now - 30*24*60*60*1000).toISOString();
+    if(f.url){
+      actions.appendChild(mkAct('👁','View',()=>{
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+        xb.onclick=()=>ov.remove();
+        bar.appendChild(xb);ov.appendChild(bar);
+        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+        } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
+          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
+        } else {
+          const w=el('div',{style:{textAlign:'center',color:'#fff'}});
+          w.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+          w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},['Preview not available']));
+          w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download']));
+          body.appendChild(w);
+        }
+        ov.appendChild(body);
+        ov.onclick=e=>{if(e.target===ov)ov.remove();};
+        document.body.appendChild(ov);
+      }));
+      actions.appendChild(mkAct('⬇','Save',async()=>{
+        try{
+          const resp=await fetch(f.url);
+          const blob=await resp.blob();
+          const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click();
+        }catch(e){window.open(f.url,'_blank');}
+      }));
+    }
+    if(isParent){
+      actions.appendChild(mkAct('✏️','Rename',()=>{
+        openModal('Rename File',(mb,close)=>{
+          mb.appendChild(el('div',{class:'inp-label'},['New name']));
+          const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});
+          mb.appendChild(ni);
+          mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',()=>{
+            if(!ni.value.trim())return;
+            const fls=DB.folders;
+            const fi3=fls.find(x=>x.id===folder.id);
+            const ff=fi3?.files.find(x=>x.id===f.id);
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}
+            close();re();toast('File renamed!');
+          }));
+        },380);
+      }));
+      actions.appendChild(mkAct('🗑','Delete',()=>{
+        openConfirm('Delete "'+f.name+'"?','This permanently removes the file.',true,async()=>{
+          const fls=DB.folders;
+          const fi3=fls.find(x=>x.id===folder.id);
+          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+          re();toast('🗑️ File deleted.');
+        });
+      }));
+    }
+    card.appendChild(actions);
 
-    const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
-      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,last_sign_in_at'),
-      q('children', 'select=id,household_id,created_at'),
-      q('appointments', 'select=id,created_at,household_id,child_id,type'),
-      q('messages', 'select=id,created_at,chat_id'),
-      q('files', 'select=id,created_at,household_id'),
-      q('todos', 'select=id,created_at,completed,user_id'),
-      q('specialist_requests', 'select=specialist_id,household_id,status,created_at'),
-      q('chats', 'select=id,household_id,created_at,type'),
-      q('vault_notes', 'select=id,created_at,specialist_id,published')
-    ]);
+    // Tap the card itself = preview
+    card.onclick=()=>{
+      if(f.url){
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+        xb.onclick=()=>ov.remove();bar.appendChild(xb);ov.appendChild(bar);
+        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+        } else {
+          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
+        }
+        ov.appendChild(body);ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);
+      }
+    };
+    grid.appendChild(card);
+  });
 
-    const parents = profiles.filter(p => p.role === 'parent');
-    const specialists = profiles.filter(p => p.role === 'specialist');
-    const approvedReqs = requests.filter(r => r.status === 'approved');
-    const pendingReqs = requests.filter(r => r.status === 'pending');
-    const households = new Set(profiles.filter(p => p.household_id).map(p => p.household_id));
-    const householdsWithSpec = new Set(approvedReqs.map(r => r.household_id));
-    const specsWithFamily = new Set(approvedReqs.map(r => r.specialist_id));
+  sec.appendChild(grid);
+  return sec;
+}
 
-    // Retention
-    const activeUsersWeek = profiles.filter(p => p.last_sign_in_at > weekAgo).length;
-    const activeUsersMonth = profiles.filter(p => p.last_sign_in_at > monthAgo).length;
-    const dormantUsers = profiles.filter(p => p.last_sign_in_at && p.last_sign_in_at < monthAgo).length;
+function renderFiles(){
+  const isParent=session?.role==='parent';
+  const spec=getMySpecialistRecord();
+  const myPerms=LS.get('my_perms',{});
+  const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
+  const canAccess=key=>isParent||perms.includes(key);
+  const folders=DB.folders.filter(f=>f.childId===S.activeChild);
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const childColor=child?.color||'var(--teal)';
 
-    // Households with no children (signed up but stuck)
-    const householdsWithChildren = new Set(children.map(c => c.household_id));
-    const emptyHouseholds = [...households].filter(hid => !householdsWithChildren.has(hid)).length;
+  // If a folder is open, show file grid view instead
+  if(S.activeFolderId){
+    const folder=folders.find(f=>f.id===S.activeFolderId);
+    if(folder)return renderFolderGrid(folder,isParent,childColor);
+    S.activeFolderId=null; // folder not found, reset
+  }
 
-    // Feature usage per household
-    const householdsUsingApts = new Set(appointments.map(a => a.household_id).filter(Boolean));
-    const householdsUsingFiles = new Set(files.map(f => f.household_id).filter(Boolean));
-    const householdsUsingChats = new Set(chats.map(c => c.household_id).filter(Boolean));
+  const sec=el('div',{class:'section'});
+  const _fBar=mkSpecBackBar(child?.name);if(_fBar)sec.appendChild(_fBar);
+  if(isParent){
+    const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
+    fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+    const ci=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});ci.id='cameraInput';
+    ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+    sec.appendChild(fi);sec.appendChild(ci);
+    const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    rightEl.appendChild(mkBtn('📁','btn-sm btn-ghost',()=>showAddFolderModal()));
+    rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
+    sec.appendChild(mkSubHeader('File Manager',rightEl));
+  } else {
+    const hd=el('div',{class:'sec-hd'});
+    hd.appendChild(el('div',{class:'sec-hd-left'},[
+      el('h2',{class:'page-title'},['File Manager']),
+      el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
+    ]));
+    sec.appendChild(hd);
+  }
 
-    // Specialists: registered but no family
-    const specsNoFamily = specialists.filter(s => !specsWithFamily.has(s.id)).length;
+  if(folders.length===0){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📁']),
+      el('div',{class:'empty-state-title'},['Setting up folders…']),
+      el('div',{class:'empty-state-body'},['Your folders are being created. Pull down to refresh.'])
+    ]));
+    return sec;
+  }
 
-    // Specialists with 2+ families
-    const specFamilyCount = {};
-    approvedReqs.forEach(r => { specFamilyCount[r.specialist_id] = (specFamilyCount[r.specialist_id]||0)+1; });
-    const powerSpecialists = Object.values(specFamilyCount).filter(c => c >= 2).length;
+  const grid=el('div',{class:'g-folder'});
+  folders.forEach(folder=>{
+    const acc=canAccess(folder.key);
+    const bgColors={speech:'#ecfdf5',ot:'#fff7ed',pt:'#f5f3ff',general:'#f1f5f9',meds:'#fffbeb',school:'#fdf4ff'};
+    const iconBg=bgColors[folder.key]||'#ecfdf5';
+    
+    if(!acc){
+      // Locked folder
+      const wrap=el('div',{class:'folder-card'});
+      const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg,opacity:.5}},['🔒']);
+      wrap.appendChild(iw);
+      wrap.appendChild(el('div',{class:'folder-name',style:{opacity:.5}},[folder.name]));
+      wrap.appendChild(el('div',{class:'folder-count'},['No access']));
+      wrap.appendChild(el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},['Locked']));
+      wrap.onclick=()=>showAccessRequest(folder);
+      grid.appendChild(wrap);
+    } else {
+      const wrap=el('div',{class:'folder-card'});
+      const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg}},[folder.icon]);
+      wrap.appendChild(iw);
+      wrap.appendChild(el('div',{class:'folder-name'},[folder.name]));
+      wrap.appendChild(el('div',{class:'folder-count'},[`${folder.files.length} file${folder.files.length!==1?'s':''}`]));
+      
+      // -- LONG-PRESS gesture for action menu --
+      // Tap = open folder, Long-press = context menu
+      let pressTimer=null;
+      let moved=false;
+      
+      const showLongPressMenu=(e)=>{
+        e.preventDefault();
+        // Remove any existing menu
+        document.querySelectorAll('.long-press-menu').forEach(m=>m.remove());
+        
+        const menu=el('div',{class:'long-press-menu'});
+        // Position near touch/click
+        const rect=wrap.getBoundingClientRect();
+        const x=Math.min(rect.left,window.innerWidth-200);
+        const y=rect.bottom+8>window.innerHeight-150?rect.top-150:rect.bottom+8;
+        menu.style.cssText=`left:${x}px;top:${y}px`;
+        
+        const isCustomFolder=folder.key&&folder.key.startsWith('custom_');
+        const actions=[
+          {icon:'📂',label:'Open Folder',fn:()=>showFolderModal(folder,isParent)},
+          ...(isParent?[{icon:'📤',label:'Upload File',fn:()=>{document.getElementById('fileInput')?.click();}}]:[]),
+          {icon:'ℹ️',label:`${folder.files.length} file${folder.files.length!==1?'s':''}`,fn:null},
+          ...(isParent&&isCustomFolder?[{icon:'🗑️',label:'Delete Folder',danger:true,fn:()=>{
+            openConfirm('Delete "'+folder.name+'"?','This will permanently delete the folder and all its files. This cannot be undone.',true,async()=>{
+              try{
+                await SB.deleteFolder(folder.id);
+                const fls=DB.folders.filter(f=>f.id!==folder.id);
+                DB.folders=fls;
+                re();toast('🗑️ Folder deleted.');
+              }catch(e){toast('❌ Could not delete folder: '+e.message,'error');}
+            });
+          }}]:[]),
+        ];
+        actions.forEach(a=>{
+          const item=el('div',{class:'long-press-item'+(a.danger?' danger':'')},['  ',a.icon,' ',a.label]);
+          if(a.fn)item.onclick=()=>{menu.remove();a.fn();};
+          else{item.style.opacity='.5';item.style.cursor='default';}
+          menu.appendChild(item);
+        });
+        
+        document.body.appendChild(menu);
+        // Auto-close on outside tap
+        setTimeout(()=>{
+          const close=(ev)=>{if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('pointerdown',close);}};
+          document.addEventListener('pointerdown',close);
+        },50);
+      };
+      
+      // Touch events for long press
+      wrap.addEventListener('pointerdown',(e)=>{
+        moved=false;
+        pressTimer=setTimeout(()=>{
+          if(!moved){
+            // Haptic-feel: trigger spring animation on folder card
+            wrap.style.transform='scale(0.9)';
+            setTimeout(()=>{wrap.style.transform='';},200);
+            showLongPressMenu(e);
+          }
+        },500);
+      });
+      wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
+      wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
+      wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
+      // Tap = open (use both touchend and click for Android compatibility)
+      const _openFolder=()=>{if(!moved){S.activeFolderId=folder.id;re();}};
+      wrap.addEventListener('touchend',(e)=>{
+        clearTimeout(pressTimer);
+        if(!moved){e.preventDefault();_openFolder();}
+        moved=false;
+      },{passive:false});
+      // Desktop: onclick fires after pointerup; only block if this was a long-press that showed a menu
+      wrap.onclick=(e)=>{
+        if(document.querySelector('.long-press-menu'))return; // long-press menu is showing
+        if(e.pointerType!=='touch')_openFolder(); // desktop mouse click — always open
+      };
+      // Context menu (right-click on desktop = long-press equivalent)
+      wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
+      
+      grid.appendChild(wrap);
+    }
+  });
+  sec.appendChild(grid);
+  sec.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
 
-    // Growth: signups by week for last 8 weeks
-    const weeklySignups = [];
-    for (let i = 7; i >= 0; i--) {
-      const start = new Date(now - (i+1)*7*24*60*60*1000).toISOString();
-      const end = new Date(now - i*7*24*60*60*1000).toISOString();
-      const label = new Date(now - i*7*24*60*60*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
-      weeklySignups.push({
-        label,
-        users: profiles.filter(p => p.created_at >= start && p.created_at < end).length,
-        appointments: appointments.filter(a => a.created_at >= start && a.created_at < end).length,
-        messages: messages.filter(m => m.created_at >= start && m.created_at < end).length
+  // Task 4 — Specialist Vault folders (hard-locked personal storage per specialist)
+  if(S.activeChild){
+    const vaults=(DB.specialistVaults||[]).filter(v=>v.childId===S.activeChild);
+    if(vaults.length>0){
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',margin:'22px 0 12px',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--slate)'}},[' Personal Vaults']));
+      const vaultGrid=el('div',{class:'g-folder'});
+      vaults.forEach(vault=>{
+        const isOwner=!isParent&&session?.specialistId===vault.specialistId;
+        const isAuthorized=!isParent&&(vault.authorizedSpecialistIds||[]).includes(session?.specialistId);
+        const canViewVault=isOwner||isAuthorized;
+        const vaultSpec=getChildTeam(vault.childId||S.activeChild).find(s=>s.id===vault.specialistId)||{name:vault.specialistName||'Specialist'};
+        const wrap=el('div',{class:'folder-card',style:{background:'linear-gradient(135deg,var(--lav-l),#fff)',border:'1.5px solid var(--lav)'}});
+        const iw=el('div',{class:'folder-icon-wrap',style:{background:'var(--lav-l)'}},['🔐']);
+        wrap.appendChild(iw);
+        wrap.appendChild(el('div',{class:'folder-name'},[vaultSpec?.name||vault.specialistName]));
+        wrap.appendChild(el('div',{class:'folder-count'},['Personal Vault']));
+        if(canViewVault){
+          // Owner or authorized: show normal open state
+          wrap.appendChild(badge('Your Vault','lav'));
+          wrap.onclick=()=>openModal('🔐 '+vaultSpec?.name+"'s Vault",(mb,close)=>{
+            mb.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,marginBottom:'16px'}},['This is your private vault. Files uploaded here are not visible to other specialists.']));
+            // Authorize another specialist
+            const otherSpecs=getChildTeam(vault.childId).filter(s=>s.status==='active'&&s.id!==vault.specialistId);
+            if(otherSpecs.length>0&&isOwner){
+              mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Authorize another specialist to view:']));
+              otherSpecs.forEach(os=>{
+                const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 12px',borderRadius:'11px',background:'var(--mint-ll)',marginBottom:'7px'}});
+                const cb=el('input',{type:'checkbox'});
+                cb.checked=(vault.authorizedSpecialistIds||[]).includes(os.id);
+                cb.onchange=e=>{
+                  const vs=DB.specialistVaults||[];
+                  const vi=vs.findIndex(v=>v.vaultId===vault.vaultId);
+                  if(vi===-1)return;
+                  if(e.target.checked){if(!vs[vi].authorizedSpecialistIds.includes(os.id))vs[vi].authorizedSpecialistIds.push(os.id);}
+                  else{vs[vi].authorizedSpecialistIds=vs[vi].authorizedSpecialistIds.filter(x=>x!==os.id);}
+                  DB.specialistVaults=vs;
+                  toast('Authorization updated for '+os.name+'!');
+                };
+                lbl.appendChild(cb);
+                lbl.appendChild(mkAvatar(os.avatar||'🩺',30,'#d1fae5'));
+                lbl.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:700}},[os.name]));
+                mb.appendChild(lbl);
+              });
+            }
+            mb.appendChild(mkBtn('Close','btn-md btn-ghost btn-full',close));
+          },440);
+        } else {
+          // Hard-locked — all other users see blurred, cannot open
+          const lockBadge=el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},['Locked']);
+          wrap.appendChild(lockBadge);
+          const blur=el('div',{class:'blur-lock',style:{borderRadius:'var(--r-lg)'}});
+          blur.appendChild(el('div',{style:{fontSize:'1.6rem',marginBottom:'6px'}},['🔒']));
+          blur.appendChild(el('div',{style:{fontSize:'.74rem',fontWeight:800,color:'var(--navy)',textAlign:'center'}},['Private Vault']));
+          blur.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',textAlign:'center',marginTop:'3px'}},['Owner must grant access']));
+          wrap.appendChild(blur);
+          // Clicking a locked vault does nothing
+          wrap.onclick=e=>e.stopPropagation();
+        }
+        vaultGrid.appendChild(wrap);
+      });
+      sec.appendChild(vaultGrid);
+    }
+  }
+
+  return sec;
+}
+
+function showShareModal(file){
+  openModal('📤 Upload File',(mb,close)=>{
+    // Which folder
+    mb.appendChild(el('div',{class:'inp-label'},['Save to folder']));
+    const folderSel=el('select',{class:'inp',style:{marginBottom:'16px'}});
+    DB.folders.filter(f=>f.childId===S.activeChild).forEach(f=>{const o=el('option');o.value=f.id;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+    mb.appendChild(folderSel);
+
+    // Show who will see the file based on folder access (read-only info)
+    const accessInfo=el('div',{style:{background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'12px',padding:'10px 13px',marginBottom:'16px',fontSize:'.8rem',color:'var(--slate)'}});
+    function updateAccessInfo(){
+      const folder=DB.folders.find(f=>f.id===folderSel.value);
+      const folderKey=folder?.key;
+      const specsWithAccess=getChildTeam(S.activeChild).filter(s=>s.status==='active'&&(s.permissions?.[S.activeChild]||[]).includes(folderKey));
+      if(specsWithAccess.length){
+        accessInfo.textContent='👁 Visible to: '+specsWithAccess.map(s=>s.name).join(', ');
+      } else {
+        accessInfo.textContent='👁 Only visible to you (no specialists have access to this folder yet)';
+      }
+    }
+    folderSel.onchange=updateAccessInfo;
+    updateAccessInfo();
+    mb.appendChild(accessInfo);
+
+    const row2=d('',[], {display:'flex',gap:'10px'});
+    row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    const upBtn=mkBtn('','btn-md btn-primary btn-full',async()=>{
+      if(!folderSel.value){
+        upBtn.innerHTML='📤 Upload';upBtn.disabled=false;
+        toast('No folders available yet. Please wait a moment and try again.','error');
+        return;
+      }
+      upBtn.innerHTML='<span class="spinner"></span> Uploading...';upBtn.disabled=true;
+      try{
+        const {path,url}=await SB.uploadFile(S.activeChild,file);
+        const folderId=folderSel.value;
+        const folder=DB.folders.find(f=>f.id===folderId);
+        const newFile={childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder?.key||'general'};
+        const saved=await SB.addFile(newFile);
+        const fileId=saved?.id||crypto.randomUUID();
+        // Update local cache so UI reflects immediately without a full refresh
+        const fls=DB.folders;
+        const fi2=fls.find(f=>f.id===folderId);
+        if(fi2)fi2.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
+        DB.folders=fls;
+        close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
+      }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
+    });
+    upBtn.innerHTML='📤 Upload';
+    row2.appendChild(upBtn);
+    mb.appendChild(row2);
+  },520);
+}
+
+function showAddFolderModal(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  if(!child){toast('Select a child first.','error');return;}
+  openModal('📁 New Folder',(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},['Folder name']));
+    const nameInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
+    mb.appendChild(nameInp);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Icon']));
+    const iconInp=el('input',{class:'inp',placeholder:'📁',style:{marginBottom:'14px',width:'80px'}});
+    iconInp.value='📁';
+    mb.appendChild(iconInp);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Who can see this folder?']));
+    const permsMap={};
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      permsMap[s.id]=false;
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 12px',borderRadius:'12px',background:'var(--mint-ll)'}});
+      const cb=el('input',{type:'checkbox'});cb.checked=false;
+      cb.onchange=e=>permsMap[s.id]=e.target.checked;
+      lbl.appendChild(cb);
+      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.84rem'}},[s.avatar+' '+s.name+' · '+s.role]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+
+    const row2=d('',[], {display:'flex',gap:'10px'});
+    row2.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    row2.appendChild(mkBtn('Create Folder','btn-md btn-primary btn-full',async()=>{
+      const name=nameInp.value.trim();
+      if(!name){toast('Please enter a folder name.','error');return;}
+      const key='custom_'+Date.now();
+      const newFolder={id:'f_'+S.activeChild+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,childId:S.activeChild};
+      try{
+        await SB.addFolder(newFolder);
+        const selected=Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k);
+        const fls=DB.folders;fls.push({...newFolder,files:[]});DB.folders=fls;
+        if(selected.length){
+          const specs=DB.specialists;
+          selected.forEach(sId=>{
+            const si=specs.findIndex(s=>s.id===sId);
+            if(si>-1){if(!specs[si].permissions[S.activeChild])specs[si].permissions[S.activeChild]=[];specs[si].permissions[S.activeChild].push(key);}
+          });
+          DB.specialists=specs;
+        }
+        close();re();toast('📁 "'+name+'" folder created!');
+      }catch(e){toast('❌ Could not create folder: '+e.message,'error');}
+    }));
+    mb.appendChild(row2);
+  },500);
+}
+
+function showFolderModal(folder,isParent){
+  openModal(folder.icon+' '+folder.name,(mb,close)=>{
+    const stack=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    if(!folder.files||folder.files.length===0){
+      stack.appendChild(el('div',{class:'empty-inline'},['No files in this folder yet.']));
+    }
+    folder.files.forEach(f=>{
+      const fi=el('div',{class:'file-item',style:{flexDirection:'column',alignItems:'stretch',gap:'8px'}});
+      const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+      const ext=(f.name||'').split('.').pop().toLowerCase();
+      const fileIcon={'pdf':'📄','jpg':'🖼️','jpeg':'🖼️','png':'🖼️','doc':'📝','docx':'📝','mp4':'🎬','mp3':'🎵'}[ext]||'📎';
+      topRow.appendChild(el('span',{style:{fontSize:'1.35rem'}},[fileIcon]));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}},[f.name]));
+      info.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',marginTop:'2px'}},[f.date||'']));
+      topRow.appendChild(info);
+      if(f.locked)topRow.appendChild(el('span',{class:'locked-badge'},['🔒']));
+      fi.appendChild(topRow);
+      // Action buttons row
+      const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+      // Preview
+      if(f.url){
+        const prevBtn=mkBtn('👁 Preview','btn-sm btn-ghost',()=>{
+          const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.82)',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'stretch'}});
+          const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+          bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+          const xBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+          xBtn.onclick=()=>ov.remove();
+          bar.appendChild(xBtn);
+          ov.appendChild(bar);
+          const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+          if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+            body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+          } else if(ext==='pdf'||['doc','docx','xls','xlsx','ppt','pptx'].includes(ext)){
+            const frame=el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}});
+            body.appendChild(frame);
+          } else {
+            const wrap=el('div',{style:{textAlign:'center',color:'#fff'}});
+            wrap.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+            wrap.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},[`Preview not available for .${ext} files`]));
+            const dlA=el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download file']);
+            wrap.appendChild(dlA);
+            body.appendChild(wrap);
+          }
+          ov.appendChild(body);
+          ov.onclick=e=>{if(e.target===ov)ov.remove();};
+          document.body.appendChild(ov);
+        });
+        actions.appendChild(prevBtn);
+      }
+      // Download
+      if(f.url){
+        const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',async()=>{
+          try{
+            dlBtn.textContent='⏳…';dlBtn.disabled=true;
+            // Use fetch+blob to force download even for cross-origin Supabase URLs
+            const resp=await fetch(f.url);
+            if(!resp.ok)throw new Error('Failed to fetch file');
+            const blob=await resp.blob();
+            const blobUrl=URL.createObjectURL(blob);
+            const a=document.createElement('a');a.href=blobUrl;a.download=f.name;
+            document.body.appendChild(a);a.click();
+            setTimeout(()=>{URL.revokeObjectURL(blobUrl);a.remove();},1000);
+            dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
+          }catch(e){
+            // Fallback: open in new tab
+            window.open(f.url,'_blank');
+            dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
+          }
+        });
+        actions.appendChild(dlBtn);
+      }
+      // Rename (parent only)
+      if(isParent&&!f.locked){
+        const rnBtn=mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            try{
+              await SB.renameFile(f.id,newName.trim());
+              const fls=DB.folders;
+              const fo=fls.find(x=>x.id===folder.id);
+              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+            }catch(e){toast('❌ Rename failed: '+e.message,'error');}
+          }
+        });
+        actions.appendChild(rnBtn);
+        // Manage permissions
+        actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+        // Delete
+        const delBtn=mkBtn('🗑 Delete','btn-sm btn-danger',async()=>{
+          openConfirm('Delete "'+f.name+'"?','This will permanently delete the file and cannot be undone.',true,async()=>{
+            try{
+              await SB.deleteFile(f.id);
+              const fls=DB.folders;
+              const fo=fls.find(x=>x.id===folder.id);
+              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+              close();re();toast('🗑 File deleted.');
+            }catch(e){toast('❌ Delete failed: '+e.message,'error');}
+          });
+        });
+        actions.appendChild(delBtn);
+      }
+      if(actions.children.length>0)fi.appendChild(actions);
+      stack.appendChild(fi);
+    });
+    mb.appendChild(stack);
+    if(isParent){
+      mb.appendChild(mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
+    }
+  },540);
+}
+
+function showFilePermModal(file,folder){
+  openModal('⚙️ File Permissions — '+file.name,(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Choose which specialists can access this file:']));
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
+    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.checked=(file.sharedWith||[]).includes(s.id);
+      cb.onchange=e=>{
+        const fls=DB.folders;
+        const fo=fls.find(f=>f.id===folder.id);
+        if(!fo)return;
+        const fi2=fo.files.find(x=>x.id===file.id);
+        if(!fi2)return;
+        if(e.target.checked){if(!fi2.sharedWith.includes(s.id))fi2.sharedWith.push(s.id);}
+        else{fi2.sharedWith=fi2.sharedWith.filter(x=>x!==s.id);}
+        DB.folders=fls;
+      };
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',()=>{close();toast('✅ Permissions updated!');re();}));
+  },500);
+}
+
+function showAccessRequest(folder){
+  openModal('🔒 Request Access',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
+      [`You don't have access to the ${folder.name} folder. Send a request to the parent?`]));
+    mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',()=>{
+      const specId=session?.specialistId||null;
+      const specName=session?.name||'Specialist';
+      const specRole=DB.specialists.find(s=>s.id===specId)?.role||'Specialist';
+      const childId=S.activeChild;
+      if(!specId||!childId){toast('Session error — please reload.','error');close();return;}
+      const reqs=DB.specialistRequests||[];
+      const alreadyPending=reqs.some(r=>r.specialistId===specId&&r.childId===childId&&r.requestedFolder===folder.key&&r.status==='pending');
+      if(alreadyPending){toast('⚠️ You already have a pending request for this folder.','info');close();return;}
+      const newReq={id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedFolderName:folder.name,requestType:'folder',requestedAt:new Date().toISOString(),status:'pending'};
+      reqs.push(newReq);
+      DB.specialistRequests=reqs;
+      // Save to Supabase so parent on any device sees it
+      if(session&&session.id!=='demo'){
+        _supa.from('children').select('parent_id').eq('id',childId).single().then(({data})=>{
+          if(data?.parent_id){
+            _supa.from('specialist_requests').insert({id:newReq.id,parent_id:data.parent_id,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'}).catch(()=>{});
+          }
+        }).catch(()=>{});
+      }
+      pushNotif('invite',`${specName} is requesting access to the ${folder.name} folder.`,childId);
+      close();
+      toast('✅ Access request sent to parent!');
+    }));
+  },400);
+}
+
+/* -----------------------------------------------
+   CARE TEAM
+----------------------------------------------- */
+function renderTeam(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const sec=el('div',{class:'section'});
+  const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+  rightEl.appendChild(mkBtn('🔗','btn-sm btn-primary',()=>{
+    if(!child){toast('Select a child first.','error');return;}
+    showConnectionCodeModal(child.id);
+  }));
+  rightEl.appendChild(mkBtn('📧','btn-sm btn-ghost',()=>showInviteModal()));
+  sec.appendChild(mkSubHeader('Care Team',rightEl));
+
+  // Connection code banner at top of team page
+  if(child){
+    const connBanner=el('div',{style:{
+      background:'linear-gradient(135deg,var(--mint-l),var(--lav-l))',
+      border:'1.5px solid var(--mint)',borderRadius:'var(--r-lg)',
+      padding:'14px 16px',marginBottom:'18px',
+      display:'flex',alignItems:'center',gap:'12px'
+    }});
+    connBanner.appendChild(el('div',{style:{fontSize:'1.8rem'}},'🔗'));
+    const ci=el('div',{style:{flex:1}});
+    ci.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}},
+      ['Invite a specialist to join my team.']));
+    ci.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
+      ['Generate a connection code or send an email invitation to bring a therapist onto the care team.']));
+    connBanner.appendChild(ci);
+    const bannerBtns=el('div',{style:{display:'flex',gap:'8px',flexDirection:'column',alignItems:'flex-end'}});
+    bannerBtns.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
+    bannerBtns.appendChild(mkBtn('📧 Email Invite','btn-sm btn-secondary',()=>showInviteModal()));
+    connBanner.appendChild(bannerBtns);
+    sec.appendChild(connBanner);
+  }
+
+  // Pending requests — split into join requests vs folder access requests
+  if(child){
+    const allPending=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
+    const joinReqs=allPending.filter(r=>!r.requestType||r.requestType==='join');
+    const folderReqs=allPending.filter(r=>r.requestType==='folder');
+
+    // -- Folder access requests (specialist already on team, wants a specific folder) --
+    if(folderReqs.length>0){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
+      folderReqs.forEach(req=>{
+        const reqFolder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===child.id);
+        const reqCard=el('div',{class:'spec-request-card'});
+        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
+        topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+new Date(req.requestedAt).toLocaleDateString()]));
+        topRow.appendChild(info);
+        reqCard.appendChild(topRow);
+        reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},
+          ['Requesting access to: '+(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)]));
+        const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
+        btnRow.appendChild(mkBtn('✅ Grant Access','btn-sm btn-primary',()=>approveFolderRequest(req)));
+        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        reqCard.appendChild(btnRow);
+        sec.appendChild(reqCard);
+      });
+      sec.appendChild(el('div',{class:'sep'}));
+    }
+
+    // -- Join requests (specialist wants to join the team) --
+    if(joinReqs.length>0){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['👥 Pending Team Requests']));
+      joinReqs.forEach(req=>{
+        const reqCard=el('div',{class:'spec-request-card'});
+        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
+        topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
+        const info=el('div',{style:{flex:1}});
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · Requested '+new Date(req.requestedAt).toLocaleDateString()]));
+        topRow.appendChild(info);
+        reqCard.appendChild(topRow);
+        // Show actual folders for this child, pre-check the profession folder
+        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Choose which folders to share:']));
+        const childFolders=DB.folders.filter(f=>f.childId===child.id);
+        const profMatch=PROFESSIONS.find(p=>p.label===req.role);
+        const selFolders=profMatch?[profMatch.key]:[];
+        const fRows=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'12px'}});
+        childFolders.forEach(folder=>{
+          const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',padding:'7px 11px',borderRadius:'11px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',fontSize:'.8rem',fontWeight:700}});
+          const cb=el('input',{type:'checkbox'});
+          cb.checked=selFolders.includes(folder.key);
+          cb.onchange=e=>{if(e.target.checked){if(!selFolders.includes(folder.key))selFolders.push(folder.key);}else{const fi=selFolders.indexOf(folder.key);if(fi>-1)selFolders.splice(fi,1);}};
+          lbl.appendChild(cb);lbl.appendChild(document.createTextNode(folder.icon+' '+folder.name));
+          fRows.appendChild(lbl);
+        });
+        if(!childFolders.length)fRows.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},['No folders created yet — specialist will get access when folders are added.']));
+        reqCard.appendChild(fRows);
+        const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
+        btnRow.appendChild(mkBtn('Approve & Grant Access','btn-sm btn-primary',()=>{
+          approveSpecialistRequest(req.id,selFolders);
+        }));
+        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        reqCard.appendChild(btnRow);
+        sec.appendChild(reqCard);
+      });
+      sec.appendChild(el('div',{class:'sep'}));
+    }
+  }
+
+  // Existing team members — use getChildTeam() which works for both parent and specialist
+  const specialists=session?.role==='specialist'
+    ? getChildTeam(child?.id)
+    : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
+
+  const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
+  if(!specialists.length&&!pendingReqsForChild.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👥']),
+      el('div',{class:'empty-state-title'},['No specialists yet']),
+      el('div',{class:'empty-state-body'},['Invite a therapist using a Connection Code or email invite. They\'ll join '+(child?.name||'this profile')+'\'s care team.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('🔗 Generate Connection Code','btn-md btn-primary',()=>{if(child)showConnectionCodeModal(child.id);}),
+      ])
+    ]));
+  } else {
+    specialists.forEach(s=>{
+      const isPending=s.status==='pending';
+      const perms=child?(s.permissions[child.id]||[]):[];
+      const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
+      if(isPending){
+        const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+        pb.appendChild(badge('⏳ Pending','amber'));card.appendChild(pb);
+      }
+      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
+      const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
+      const childFoldersForSpec=DB.folders.filter(f=>f.childId===child?.id);
+      perms.forEach(key=>{
+        const f=childFoldersForSpec.find(f=>f.key===key);
+        if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
+      });
+      if(!pr.children.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+      info.appendChild(pr);
+      card.appendChild(info);
+      if(!isPending&&child){
+        const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
+        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
+        acts.appendChild(mkBtn('🤝 Consult','btn-sm btn-lav',()=>showHandshakeModal(s)));
+        acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
+          `Remove ${s.name} from ${child.name}'s care team?`,true,()=>removeSpecialist(s))));
+        card.appendChild(acts);
+      }
+      sec.appendChild(card);
+    });
+  }
+
+  // Legacy Archive
+  const archive=DB.legacyArchive;
+  if(archive.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},['🗄️ Legacy Archives']));
+    archive.forEach(a=>{
+      const ac=el('div',{class:'card',style:{background:'#f8fafc',border:'2px dashed var(--slate-l)',display:'flex',gap:'12px',alignItems:'center',marginBottom:'10px'}});
+      ac.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🗄️']));
+      const acInfo=el('div',{style:{flex:'1'}});
+      acInfo.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)'}},[a.specialistName]));
+      acInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)'}},[a.childName+' · Archived '+a.archivedAt+' · '+a.notes.length+' note(s) retained']));
+      ac.appendChild(acInfo);
+      ac.appendChild(badge('Legacy','slate'));
+      sec.appendChild(ac);
+    });
+  }
+  return sec;
+}
+
+function removeSpecialist(spec){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  // Create legacy archive entry
+  const archive=DB.legacyArchive;
+  const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===S.activeChild);
+  archive.push({specialistId:spec.id,specialistName:spec.name,childId:S.activeChild,childName:child?.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes});
+  DB.legacyArchive=archive;
+  // Revoke permissions
+  const specs=DB.specialists;
+  const i=specs.findIndex(s=>s.id===spec.id);
+  if(i>-1){specs[i].permissions[S.activeChild]=[];}
+  DB.specialists=specs;
+  re();toast('✅ '+spec.name+' removed. Their notes are in the Legacy Archive.');
+}
+
+function showPermModal(spec){
+  openModal('⚙️ Permissions — '+spec.name,(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Which areas can '+spec.name+' access?']));
+    const childFolders=DB.folders.filter(f=>f.childId===S.activeChild);
+    const curPerms=[...(spec.permissions[S.activeChild]||[])];
+    const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
+    if(childFolders.length===0){
+      rows.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.85rem',padding:'10px'}},['No folders found for this child.']));
+    }
+    childFolders.forEach(folder=>{
+      const key=folder.key||folder.id;
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const cb=el('input',{type:'checkbox'});cb.checked=curPerms.includes(key);
+      cb.onchange=e=>{if(e.target.checked){if(!curPerms.includes(key))curPerms.push(key);}else{const i=curPerms.indexOf(key);if(i>-1)curPerms.splice(i,1);}};
+      lbl.appendChild(cb);
+      lbl.appendChild(el('span',{style:{fontSize:'1.1rem'}},[folder.icon||'📁']));
+      lbl.appendChild(el('span',{style:{fontWeight:700,fontSize:'.86rem'}},[folder.name]));
+      rows.appendChild(lbl);
+    });
+    mb.appendChild(rows);
+    const saveBtn=mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
+      saveBtn.disabled=true;saveBtn.innerHTML='Saving…';
+      const specs=DB.specialists,i=specs.findIndex(s=>s.id===spec.id);
+      if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
+      // Sync to Supabase so specialist's device picks it up
+      if(_supa&&spec.id&&S.activeChild){
+        const {error:delErr}=await _supa.from('folder_permissions').delete().eq('specialist_id',spec.id).eq('child_id',S.activeChild);
+        if(delErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+delErr.message,'error');return;}
+        for(const key of curPerms){
+          const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:spec.id,child_id:S.activeChild,folder_key:key});
+          if(upErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+upErr.message,'error');return;}
+        }
+      }
+      close();re();toast('✅ Permissions updated for '+spec.name+'!');
+    });
+    mb.appendChild(saveBtn);
+  },480);
+}
+
+function showInviteModal(){
+  openModal('➕ Invite a Specialist',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    const ni=el('input',{class:'inp',placeholder:"Specialist's full name",type:'text'});
+    const ei=el('input',{class:'inp',placeholder:"Specialist's email address",type:'email'});
+    const ri=el('select',{class:'inp',style:{marginBottom:'8px'}});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
+    [ni,ei,ri].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+
+    // Pre-assign permissions
+    mb.appendChild(el('div',{class:'inp-label'},['Pre-assign folder access']));
+    const folderKeys=['speech','ot','pt','general'];
+    const prePerms=[];
+    const prows=el('div',{class:'inp-group',style:{marginBottom:'18px'}});
+    folderKeys.forEach(key=>{
+      const folder=DB.folders.find(f=>f.key===key);
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.onchange=e=>{if(e.target.checked)prePerms.push(key);else{const i=prePerms.indexOf(key);if(i>-1)prePerms.splice(i,1);}};
+      lbl.appendChild(cb);lbl.appendChild(el('span',{},[folder?.icon+' '+folder?.name]));
+      prows.appendChild(lbl);
+    });
+    mb.appendChild(prows);
+
+    // Magic link preview (shown after send)
+    const linkArea=el('div',{style:{display:'none'}});
+    mb.appendChild(linkArea);
+
+    mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.8rem',marginBottom:'16px',lineHeight:'1.6',fontWeight:500}},
+      ['An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.']));
+    mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
+      if(!ei.value){toast('⚠️ Email required.','error');return;}
+      // Generate magic link token
+      const _ta=new Uint8Array(8);crypto.getRandomValues(_ta);
+      const token='hd_invite_'+Date.now().toString(36)+'_'+Array.from(_ta).map(b=>b.toString(16).padStart(2,'0')).join('');
+      const child=DB.children.find(c=>c.id===S.activeChild);
+      const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
+      const magicLink=`${baseUrl}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
+      // Save pending specialist locally
+      const specs=DB.specialists;
+      const invitePermsObj={};
+      DB.children.forEach(ch=>{invitePermsObj[ch.id]=ch.id===S.activeChild?prePerms:[];});
+      const localSpecId='s_'+Date.now();
+      specs.push({id:localSpecId,name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:invitePermsObj,status:'pending',credentials:[],inviteToken:token});
+      DB.specialists=specs;
+      // Save invite to Supabase so specialist can accept it
+      if(session&&session.id!=='demo'){
+        const expires=new Date();expires.setDate(expires.getDate()+7);
+        _supa.from('invites').insert({
+          token,
+          parent_id:session.id,
+          child_id:S.activeChild,
+          email:ei.value,
+          specialist_email:ei.value,
+          specialist_name:ni.value||ei.value.split('@')[0],
+          specialist_role:ri.value||'Specialist',
+          expires_at:expires.toISOString(),
+          accepted:false
+        }).then(({error})=>{if(error)console.error('Invite save error:',error.code);});
+      }
+      // Add simulated email to inbox
+      const emails=DB.emailInbox;
+      emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:ei.value,subject:`🤝 You've been invited to join ${child?.name}'s care team`,body:`${session?.name||'The family'} has invited you to join ${child?.name}'s care team on Huddledin as a ${ri.value||'Specialist'}.\n\nClick your magic link to accept:\n${magicLink}\n\nThis link will auto-register you if you're new, or add the patient to your existing account.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite',magicLink});
+      DB.emailInbox=emails;
+      // Show link in UI
+      linkArea.style.display='block';
+      linkArea.innerHTML='';
+      linkArea.appendChild(el('div',{class:'inp-label'},['🔗 Magic Invite Link (click to copy)']));
+      const lb=el('div',{class:'invite-link-box'},[magicLink]);
+      lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast('✅ Link copied to clipboard!'));};
+      linkArea.appendChild(lb);
+      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['📧 An invite email has been sent automatically to '+ei.value]));
+      // FIX FS2: do NOT call re() here — it destroys the open modal and breaks the close button.
+      // The modal already shows the link; re() is deferred until the modal is closed.
+      // Send real invite email via Resend
+      fetch('/api/send-invite',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to:ei.value,
+          childName:child?.name||'your patient',
+          inviteLink:magicLink,
+          fromName:session?.name||'The family',
+          specialistRole:ri.value||'Specialist'
+        })
+      }).then(r=>r.json()).then(d=>{
+        if(d.ok){toast('📧 Invite email sent to '+ei.value+'!','success');close();}
+        else toast('⚠️ Email delivery failed. Share the link manually.','error');
+      }).catch(()=>toast('⚠️ Email delivery failed. Share the link manually.','error'));
+      toast('✅ Sending invite to '+ei.value+'…');
+      track('Invite Sent',{role:ri.value||'Specialist'});
+    }));
+  },500);
+}
+
+function showHandshakeModal(spec){
+  openModal('🤝 Consultation Request',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',lineHeight:'1.65'}},
+      [`${spec.name} is requesting permission to consult with another specialist about your child's care.`]));
+    // Pick who to consult with
+    mb.appendChild(el('div',{class:'inp-label'},['Select specialist to consult']));
+    const others=DB.specialists.filter(s=>s.id!==spec.id&&s.status==='active');
+    let selectedConsult=others[0]?.id||null;
+    const cRows=el('div',{class:'stack',style:{marginBottom:'16px'}});
+    others.forEach(o=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+      const rb=el('input',{type:'radio',name:'consult-pick'});rb.value=o.id;rb.checked=(o.id===selectedConsult);
+      rb.onchange=()=>selectedConsult=o.id;
+      lbl.appendChild(rb);lbl.appendChild(mkAvatar(o.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[o.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[o.role])]));
+      cRows.appendChild(lbl);
+    });
+    mb.appendChild(cRows);
+
+    const inclLbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px',cursor:'pointer',padding:'11px 14px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
+    const inclCb=el('input',{type:'checkbox'});inclCb.checked=false;
+    inclLbl.appendChild(inclCb);inclLbl.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)'}},['Include me in the conversation']));
+    mb.appendChild(inclLbl);
+
+    const row2=d('',[], {display:'flex',gap:'11px'});
+    row2.appendChild(mkBtn('✗ Deny','btn-md btn-danger',close));
+    row2.appendChild(mkBtn('✓ Approve','btn-md btn-primary',async()=>{
+      // Create specialist chat
+      const other=DB.specialists.find(s=>s.id===selectedConsult);
+      if(other){
+        const newChat={id:'ch_'+Date.now(),type:'specialist-consult',
+          participants:inclCb.checked?[(session?.role==='parent'?'parent':session.id),spec.id,selectedConsult]:[spec.id,selectedConsult],
+          childId:S.activeChild,approved:true,
+          name:`${spec.name.split(' ')[0]} + ${other.name.split(' ')[0]} Consult`,
+          messages:[]};
+        try{await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});}catch(e){console.error('create consult chat:',e);}
+        const cs=DB.chats;cs.push(newChat);DB.chats=cs;
+      }
+      close();re();toast('✅ Consultation approved! Secure chat created.');
+    }));
+    mb.appendChild(row2);
+  },480);
+}
+
+/* -----------------------------------------------
+   CALENDAR
+----------------------------------------------- */
+
+/* -- Appointment Detail Modal with Permission Logic -- */
+function showAptDetailModal(apt,child){
+  const isParent=session?.role==='parent';
+  const isCreator=isParent
+    ?(!apt.specialistId)  // parent created if no specialistId
+    :(apt.specialistId===session.specialistId||apt.specialistId===session.id);
+  const dateLabel=new Date(apt.date+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const typeLabel={speech:'🗣 Speech Therapy',ot:'🖐 Occupational Therapy',pt:'🏃 Physical Therapy',psychology:'🧠 Psychology',general:'📋 General'}[apt.type]||'📋 Session';
+  openModal('📅 Appointment',(mb,close)=>{
+    // Header
+    const hdr=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
+    const colorBar=el('div',{style:{width:'5px',borderRadius:'99px',background:child?.color||'var(--teal)',alignSelf:'stretch',flexShrink:0}});
+    hdr.appendChild(colorBar);
+    const hdrInfo=el('div',{style:{flex:1}});
+    hdrInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.02rem',marginBottom:'4px'}},[aptDisplayTitle(apt)]));
+    hdrInfo.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--teal)',fontWeight:700}},[dateLabel]));
+    hdrInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'3px'}},[typeLabel]));
+    hdr.appendChild(hdrInfo);
+    if(child)hdr.appendChild(el('span',{style:{fontSize:'1.8rem',flexShrink:0}},[child.avatar]));
+    mb.appendChild(hdr);
+    // Details grid
+    const rows=[
+      apt.time?['🕐','Time',apt.time+(apt.endTime?' – '+apt.endTime:'')]:null,
+      apt.specialist&&apt.specialist!=='TBD'?['👤',isParent?'Specialist':'Session with',apt.specialist]:null,
+      apt.location?['📍','Location',apt.location]:null,
+      child?['🧒','For',child.name]:null,
+      apt.recurrence&&apt.recurrence!=='none'?['🔁','Repeats',{weekly:'Weekly',biweekly:'Every 2 weeks',monthly:'Monthly'}[apt.recurrence]||apt.recurrence]:null,
+    ].filter(Boolean);
+    rows.forEach(([icon,label,val])=>{
+      const row=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)'}});
+      row.appendChild(el('span',{style:{fontSize:'1rem',flexShrink:0,width:'22px',textAlign:'center'}},[icon]));
+      row.appendChild(el('div',{style:{flex:1}},[ el('span',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:600}},[ label+': ' ]), el('span',{style:{fontSize:'.8rem',color:'var(--navy)',fontWeight:700}},[val]) ]));
+      mb.appendChild(row);
+    });
+    if(apt.notes){
+      mb.appendChild(el('div',{style:{marginTop:'10px',padding:'10px 12px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.6'}},[apt.notes]));
+    }
+    // Action buttons — permission-based
+    const actRow=el('div',{style:{display:'flex',gap:'8px',marginTop:'16px',flexWrap:'wrap'}});
+    if(isCreator){
+      // Show parent RSVP status to the creator
+      if(apt.rsvp){
+        const rsvpInfo=el('div',{style:{
+          display:'flex',alignItems:'center',gap:'8px',
+          padding:'10px 14px',borderRadius:'12px',marginBottom:'12px',
+          background:apt.rsvp==='yes'?'#d1fae5':'#fee2e2',
+          border:'1.5px solid '+(apt.rsvp==='yes'?'#6ee7b7':'#fca5a5')
+        }});
+        rsvpInfo.appendChild(el('span',{style:{fontSize:'1.1rem'}},[apt.rsvp==='yes'?'✅':'❌']));
+        rsvpInfo.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:apt.rsvp==='yes'?'#065f46':'#991b1b'}},[
+          apt.rsvp==='yes'?'Parent confirmed attending':'Parent marked as not attending'
+        ]));
+        mb.appendChild(rsvpInfo);
+      }
+      actRow.appendChild(mkBtn('✏️ Edit','btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
+      actRow.appendChild(mkBtn('🗑️ Delete','btn-md btn-danger',()=>{
+        openConfirm('Delete Appointment','Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
+          try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){}
+          DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);
+          close();re();toast('Appointment removed.');
+        });
+      }));
+    } else {
+      // Not creator — show RSVP only
+      const rsvpStatus=apt.rsvp||null;
+      const attending=mkBtn('✅ Attending','btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
+        const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
+        if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
+        try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){}
+        await notifyOtherParty('appointments',`✅ ${session.name||'Parent'} confirmed attending: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
+        close();re();toast('Marked as Attending ✅');
+      });
+      const notAttending=mkBtn('❌ Not Attending','btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
+        const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
+        if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
+        try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){}
+        await notifyOtherParty('appointments',`❌ ${session.name||'Parent'} cannot attend: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
+        close();re();toast('Marked as Not Attending.');
+      });
+      actRow.appendChild(attending);
+      actRow.appendChild(notAttending);
+    }
+    mb.appendChild(actRow);
+  },480);
+}
+
+/* -- Edit Appointment Modal -- */
+function showEditAptModal(apt){
+  openModal('✏️ Edit Appointment',(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},['Title']));
+    const ti=el('input',{class:'inp',value:apt.title||'',style:{marginBottom:'10px'}});mb.appendChild(ti);
+    mb.appendChild(el('div',{class:'inp-label'},['Date']));
+    const di=el('input',{class:'inp',type:'date',value:apt.date||'',style:{marginBottom:'10px'}});mb.appendChild(di);
+    mb.appendChild(el('div',{class:'inp-label'},['Time']));
+    const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
+    const tmi=el('input',{class:'inp',type:'time',value:apt.time?.split(' – ')[0]||''});
+    const endTmi=el('input',{class:'inp',type:'time',value:apt.endTime||''});
+    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['Start']));sw.appendChild(tmi);
+    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['End']));ew.appendChild(endTmi);
+    timeRow.appendChild(sw);timeRow.appendChild(ew);mb.appendChild(timeRow);
+    mb.appendChild(el('div',{class:'inp-label'},['Location']));
+    const loci=el('input',{class:'inp',value:apt.location||'',placeholder:'Clinic, Zoom, Home…',style:{marginBottom:'10px'}});mb.appendChild(loci);
+    mb.appendChild(el('div',{class:'inp-label'},['Notes']));
+    const notesI=el('textarea',{class:'inp',style:{marginBottom:'14px',minHeight:'56px',resize:'vertical'}},[apt.notes||'']);mb.appendChild(notesI);
+    mb.appendChild(mkBtn('Save Changes','btn-lg btn-primary btn-full',async()=>{
+      if(!ti.value||!di.value){toast('Title and date required.','error');return;}
+      const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):(apt.time||'TBD');
+      try{
+        await _supa.from('appointments').update({title:ti.value,date:di.value,time:timeStr,end_time:endTmi.value||null,location:loci.value||null,notes:notesI.value||null}).eq('id',apt.id);
+        const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
+        if(i>-1){Object.assign(apts[i],{title:ti.value,date:di.value,time:timeStr,endTime:endTmi.value||null,location:loci.value||null,notes:notesI.value||null});DB.appointments=apts;}
+        close();re();toast('✅ Appointment updated!');
+      }catch(e){toast('Could not save.','error');}
+    }));
+  },520);
+}
+
+function renderCalendar(){
+  const isParent=session?.role==='parent';
+  const allChildren=DB.children;
+  const _allApts=LS.get('appointments',[]);
+  const _myChildren=LS.get('children',[]);
+  const _myPatientIds=isParent?[]:_myChildren.map(c=>c.id);
+  // Specialist: if children are loaded but appointments cache is empty, trigger a background refresh
+  if(!isParent&&_myPatientIds.length>0&&_allApts.length===0&&!S._calRefreshing){
+    S._calRefreshing=true;
+    (async()=>{
+      try{
+        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).order('date');
+        if(apts&&apts.length>0){
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+          S._calRefreshing=false;re();
+        } else {S._calRefreshing=false;}
+      }catch(e){S._calRefreshing=false;}
+    })();
+  }
+  const childApts=isParent
+    ?(S.calendarMode==='joint'
+      ?_allApts
+      :_allApts.filter(a=>a.childId===S.activeChild))
+    :_allApts.filter(a=>_myPatientIds.includes(a.childId));
+  const child=DB.children.find(c=>c.id===S.activeChild);
+
+  const sec=el('div',{class:'section'});
+  if(isParent){
+    const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    rightEl.appendChild(mkBtn('📅','btn-sm btn-ghost',()=>showGoogleSyncModal()));
+    rightEl.appendChild(mkBtn('➕','btn-sm btn-primary',()=>showAddEventModal()));
+    sec.appendChild(mkSubHeader('Calendar',rightEl));
+  } else {
+    const hd=el('div',{class:'sec-hd'});
+    hd.appendChild(el('div',{class:'sec-hd-left'},[
+      el('h2',{class:'page-title'},['Calendar']),
+      el('p',{class:'page-sub'},[`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
+    ]));
+    hd.appendChild(el('div',{class:'sec-hd-right'},[
+      mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
+      mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())
+    ]));
+    sec.appendChild(hd);
+  }
+
+  // FIX B4/B9/F1: compute dynamic year/month/firstDay and today
+  const calNow=new Date();
+  const calYear=calNow.getFullYear();
+  const calMonth=calNow.getMonth();
+  const calDaysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const calFirstDay=new Date(calYear,calMonth,1).getDay();
+  const calTodayStr=calNow.toISOString().split('T')[0];
+  const calTodayDay=calNow.getDate();
+
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
+  const calHd2=el('div',{class:'cal-hd'});
+  calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">${calNow.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
+  calCard.appendChild(calHd2);
+  const cg=el('div',{class:'cal-grid'});
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
+  for(let i=0;i<calFirstDay;i++)cg.appendChild(el('div',{class:'cal-day'}));
+  for(let day=1;day<=calDaysInMonth;day++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const da=childApts.filter(a=>a.date===ds);
+    const cell=el('div',{class:'cal-day'});
+    // FIX F1: use actual today's day number, not hardcoded day===1
+    const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(day===calTodayDay&&ds===calTodayStr?' today':'')},
+      [String(day)]);
+    num.style.cursor='pointer';
+    const _openDay=()=>{
+      const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
+      openModal('📅 '+evtLabel,(mb,close)=>{
+        if(da.length){
+          da.forEach(apt=>{
+            const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
+            chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${aptDisplayTitle(apt)}</div><div style="font-size:.8rem;color:var(--slate)">${aptDisplaySub(apt)} · ${apt.time}</div>`;
+            mb.appendChild(chip);
+          });
+          mb.appendChild(el('div',{style:{height:'12px'}}));
+        } else {
+          mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No appointments on this day.']));
+        }
+        mb.appendChild(mkBtn('➕ Add Appointment','btn-lg btn-primary btn-full',()=>{
+          close(); showAddEventModal(ds);
+        }));
+      },400);
+    };
+    num.onclick=e=>{e.stopPropagation();_openDay();};
+    cell.onclick=()=>_openDay();
+    cell.appendChild(num);
+    da.forEach(a=>{
+      const dotColor=(isParent&&S.calendarMode==='joint')
+        ?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)')
+        :(TC[a.type]||'var(--teal)');
+      const dot=el('div',{class:'cal-dot',style:{background:dotColor}},[aptDisplayTitle(a).split(' ')[0]]);
+      cell.appendChild(dot);
+    });
+    cg.appendChild(cell);
+  }
+  calCard.appendChild(cg);
+  sec.appendChild(calCard);
+
+  sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['Upcoming Events']));
+  const stack=el('div',{class:'stack'});
+  const todayStr2=new Date().toISOString().split('T')[0];
+  [...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
+    const ch=DB.children.find(c=>c.id===apt.childId);
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer'}});
+    const barColor=ch?.color||TC[apt.type]||'var(--teal)';
+    const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
+    card.appendChild(bar);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[aptDisplayTitle(apt)]));
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[aptDisplaySub(apt)]));
+    if(apt.location)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+apt.location]));
+    if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
+    card.appendChild(info);
+    const right=d('',[], {textAlign:'right'});
+    right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
+    right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
+    card.appendChild(right);
+    // Tap to open detail modal with permission-based actions
+    // RSVP pill for specialist view
+    if(session?.role==='specialist'){
+      if(apt.rsvp==='yes'){
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['✅']));
+      } else if(apt.rsvp==='no'){
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['❌']));
+      } else {
+        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['⏳']));
+      }
+    }
+    card.onclick=()=>showAptDetailModal(apt,ch||child);
+    stack.appendChild(card);
+  });
+  sec.appendChild(stack);
+  return sec;
+}
+
+function showGoogleSyncModal(){
+  openModal('📅 Calendar Sync',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
+      ['Sync Huddledin appointments with your external calendar. Choose a provider:']));
+    const opts=[{name:'Google Calendar',icon:'📅',color:'var(--coral)'},{name:'Apple iCal',icon:'🍎',color:'var(--slate)'},{name:'Outlook',icon:'📧',color:'#0078d4'}];
+    opts.forEach(opt=>{
+      const btn2=el('div',{class:'card hov click',style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'10px',padding:'14px 18px'}});
+      btn2.innerHTML=`<span style="font-size:1.6rem">${opt.icon}</span><div><div style="font-weight:800;color:var(--navy)">${opt.name}</div><div style="font-size:.78rem;color:var(--slate)">Sync all appointments to ${opt.name}</div></div>`;
+      btn2.onclick=()=>{close();toast(`🔗 ${opt.name} sync — coming soon!`,'info');};
+      mb.appendChild(btn2);
+    });
+  },420);
+}
+
+function showAddEventModalForDate(dateStr,availableChildren){
+  // Delegate to the full modal — passes prefilledDate and overrides child selector if needed
+  const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
+  if(theChildren.length===0){toast('Add a child profile first.','error');return;}
+  // If only one child available, set activeChild so modal pre-selects it
+  if(theChildren.length===1)S.activeChild=theChildren[0].id;
+  showAddEventModal(dateStr||new Date().toISOString().split('T')[0]);
+}
+
+function showAddEventModal(prefilledDate=null){
+  openModal('➕ Add Appointment',(mb,close)=>{
+    // Child selector
+    const children=DB.children;
+    if(children.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===S.activeChild)o.selected=true;childSel.appendChild(o);});
+      childSel.onchange=e=>{S.activeChild=e.target.value;};
+      if(!S.activeChild)S.activeChild=children[0].id;
+      mb.appendChild(childSel);
+    }
+
+    mb.appendChild(el('div',{class:'inp-label'},['Session title *']));
+    const ti=el('input',{class:'inp',placeholder:'e.g. Speech Therapy Session',style:{marginBottom:'10px'}});
+    mb.appendChild(ti);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Specialist name']));
+    const si=el('input',{class:'inp',placeholder:'e.g. Dr. Sarah Cohen',style:{marginBottom:'10px'}});
+    if(session?.role==='specialist')si.value=session.name||'';
+    mb.appendChild(si);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Date *']));
+    const di=el('input',{class:'inp',type:'date',style:{marginBottom:'10px'}});
+    if(prefilledDate)di.value=prefilledDate;
+    mb.appendChild(di);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Time']));
+    const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
+    const tmi=el('input',{class:'inp',type:'time'});
+    const endTmi=el('input',{class:'inp',type:'time'});
+    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['Start']));sw.appendChild(tmi);
+    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['End']));ew.appendChild(endTmi);
+    timeRow.appendChild(sw);timeRow.appendChild(ew);
+    mb.appendChild(timeRow);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Session type']));
+    const typeSel=el('select',{class:'inp',style:{marginBottom:'10px'}});
+    [['speech','🗣 Speech Therapy'],['ot','🖐 Occupational Therapy'],['pt','🏃 Physical Therapy'],['psychology','🧠 Psychology / Counselling'],['general','📋 General / Other']].forEach(([v,l])=>{
+      const o=el('option');o.value=v;o.textContent=l;typeSel.appendChild(o);
+    });
+    mb.appendChild(typeSel);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Location (optional)']));
+    const loci=el('input',{class:'inp',placeholder:'e.g. Clinic, Zoom, Home visit',style:{marginBottom:'10px'}});
+    mb.appendChild(loci);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const notesI=el('textarea',{class:'inp',placeholder:'Preparation notes, goals, what to bring…',style:{marginBottom:'10px',minHeight:'60px',resize:'vertical'}});
+    mb.appendChild(notesI);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Repeat']));
+    const recurSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
+    [['none','Does not repeat'],['weekly','Weekly'],['biweekly','Every 2 weeks'],['monthly','Monthly']].forEach(([v,l])=>{
+      const o=el('option');o.value=v;o.textContent=l;recurSel.appendChild(o);
+    });
+    mb.appendChild(recurSel);
+
+    const team=getChildTeam(S.activeChild).filter(s=>s.status==='active');
+    const sharedWith=[];
+    if(team.length>0&&session?.role==='parent'){
+      mb.appendChild(el('div',{class:'inp-label'},['Share with specialists']));
+      const shr=el('div',{class:'inp-group',style:{marginBottom:'12px'}});
+      team.forEach(s=>{
+        const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
+        const cb=el('input',{type:'checkbox'});
+        cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
+        lbl.appendChild(cb);lbl.appendChild(el('span',{},[s.avatar+' '+s.name]));
+        shr.appendChild(lbl);
+      });
+      mb.appendChild(shr);
+    }
+
+    mb.appendChild(mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
+      if(!ti.value||!di.value){toast('⚠️ Title and date required.','error');return;}
+      const specId2=session?.specialistId||null;
+      const childId=S.activeChild;
+      const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
+      const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
+      const newApt={id:'a_'+Date.now(),childId,
+        title:ti.value,specialist:si.value||session?.name||'TBD',
+        specialistId:specId2,date:di.value,time:timeStr,
+        endTime:endTmi.value||null,location:loci.value||null,
+        notes:notesI.value||null,recurrence:recurSel.value,
+        type:typeSel.value,sharedWith};
+      (async()=>{
+        try{
+          await _supa.from('appointments').insert({
+            id:newApt.id,child_id:newApt.childId,
+            parent_id:childRec?.parentId||session.id,
+            household_id:childRec?.householdId||getChildHouseholdId(newApt.childId),
+            specialist_id:session.role==='specialist'?session.id:null,
+            title:newApt.title,date:newApt.date,time:newApt.time,
+            end_time:newApt.endTime,location:newApt.location,
+            notes:newApt.notes,recurrence:newApt.recurrence,
+            type:newApt.type,shared_with:newApt.sharedWith,
+            specialist_name:si.value||session?.name||null
+          });
+          const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
+          // Notify the other party (specialist→parent or parent→specialists)
+          await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+          // Push to Google Calendar (server decides if connected)
+          if(session?.id&&session.id!=='demo'){
+            const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
+            fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({userId:session.id,householdId:calChild?.householdId||getChildHouseholdId(childId)||null,appointment:{
+                title:newApt.title,date:newApt.date,time:tmi.value||'09:00 AM',
+                type:newApt.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
+              }})
+            }).then(r=>r.json()).then(d=>{
+              if(d.ok)toast('📅 Added to Google Calendar!','success',3000);
+            }).catch(()=>{});
+          }
+          close();re();toast('✅ Appointment added!');track('Appointment Added');
+        }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
+      })();
+    }));
+  },580);
+}
+/* -----------------------------------------------
+   CHAT
+----------------------------------------------- */
+/* helper: mark chat as read for current user */
+function markChatRead(chatId){
+  const myId=session?.id||'';
+  if(!myId)return;
+  const all=DB.chats;
+  const ci=all.findIndex(c=>c.id===chatId);
+  if(ci>-1&&(all[ci].unreadFor||[]).includes(myId)){
+    all[ci].unreadFor=(all[ci].unreadFor||[]).filter(id=>id!==myId);
+    all[ci].unreadCount=0;
+    DB.chats=all;
+    if(session?.id!=='demo'){
+      _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(()=>{});
+    }
+  }
+}
+
+function renderChat(){
+  if(!S.chatsLoaded){
+    S.chatsLoaded=true;
+    loadChatsFromSupabase().then(()=>re());
+    const sec=el('div',{class:'section'});
+    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['Loading messages…']));
+    return sec;
+  }
+
+  const allChats=DB.chats;
+  const role=session?.role;
+  const specId=session?.specialistId;
+  const myId=session?.id||'';
+  const isMobile=window.innerWidth<768;
+
+  // Filter visible chats
+  let visChats=allChats.filter(c=>{
+    if(role==='parent')return c.participants.includes('parent')||c.participants.includes(myId);
+    if(!specId)return false;
+    return c.participants.includes(specId);
+  });
+
+  // Filter by child if coming from child profile
+  if(S.activeChatChildId){
+    visChats=visChats.filter(c=>c.childId===S.activeChatChildId);
+  }
+
+  // Sort: chats with most recent message first
+  visChats=[...visChats].sort((a,b)=>{
+    const aLast=a.messages[a.messages.length-1]?.id||a.id;
+    const bLast=b.messages[b.messages.length-1]?.id||b.id;
+    return bLast>aLast?1:-1;
+  });
+
+  const sec=el('div',{class:'section',style:{padding:0,overflow:'hidden'}});
+
+  // -- MOBILE: full-screen thread view --
+  if(isMobile&&S.activeChatId){
+    const activeChat=allChats.find(c=>c.id===S.activeChatId);
+    if(activeChat){
+      markChatRead(S.activeChatId);
+      sec.appendChild(renderChatThread(activeChat,specId,myId,()=>{S.activeChatId=null;re();}));
+      return sec;
+    }
+  }
+
+  // -- DESKTOP: side-by-side --
+  // -- MOBILE: list view --
+  const listWrap=el('div',{style:{padding:'0 0 8px'}});
+
+  // Header
+  const hd=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 16px 8px'}});
+  const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
+  // Back to patient on specialist
+  if(role==='specialist'&&!S.activeChatChildId){
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Patients']);
+    backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
+    titleRow.appendChild(backBtn);
+  } else {
+    titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Messages']));
+  }
+  if(S.activeChatChildId){
+    const backRow=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'All Chats']);
+    backRow.onclick=()=>{S.activeChatChildId=null;re();};
+    hd.appendChild(backRow);
+  } else {
+    hd.appendChild(titleRow);
+  }
+  const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
+  if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
+  if(role==='specialist')hdRight.appendChild(mkBtn('💬 Chat','btn-sm btn-primary',()=>showConsultModal()));
+  hd.appendChild(hdRight);
+  listWrap.appendChild(hd);
+
+  if(!visChats.length){
+    const empty=el('div',{style:{padding:'32px 16px',textAlign:'center',color:'var(--slate)'}});
+    empty.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['💬']));
+    empty.appendChild(el('div',{style:{fontWeight:700}},['No conversations yet']));
+    listWrap.appendChild(empty);
+  }
+
+  // Chat list (WhatsApp style)
+  visChats.forEach(chat=>{
+    const isUnread=(chat.unreadFor||[]).includes(myId);
+    const lastMsg=chat.messages[chat.messages.length-1];
+    const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
+    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+    const isGroup=chat.type==='group';
+    const isConsult=chat.type==='specialist-consult';
+    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?otherSpec?.name||'Specialist':session?.name?.includes('parent')?'Parent Chat':otherSpec?.name||'Chat'));
+    const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
+    const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
+    const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
+    const isActive=!isMobile&&S.activeChatId===chat.id;
+
+    // Time label
+    const lastMsgDate=lastMsg?.date;
+    const todayStr=new Date().toISOString().split('T')[0];
+    const timeLabel=lastMsgDate?(lastMsgDate===todayStr?lastMsg.time:new Date(lastMsgDate+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
+
+    const item=el('div',{class:'chat-list-item'+(isActive?' active':'')});
+    item.style.borderLeft=S.activeChatChildId?'none':`4px solid ${childColor}`;
+    if(isUnread)item.style.background='#f0fdf4';
+
+    // Avatar circle
+    const av=el('div',{class:'chat-list-avatar',style:{background:childColor+'22',border:`2px solid ${childColor}`}});
+    av.appendChild(el('span',{},[isGroup?'👥':isConsult?'🔗':childAvatar]));
+    item.appendChild(av);
+
+    // Body
+    const body=el('div',{class:'chat-list-body'});
+    const nameRow=el('div',{style:{display:'flex',alignItems:'baseline',gap:'4px'}});
+    nameRow.appendChild(el('span',{class:'chat-list-name',style:{fontWeight:isUnread?900:700}},[chatName]));
+    if(childName&&!S.activeChatChildId)nameRow.appendChild(el('span',{style:{fontSize:'.68rem',color:childColor,fontWeight:700}},[' · '+childName]));
+    body.appendChild(nameRow);
+    const previewText=lastMsg?(lastMsg.sender===myId?'You: ':'')+((lastMsg.text||'').slice(0,36)+((lastMsg.text?.length||0)>36?'...':'')):'Tap to open';
+    body.appendChild(el('div',{class:'chat-list-preview',style:{fontWeight:isUnread?700:400,color:isUnread?'var(--navy)':'var(--slate-l)'}},[previewText]));
+    item.appendChild(body);
+
+    // Meta (time + unread count)
+    const meta=el('div',{class:'chat-list-meta'});
+    if(timeLabel)meta.appendChild(el('div',{class:'chat-list-time',style:{color:isUnread?'var(--teal)':'var(--slate-l)',fontWeight:isUnread?800:400}},[timeLabel]));
+    const unreadCount=(chat.unreadFor||[]).includes(myId)?(chat.unreadCount||1):0;
+    if(unreadCount>0)meta.appendChild(el('div',{class:'chat-unread-badge'},[unreadCount>99?'99+':String(unreadCount)]));
+    item.appendChild(meta);
+
+    item.onclick=()=>{
+      S.activeChatId=chat.id;
+      markChatRead(chat.id);
+      if(!isMobile){re();}else{re();}
+    };
+    listWrap.appendChild(item);
+  });
+
+  if(isMobile){
+    sec.appendChild(listWrap);
+    return sec;
+  }
+
+  // -- DESKTOP: side-by-side layout --
+  const wrap=el('div',{style:{display:'flex',gap:'0',minHeight:'460px',borderTop:'1px solid var(--mint-l)'}});
+  const sidebar=el('div',{style:{width:'260px',minWidth:'260px',borderRight:'1.5px solid var(--mint-l)',overflowY:'auto',flexShrink:0}});
+  sidebar.appendChild(listWrap);
+  wrap.appendChild(sidebar);
+
+  const activeChat=allChats.find(c=>c.id===S.activeChatId);
+  const win=el('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}});
+  if(activeChat){
+    win.appendChild(renderChatThread(activeChat,specId,myId,null));
+  } else {
+    win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600,flexDirection:'column',gap:'12px'}},[
+      el('span',{style:{fontSize:'2.5rem'}},['💬']),
+      el('span',{},[visChats.length?'Select a conversation':'No conversations yet'])
+    ]));
+  }
+  wrap.appendChild(win);
+  sec.appendChild(wrap);
+  return sec;
+}
+
+function _resolveSenderName(msg, activeChat){
+  // 1. Prefer stored senderName
+  if(msg.senderName)return msg.senderName;
+  // 2. Is it the current user?
+  if(msg.sender===session?.id)return session.name||'You';
+  // 3. Look up in child team (specialists)
+  const spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===msg.sender);
+  if(spec)return spec.name;
+  // 4. 'parent' string (legacy) or co-parent UUID
+  if(msg.sender==='parent')return 'Parent';
+  // 5. Check co-parents in household
+  const hp=(DB.coParents||[]).find(p=>p.id===msg.sender);
+  if(hp)return hp.name||'Parent';
+  return 'Parent';
+}
+
+function renderChatThread(activeChat,specId,myId,onBack){
+  const isConsult=activeChat.type==='specialist-consult';
+  const isGroup=activeChat.type==='group';
+  const isMobile=window.innerWidth<768;
+  const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
+  const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+  const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
+  const chatName=activeChat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Parent'));
+  const participantNames=isGroup
+    ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
+    :null;
+
+  // Mobile: fixed panel between header and bottom nav
+  const wrap=el('div',{style:isMobile?{
+    position:'fixed',
+    top:'calc(var(--header-h) + var(--safe-top))',
+    bottom:'var(--bnav-h)',
+    left:0,right:0,
+    display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
+    overflow:'hidden'
+  }:{
+    display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
+  }});
+
+  // iOS only: visualViewport tracks keyboard — adjust bottom so input stays visible
+  const _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
+    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isMobile && _isIOS && window.visualViewport){
+    const _vv=window.visualViewport;
+    const _nudge=()=>{
+      // keyboard height = window height minus visible viewport height
+      const kbH=Math.max(0, window.innerHeight - _vv.height);
+      wrap.style.bottom=kbH>50?(kbH+'px'):'var(--bnav-h)';
+      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+    };
+    _vv.addEventListener('resize',_nudge);
+    wrap._vvCleanup=()=>{
+      _vv.removeEventListener('resize',_nudge);
+      wrap.style.bottom='var(--bnav-h)';
+    };
+  }
+
+  // -- Header (sticky top) --
+  const threadHd=el('div',{style:{
+    display:'flex',alignItems:'center',gap:'10px',
+    padding:'12px 16px',
+    borderBottom:'2px solid var(--mint-ll)',
+    background:'#fff',flexShrink:0,zIndex:1
+  }});
+  if(onBack){
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'1.5rem',fontWeight:900,padding:'0 8px 0 0',lineHeight:1,flexShrink:0,minWidth:'32px',textAlign:'left'}});
+    backBtn.textContent='‹';
+    backBtn.onclick=()=>{if(wrap._vvCleanup)wrap._vvCleanup();onBack();};
+    threadHd.appendChild(backBtn);
+  }
+  const av=el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:childColor+'22',border:'2px solid '+childColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+  av.appendChild(el('span',{},[isGroup?'\u{1F465}':isConsult?'\u{1F517}':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'\u{1F4AC}')]));
+  threadHd.appendChild(av);
+  const ti=el('div',{style:{flex:1,minWidth:0}});
+  ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
+  ti.appendChild(el('div',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+    [isGroup?'\u{1F465} '+participantNames:isConsult?'\u{1F517} Specialist consult':'\u{1F512} Secure chat']));
+  threadHd.appendChild(ti);
+  wrap.appendChild(threadHd);
+
+  // -- Messages (scrollable, flex:1) --
+  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
+  const msgs=activeChat.messages||[];
+  msgs.forEach((m,mi)=>{
+    const isMe=m.sender===myId;
+    const senderName=_resolveSenderName(m,activeChat);
+    const isLastMsg=mi===msgs.length-1;
+
+    const row=el('div',{style:{display:'flex',justifyContent:isMe?'flex-end':'flex-start',gap:'6px',alignItems:'flex-end'}});
+    // Avatar for others
+    if(!isMe){
+      const av2=el('div',{style:{width:'26px',height:'26px',borderRadius:'50%',background:'var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.75rem',flexShrink:0,marginBottom:'2px'}});
+      const spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===m.sender);
+      av2.textContent=spec?.avatar||senderName[0]?.toUpperCase()||'?';
+      row.appendChild(av2);
+    }
+    const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
+    // Always show sender name for non-me bubbles (important in groups)
+    if(!isMe){
+      bub.appendChild(el('div',{class:'bubble-name',style:{color:childColor}},[senderName]));
+    }
+    bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[m.text]));
+    // Time row
+    const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
+    timeRow.appendChild(el('span',{class:'bubble-time'},[m.time]));
+    // Ticks: only on last sent message, only when actually read by others
+    if(isMe&&isLastMsg){
+      const noOneElseUnread=!(activeChat.unreadFor||[]).filter(id=>id!==myId).length;
+      timeRow.appendChild(el('span',{class:'bubble-tick'+(noOneElseUnread?' read':'')},['vv']));
+    }
+    bub.appendChild(timeRow);
+    row.appendChild(bub);
+    msgArea.appendChild(row);
+  });
+  if(!msgs.length){
+    const empty=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--slate)',fontSize:'.84rem',fontWeight:600,padding:'32px'}});
+    empty.textContent='No messages yet. Say hello!';
+    msgArea.appendChild(empty);
+  }
+  wrap.appendChild(msgArea);
+
+  // Scroll to bottom after paint
+  requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+
+  // -- Real-time subscription --
+  if(session?.id!=='demo'&&activeChat.childId){
+    if(_chatSub)_chatSub.unsubscribe();
+    _chatSub=SB.subscribeToMessages(activeChat.childId,msg=>{
+      if(msg.sender_id===session?.id)return;
+      const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
+      if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
+        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
+        const uid=session?.id||'';
+        all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
+        if(!all2[ci2].unreadFor.includes(uid))all2[ci2].unreadFor.push(uid);
+        all2[ci2].unreadCount=(all2[ci2].unreadCount||0)+1;
+        DB.chats=all2;re();
+      }
+    });
+  }
+
+  // -- Input row (sticky bottom) --
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
+  const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
+  mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
+  const sb2=el('button',{class:'send-btn',title:'Send'});
+  sb2.innerHTML='&#10148;';
+  sb2.onclick=async()=>{
+    const txt=mi.value.trim();if(!txt)return;
+    const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
+    if(ci>-1){
+      const senderKey=myId||'unknown';
+      const senderName=session?.name||'';const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
+      all[ci].messages.push(newMsg);
+      // Mark others as unread
+      all[ci].unreadFor=[...(all[ci].unreadFor||[])];
+      if(session?.role==='specialist'){
+        if(!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
+      } else {
+        all[ci].participants.filter(p=>p!=='parent'&&p!==myId).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
+      }
+      track('Message Sent');
+      DB.chats=all;
+      if(session?.id!=='demo'){
+        try{
+          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
+          _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(()=>{});
+        }catch(e){console.error('send message:',e);}
+      }
+    }
+    S.chatMsg='';re();
+    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+  };
+  mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
+  inputRow.appendChild(mi);inputRow.appendChild(sb2);
+  wrap.appendChild(inputRow);
+  return wrap;
+}
+
+function showConsultModal(){
+  openModal('🤝 Request to Consult',(mb,close)=>{
+    const specId=session?.specialistId;
+    // "Start Chat with Parent" section — no approval required
+    const chatSection=el('div',{style:{marginBottom:'18px',padding:'14px',background:'var(--mint-ll)',borderRadius:'14px',border:'1.5px solid var(--mint-l)'}});
+    chatSection.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'8px',fontSize:'.9rem'}},['💬 Start Chat with Parent']));
+    chatSection.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'10px',margin:'0 0 10px'}},['Open a direct message thread with the parent — no approval required.']));
+    chatSection.appendChild(mkBtn('💬 Start Chat with Parent','btn-sm btn-primary',()=>{
+      let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(specId)&&c.childId===S.activeChild);
+      (async()=>{
+        if(!chat){
+          chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[],unreadFor:['parent']};
+          try{
+            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true,unread_for:['parent']});
+            const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
+            await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,S.activeChild,'chat',{chatId:chat.id});
+          }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
+        }
+        S.activeChatId=chat.id;S.chatsLoaded=true;
+        close();switchTab('chat');
+      })();
+    }));
+    mb.appendChild(chatSection);
+    // FIX B3: declare spec before it is referenced in the click handler closure
+    const spec=getMySpecialistRecord();
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
+      ['Request parent approval to consult with another specialist:']));
+    getChildTeam(S.activeChild).filter(s=>s.id!==session?.specialistId&&s.status!=='pending').forEach(s=>{
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'11px 14px',borderRadius:'14px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)',marginBottom:'9px'}});
+      row.appendChild(mkAvatar(s.avatar,34));
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
+      row.appendChild(info);
+      row.appendChild(mkBtn('Request','btn-sm btn-primary',async()=>{
+        // Save consult request to Supabase so parent sees it cross-device
+        try{
+          const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+          await _supa.from('specialist_requests').insert({
+            specialist_id:session.specialistId||session.id,
+            specialist_name:spec?.name||session?.name||'Specialist',
+            role:spec?.role||session?.profession||'Specialist',
+            child_id:S.activeChild,
+            parent_id:child?.parentId||null,
+            household_id:getChildHouseholdId(S.activeChild),
+            status:'pending',
+            request_type:'consult',
+            requested_folder:s.id,
+            requested_folder_name:s.name,
+            requested_at:new Date().toISOString()
+          });
+          await notifyOtherParty('consult',`${spec?.name||'Specialist'} requested to consult with ${s.name} — awaiting your approval`,S.activeChild,'team');
+          close();toast('✅ Request sent! Parent will be notified to approve.');
+        }catch(e){
+          console.error('consult request:',e);
+          toast('Could not send request. Please try again.','error');
+        }
+      }));
+      mb.appendChild(row);
+    });
+  },460);
+}
+
+/* -----------------------------------------------
+   VAULT (with draft + unsaved guard)
+----------------------------------------------- */
+function renderVault(){
+  const specId=session?.specialistId||null;
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild);
+  const activeNote=myNotes.find(n=>n.id===S.activeVaultId)||null;
+
+  const sec=el('div',{class:'section'});
+  const _vBar=mkSpecBackBar(child?.name);if(_vBar)sec.appendChild(_vBar);
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Clinical Notes']),
+    el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('✏️ New Note','btn-md btn-primary',async()=>{
+      const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:new Date().toISOString().split('T')[0],title:'New Session Notes',content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
+      try{
+        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:null,title:nn.title,content:'',is_draft:true,locked:false,published:false});
+      }catch(e){console.error('create vault note:',e);}
+      const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
+      S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=true;re();
+    })
+  ]));
+  sec.appendChild(hd);
+
+  // Unsaved banner
+  if(S.vaultHasUnsaved){
+    const banner=el('div',{class:'unsaved-banner'});
+    banner.innerHTML='⚠️ You have unsaved changes in this note.';
+    sec.appendChild(banner);
+  }
+
+  const isMobile=window.innerWidth<768;
+  const layout=el('div',{class:'vault-layout',style:{display:'flex',flexDirection:isMobile?'column':'row',gap:'16px',alignItems:'flex-start'}});
+
+  // Note list sidebar
+  const noteList=el('div',{class:'vault-sidebar',style:{width:isMobile?'100%':'255px',minWidth:isMobile?'unset':'255px',display:'flex',flexDirection:'column',gap:'10px'}});
+  if(!myNotes.length)noteList.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},["No vault notes yet. Click 'New Note' to start!"]));
+  myNotes.forEach(note=>{
+    const nc=el('div',{class:'card click',style:{border:S.activeVaultId===note.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
+    const nh=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'});
+    nh.appendChild(el('span',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)',lineHeight:'1.3',flex:1}},[note.title]));
+    const flags=d('',[], {display:'flex',gap:'4px',flexShrink:0,marginLeft:'6px'});
+    if(note.locked)flags.appendChild(el('span',{},'🔒'));
+    if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},['Draft']));
+    if(note.published&&!note.locked)flags.appendChild(badge('Published','green'));
+    nh.appendChild(flags);
+    nc.appendChild(nh);
+    nc.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'4px'}},[note.date+(note.lastSaved?' · Saved '+note.lastSaved.split(' ')[1]:'')]));
+    nc.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[note.content.slice(0,52)+'…']));
+    nc.onclick=()=>{
+      if(S.vaultHasUnsaved&&S.activeVaultId!==note.id){
+        openConfirm('Unsaved Changes','You have unsaved changes. Switch note without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
+        return;
+      }
+      S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();
+    };
+    noteList.appendChild(nc);
+  });
+  layout.appendChild(noteList);
+
+  // Note editor
+  if(activeNote){
+    const ed=el('div',{class:'vault-content card',style:{flex:1,display:'flex',flexDirection:'column',gap:'14px',minWidth:0}});
+
+    // Title row
+    const titleRow=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'});
+    const ti=el('input',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.02rem',fontWeight:800,border:'none',outline:'none',flex:'1',background:'transparent',color:'var(--navy)'}});
+    ti.value=activeNote.title;
+    ti.disabled=activeNote.locked;
+    ti.oninput=e=>{
+      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+      if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
+      S.vaultHasUnsaved=true;
+    };
+    titleRow.appendChild(ti);
+    const closeBtn=el('button',{style:{background:'var(--mint-ll)',border:'none',cursor:'pointer',width:'30px',height:'30px',borderRadius:'50%',fontSize:'.88rem',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
+    closeBtn.onclick=()=>{
+      if(S.vaultHasUnsaved){
+        openConfirm('Unsaved Changes','Close without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
+        return;
+      }
+      S.activeVaultId=null;S.vaultSummary='';re();
+    };
+    titleRow.appendChild(closeBtn);
+    ed.appendChild(titleRow);
+
+    if(activeNote.locked){
+      ed.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},['🔒 This record is permanently locked and read-only']));
+    }
+
+    // Clinical notes area
+    const clinLbl=el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']);
+    ed.appendChild(clinLbl);
+    const ta=el('textarea',{class:'inp'});
+    ta.value=activeNote.content;
+    ta.readOnly=activeNote.locked;
+    ta.style.background=activeNote.locked?'#f8fafc':'';
+    ta.oninput=e=>{
+      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+      if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
+      S.vaultHasUnsaved=true;
+    };
+    ed.appendChild(ta);
+
+    // Action buttons
+    if(!activeNote.locked){
+      const actRow=d('',[], {display:'flex',gap:'9px',flexWrap:'wrap'});
+
+      // Save draft
+      const saveDraftBtn=mkBtn('💾 Save Draft','btn-sm btn-slate',async()=>{
+        const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+        if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
+        try{
+          await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:activeNote.summary||null,is_draft:true,locked:false,published:activeNote.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+        }catch(e){console.error('save draft:',e);}
+        S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
+      });
+
+      // AI Summarize — opens full-screen overlay on mobile for maximum typing space
+      const aiBtn=mkBtn('✨ AI Summarize','btn-sm btn-secondary',async()=>{
+        if(!ta.value.trim()){toast('⚠️ Write some notes first!','error');return;}
+
+        // -- FULL-SCREEN AI OVERLAY --
+        // Gives specialist maximum screen space to review/edit on mobile keyboard
+        const overlay=el('div',{class:'ai-fullscreen'});
+        
+        const fsHd=el('div',{class:'ai-fs-hd'});
+        const closeFs=mkBtn('✕','btn-sm btn-slate',()=>overlay.remove());
+        closeFs.style.cssText='min-height:36px;padding:8px 12px;border-radius:50%;width:36px';
+        fsHd.appendChild(closeFs);
+        fsHd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',marginLeft:'4px'}},['✨ AI Summary']));
+        const fsStatus=el('span',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:600,marginLeft:'auto'}},['Generating…']);
+        fsHd.appendChild(fsStatus);
+        overlay.appendChild(fsHd);
+
+        const fsBody=el('div',{class:'ai-fs-body'});
+        const loadBlock=el('div',{class:'ai-block',style:{marginBottom:'16px'}});
+        loadBlock.appendChild(el('div',{class:'ai-label'},['✨ AI is converting your notes…']));
+        const ld=d('',[], {display:'flex',gap:'11px',alignItems:'center',color:'var(--slate)',fontWeight:600,fontSize:'.9rem'});
+        ld.appendChild(spinner());ld.appendChild(el('span',{},'Generating parent-friendly summary…'));
+        loadBlock.appendChild(ld);
+        fsBody.appendChild(loadBlock);
+        overlay.appendChild(fsBody);
+        document.body.appendChild(overlay);
+
+        S.vaultSummarizing=true;
+        try{
+          // FIX B2: Anthropic API requires x-api-key and anthropic-version headers.
+          // NOTE: In a production app, API calls must be proxied through a server to avoid exposing keys.
+          // The ANTHROPIC_API_KEY constant should be configured server-side; this is a client-side demo placeholder.
+          const ANTHROPIC_API_KEY = typeof window.ANTHROPIC_API_KEY !== 'undefined' ? window.ANTHROPIC_API_KEY : '';
+          const resp=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',headers:{
+              'Content-Type':'application/json',
+              'x-api-key': ANTHROPIC_API_KEY,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid all clinical jargon. Be positive, supportive and specific. Keep to 3-4 sentences.\n\nClinical notes:\n${ta.value}`}]})
+          });
+          const data=await resp.json();
+          const text=data.content?.[0]?.text||'Unable to generate summary — please write one manually.';
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+          if(i>-1){ns[i].summary=text;DB.vaultNotes=ns;}
+          S.vaultSummary=text;S.vaultSummarizing=false;
+
+          // Replace loading with editable result in full-screen overlay
+          fsBody.innerHTML='';
+          fsStatus.textContent='Tap to edit before publishing';
+          const resultBlock=el('div',{class:'ai-block',style:{marginBottom:'14px'}});
+          resultBlock.appendChild(el('div',{class:'ai-label'},['✨ Parent-Friendly Summary']));
+          const fsTa=el('textarea',{class:'inp',style:{background:'white',minHeight:'200px',fontSize:'16px'}});
+          fsTa.value=text;
+          fsTa.oninput=e=>{
+            S.vaultSummary=e.target.value;
+            const ns2=DB.vaultNotes,i2=ns2.findIndex(n=>n.id===activeNote.id);
+            if(i2>-1){ns2[i2].summary=e.target.value;DB.vaultNotes=ns2;}
+          };
+          resultBlock.appendChild(fsTa);
+          fsBody.appendChild(resultBlock);
+
+          const fsFoot=el('div',{class:'ai-fs-footer'});
+          const acceptBtn=mkBtn('✅ Use This Summary','btn-lg btn-primary btn-full',()=>{overlay.remove();re();});
+          fsFoot.appendChild(acceptBtn);
+          overlay.appendChild(fsFoot);
+          // Focus textarea for immediate editing
+          setTimeout(()=>fsTa.focus(),100);
+        }catch(e){
+          S.vaultSummarizing=false;
+          S.vaultSummary='AI unavailable — please write a summary manually.';
+          overlay.remove();re();
+        }
+      });
+
+      // Lock report
+      const lockBtn=mkBtn('🔒 Lock Report','btn-sm btn-ghost',()=>openConfirm('Lock Report?',
+        'Locking makes this a permanent, uneditable record. This cannot be undone.',true,async()=>{
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+          if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+          try{await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:activeNote.summary||null,is_draft:false,locked:true,published:activeNote.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+          S.vaultHasUnsaved=false;re();toast('🔒 Report locked permanently!');
+        }));
+
+      actRow.appendChild(saveDraftBtn);actRow.appendChild(aiBtn);actRow.appendChild(lockBtn);
+      ed.appendChild(actRow);
+    }
+
+    // Summary block
+    const sumTxt=S.vaultSummary||(activeNote.summary||'');
+    if(S.vaultSummarizing){
+      const lb=el('div',{class:'ai-block'});
+      lb.appendChild(el('div',{class:'ai-label'},['✨ AI is thinking…']));
+      const ld=d('',[], {display:'flex',gap:'11px',alignItems:'center',color:'var(--slate)',fontWeight:600});
+      ld.appendChild(spinner());ld.appendChild(el('span',{},'Generating parent-friendly summary…'));
+      lb.appendChild(ld);
+      ed.appendChild(lb);
+    } else if(sumTxt){
+      const ab=el('div',{class:'ai-block'});
+      ab.appendChild(el('div',{class:'ai-label'},['✨ Parent-Friendly Summary']));
+      const sta=el('textarea',{class:'inp',style:{background:'white',minHeight:'88px'}});
+      sta.value=sumTxt;
+      sta.readOnly=activeNote.locked;
+      sta.oninput=e=>{
+        S.vaultSummary=e.target.value;
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+      };
+      ab.appendChild(sta);
+      if(!activeNote.locked&&!activeNote.published){
+        const pubBtn=mkBtn('📤 Lock & Publish to Parent','btn-md btn-primary',()=>{
+          openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
+            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
+            if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+            try{
+              await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:S.vaultSummary||activeNote.summary||null,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+              const noteChild=DB.children.find(c=>c.id===activeNote.childId)||(LS.get('children',[])).find(c=>c.id===activeNote.childId);
+              if(noteChild?.householdId){
+                const {data:parentProfile}=await _supa.from('profiles').select('id').eq('household_id',noteChild.householdId).eq('role','parent').single();
+                if(parentProfile){
+                  await _supa.from('notifications').insert({id:'notif_'+Date.now(),user_id:parentProfile.id,household_id:noteChild.householdId,child_id:activeNote.childId,type:'report',message:`${session.name||'Your specialist'} published a session summary for ${noteChild.name}`,read:false});
+                }
+              }
+            }catch(e){console.error('publish note:',e);}
+            // notifyOtherParty called via parent insert above
+            S.vaultHasUnsaved=false;re();toast('🎉 Summary published!');
+          });
+        });
+        pubBtn.style.marginTop='12px';
+        ab.appendChild(pubBtn);
+      }
+      ed.appendChild(ab);
+    }
+    layout.appendChild(ed);
+  }
+  sec.appendChild(layout);
+  return sec;
+}
+
+/* -----------------------------------------------
+   HOMEWORK — PARENT VIEW
+----------------------------------------------- */
+
+/* -----------------------------------------------
+   TO-DO LIST WITH REMINDERS
+----------------------------------------------- */
+function renderTodoList(){
+  const isParent=session?.role==='parent';
+  const childId=S.activeChild;
+  const child=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
+  const sec=el('div',{class:'section'});
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['✅ To-Do List']),
+    el('p',{class:'page-sub'},[child?child.avatar+' '+child.name+'\'s tasks':'All tasks'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('➕ Add Task','btn-sm btn-primary',()=>showAddTodoModal(childId))
+  ]));
+  sec.appendChild(hd);
+
+  const todos=(DB.todos||[]).filter(t=>!childId||t.childId===childId);
+  const pending=todos.filter(t=>!t.completed);
+  const done=todos.filter(t=>t.completed);
+  const today=new Date().toISOString().split('T')[0];
+
+  if(!todos.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['✅']),
+      el('div',{class:'empty-state-title'},['No tasks yet']),
+      el('div',{class:'empty-state-body'},['Add tasks with optional reminders to stay on top of things.']),
+      el('div',{class:'empty-state-actions'},[mkBtn('➕ Add First Task','btn-md btn-primary',()=>showAddTodoModal(childId))])
+    ]));
+    return sec;
+  }
+
+  // Pending tasks
+  if(pending.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['Pending ('+pending.length+')']));
+    pending.sort((a,b)=>(a.dueDate||'9')>(b.dueDate||'9')?1:-1).forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  // Completed tasks
+  if(done.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--slate)',marginBottom:'12px',marginTop:'18px',fontSize:'.9rem'}},['Completed ('+done.length+')']));
+    done.forEach(todo=>{
+      sec.appendChild(renderTodoCard(todo,today));
+    });
+  }
+
+  return sec;
+}
+
+function renderTodoCard(todo,today){
+  const isOverdue=!todo.completed&&todo.dueDate&&todo.dueDate<today;
+  const card=el('div',{class:'card',style:{
+    display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'10px',
+    opacity:todo.completed?'0.6':'1',
+    borderLeft:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
+  }});
+
+  // Checkbox
+  const chk=el('div',{class:'chk'+(todo.completed?' done':''),style:{marginTop:'3px',flexShrink:0}},todo.completed?['✓']:[]);
+  chk.onclick=()=>{
+    const all=DB.todos||[];
+    const i=all.findIndex(t=>t.id===todo.id);
+    if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.todos=all;_supa.from('todos').update({completed:nv}).eq('id',todo.id).then(()=>{}).catch(e=>console.error('todo complete:',e));}
+    re();
+  };
+  card.appendChild(chk);
+
+  // Info
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.88rem',color:todo.completed?'var(--slate-l)':'var(--navy)',textDecoration:todo.completed?'line-through':'none',marginBottom:'4px'}},[todo.title]));
+  if(todo.note){
+    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'5px',lineHeight:'1.4'}},[todo.note]));
+  }
+  const meta=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}});
+  if(todo.dueDate){
+    const dueLbl=el('span',{style:{fontSize:'.72rem',fontWeight:700,color:isOverdue?'var(--rose)':'var(--teal)',background:isOverdue?'#fff1f2':'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},
+      [(isOverdue?'⚠️ Overdue: ':'')+todo.dueDate+(todo.dueTime?' at '+todo.dueTime:'')]);
+    meta.appendChild(dueLbl);
+  }
+  // Reminder badges
+  const r=todo.reminders||{};
+  if(r.inApp)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['🔔 In-App']));
+  if(r.email)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📧 Email']));
+  if(r.push)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📱 Push']));
+  info.appendChild(meta);
+  card.appendChild(info);
+
+  // Actions
+  const acts=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',flexShrink:0}});
+  acts.appendChild(mkBtn('✏️','btn-sm btn-ghost',()=>showAddTodoModal(todo.childId,todo)));
+  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
+    DB.todos=(DB.todos||[]).filter(t=>t.id!==todo.id);re();toast('Task removed.');
+  })));
+  card.appendChild(acts);
+  return card;
+}
+
+function showAddTodoModal(childId,existing){
+  const title=existing?'Edit Task':'New Task';
+  openModal(title,(mb,close)=>{
+    // Title
+    mb.appendChild(el('div',{class:'inp-label'},['Task title *']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech practice 10 min',style:{marginBottom:'14px'}});
+    if(existing)titleInp.value=existing.title||'';
+    mb.appendChild(titleInp);
+
+    // Note
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const noteInp=el('textarea',{class:'inp',placeholder:'Additional details…',style:{marginBottom:'14px',minHeight:'72px'}});
+    if(existing)noteInp.value=existing.note||'';
+    mb.appendChild(noteInp);
+
+    // Due date + time
+    const dateRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
+    const dateInp=makeDateInput('Due date');
+    if(existing&&existing.dueDate)dateInp.value=existing.dueDate;
+    const timeInp=el('input',{class:'inp',type:'time',placeholder:'Time (optional)'});
+    if(existing&&existing.dueTime)timeInp.value=existing.dueTime;
+    dateRow.appendChild(dateInp);
+    dateRow.appendChild(timeInp);
+    mb.appendChild(dateRow);
+
+    // Child selector (if no active child)
+    let selChildId=childId||S.activeChild;
+    const allChildren=DB.children.length?DB.children:LS.get('children',[]);
+    if(!selChildId&&allChildren.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      childSel.appendChild(el('option',{value:''},[' — select child —']));
+      allChildren.forEach(ch=>{
+        const o=el('option',{value:ch.id},[ch.avatar+' '+ch.name]);
+        if(existing&&existing.childId===ch.id)o.selected=true;
+        childSel.appendChild(o);
+      });
+      childSel.onchange=()=>{selChildId=childSel.value;};
+      mb.appendChild(childSel);
+    }
+
+    // Reminder options
+    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Reminders (optional)']));
+    const remRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'20px'}});
+    const remOpts=[
+      {key:'inApp',label:'🔔 In-App',desc:'Alert inside the app when due'},
+      {key:'email',label:'📧 Email',desc:'Email reminder when due'},
+      {key:'push',label:'📱 Push',desc:'Push notification (if enabled)'}
+    ];
+    const remState={inApp:existing?.reminders?.inApp||false,email:existing?.reminders?.email||false,push:existing?.reminders?.push||false};
+    remOpts.forEach(({key,label,desc})=>{
+      const tog=el('div',{style:{
+        display:'flex',alignItems:'center',gap:'8px',padding:'9px 13px',
+        borderRadius:'12px',cursor:'pointer',border:'2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)'),
+        background:remState[key]?'var(--mint-ll)':'#fff',
+        transition:'all .15s',userSelect:'none'
+      }});
+      const dot=el('div',{style:{width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(remState[key]?'var(--teal)':'#ccc'),background:remState[key]?'var(--teal)':'#fff',flexShrink:0}});
+      tog.appendChild(dot);
+      tog.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:700,color:remState[key]?'var(--teal)':'var(--slate)'}},[label]));
+      tog.onclick=()=>{
+        remState[key]=!remState[key];
+        tog.style.border='2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)');
+        tog.style.background=remState[key]?'var(--mint-ll)':'#fff';
+        dot.style.border='2px solid '+(remState[key]?'var(--teal)':'#ccc');
+        dot.style.background=remState[key]?'var(--teal)':'#fff';
+        tog.querySelector('span').style.color=remState[key]?'var(--teal)':'var(--slate)';
+      };
+      remRow.appendChild(tog);
+    });
+    mb.appendChild(remRow);
+
+    // Save
+    mb.appendChild(mkBtn(existing?'💾 Save Changes':'➕ Add Task','btn-lg btn-primary btn-full',async()=>{
+      const t=titleInp.value.trim();
+      if(!t){toast('Please enter a task title.','error');return;}
+      const finalChildId=selChildId||S.activeChild;
+      const todo={
+        id:existing?.id||'td_'+Date.now(),
+        childId:finalChildId||null,
+        title:t,
+        note:noteInp.value.trim(),
+        dueDate:dateInp.value||null,
+        dueTime:timeInp.value||null,
+        completed:existing?.completed||false,
+        reminders:{...remState},
+        createdAt:existing?.createdAt||new Date().toISOString()
+      };
+      if(session?.id!=='demo'){
+        try{
+          await _supa.from('todos').upsert({id:todo.id,child_id:todo.childId||null,household_id:session.householdId||null,user_id:session.id,title:todo.title,note:todo.note||null,due_date:todo.dueDate||null,due_time:todo.dueTime||null,completed:todo.completed||false,reminders:todo.reminders},{onConflict:'id'});
+        }catch(e){console.error('save todo:',e);toast('Could not save task.','error');return;}
+      }
+      const all=DB.todos||[];
+      if(existing){
+        const i=all.findIndex(x=>x.id===existing.id);
+        if(i>-1)all[i]=todo;else all.push(todo);
+      } else {
+        all.push(todo);
+      }
+      DB.todos=all;
+
+      // Schedule in-app reminder if dueDate+dueTime set
+      if(todo.reminders.inApp&&todo.dueDate&&todo.dueTime){
+        const dueMs=new Date(todo.dueDate+'T'+todo.dueTime).getTime();
+        const now=Date.now();
+        if(dueMs>now){
+          const delay=dueMs-now;
+          if(delay<2147483647){ // max setTimeout
+            setTimeout(()=>{
+              if(!(DB.todos||[]).find(t2=>t2.id===todo.id&&t2.completed)){
+                pushNotif('homework','⏰ Reminder: '+todo.title,todo.childId);
+                toast('⏰ Reminder: '+todo.title,'info',6000);
+              }
+            },delay);
+          }
+        }
+      }
+
+      // Email reminder — save to Supabase for server-side scheduling
+      if(todo.reminders.email&&todo.dueDate&&session?.email){
+        try{
+          await _supa.from('todo_reminders').upsert({
+            todo_id:todo.id,
+            user_email:session.email,
+            due_at:todo.dueDate+(todo.dueTime?'T'+todo.dueTime+':00':'T09:00:00'),
+            title:todo.title,
+            child_id:todo.childId||null,
+            sent:false
+          },{onConflict:'todo_id'});
+        }catch(e){console.log('todo reminder save:',e);}
+      }
+
+      close();re();
+      toast(existing?'✅ Task updated!':'✅ Task added!','success');
+    }));
+  },520);
+}
+
+function renderHomeworkParent(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
+  sec.appendChild(el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assigned tasks`]));
+
+  if(!hw.length){sec.appendChild(p('No tasks assigned yet. Your care team will add them here!'));return sec;}
+  const _hwChildColor=child?.color||'var(--teal)';
+  hw.forEach(task=>{
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px',borderLeft:'4px solid '+_hwChildColor}});
+    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+    chk.onclick=async()=>{
+      try{
+        const nowDone=!task.completed;
+        await _supa.from('homework').update({completed:nowDone}).eq('id',task.id);
+        const all=DB.homework;
+        const i=all.findIndex(h=>h.id===task.id);
+        if(i>-1){all[i].completed=nowDone;DB.homework=all;}
+        const child=DB.children.find(c=>c.id===S.activeChild);
+        if(nowDone){
+          // Notify the specialist — not the parent themselves
+          await notifyOtherParty('homework',`✅ ${child?.name||'Child'} completed: "${task.task.slice(0,42)}"`,S.activeChild,'homework');
+        }
+        re();
+      }catch(e){toast('Could not update task.','error');}
+    };
+    card.appendChild(chk);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',lineHeight:'1.4',marginBottom:'5px'}},[task.task]));
+    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
+    meta.appendChild(badge(task.category,catBadge(task.category)));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},['by '+task.specialist]));
+    if(task.completed)meta.appendChild(badge('✅ Complete','green'));
+    info.appendChild(meta);
+    card.appendChild(info);
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+/* -----------------------------------------------
+   HOMEWORK — SPECIALIST VIEW
+----------------------------------------------- */
+function renderHomeworkSpec(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+  const _hwBar=mkSpecBackBar(child?.name);if(_hwBar)sec.appendChild(_hwBar);
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['Homework & Tasks']),
+    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assignments`])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Assign Task','btn-md btn-primary',()=>showAssignModal())]));
+  sec.appendChild(hd);
+
+  if(!hw.length){sec.appendChild(p("No tasks assigned yet. Click 'Assign Task' to add one!"));return sec;}
+  hw.forEach(task=>{
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
+    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+    chk.onclick=async()=>{
+      const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
+      if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
+        _supa.from('homework').update({completed:nv}).eq('id',task.id).then(()=>{}).catch(e=>console.error('hw complete:',e));
+        if(nv){await notifyOtherParty('homework',`✅ ${DB.children.find(c=>c.id===task.childId)?.name||'Child'} completed: "${task.task.slice(0,42)}"`,task.childId,'homework');}
+      }re();
+    };
+    card.appendChild(chk);
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',marginBottom:'5px'}},[task.task]));
+    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
+    meta.appendChild(badge(task.category,catBadge(task.category)));
+    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
+    if(task.completed)meta.appendChild(badge('✅ Completed by parent','green'));
+    info.appendChild(meta);
+    card.appendChild(info);
+    if(!task.completed){
+      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
+        const all=DB.homework;DB.homework=all.filter(h=>h.id!==task.id);re();
+      })));
+    }
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
+function showAssignModal(){
+  openModal('➕ Assign Homework Task',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
+    const sel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
+    [ta,sel,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
+      if(!ta.value.trim()||!di.value){toast('⚠️ Task and due date required.','error');return;}
+      const specId=session?.specialistId||null;
+      const spec=getMySpecialistRecord();
+      const newHw={id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value};
+      (async()=>{
+        try{
+          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:getChildHouseholdId(newHw.childId),specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
+          const all=DB.homework;all.unshift(newHw);DB.homework=all;
+          // Notify parent (not self)
+          const _child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])||[]).find(c=>c.id===S.activeChild);
+          await notifyOtherParty('homework',`📋 New task for ${_child?.name||'your child'}: "${ta.value.slice(0,42)}"`,S.activeChild,'homework');
+          close();re();toast('✅ Task assigned!');
+        }catch(e){console.error('assign homework:',e);toast('Could not save task.','error');}
+      })();
+    }));
+  },460);
+}
+
+/* -----------------------------------------------
+   PATIENTS LIST (Specialist)
+----------------------------------------------- */
+function renderPatients(){
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},['My Patients']));
+  sec.appendChild(el('p',{class:'page-sub'},['Click a patient to view their vault & files']));
+  const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'12px'}});
+  sec.appendChild(si);
+
+  // Filter bar — state lives in S so it survives re()
+  const filterBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
+  const filterBtns={};
+  ['active','inactive','all'].forEach(f=>{
+    const label=f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1);
+    const btn=el('button',{class:f===S.patientStatusFilter?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
+    btn.onclick=()=>{
+      S.patientStatusFilter=f;
+      Object.keys(filterBtns).forEach(k=>{
+        filterBtns[k].className=k===f?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';
+      });
+      doFilter(si.value);
+    };
+    filterBtns[f]=btn;
+    filterBar.appendChild(btn);
+  });
+  sec.appendChild(filterBar);
+
+  const stack=el('div',{class:'stack'});
+  // Merge DB.children with LS children (for invite-based specialists)
+  const lsChildren=LS.get('children',[]);
+  const allChildren=[...DB.children];
+  lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
+  const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+
+  const doFilter=q=>{
+    stack.innerHTML='';
+    const filtered=sorted.filter(c=>{
+      const matchName=c.name.toLowerCase().includes(q.toLowerCase());
+      const cs=c.status||'active';
+      const matchStatus=S.patientStatusFilter==='all'||(S.patientStatusFilter===cs);
+      return matchName&&matchStatus;
+    });
+    if(!filtered.length){
+      const msg=S.patientStatusFilter==='all'?'No patients found.':('No '+S.patientStatusFilter+' patients.');
+      stack.appendChild(el('div',{class:'empty-inline'},[msg]));
+      return;
+    }
+    filtered.forEach(c=>{
+      const isInactive=(c.status||'active')==='inactive';
+      const card=el('div',{class:'card click',style:{
+        display:'flex',alignItems:'center',gap:'15px',
+        border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)',
+        filter:isInactive?'grayscale(1)':'none',
+        opacity:isInactive?'0.7':'1'
+      }});
+      card.appendChild(mkChildAvatar(c,52,'15px'));
+      const info=d('',[], {flex:1});
+      const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}});
+      nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
+      if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
+      info.appendChild(nameRow);
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+c.age+' · DOB '+c.dob]));
+      card.appendChild(info);
+      // Status toggle
+      const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
+      toggle.onclick=e=>{
+        e.stopPropagation();
+        const children=DB.children;
+        const idx=children.findIndex(ch=>ch.id===c.id);
+        if(idx>-1){
+          children[idx].status=(children[idx].status||'active')==='active'?'inactive':'active';
+          DB.children=children;
+        } else {
+          const lsc=LS.get('children',[]);
+          const li=lsc.findIndex(ch=>ch.id===c.id);
+          if(li>-1){lsc[li].status=(lsc[li].status||'active')==='active'?'inactive':'active';LS.set('children',lsc);}
+        }
+        S.patientStatusFilter='all';
+        re();
+      };
+      card.appendChild(toggle);
+      card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
+      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
+      stack.appendChild(card);
+    });
+  };
+  doFilter('');
+  si.oninput=e=>doFilter(e.target.value);
+  sec.appendChild(stack);
+  return sec;
+}
+
+// Specialist back-to-patient bar — insert at top of any section when role=specialist
+function mkSpecBackBar(childName){
+  if(session?.role!=='specialist')return null;
+  const bar=el('div',{style:{
+    display:'flex',alignItems:'center',gap:'8px',
+    marginBottom:'14px',paddingBottom:'12px',
+    borderBottom:'1.5px solid var(--mint-l)'
+  }});
+  const btn=el('button',{style:{
+    display:'flex',alignItems:'center',gap:'6px',
+    background:'none',border:'none',cursor:'pointer',
+    color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'
+  }},[
+    el('span',{style:{fontSize:'1.1rem'}},['‹']),
+    'Back to '+(childName||'Patient')
+  ]);
+  btn.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
+  bar.appendChild(btn);
+  return bar;
+}
+
+/* -----------------------------------------------
+   PATIENT DASHBOARD (Specialist → patient detail)
+----------------------------------------------- */
+function renderPatientDashboard(){
+  const specId=session?.specialistId;
+  const child=DB.children.find(c=>c.id===S.activeChild)
+    ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+  if(!child){S.activeTab='patients';re();return el('div');}
+
+  const patientApts=DB.appointments.filter(a=>
+    a.childId===child.id&&(a.specialistId===specId||a.sharedWith?.includes(specId))
+  );
+
+  const sec=el('div',{class:'section'});
+
+  // Back button
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{if(window.history.length>1)window.history.back();else{S.activeTab='patients';re();}});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+
+  // Patient header bubble
+  const hdrCard=el('div',{class:'card',style:{
+    background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+    border:'1.5px solid var(--lav)',
+    display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
+  }});
+  hdrCard.style.borderLeft='5px solid '+(child.color||'var(--teal)');
+  hdrCard.appendChild(mkChildAvatar(child,56,'16px'));
+  const hInfo=el('div',{style:{flex:1}});
+  hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
+  hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
+    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]));
+  hdrCard.appendChild(hInfo);
+  sec.appendChild(hdrCard);
+
+  // 2×2 action grid
+  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  [
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
+    {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework'},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
+  ].forEach(({icon,label,color,bg,tab})=>{
+    const sq=el('div',{class:'card hov',style:{
+      cursor:'pointer',padding:'20px 16px',display:'flex',
+      flexDirection:'column',alignItems:'center',justifyContent:'center',
+      gap:'10px',minHeight:'100px',background:bg,
+      border:'1.5px solid '+color+'33',textAlign:'center'
+    }});
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
+    sq.onclick=()=>{S.activeTab=tab;re();};
+    grid.appendChild(sq);
+  });
+  sec.appendChild(grid);
+
+  // Mini-calendar filtered to this patient only
+  sec.appendChild(renderMiniCalendar([child], patientApts));
+
+  return sec;
+}
+
+/* -----------------------------------------------
+   CREDENTIALS / PERSONAL FOLDER (Specialist only)
+----------------------------------------------- */
+function renderCredentials(){
+  const specId=session?.specialistId||null;
+  const spec={...getMySpecialistRecord(),credentials:getMySpecialistRecord().credentials||[]};
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['🗂️ My Credentials Folder']),
+    el('p',{class:'page-sub'},['Private storage for your licenses and professional documents — not visible to parents or other specialists'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('📤 Upload Document','btn-md btn-primary',()=>showCredentialUpload(spec,specId))]));
+  sec.appendChild(hd);
+
+  const card=el('div',{class:'card personal-folder'});
+  card.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'11px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--lav-l)'}},
+    [el('span',{style:{fontSize:'1.6rem'}},['🔐']),el('div',{},[
+      el('div',{style:{fontWeight:800,color:'var(--navy)'}},['Secure Personal Storage']),
+      el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},['Only you can see these documents'])
+    ])]));
+
+  const creds=LS.get('my_credentials',spec.credentials||[]);
+  if(!creds.length){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,textAlign:'center',padding:'20px 0'}},['No documents uploaded yet.\nUpload your license, certifications, and professional documents here.']));
+  } else {
+    creds.forEach(cr=>{
+      const fi=el('div',{class:'file-item'});
+      fi.innerHTML=`<span style="font-size:1.3rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${cr.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${cr.date} · ${cr.type}</div></div>`;
+      fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Document','Remove this document permanently?',true,()=>{
+        const mySpec=getMySpecialistRecord();
+        const updatedCreds=(mySpec.credentials||[]).filter(c=>c.id!==cr.id);
+        LS.set('my_credentials',updatedCreds);
+        re();toast('✅ Document removed.');
+      })));
+      card.appendChild(fi);
+    });
+  }
+  sec.appendChild(card);
+
+  // Categories
+  const cats=['Professional License','CPD Certificate','Insurance','Registration','Other'];
+  sec.appendChild(el('div',{style:{marginTop:'20px'}},[el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Document Categories']),
+    el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}},cats.map(c=>badge(c,'lav')))]));
+  return sec;
+}
+
+function showCredentialUpload(spec,specId){
+  const fi=el('input',{type:'file',style:{display:'none'}});
+  fi.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    openModal('📤 Upload Credential',(mb,close)=>{
+      mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:600}},['Uploading: '+file.name]));
+      const typeSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      ['Professional License','CPD Certificate','Insurance','Registration','Other'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;typeSel.appendChild(o);});
+      mb.appendChild(typeSel);
+      const upBtn=mkBtn('📤 Upload','btn-lg btn-primary btn-full',async()=>{
+        upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
+        try{
+          const {path,url}=await SB.uploadFile('specialists/'+specId,file);
+          const existingCreds=LS.get('my_credentials',[]);
+          existingCreds.push({id:'cr_'+Date.now(),name:file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value,url});
+          LS.set('my_credentials',existingCreds);
+          close();re();toast('✅ Credential uploaded to your private folder!');
+        }catch(e){close();toast('❌ Upload failed: '+e.message,'error');}
+      });
+      mb.appendChild(upBtn);
+    },440);
+  };
+  document.body.appendChild(fi);fi.click();
+}
+
+/* -----------------------------------------------
+   NOTIFICATIONS
+----------------------------------------------- */
+function renderNotifications(){
+  const sec=el('div',{class:'section'});
+  const unreadCount=DB.notifications.filter(n=>!n.read).length;
+  const hd=el('div',{class:'sec-hd',style:{marginBottom:'16px'}});
+  hd.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Notifications']));
+  if(unreadCount>0){
+    hd.appendChild(mkBtn('Mark all read','btn-sm btn-ghost',async()=>{
+      const ns=DB.notifications;ns.forEach(n=>n.read=true);DB.notifications=ns;
+      const lsN=LS.get('notifications',[]);lsN.forEach(n=>n.read=true);LS.set('notifications',lsN);
+      if(session?.id!=='demo')try{await _supa.from('notifications').update({read:true}).eq('user_id',session.id);}catch(e){}
+      re();
+    }));
+  }
+  sec.appendChild(hd);
+  const notifs=DB.notifications;
+  if(!notifs.length){sec.appendChild(p('All caught up! 🎉'));return sec;}
+  const stack=el('div',{class:'stack'});
+  notifs.forEach(n=>{
+    const _nc=DB.children.find(c=>c.id===n.childId);
+    const _nColor=_nc?.color||null;
+    const card=el('div',{class:'card hov',style:{
+      display:'flex',gap:'13px',alignItems:'flex-start',cursor:'pointer',
+      background:n.read?'#fff':(_nColor?_nColor+'0d':'#e8faf5'),
+      border:n.read?'1.5px solid var(--mint-l)':'1.5px solid var(--mint-l)',
+      borderLeft:_nColor?`4px solid ${_nColor}`:(n.read?'1.5px solid var(--mint-l)':'2px solid #34d399'),
+      transition:'background .25s,border .25s'
+    }});
+    card.appendChild(el('span',{style:{fontSize:'1.45rem',flexShrink:0}},[notifIcon[n.type]||'📢']));
+    const ncBody=el('div',{style:{flex:'1'}});
+    ncBody.appendChild(el('div',{style:{fontWeight:n.read?500:800,color:n.read?'var(--slate)':'var(--navy)',lineHeight:'1.4',marginBottom:'3px'}},[n.msg]));
+    ncBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[n.time]));
+    card.appendChild(ncBody);
+    if(!n.read){
+      card.appendChild(el('div',{style:{width:'9px',height:'9px',borderRadius:'50%',background:'#10b981',flexShrink:0,marginTop:'4px'}}));
+    }
+    card.onclick=async()=>{
+      // Mark read in memory + LS immediately
+      const ns=DB.notifications,i=ns.findIndex(x=>x.id===n.id);
+      if(i>-1){ns[i].read=true;DB.notifications=ns;}
+      // Patch the LS copy directly so it survives the next Supabase refresh
+      const lsNotifs=LS.get('notifications',[]);
+      const li=lsNotifs.findIndex(x=>x.id===n.id);
+      if(li>-1){lsNotifs[li].read=true;LS.set('notifications',lsNotifs);}
+      // Persist to Supabase (awaited so it completes before the next refresh)
+      if(session?.id!=='demo'){
+        try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}
+      }
+      // Deep-link navigation
+      const tab=n.linkTab||n.link_tab;
+      const ld=n.linkData||null;
+      if(tab){
+        _pushNav();
+        if(n.childId)S.activeChild=n.childId;
+        S.navLevel=1;
+        if(tab==='chat'){
+          S.calFullscreen=false;S.activeTab='chat';
+          if(ld?.chatId){
+            S.pendingChatId=ld.chatId;
+            if(!S.chatsLoaded){
+              S.chatsLoaded=true;
+              loadChatsFromSupabase().then(()=>{
+                if(S.pendingChatId){S.activeChatId=S.pendingChatId;S.pendingChatId=null;}
+                re();
+              });
+            } else {S.activeChatId=ld.chatId;}
+          } else {S.chatsLoaded=true;}
+        } else if(tab==='calendar'){
+          S.calFullscreen=true;S.activeTab='calendar';
+          if(ld?.aptDate)S.calJumpDate=ld.aptDate;
+        } else {
+          S.calFullscreen=false;S.activeTab=tab;
+        }
+      }
+      re();
+    };
+    stack.appendChild(card);
+  });
+  sec.appendChild(stack);
+  return sec;
+}
+
+/* -----------------------------------------------
+   SETTINGS
+----------------------------------------------- */
+/* -----------------------------------------------
+   1. SIMULATED EMAIL INBOX
+----------------------------------------------- */
+function renderEmailInbox(){
+  const sec=el('div',{class:'section'});
+  const emails=DB.emailInbox;
+  const unread=emails.filter(e=>!e.read).length;
+
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['📧 Email Inbox']),
+    el('p',{class:'page-sub'},['Simulated notification emails from Huddledin · '+unread+' unread'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('Mark All Read','btn-sm btn-slate',()=>{
+      const em=DB.emailInbox;em.forEach(e=>e.read=true);DB.emailInbox=em;re();
+    })
+  ]));
+  sec.appendChild(hd);
+
+  if(!emails.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No emails yet.']));return sec;}
+
+  // If viewing a specific email
+  if(S.activeEmailId){
+    const email=emails.find(e=>e.id===S.activeEmailId);
+    if(email){
+      // Mark as read
+      const em=DB.emailInbox,i=em.findIndex(e=>e.id===email.id);
+      if(i>-1&&!em[i].read){em[i].read=true;DB.emailInbox=em;}
+      const vc=el('div',{class:'card',style:{marginBottom:'14px'}});
+      vc.appendChild(mkBtn('← Back to Inbox','btn-sm btn-slate',()=>{S.activeEmailId=null;re();}));
+      vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'14px 0'}}));
+      vc.appendChild(el('div',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.15rem',fontWeight:800,color:'var(--navy)',marginBottom:'8px'}},[email.subject]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px',fontWeight:600}},['From: '+email.from]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['To: '+email.to+' · '+email.date]));
+      vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'0 0 16px'}}));
+      const body=el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.75',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[email.body]);
+      vc.appendChild(body);
+      // If it has a magic link, show copy button
+      if(email.magicLink){
+        vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'16px 0'}}));
+        vc.appendChild(el('div',{class:'inp-label'},['🔗 Invite Magic Link']));
+        const lb=el('div',{class:'invite-link-box'},[email.magicLink]);
+        lb.onclick=()=>navigator.clipboard?.writeText(email.magicLink).then(()=>toast('✅ Copied!'));
+        vc.appendChild(lb);
+      }
+      sec.appendChild(vc);
+      return sec;
+    }
+  }
+
+  // Inbox list
+  const inbox=el('div',{class:'email-inbox'});
+  [...emails].sort((a,b)=>b.date.localeCompare(a.date)).forEach(email=>{
+    const row=el('div',{class:'email-item'+(email.read?'':' unread')});
+    if(!email.read)row.appendChild(el('div',{class:'email-dot'}));
+    else row.appendChild(el('div',{style:{width:'8px',flexShrink:0}}));
+    const info=d('',[], {flex:1});
+    info.appendChild(el('div',{style:{fontWeight:email.read?600:800,color:'var(--navy)',fontSize:'.86rem',marginBottom:'3px'}},[email.subject]));
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginBottom:'2px'}},[email.from+' → '+email.to]));
+    info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[email.date]));
+    row.appendChild(info);
+    row.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate-l)',flexShrink:0}},[email.read?'':'●']));
+    row.onclick=()=>{S.activeEmailId=email.id;re();};
+    inbox.appendChild(row);
+  });
+  sec.appendChild(inbox);
+  sec.appendChild(el('p',{style:{color:'var(--slate-l)',fontSize:'.76rem',textAlign:'center',marginTop:'12px',fontWeight:500}},
+    ['In production these emails would be delivered to real inboxes via SendGrid / Mailgun.']));
+  return sec;
+}
+
+/* -----------------------------------------------
+   2. PROGRESS TRACKING (charts + milestones)
+----------------------------------------------- */
+function renderProgress(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const progressData=DB.progress.filter(p=>p.childId===S.activeChild);
+  const milestones=DB.milestones.filter(m=>m.childId===S.activeChild);
+  const sec=el('div',{class:'section'});
+
+  const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+  rightEl.appendChild(mkBtn('➕','btn-sm btn-primary',()=>showAddMilestoneModal()));
+  rightEl.appendChild(mkBtn('📊','btn-sm btn-ghost',()=>showLogMeasurementModal()));
+  sec.appendChild(mkSubHeader('📈 Progress',rightEl));
+
+  // Tab bar
+  const tabs=el('div',{class:'prog-tabs'});
+  [{id:'overview',label:'📊 Overview'},{id:'milestones',label:'🏆 Milestones'},{id:'history',label:'📅 History'}].forEach(t=>{
+    const tb=el('div',{class:'prog-tab'+(S.activeProgressTab===t.id?' active':'')});
+    tb.textContent=t.label;tb.onclick=()=>{S.activeProgressTab=t.id;re();};
+    tabs.appendChild(tb);
+  });
+  sec.appendChild(tabs);
+
+  if(S.activeProgressTab==='overview'){
+    // Group by category, show latest value as progress bar
+    const cats=[...new Set(progressData.map(p=>p.category))];
+    if(!cats.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No measurements logged yet. Click "Log Measurement" to start!']));return sec;}
+    const g=el('div',{class:'g2'});
+    cats.forEach(cat=>{
+      const catData=progressData.filter(p=>p.category===cat).sort((a,b)=>b.date.localeCompare(a.date));
+      const latest=catData[0];const prev=catData[1];
+      const pct=Math.round((latest.value/latest.maxValue)*100);
+      const trend=prev?latest.value-prev.value:null;
+      const card=el('div',{class:'card hov'});
+      card.appendChild(badge(cat,catBadge(cat)));
+      card.appendChild(el('div',{style:{fontWeight:800,fontSize:'1.3rem',color:'var(--navy)',margin:'10px 0 2px'}},[latest.value+latest.unit+' / '+latest.maxValue+latest.unit]));
+      card.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginBottom:'10px'}},[latest.label+' · '+latest.date]));
+      const bar=el('div',{class:'progress-bar-wrap'});
+      const fill=el('div',{class:'progress-bar-fill',style:{width:pct+'%',background:cat==='Speech'?'var(--teal)':cat==='OT'?'var(--coral)':cat==='PT'?'var(--lav-d)':'var(--slate)'}});
+      bar.appendChild(fill);card.appendChild(bar);
+      if(trend!==null){
+        const trendEl=el('div',{style:{fontSize:'.76rem',marginTop:'7px',fontWeight:700,color:trend>=0?'#166534':'#be123c'}},
+          [(trend>=0?'▲ +':'▼ ')+Math.abs(trend)+latest.unit+' since last session']);
+        card.appendChild(trendEl);
+      }
+      g.appendChild(card);
+    });
+    sec.appendChild(g);
+
+  } else if(S.activeProgressTab==='milestones'){
+    const achieved=milestones.filter(m=>m.achieved);
+    const pending=milestones.filter(m=>!m.achieved);
+    if(!milestones.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No milestones set yet. Click "Add Milestone" to add some!']));return sec;}
+    if(achieved.length){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🏆 Achieved']));
+      achieved.forEach(m=>{
+        const mi=el('div',{class:'milestone-item'});
+        mi.appendChild(el('div',{class:'milestone-dot done'}));
+        const inf=d('',[], {flex:1});
+        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
+        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},['✅ Achieved '+m.date]));
+        mi.appendChild(inf);mi.appendChild(badge(m.category,catBadge(m.category)));
+        sec.appendChild(mi);
+      });
+    }
+    if(pending.length){
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'18px 0 12px'}},['🎯 In Progress']));
+      pending.forEach(m=>{
+        const mi=el('div',{class:'milestone-item'});
+        mi.appendChild(el('div',{class:'milestone-dot pending'}));
+        const inf=d('',[], {flex:1});
+        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
+        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'2px'}},['Target: '+m.date]));
+        mi.appendChild(inf);
+        const acts=d('',[], {display:'flex',gap:'7px'});
+        acts.appendChild(badge(m.category,catBadge(m.category)));
+        acts.appendChild(mkBtn('✅ Mark Achieved','btn-sm btn-secondary',async()=>{
+          const today=new Date().toISOString().split('T')[0];
+          const ms=DB.milestones,i=ms.findIndex(x=>x.id===m.id);
+          if(i>-1){ms[i].achieved=true;ms[i].date=today;DB.milestones=ms;}
+          try{await _supa.from('milestones').update({achieved:true,date:today}).eq('id',m.id);}catch(e){console.error('mark milestone:',e);}
+          await notifyOtherParty('report','🏆 Milestone achieved: "'+m.title+'"',S.activeChild,'progress');re();toast('🏆 Milestone marked as achieved!');
+        }));
+        acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Milestone','Remove this milestone?',true,()=>{
+          const ms=DB.milestones;DB.milestones=ms.filter(x=>x.id!==m.id);re();
+        })));
+        mi.appendChild(acts);
+        sec.appendChild(mi);
       });
     }
 
-    // Children distribution
-    const childrenPerHousehold = {};
-    children.forEach(c => { childrenPerHousehold[c.household_id] = (childrenPerHousehold[c.household_id]||0)+1; });
-    const childDist = { one: 0, two: 0, threePlus: 0 };
-    Object.values(childrenPerHousehold).forEach(n => {
-      if(n===1) childDist.one++;
-      else if(n===2) childDist.two++;
-      else childDist.threePlus++;
+  } else { // history
+    if(!progressData.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No history yet.']));return sec;}
+    const sorted=[...progressData].sort((a,b)=>b.date.localeCompare(a.date));
+    const stack=el('div',{class:'stack'});
+    sorted.forEach(p=>{
+      const spec=getChildTeam(S.activeChild).find(s=>s.id===p.specialistId)||{name:p.specialistName||'Specialist'};
+      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
+      const pct=Math.round((p.value/p.maxValue)*100);
+      const circ=el('div',{style:{width:'52px',height:'52px',borderRadius:'50%',background:`conic-gradient(var(--teal) ${pct*3.6}deg,#e2e8f0 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+      circ.appendChild(el('div',{style:{width:'38px',height:'38px',borderRadius:'50%',background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.68rem',fontWeight:900,color:'var(--navy)'}},[pct+'%']));
+      card.appendChild(circ);
+      const inf=d('',[], {flex:1});
+      inf.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[p.label]));
+      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[p.value+p.unit+' / '+p.maxValue+p.unit+' · '+p.date]));
+      if(spec)inf.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[spec.name]));
+      card.appendChild(inf);
+      card.appendChild(badge(p.category,catBadge(p.category)));
+      stack.appendChild(card);
     });
+    sec.appendChild(stack);
+  }
+  return sec;
+}
 
-    // Appointment types
-    const aptTypes = {};
-    appointments.forEach(a => { const t=a.type||'other'; aptTypes[t]=(aptTypes[t]||0)+1; });
+function showAddMilestoneModal(){
+  openModal('🏆 Add Milestone',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
+    const catSel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
+    const di=el('input',{class:'inp',type:'date',placeholder:'Target date','data-placeholder':'Target date'});
+    [ti,catSel,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
+      if(!ti.value||!di.value){toast('⚠️ Title and target date required.','error');return;}
+      const newMs={id:'ml_'+Date.now(),childId:S.activeChild,title:ti.value.trim(),date:di.value,achieved:false,category:catSel.value,specialistId:session?.specialistId||null};
+      (async()=>{
+        try{
+          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:session.householdId||null,label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
+          const ms=DB.milestones;ms.push(newMs);DB.milestones=ms;close();re();toast('✅ Milestone added!');
+        }catch(e){console.error('add milestone:',e);toast('Could not save milestone.','error');}
+      })();
+    }));
+  },440);
+}
 
-    res.status(200).json({
-      overview: {
-        totalUsers: profiles.length,
-        parents: parents.length,
-        specialists: specialists.length,
-        households: households.size,
-        children: children.length,
-        newUsersWeek: profiles.filter(p => p.created_at > weekAgo).length,
-        pendingRequests: pendingReqs.length,
-        gcalConnected: profiles.filter(p => p.google_calendar_enabled).length
-      },
-      retention: {
-        activeWeek: activeUsersWeek,
-        activeMonth: activeUsersMonth,
-        dormant: dormantUsers,
-        emptyHouseholds,
-        householdsNoSpec: households.size - householdsWithSpec.size
-      },
-      engagement: {
-        appointments: appointments.length,
-        appointmentsWeek: appointments.filter(a => a.created_at > weekAgo).length,
-        messages: messages.length,
-        messagesWeek: messages.filter(m => m.created_at > weekAgo).length,
-        files: files.length,
-        filesWeek: files.filter(f => f.created_at > weekAgo).length,
-        todos: todos.length,
-        todosCompleted: todos.filter(t => t.completed).length,
-        notes: notes.length,
-        notesPublished: notes.filter(n => n.published).length,
-        chats: chats.length,
-        householdsUsingApts: householdsUsingApts.size,
-        householdsUsingFiles: householdsUsingFiles.size,
-        householdsUsingChats: householdsUsingChats.size,
-        aptTypes
-      },
-      specialists: {
-        total: specialists.length,
-        active: specsWithFamily.size,
-        noFamily: specsNoFamily,
-        powerUsers: powerSpecialists,
-        gcal: profiles.filter(p => p.google_calendar_enabled && p.role==='specialist').length,
-        pendingRequests: pendingReqs.length
-      },
-      growth: {
-        weekly: weeklySignups,
-        childDist
+function showLogMeasurementModal(){
+  openModal('📊 Log Measurement',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
+    const lb=el('input',{class:'inp',placeholder:'e.g. S-blend accuracy'});
+    const catSel=el('select',{class:'inp'});
+    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
+    const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
+    const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
+    const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
+    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
+    [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
+      if(!lb.value||!vi.value||!mi2.value||!di.value){toast('⚠️ All fields required.','error');return;}
+      const newProg={id:'p_'+Date.now(),childId:S.activeChild,category:catSel.value,label:lb.value.trim(),value:parseFloat(vi.value),maxValue:parseFloat(mi2.value),unit:ui.value||'',date:di.value,specialistId:session?.specialistId||null};
+      (async()=>{
+        try{
+          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:session.householdId||null,specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
+          const ps=DB.progress;ps.push(newProg);DB.progress=ps;close();S.activeProgressTab='overview';re();toast('📊 Measurement logged!');
+        }catch(e){console.error('log measurement:',e);toast('Could not save measurement.','error');}
+      })();
+    }));
+  },460);
+}
+
+/* -----------------------------------------------
+   3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
+----------------------------------------------- */
+function showEditChildModal(child){
+  openModal('✏️ Edit '+child.name,(mb,close)=>{
+    // Avatar / photo tappable button
+    const avatarWrap=el('div',{style:{display:'flex',justifyContent:'center',marginBottom:'18px'}});
+    const avatarBtn=el('button',{style:{position:'relative',background:'none',border:'none',cursor:'pointer',padding:'0'}});
+    if(child.photo){
+      avatarBtn.appendChild(el('img',{src:child.photo,style:{width:'72px',height:'72px',borderRadius:'50%',objectFit:'cover'}}));
+    } else {
+      avatarBtn.appendChild(el('span',{style:{fontSize:'3rem',lineHeight:'72px',display:'block',width:'72px',textAlign:'center'}},[child.avatar]));
+    }
+    const camBadge=el('span',{style:{position:'absolute',bottom:'0',right:'0',background:'var(--teal)',borderRadius:'50%',width:'24px',height:'24px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem',color:'#fff'}},['📷']);
+    avatarBtn.appendChild(camBadge);
+    avatarBtn.onclick=()=>showChildPhotoModal(child);
+    avatarWrap.appendChild(avatarBtn);
+    mb.appendChild(avatarWrap);
+
+    // Name input
+    mb.appendChild(el('div',{class:'inp-label'},['Name']));
+    const ni=el('input',{class:'inp',type:'text',style:{marginBottom:'14px'}});
+    ni.value=child.name;
+    mb.appendChild(ni);
+
+    // DOB input
+    const dob=makeDateInput('Date of birth',{style:{marginBottom:'18px'}});
+    dob.value=child.dob||'';
+    mb.appendChild(dob);
+
+    const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'18px'}});
+    mb.appendChild(errDiv);
+
+    mb.appendChild(mkBtn('💾 Save Changes','btn-lg btn-primary btn-full',async()=>{
+      const name=ni.value.trim();
+      const dobVal=dob.value;
+      if(!name||!dobVal){errDiv.textContent='Name and date of birth are required.';return;}
+      if(session&&session.id!=='demo'){
+        try{
+          await _supa.from('children').update({name,dob:dobVal}).eq('id',child.id);
+        }catch(e){errDiv.textContent='Save failed: '+e.message;return;}
+      }
+      // Update local cache
+      const idx=DB.children.findIndex(c=>c.id===child.id);
+      if(idx>-1){
+        const dobDate=new Date(dobVal);
+        DB.children[idx].name=name;
+        DB.children[idx].dob=dobVal;
+        DB.children[idx].age=new Date().getFullYear()-dobDate.getFullYear();
+        DB.children=DB.children;
+      }
+      close();re();toast('✅ '+name+' updated!');
+    }));
+  },420);
+}
+
+function showAddChildModal(){
+  openModal('➕ Add Child Profile',(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+    const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
+    const dob=makeDateInput('Date of birth',{style:{marginBottom:'16px'}});
+
+    // Emoji avatar picker
+    mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
+    const emojis=['🌸','🚀','⭐','🦋','🐻','🦁','🐬','🌈','🎈','🦄'];
+    let selEmoji=emojis[0];
+    const emoRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'});
+    emojis.forEach(e=>{
+      const eb=el('button',{style:{fontSize:'1.5rem',padding:'6px 10px',borderRadius:'12px',border:'2.5px solid transparent',background:'var(--mint-ll)',cursor:'pointer',transition:'all .18s'}});
+      eb.textContent=e;
+      eb.onclick=()=>{selEmoji=e;emoRow.querySelectorAll('button').forEach(b=>b.style.borderColor='transparent');eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';};
+      if(e===selEmoji){eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';}
+      emoRow.appendChild(eb);
+    });
+    mb.appendChild(emoRow);
+
+    // Photo upload
+    mb.appendChild(el('div',{class:'inp-label'},['Or Upload Photo (optional)']));
+    let photoData=null;
+    const photoWrap=el('div',{class:'photo-upload-area'});
+    photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload a photo</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">Or use camera on mobile</div>';
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+    photoInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        photoData=ev.target.result;
+        photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700">Photo selected ✓</div>`;
+      };
+      reader.readAsDataURL(f);
+    };
+    photoWrap.onclick=()=>photoInput.click();
+    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    mb.appendChild(el('div',{style:{height:'14px'}}));
+
+    [ni,dob].forEach(i=>ig.appendChild(i));
+    mb.appendChild(ig);
+    mb.appendChild(mkBtn('✅ Add Child','btn-lg btn-primary btn-full',async()=>{
+      if(!ni.value.trim()||!dob.value){toast('⚠️ Name and date of birth required.','error');return;}
+      const dobDate=new Date(dob.value);
+      const age=new Date().getFullYear()-dobDate.getFullYear();
+      const childName=ni.value.trim();
+      let newChildId='c_'+Date.now();
+      const _takenColors=(DB.children||[]).map(c=>c.color);
+      const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null};
+      const children=DB.children;children.push(newChild);DB.children=children;
+      const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
+      S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
+      track('Child Added');
+    }));
+  },500);
+}
+
+function showChildPhotoModal(child){
+  openModal('📷 Update '+child.name+"'s Photo",(mb,close)=>{
+    let photoData=child.photo||null;
+    const photoWrap=el('div',{class:'photo-upload-area',style:{marginBottom:'16px'}});
+    if(child.photo){
+      photoWrap.innerHTML=`<img src="${child.photo}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Current photo — click to change</div>`;
+    } else {
+      photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
+    }
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+    photoInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        // Show fullscreen crop overlay
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},['Drag & pinch to crop']));
+        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},['Cancel']);
+        cancelBtn.onclick=()=>ov.remove();
+        bar.appendChild(cancelBtn);
+        ov.appendChild(bar);
+        const imgWrap=el('div',{style:{flex:1,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+        const img=el('img',{src:ev.target.result,style:{maxWidth:'100%',maxHeight:'100%'}});
+        imgWrap.appendChild(img);
+        ov.appendChild(imgWrap);
+        const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
+        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},['✅ Use This Crop']);
+        useBtn.onclick=()=>{
+          const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
+          photoData=canvas.toDataURL('image/jpeg',0.88);
+          photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Photo cropped ✓</div>`;
+          cropper.destroy();ov.remove();
+        };
+        foot.appendChild(useBtn);
+        ov.appendChild(foot);
+        document.body.appendChild(ov);
+        const cropper=new Cropper(img,{aspectRatio:1,viewMode:1,dragMode:'move',autoCropArea:0.9,restore:false,guides:true,center:true,highlight:false,cropBoxMovable:false,cropBoxResizable:false,toggleDragModeOnDblclick:false});
+      };
+      reader.readAsDataURL(f);
+    };
+    photoWrap.onclick=()=>photoInput.click();
+    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    const row=d('',[], {display:'flex',gap:'10px'});
+    if(child.photo){
+      row.appendChild(mkBtn('🗑️ Remove Photo','btn-md btn-danger',async()=>{
+        const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
+        if(i>-1){ch[i].photo=null;DB.children=ch;}close();re();toast('✅ Photo removed.');
+      }));
+    }
+    row.appendChild(mkBtn('✅ Save Photo','btn-md btn-primary',async()=>{
+      const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
+      if(i>-1){ch[i].photo=photoData;DB.children=ch;}
+      if(session&&session.id!=='demo'){try{await SB.updateChild(child.id,{photo_url:photoData});}catch(e){}}
+      close();re();toast('✅ Photo updated!');
+    }));
+    mb.appendChild(row);
+  },420);
+}
+
+function showDeleteChildModal(child){
+  openModal('⚠️ Delete '+child.name+"'s Profile",(mb,close)=>{
+    const warn=el('div',{class:'danger-zone'});
+    warn.appendChild(el('div',{style:{fontWeight:800,color:'#be123c',fontSize:'1rem',marginBottom:'8px'}},['⚠️ This action cannot be undone']));
+    warn.appendChild(el('p',{style:{color:'#be123c',fontSize:'.86rem',lineHeight:'1.7',fontWeight:500}},
+      [`Deleting ${child.name}'s profile will:\n\n• Remove all their appointments and tasks from your dashboard\n• Revoke all specialist access for this child\n• Specialist-authored notes will be archived in each specialist\'s Legacy Archive\n• The child will be removed from the child switcher\n\nThis does NOT delete the specialists' Huddledin accounts.`]));
+    mb.appendChild(warn);
+    mb.appendChild(el('div',{style:{height:'16px'}}));
+    mb.appendChild(el('div',{class:'inp-label'},['Type the child\'s name to confirm']));
+    const conf=el('input',{class:'inp',placeholder:child.name,style:{marginBottom:'14px'}});
+    mb.appendChild(conf);
+    const delBtn=mkBtn('🗑️ Permanently Delete Profile','btn-lg btn-danger btn-full',async()=>{
+      if(conf.value.trim()!==child.name){toast('⚠️ Name does not match.','error');return;}
+      // Archive all specialist notes for this child
+      const archive=DB.legacyArchive;
+      DB.specialists.filter(s=>s.status==='active').forEach(spec=>{
+        const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===child.id);
+        if(specNotes.length){
+          archive.push({specialistId:spec.id,specialistName:spec.name,childId:child.id,childName:child.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes,reason:'Child profile deleted'});
+        }
+      });
+      DB.legacyArchive=archive;
+      if(session&&session.id!=='demo'){try{await SB.deleteChild(child.id);}catch(e){}}
+      const ch=DB.children.filter(c=>c.id!==child.id);DB.children=ch;
+      // Remove all data for this child
+      DB.homework=DB.homework.filter(h=>h.childId!==child.id);
+      DB.appointments=DB.appointments.filter(a=>a.childId!==child.id);
+      DB.vaultNotes=DB.vaultNotes.filter(n=>n.childId!==child.id);
+      DB.progress=(DB.progress||[]).filter(p=>p.childId!==child.id);
+      DB.milestones=(DB.milestones||[]).filter(m=>m.childId!==child.id);
+      // Switch to first remaining child or null
+      S.activeChild=ch[0]?.id||null;
+      close();re();toast('✅ '+child.name+"'s profile has been deleted.");
+    });
+    mb.appendChild(delBtn);
+  },480);
+}
+
+/* -----------------------------------------------
+   4. PUSH NOTIFICATION PERMISSION
+----------------------------------------------- */
+function renderPushBanner(){
+  // FIX B7: use a separate 'pushDismissed' key so pushEnabled stays a clean boolean
+  if(DB.pushEnabled===true||!('Notification' in window))return null;
+  if(LS.get('pushDismissed',false))return null;
+  if(Notification.permission==='granted'){
+    // Already granted — persist state
+    DB.pushEnabled=true;
+    return null;
+  }
+  if(Notification.permission==='denied')return null;
+  const banner=el('div',{class:'push-banner'});
+  banner.innerHTML='<span style="font-size:1.6rem">🔔</span><div style="flex:1"><div style="font-weight:800;color:var(--navy)">Enable push notifications</div><div style="font-size:.78rem;color:var(--slate);margin-top:2px">Get instant alerts for new reports, messages and tasks</div></div>';
+  banner.appendChild(mkBtn('Enable','btn-sm btn-primary',()=>{
+    Notification.requestPermission().then(perm=>{
+      if(perm==='granted'){
+        DB.pushEnabled=true;
+        new Notification('Huddledin 🤝',{body:'Push notifications enabled! You\'ll now get real-time alerts.',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});
+        re();
+      } else {
+        toast('Notifications blocked. You can change this in browser settings.','info');
       }
     });
+  }));
+  // FIX B7: store dismissed state separately, keep pushEnabled as boolean
+  banner.appendChild(mkBtn('Not now','btn-sm btn-slate',()=>{LS.set('pushDismissed',true);re();}));
+  return banner;
+}
 
-  } catch (err) {
-    console.error('admin-stats error:', err);
-    res.status(500).json({ error: err.message });
+// Helper: send actual push if permission granted
+function sendPush(title,body){
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    try{new Notification(title,{body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});}catch(e){}
   }
 }
+
+/* -----------------------------------------------
+   5. SPECIALIST-INITIATED PATIENT REQUEST
+----------------------------------------------- */
+function renderSpecialistRequest(){
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title'},['📨 Request to Join a Care Team']));
+  sec.appendChild(el('p',{class:'page-sub'},['Send a request to a parent to add you to their child\'s care team. The parent must approve before you gain access.']));
+
+  // Pending requests
+  const myRequests=(DB.specialistRequests||[]).filter(r=>r.specialistId===(session?.specialistId||null));
+  if(myRequests.length){
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
+    myRequests.forEach(r=>{
+      const card=el('div',{class:'spec-request-card'});
+      const rcTop=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}});
+      rcTop.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[r.childName||'Unknown child']));
+      const rcBadge=r.status==='pending'?el('span',{class:'badge badge-amber'},['⏳ Pending']):r.status==='approved'?el('span',{class:'badge badge-green'},['✅ Approved']):el('span',{class:'badge badge-rose'},['✗ Denied']);
+      rcTop.appendChild(rcBadge);
+      card.appendChild(rcTop);
+      card.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[`Sent to: ${r.parentEmail||'parent'} · ${r.requestedAt}`]));
+      sec.appendChild(card);
+    });
+  }
+
+  // New request form
+  const fc=el('div',{class:'card',style:{marginTop:'20px'}});
+  fc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['➕ Send New Request']));
+  const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
+  const pi=el('input',{class:'inp',placeholder:"Parent's email address",type:'email'});
+  const ni=el('input',{class:'inp',placeholder:"Child's name"});
+  const ri=el('select',{class:'inp'});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
+  [pi,ni,ri].forEach(i=>ig.appendChild(i));
+  fc.appendChild(ig);
+  fc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
+    ['The parent will receive a notification and email. Once approved, the child\'s profile will appear in your Patients list and you\'ll receive access to the folders they choose to share.']));
+  fc.appendChild(mkBtn('📨 Send Join Request','btn-lg btn-primary btn-full',()=>{
+    if(!pi.value.trim()||!ni.value.trim()){toast('⚠️ Parent email and child name required.','error');return;}
+    const reqs=DB.specialistRequests||[];
+    const specId=session?.specialistId||null;
+    const spec=getMySpecialistRecord();
+    reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:spec?.name||session?.name,parentEmail:pi.value.trim(),childName:ni.value.trim(),reason:ri.value.trim(),requestedAt:new Date().toISOString().split('T')[0],status:'pending'});
+    DB.specialistRequests=reqs;
+    // Add notification for parent (simulated)
+    pushNotif('invite',`${spec?.name||'A specialist'} has requested to join ${ni.value.trim()}'s care team`,'c1');
+    // Add simulated email
+    const emails=DB.emailInbox;
+    emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:pi.value,subject:`🤝 ${spec?.name||'A specialist'} wants to join ${ni.value.trim()}'s care team`,body:`${spec?.name||'A specialist'} (${spec?.role||'Specialist'}) has requested to join ${ni.value.trim()}'s care team on Huddledin.\n\nReason: ${ri.value||'Not specified'}\n\nPlease log in to approve or deny this request.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite'});
+    DB.emailInbox=emails;
+    re();toast('✅ Request sent! The parent will be notified.');
+  }));
+  sec.appendChild(fc);
+
+  // Show incoming requests on parent side (for demo, show any pending)
+  const incomingReqs=(DB.specialistRequests||[]).filter(r=>r.status==='pending');
+  if(incomingReqs.length&&session?.role==='parent'){
+    const ic=el('div',{class:'card',style:{marginTop:'20px',background:'var(--sky-l)',border:'2px solid var(--sky)'}});
+    ic.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📩 Incoming Specialist Requests']));
+    incomingReqs.forEach(r=>{
+      const row=d('',[], {display:'flex',gap:'12px',alignItems:'center',padding:'10px 0',borderBottom:'1px solid rgba(0,0,0,.06)'});
+      row.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🩺']));
+      const inf=d('',[], {flex:1});
+      inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[r.specialistName+' — '+r.childName]));
+      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[r.reason||r.specialistName]));
+      row.appendChild(inf);
+      const acts=d('',[], {display:'flex',gap:'8px'});
+      acts.appendChild(mkBtn('✓ Approve','btn-sm btn-primary',()=>{
+        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
+        if(i>-1){reqs[i].status='approved';DB.specialistRequests=reqs;}
+        re();toast('✅ Request approved! Specialist added to care team.');
+      }));
+      acts.appendChild(mkBtn('✗ Deny','btn-sm btn-danger',()=>{
+        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
+        if(i>-1){reqs[i].status='denied';DB.specialistRequests=reqs;}
+        re();toast('Request denied.');
+      }));
+      row.appendChild(acts);
+      ic.appendChild(row);
+    });
+    sec.appendChild(ic);
+  }
+  return sec;
+}
+
+/* -----------------------------------------------
+   6. PARENT-EDITABLE PUBLISHED SUMMARIES
+      (injected into parent dashboard as a section)
+----------------------------------------------- */
+function renderPublishedSummaries(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const published=DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary);
+  if(!published.length)return null;
+
+  const wrap=el('div',{class:'card',style:{marginBottom:'20px'}});
+  wrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📄 Session Summaries from Your Team']));
+  published.forEach(note=>{
+    const spec=getChildTeam(note.childId||S.activeChild).find(s=>s.id===note.specialistId)||{name:note.specialistName||'Specialist'};
+    const nb=el('div',{class:'ai-block',style:{marginBottom:'12px'}});
+    const hdr=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'});
+    hdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.86rem'}},[spec?.name+' · '+note.date]));
+    hdr.appendChild(badge(note.locked?'🔒 Locked':'Published','teal'));
+    nb.appendChild(hdr);
+    // Parents see read-only view; specialists can edit until locked
+    const isParentView=session?.role==='parent';
+    const isReadOnly=note.locked||isParentView;
+    const ta=el('textarea',{class:'inp',style:{background:isReadOnly?'#f8fafc':'white',minHeight:'80px',fontSize:'.85rem'}});
+    ta.value=note.summary;
+    ta.readOnly=isReadOnly;
+    if(!isReadOnly){
+      ta.oninput=e=>{
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+      };
+    }
+    nb.appendChild(ta);
+    if(!isReadOnly){
+      nb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['✏️ Edit your summary before locking']));
+    }
+    wrap.appendChild(nb);
+  });
+  return wrap;
+}
+
+/* -----------------------------------------------
+   7. GROUP CHAT (multi-participant)
+----------------------------------------------- */
+function showCreateGroupChatModal(){
+  openModal('👥 Create Group Chat',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
+      ['Create a group conversation. As the parent, you\'re included automatically.']));
+    mb.appendChild(el('div',{class:'inp-label'},['Chat name']));
+    const ni=el('input',{class:'inp',placeholder:'e.g. Lily\'s Full Care Team',style:{marginBottom:'14px'}});
+    mb.appendChild(ni);
+    mb.appendChild(el('div',{class:'inp-label'},['Select participants']));
+    const selected=new Set();
+    const activeSpecs=getChildTeam(S.activeChild).filter(s=>s.status==='active');
+    activeSpecs.forEach(s=>{
+      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 13px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px'}});
+      const cb=el('input',{type:'checkbox'});
+      cb.onchange=e=>e.target.checked?selected.add(s.id):selected.delete(s.id);
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
+      mb.appendChild(lbl);
+    });
+    mb.appendChild(el('div',{style:{height:'12px'}}));
+    mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
+      if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
+      const name=ni.value.trim()||'Care Team Group Chat';
+      const participants=[session?.role==='parent'?'parent':session.id,...Array.from(selected)];
+      const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[],unreadFor:participants.filter(p=>p!==session?.id)};
+      (async()=>{
+        try{
+          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
+          const chats=DB.chats;chats.push(newChat);DB.chats=chats;
+          // Notify all participants about the new group chat
+          try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
+        }catch(e){console.error('create group chat:',e);toast('Could not create chat.','error');return;}
+        S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
+        close();re();toast('✅ Group chat "'+name+'" created!');
+      })();
+    }));
+  },480);
+}
+
+/* -----------------------------------------------
+   SETTINGS PATCH — push, delete child, group chat
+----------------------------------------------- */
+// -----------------------------------------------
+//   HOUSEHOLD / CO-PARENT FEATURE
+// -----------------------------------------------
+
+function genHouseholdToken(){
+  const arr=new Uint8Array(14);crypto.getRandomValues(arr);
+  const hex=Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return 'hd_household_'+hex.slice(0,8)+'_'+hex.slice(8);
+}
+
+async function showHouseholdInviteModal(fromSettings=false){
+  openModal('👨‍👩‍👧 Add a Co-Parent',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65',fontSize:'.9rem'}},
+      ['Invite a partner, spouse, or co-guardian to share full access to your family account. They will see and manage the same children and care team.']));
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Name']));
+    const nameInput=el('input',{class:'inp',placeholder:'e.g. Sarah',style:{marginBottom:'12px'}});
+    mb.appendChild(nameInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Their Email']));
+    const emailInput=el('input',{class:'inp',type:'email',placeholder:'partner@email.com',style:{marginBottom:'12px'}});
+    mb.appendChild(emailInput);
+
+    mb.appendChild(el('div',{class:'inp-label'},['Relationship']));
+    const roleSelect=el('select',{class:'inp',style:{marginBottom:'20px'}});
+    ['Spouse','Partner','Guardian','Grandparent','Professional Carer','Other'].forEach(r=>{
+      const opt=el('option',{value:r},[r]);
+      roleSelect.appendChild(opt);
+    });
+    mb.appendChild(roleSelect);
+
+    const errBox=el('div',{});
+    mb.appendChild(errBox);
+
+    const sendBtn=mkBtn('Send Invitation 📧','btn-md btn-primary',async()=>{
+      const name=nameInput.value.trim();
+      const email=emailInput.value.trim();
+      const role=roleSelect.value;
+      errBox.innerHTML='';
+      if(!name){errBox.appendChild(el('div',{class:'auth-error'},['Please enter their name.']));return;}
+      if(!email||!email.includes('@')){errBox.appendChild(el('div',{class:'auth-error'},['Please enter a valid email.']));return;}
+
+      sendBtn.disabled=true;sendBtn.textContent='Sending...';
+
+      const token=genHouseholdToken();
+      const expires=new Date();expires.setDate(expires.getDate()+7);
+      const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
+      const inviteLink=baseUrl+'?household='+token+'&email='+encodeURIComponent(email);
+
+      // Save to Supabase
+      const {error}=await _supa.from('household_invites').insert({
+        household_id:session.householdId,
+        inviter_id:session.id,
+        invitee_email:email,
+        invitee_name:name,
+        invitee_role:role,
+        token,
+        expires_at:expires.toISOString(),
+        accepted:false
+      });
+
+      if(error){
+        console.error('Household invite error:',error);
+        errBox.appendChild(el('div',{class:'auth-error'},['Could not send invite. Please try again.']));
+        sendBtn.disabled=false;sendBtn.textContent='Send Invitation 📧';
+        return;
+      }
+
+      // Send email
+      await fetch('/api/send-invite',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          to:email,
+          childName:'your family account',
+          inviteLink,
+          fromName:session.name||'Your partner',
+          specialistRole:role+' (Co-Parent Access)'
+        })
+      }).catch(()=>{});
+
+      // Mark household invite as sent — don't show modal again
+      LS.set('householdInviteSent',true);
+      toast('📧 Invitation sent to '+email+'!','success',4000);
+      close();
+      re();
+    });
+    mb.appendChild(sendBtn);
+
+    if(!fromSettings){
+      const skipBtn=mkBtn('Skip for now','btn-md btn-ghost',()=>{
+        LS.set('householdModalSkipped',true);
+        close();
+      });
+      skipBtn.style.marginTop='8px';
+      mb.appendChild(skipBtn);
+
+      const dismissBtn=el('button',{style:{width:'100%',marginTop:'8px',background:'none',border:'none',color:'var(--slate)',fontSize:'.8rem',cursor:'pointer',padding:'8px'}},['Do not show this again']);
+      dismissBtn.onclick=()=>{LS.set('householdModalDismissed',true);close();};
+      mb.appendChild(dismissBtn);
+    }
+  });
+}
+
+async function processHouseholdInvite(token){
+  if(!session||!token)return;
+  let data=null;
+  try{
+    const res=await _supa.from('household_invites').select('*').eq('token',token).single();
+    data=res.data;
+  }catch(e){}
+  if(!data){toast('⚠️ Invalid or expired household invite.','error',5000);return;}
+  if(new Date(data.expires_at)<new Date()){toast('⚠️ This invite has expired.','error',5000);return;}
+  if(data.accepted){toast('⚠️ This invite has already been used.','error',5000);return;}
+
+  // Link this user to the household
+  await _supa.from('profiles').update({
+    household_id:data.household_id,
+    is_primary:false
+  }).eq('id',session.id);
+
+  // Mark invite accepted
+  await _supa.from('household_invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+
+  // Clear pending tokens
+  localStorage.removeItem('pendingHouseholdToken');
+  localStorage.removeItem('pendingHouseholdEmail');
+
+  // Reload session with new household_id
+  const {data:{session:s}}=await _supa.auth.getSession();
+  if(s)await _loadSessionFromSupabase(s);
+
+  toast('🎉 You are now connected to the shared family account!','success',5000);
+  LS.set('householdInviteSent',true);
+  re();
+}
+
+function shouldShowHouseholdModal(){
+  if(!session||session.role!=='parent')return false;
+  if(LS.get('householdModalDismissed',false))return false;
+  if(LS.get('householdInviteSent',false))return false;
+  // Check if already has a co-parent (household has 2+ members) — checked async, skip here
+  return true;
+}
+
+async function renderHouseholdCard(){
+  const card=el('div',{class:'card',style:{marginBottom:'16px'}});
+  card.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+
+  // Load co-parents
+  let coParents=[];
+  try{
+    const {data}=await _supa.from('profiles').select('*').eq('household_id',session.householdId).neq('id',session.id);
+    coParents=data||[];
+  }catch(e){}
+
+  // Load pending invites
+  let pending=[];
+  try{
+    const {data}=await _supa.from('household_invites').select('*').eq('household_id',session.householdId).eq('accepted',false);
+    pending=(data||[]).filter(i=>new Date(i.expires_at)>new Date());
+  }catch(e){}
+
+  if(coParents.length===0&&pending.length===0){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',lineHeight:'1.6'}},
+      ['No co-parent connected yet. Invite a partner or guardian to share access to this family account.']));
+  }
+
+  // Show connected co-parents
+  coParents.forEach(cp=>{
+    const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--lav-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']));
+    const info=el('div',{style:{flex:1}});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[cp.display_name||cp.email]));
+    if(cp.display_name&&cp.email){
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500,marginBottom:'2px'}},[cp.email]));
+    }
+    info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#16a34a',fontWeight:600}},['✅ Connected · Full access']));
+    row.appendChild(info);
+    // Revoke button (primary only)
+    if(session.isPrimary){
+      const revokeBtn=mkBtn('Remove','btn-sm btn-danger',async()=>{
+        if(!confirm('Remove access for '+(cp.display_name||cp.email)+'? They will no longer see this family account.'))return;
+        // Give them their own new household
+        await _supa.from('profiles').update({household_id:null,is_primary:true}).eq('id',cp.id);
+        toast('Access removed.','info');
+        re();
+        // Re-render card
+        const newCard=await renderHouseholdCard();
+        card.replaceWith(newCard);
+      });
+      row.appendChild(revokeBtn);
+    }
+    card.appendChild(row);
+  });
+
+  // Show pending invites
+  if(pending.length>0){
+    card.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',margin:'12px 0 8px'}},['⏳ Pending Invitations']));
+    pending.forEach(inv=>{
+      const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:600,color:'var(--navy)',fontSize:'.88rem'}},[inv.invitee_name||inv.invitee_email]));
+      info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)'}},[inv.invitee_email+' · '+inv.invitee_role+' · Expires '+new Date(inv.expires_at).toLocaleDateString()]));
+      row.appendChild(info);
+      if(session.isPrimary){
+        const cancelBtn=mkBtn('Cancel','btn-sm btn-ghost',async()=>{
+          await _supa.from('household_invites').delete().eq('id',inv.id);
+          toast('Invitation cancelled.','info');
+          const newCard=await renderHouseholdCard();
+          card.replaceWith(newCard);
+        });
+        row.appendChild(cancelBtn);
+      }
+      card.appendChild(row);
+    });
+  }
+
+  const addBtn=mkBtn('+ Invite Co-Parent','btn-md btn-primary',()=>showHouseholdInviteModal(true));
+  addBtn.style.marginTop='14px';
+  card.appendChild(addBtn);
+  return card;
+}
+
+function renderSpecialistSettings(){
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
+
+  // Profile card
+  const pr=el('div',{class:'card',style:{marginBottom:'16px'}});
+  const prHeader=el('div',{style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
+  const av=el('div',{style:{width:'54px',height:'54px',borderRadius:'50%',background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6rem',color:'#fff',flexShrink:0}},['🩺']);
+  const prInfo=el('div',{style:{flex:1}});
+  prInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[session?.name||'Specialist']));
+  prInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},[session?.email||'']));
+  const roleLbl={speech:'Speech Therapist',ot:'Occupational Therapist',pt:'Physiotherapist',psychology:'Psychologist',general:'Specialist'}[session?.specialistType]||'Specialist';
+  prInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[roleLbl]));
+  prHeader.appendChild(av);prHeader.appendChild(prInfo);
+  pr.appendChild(prHeader);
+
+  // Edit display name
+  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}});
+  const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
+  const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
+  editBtn.onclick=()=>{
+    const newName=prompt('Enter your display name:',session?.name||'');
+    if(newName&&newName.trim()){
+      _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
+        .then(()=>{session.name=newName.trim();nameDisplay.textContent='👤 '+newName.trim();toast('Name updated!','success');})
+        .catch(()=>toast('Could not save name.','error'));
+    }
+  };
+  nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
+  pr.appendChild(nameRow);
+
+  // Profession / specialty
+  const profRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}});
+  profRow.appendChild(el('div',{style:{flex:1,fontWeight:600,color:'var(--slate)',fontSize:'.86rem'}},['🎓 Specialty: '+roleLbl]));
+  const editProf=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'.9rem',padding:'4px'}},['✏️']);
+  editProf.onclick=()=>{
+    openModal('Edit Specialty',(mb,close)=>{
+      mb.appendChild(el('div',{class:'inp-label'},['Your specialty / profession']));
+      const sel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      [['speech','Speech Therapist'],['ot','Occupational Therapist'],['pt','Physiotherapist'],['psychology','Psychologist / Counsellor'],['general','Specialist / Other']].forEach(([v,l])=>{
+        const o=el('option');o.value=v;o.textContent=l;if(v===session?.specialistType)o.selected=true;sel.appendChild(o);
+      });
+      mb.appendChild(sel);
+      mb.appendChild(mkBtn('Save','btn-md btn-primary btn-full',()=>{
+        _supa.from('profiles').update({specialist_role:sel.value}).eq('id',session.id)
+          .then(()=>{session.specialistType=sel.value;close();re();toast('Specialty updated!');})
+          .catch(()=>toast('Could not save.','error'));
+      }));
+    },380);
+  };
+  profRow.appendChild(editProf);
+  pr.appendChild(profRow);
+
+  // License / credentials number
+  const licRow=el('div',{style:{marginBottom:'10px'}});
+  const licInput=el('input',{class:'inp',placeholder:'License or registration number (optional)',style:{marginBottom:'6px'}});
+  const savedLic=LS.get('spec_license','');
+  if(savedLic)licInput.value=savedLic;
+  licRow.appendChild(el('div',{class:'inp-label'},['🪪 License Number']));
+  licRow.appendChild(licInput);
+  licRow.appendChild(mkBtn('Save License','btn-sm btn-ghost',()=>{LS.set('spec_license',licInput.value);toast('Saved!');}));
+  pr.appendChild(licRow);
+
+  // Work phone
+  const phoneRow=el('div',{style:{marginBottom:'4px'}});
+  const phoneInput=el('input',{class:'inp',placeholder:'Work phone (optional)',type:'tel',style:{marginBottom:'6px'}});
+  const savedPhone=LS.get('spec_phone','');
+  if(savedPhone)phoneInput.value=savedPhone;
+  phoneRow.appendChild(el('div',{class:'inp-label'},['📞 Work Phone']));
+  phoneRow.appendChild(phoneInput);
+  phoneRow.appendChild(mkBtn('Save Phone','btn-sm btn-ghost',()=>{LS.set('spec_phone',phoneInput.value);toast('Saved!');}));
+  pr.appendChild(phoneRow);
+
+  sec.appendChild(pr);
+
+  // Notification Preferences
+  const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['🔔 Notifications']));
+  const prefs=DB.notifPrefs;
+  const specNotifKeys={homework:'New tasks / completions',appointments:'Appointments',chat:'New messages',report:'Session summaries'};
+  Object.entries(specNotifKeys).forEach(([key,label])=>{
+    const val=prefs[key]!==false;
+    const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{},[ el('div',{style:{fontWeight:700,color:'var(--navy)'}},[label]) ]));
+    const tog=el('button',{class:'toggle'+(val?' on':'')});
+    tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
+    row.appendChild(tog);nc.appendChild(row);
+  });
+  sec.appendChild(nc);
+
+  // Working hours
+  const wh=el('div',{class:'card',style:{marginBottom:'16px'}});
+  wh.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🕐 Working Hours']));
+  wh.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.83rem',marginBottom:'12px'}},['Set your availability so families know when to reach you.']));
+  const days=['Mon','Tue','Wed','Thu','Fri'];
+  const savedHours=LS.get('spec_hours',{});
+  days.forEach(day=>{
+    const dr=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+    dr.appendChild(el('div',{style:{width:'36px',fontWeight:700,color:'var(--navy)',fontSize:'.84rem'}},[day]));
+    const startIn=el('input',{type:'time',class:'inp',style:{flex:1}});
+    const endIn=el('input',{type:'time',class:'inp',style:{flex:1}});
+    if(savedHours[day]){startIn.value=savedHours[day].start||'';endIn.value=savedHours[day].end||'';}
+    startIn.onchange=endIn.onchange=()=>{savedHours[day]={start:startIn.value,end:endIn.value};LS.set('spec_hours',savedHours);};
+    const offLbl=el('label',{style:{display:'flex',alignItems:'center',gap:'5px',fontSize:'.76rem',color:'var(--slate)'}});
+    const offCb=el('input',{type:'checkbox'});
+    offCb.checked=savedHours[day]?.off||false;
+    const setOff=()=>{startIn.disabled=offCb.checked;endIn.disabled=offCb.checked;if(offCb.checked){savedHours[day]={off:true};LS.set('spec_hours',savedHours);}};
+    offCb.onchange=setOff;setOff();
+    offLbl.appendChild(offCb);offLbl.appendChild(document.createTextNode('Off'));
+    dr.appendChild(startIn);dr.appendChild(endIn);dr.appendChild(offLbl);
+    wh.appendChild(dr);
+  });
+  sec.appendChild(wh);
+
+  // Sign out
+  const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
+  ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['👤 Account']));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: Specialist / Therapist']));
+  ac.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
+  sec.appendChild(ac);
+
+  return sec;
+}
+
+function renderAdminDashboard(){
+  if(session?.email!=='admin@huddledin.com')return renderSettings();
+  const sec=el('div',{class:'section',style:{maxWidth:'960px',margin:'0 auto',paddingBottom:'40px'}});
+
+  // Header
+  const hdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}});
+  hdr.appendChild(el('div',{},[
+    el('h2',{class:'page-title',style:{marginBottom:'2px'}},['⚙️ Admin Dashboard']),
+    el('div',{style:{fontSize:'.75rem',color:'var(--slate)'}},['admin@huddledin.com — live data'])
+  ]));
+  const refreshBtn=mkBtn('🔄 Refresh','btn-sm btn-secondary',()=>{S._adminData=null;re();});
+  hdr.appendChild(refreshBtn);
+  sec.appendChild(hdr);
+
+  // Tabs
+  const TABS=[{id:'overview',label:'📊 Overview'},{id:'retention',label:'❤️ Retention'},{id:'engagement',label:'⚡ Engagement'},{id:'specialists',label:'🔬 Specialists'},{id:'growth',label:'📈 Growth'}];
+  if(!S._adminTab)S._adminTab='overview';
+  const tabBar=el('div',{style:{display:'flex',gap:'6px',marginBottom:'20px',flexWrap:'wrap'}});
+  TABS.forEach(t=>{
+    const active=S._adminTab===t.id;
+    const btn=el('button',{style:{padding:'7px 14px',borderRadius:'99px',border:'none',cursor:'pointer',fontSize:'.78rem',fontWeight:700,background:active?'var(--teal)':'var(--mint-ll)',color:active?'#fff':'var(--navy)',transition:'all .15s'}});
+    btn.textContent=t.label;
+    btn.onclick=()=>{S._adminTab=t.id;re();};
+    tabBar.appendChild(btn);
+  });
+  sec.appendChild(tabBar);
+
+  // Content area — shows loading state, replaced with real data
+  const content=el('div',{id:'admin-content'});
+  sec.appendChild(content);
+
+  function statCard(icon,label,value,sub,color,warn){
+    const c=el('div',{class:'card',style:{padding:'16px',borderTop:'3px solid '+(color||'var(--teal)'),position:'relative'}});
+    if(warn)c.appendChild(el('div',{style:{position:'absolute',top:'10px',right:'12px',fontSize:'.7rem',background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[warn]));
+    c.appendChild(el('div',{style:{fontSize:'1.4rem',marginBottom:'4px'}},[icon]));
+    c.appendChild(el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},[String(value)]));
+    c.appendChild(el('div',{style:{fontSize:'.76rem',fontWeight:700,color:'var(--slate)',marginTop:'4px'}},[label]));
+    if(sub)c.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'2px'}},[sub]));
+    return c;
+  }
+
+  function grid(...cards){
+    const g=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:'12px',marginBottom:'20px'}});
+    cards.forEach(c=>{if(c)g.appendChild(c);});
+    return g;
+  }
+
+  function sectionHead(title){
+    const h=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.8rem',textTransform:'uppercase',letterSpacing:'.07em',margin:'20px 0 10px',paddingBottom:'6px',borderBottom:'1.5px solid var(--mint-l)'}});
+    h.textContent=title;
+    return h;
+  }
+
+  function barChart(data,key,color,title,height){
+    height=height||120;
+    const max=Math.max(...data.map(d=>d[key]),1);
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},[title]));
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','100%');
+    svg.setAttribute('height',String(height+30));
+    svg.style.overflow='visible';
+    const w=100/data.length;
+    data.forEach((d,i)=>{
+      const barH=Math.max(2,Math.round((d[key]/max)*height));
+      const x=i*w+w*0.15;
+      const bw=w*0.7;
+      // Bar
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',x+'%');
+      rect.setAttribute('y',String(height-barH));
+      rect.setAttribute('width',bw+'%');
+      rect.setAttribute('height',String(barH));
+      rect.setAttribute('rx','3');
+      rect.setAttribute('fill',color||'var(--teal)');
+      svg.appendChild(rect);
+      // Value label
+      if(d[key]>0){
+        const vt=document.createElementNS('http://www.w3.org/2000/svg','text');
+        vt.setAttribute('x',(x+bw/2)+'%');
+        vt.setAttribute('y',String(height-barH-4));
+        vt.setAttribute('text-anchor','middle');
+        vt.setAttribute('font-size','9');
+        vt.setAttribute('fill','var(--navy)');
+        vt.setAttribute('font-weight','700');
+        vt.textContent=String(d[key]);
+        svg.appendChild(vt);
+      }
+      // X label
+      const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      lt.setAttribute('x',(x+bw/2)+'%');
+      lt.setAttribute('y',String(height+16));
+      lt.setAttribute('text-anchor','middle');
+      lt.setAttribute('font-size','8');
+      lt.setAttribute('fill','var(--slate)');
+      lt.textContent=d.label||'';
+      svg.appendChild(lt);
+    });
+    wrap.appendChild(svg);
+    return wrap;
+  }
+
+  function multiBarChart(data,keys,colors,title){
+    const height=100;
+    const max=Math.max(...data.flatMap(d=>keys.map(k=>d[k])),1);
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'8px'}},[title]));
+    // Legend
+    const leg=el('div',{style:{display:'flex',gap:'12px',marginBottom:'10px',flexWrap:'wrap'}});
+    keys.forEach((k,i)=>{
+      const item=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',fontSize:'.72rem',color:'var(--slate)',fontWeight:700}});
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'3px',background:colors[i],flexShrink:0}});
+      item.appendChild(dot);item.appendChild(document.createTextNode(k));
+      leg.appendChild(item);
+    });
+    wrap.appendChild(leg);
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','100%');
+    svg.setAttribute('height',String(height+30));
+    svg.style.overflow='visible';
+    const groupW=100/data.length;
+    const barW=groupW*0.7/keys.length;
+    data.forEach((d,i)=>{
+      keys.forEach((k,ki)=>{
+        const barH=Math.max(1,Math.round((d[k]/max)*height));
+        const x=i*groupW+groupW*0.15+ki*barW;
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',x+'%');
+        rect.setAttribute('y',String(height-barH));
+        rect.setAttribute('width',(barW*0.85)+'%');
+        rect.setAttribute('height',String(barH));
+        rect.setAttribute('rx','2');
+        rect.setAttribute('fill',colors[ki]);
+        svg.appendChild(rect);
+      });
+      const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      lt.setAttribute('x',(i*groupW+groupW/2)+'%');
+      lt.setAttribute('y',String(height+16));
+      lt.setAttribute('text-anchor','middle');
+      lt.setAttribute('font-size','8');
+      lt.setAttribute('fill','var(--slate)');
+      lt.textContent=d.label||'';
+      svg.appendChild(lt);
+    });
+    wrap.appendChild(svg);
+    return wrap;
+  }
+
+  function donutChart(slices,title){
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},[title]));
+    const total=slices.reduce((s,sl)=>s+sl.value,0)||1;
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','-1 -1 2 2');
+    svg.setAttribute('width','120');svg.setAttribute('height','120');
+    svg.style.transform='rotate(-90deg)';
+    let cumAngle=0;
+    slices.forEach(sl=>{
+      const angle=(sl.value/total)*Math.PI*2;
+      const x1=Math.cos(cumAngle),y1=Math.sin(cumAngle);
+      const x2=Math.cos(cumAngle+angle),y2=Math.sin(cumAngle+angle);
+      const large=angle>Math.PI?1:0;
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',`M 0 0 L ${x1} ${y1} A 1 1 0 ${large} 1 ${x2} ${y2} Z`);
+      path.setAttribute('fill',sl.color);
+      svg.appendChild(path);
+      cumAngle+=angle;
+    });
+    // Center hole
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx','0');circle.setAttribute('cy','0');circle.setAttribute('r','0.6');
+    circle.setAttribute('fill','white');
+    svg.appendChild(circle);
+    const row=el('div',{style:{display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}});
+    row.appendChild(svg);
+    const leg=el('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}});
+    slices.forEach(sl=>{
+      const item=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'.75rem',color:'var(--navy)',fontWeight:700}});
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'50%',background:sl.color,flexShrink:0}});
+      const pct=total>0?Math.round((sl.value/total)*100):0;
+      item.appendChild(dot);
+      item.appendChild(document.createTextNode(sl.label+': '+sl.value+' ('+pct+'%)'));
+      leg.appendChild(item);
+    });
+    row.appendChild(leg);
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function progressBar(label,value,total,color){
+    const pct=total>0?Math.round((value/total)*100):0;
+    const wrap=el('div',{style:{marginBottom:'10px'}});
+    const lrow=el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.76rem',fontWeight:700,color:'var(--navy)',marginBottom:'4px'}});
+    lrow.appendChild(document.createTextNode(label));
+    lrow.appendChild(document.createTextNode(value+' / '+total+' ('+pct+'%)'));
+    wrap.appendChild(lrow);
+    const track=el('div',{style:{height:'8px',borderRadius:'99px',background:'var(--mint-ll)',overflow:'hidden'}});
+    const fill=el('div',{style:{height:'100%',width:pct+'%',borderRadius:'99px',background:color||'var(--teal)',transition:'width .4s ease'}});
+    track.appendChild(fill);wrap.appendChild(track);
+    return wrap;
+  }
+
+  function renderTab(d){
+    const t=S._adminTab;
+    if(t==='overview'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📊 Users'));
+      frag.appendChild(grid(
+        statCard('👥','Total Users',d.overview.totalUsers,'','var(--teal)'),
+        statCard('👨‍👩‍👧','Parents',d.overview.parents,'','var(--teal)'),
+        statCard('🔬','Specialists',d.overview.specialists,'','var(--lavender)'),
+        statCard('✨','New This Week',d.overview.newUsersWeek,'','var(--teal-l)')
+      ));
+      frag.appendChild(sectionHead('🏠 Families'));
+      frag.appendChild(grid(
+        statCard('🏠','Households',d.overview.households,'','var(--coral)'),
+        statCard('👶','Children',d.overview.children,'','var(--coral)'),
+        statCard('📅','Appointments',d.engagement.appointments,'all time','var(--teal)'),
+        statCard('💬','Messages',d.engagement.messages,'all time','var(--lavender)')
+      ));
+      frag.appendChild(sectionHead('⚡ Quick Health'));
+      frag.appendChild(grid(
+        statCard('✅','Active (7d)',d.retention.activeWeek,'users logged in','var(--teal)'),
+        statCard('😴','Dormant',d.retention.dormant,'no login 30d+','#f59e0b',d.retention.dormant>0?'Watch':''),
+        statCard('⚠️','No Specialist',d.retention.householdsNoSpec,'households','#f59e0b',d.retention.householdsNoSpec>0?'Gap':''),
+        statCard('🔔','Pending Requests',d.overview.pendingRequests,'awaiting approval',d.overview.pendingRequests>0?'var(--coral)':'var(--teal)',d.overview.pendingRequests>0?'Action':'')
+      ));
+      return frag;
+    }
+    if(t==='retention'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('👥 User Activity'));
+      frag.appendChild(grid(
+        statCard('✅','Active (7 days)',d.retention.activeWeek,'logged in recently','var(--teal)'),
+        statCard('📅','Active (30 days)',d.retention.activeMonth,'','var(--teal-l)'),
+        statCard('😴','Dormant',d.retention.dormant,'no login 30d+','#f59e0b'),
+        statCard('👻','Never Returned',d.overview.totalUsers-d.retention.activeMonth-d.retention.dormant,'never logged in again','var(--slate)')
+      ));
+      const retCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      retCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Activity Breakdown']));
+      retCard.appendChild(progressBar('Active this week',d.retention.activeWeek,d.overview.totalUsers,'var(--teal)'));
+      retCard.appendChild(progressBar('Active this month',d.retention.activeMonth,d.overview.totalUsers,'var(--teal-l)'));
+      retCard.appendChild(progressBar('Dormant 30d+',d.retention.dormant,d.overview.totalUsers,'#f59e0b'));
+      frag.appendChild(retCard);
+      frag.appendChild(sectionHead('🏠 Household Health'));
+      frag.appendChild(grid(
+        statCard('🏠','Total Households',d.overview.households,'','var(--coral)'),
+        statCard('🔗','With Specialist',d.overview.households-d.retention.householdsNoSpec,'connected','var(--teal)'),
+        statCard('⚠️','No Specialist Yet',d.retention.householdsNoSpec,'onboarding gap','#f59e0b'),
+        statCard('👻','No Children Added',d.retention.emptyHouseholds,'setup incomplete','#f59e0b')
+      ));
+      const hhCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      hhCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Household Funnel']));
+      hhCard.appendChild(progressBar('Added children',d.overview.households-d.retention.emptyHouseholds,d.overview.households,'var(--teal)'));
+      hhCard.appendChild(progressBar('Connected a specialist',d.overview.households-d.retention.householdsNoSpec,d.overview.households,'var(--lavender)'));
+      hhCard.appendChild(progressBar('Used appointments',d.engagement.householdsUsingApts,d.overview.households,'var(--coral)'));
+      hhCard.appendChild(progressBar('Used file sharing',d.engagement.householdsUsingFiles,d.overview.households,'var(--teal-l)'));
+      hhCard.appendChild(progressBar('Used chat',d.engagement.householdsUsingChats,d.overview.households,'var(--lavender)'));
+      frag.appendChild(hhCard);
+      return frag;
+    }
+    if(t==='engagement'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📅 Appointments'));
+      frag.appendChild(grid(
+        statCard('📅','Total',d.engagement.appointments,'all time','var(--teal)'),
+        statCard('📅','This Week',d.engagement.appointmentsWeek,'','var(--teal-l)')
+      ));
+      // Appointment types donut
+      const aptTypeSlices=Object.entries(d.engagement.aptTypes).map(([k,v],i)=>({
+        label:k,value:v,color:['var(--teal)','var(--lavender)','var(--coral)','var(--teal-l)','#f59e0b'][i%5]
+      }));
+      if(aptTypeSlices.length)frag.appendChild(donutChart(aptTypeSlices,'Appointment Types'));
+      frag.appendChild(sectionHead('💬 Communication'));
+      frag.appendChild(grid(
+        statCard('💬','Messages',d.engagement.messages,'all time','var(--lavender)'),
+        statCard('💬','This Week',d.engagement.messagesWeek,'','var(--lavender)'),
+        statCard('🗨️','Chat Threads',d.engagement.chats,'total','var(--lavender)')
+      ));
+      frag.appendChild(sectionHead('📁 Content'));
+      frag.appendChild(grid(
+        statCard('📁','Files',d.engagement.files,'uploaded','var(--coral)'),
+        statCard('📁','This Week',d.engagement.filesWeek,'','var(--coral)'),
+        statCard('✅','To-Dos',d.engagement.todos,'created','var(--teal)'),
+        statCard('✅','Completed',d.engagement.todosCompleted,'','var(--teal-l)'),
+        statCard('📋','Vault Notes',d.engagement.notes,'total','var(--lavender)'),
+        statCard('📋','Published',d.engagement.notesPublished,'shared with family','var(--lavender)')
+      ));
+      // Feature adoption
+      const featureCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      featureCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Feature Adoption by Household']));
+      featureCard.appendChild(progressBar('Appointments',d.engagement.householdsUsingApts,d.overview.households,'var(--teal)'));
+      featureCard.appendChild(progressBar('Chat',d.engagement.householdsUsingChats,d.overview.households,'var(--lavender)'));
+      featureCard.appendChild(progressBar('File Sharing',d.engagement.householdsUsingFiles,d.overview.households,'var(--coral)'));
+      frag.appendChild(featureCard);
+      return frag;
+    }
+    if(t==='specialists'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('🔬 Specialist Overview'));
+      frag.appendChild(grid(
+        statCard('🔬','Total',d.specialists.total,'registered','var(--lavender)'),
+        statCard('✅','Active',d.specialists.active,'have families','var(--teal)'),
+        statCard('👻','No Family Yet',d.specialists.noFamily,'registered but idle','#f59e0b',d.specialists.noFamily>0?'Idle':''),
+        statCard('⭐','Power Users',d.specialists.powerUsers,'2+ families','var(--teal)'),
+        statCard('📆','Google Cal',d.specialists.gcal,'connected','var(--teal-l)'),
+        statCard('🔔','Pending Requests',d.specialists.pendingRequests,'awaiting approval',d.specialists.pendingRequests>0?'var(--coral)':'var(--teal)')
+      ));
+      const specCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      specCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Specialist Funnel']));
+      specCard.appendChild(progressBar('Connected to a family',d.specialists.active,d.specialists.total,'var(--teal)'));
+      specCard.appendChild(progressBar('Power users (2+ families)',d.specialists.powerUsers,d.specialists.total,'var(--lavender)'));
+      specCard.appendChild(progressBar('Google Calendar connected',d.specialists.gcal,d.specialists.total,'var(--teal-l)'));
+      frag.appendChild(specCard);
+      frag.appendChild(donutChart([
+        {label:'Active',value:d.specialists.active,color:'var(--teal)'},
+        {label:'No family yet',value:d.specialists.noFamily,color:'#f59e0b'}
+      ],'Specialist Status'));
+      return frag;
+    }
+    if(t==='growth'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📈 Weekly Trends (Last 8 Weeks)'));
+      frag.appendChild(multiBarChart(d.growth.weekly,['users','appointments','messages'],['var(--teal)','var(--coral)','var(--lavender)'],'Signups, Appointments & Messages by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'users','var(--teal)','New User Signups by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'appointments','var(--coral)','Appointments Created by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'messages','var(--lavender)','Messages Sent by Week'));
+      frag.appendChild(sectionHead('👶 Children per Household'));
+      frag.appendChild(donutChart([
+        {label:'1 child',value:d.growth.childDist.one,color:'var(--teal)'},
+        {label:'2 children',value:d.growth.childDist.two,color:'var(--lavender)'},
+        {label:'3+ children',value:d.growth.childDist.threePlus,color:'var(--coral)'}
+      ],'Household Size Distribution'));
+      return frag;
+    }
+    return el('div',{},[]);
+  }
+
+  // Show loading skeleton then load
+  content.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',padding:'24px 0',textAlign:'center'}},['Loading…']));
+
+  (async()=>{
+    try{
+      if(S._adminData){
+        content.innerHTML='';
+        content.appendChild(renderTab(S._adminData));
+        return;
+      }
+      const sess=await _supa.auth.getSession();
+      const jwt=sess?.data?.session?.access_token;
+      if(!jwt)throw new Error('No session');
+      const r=await fetch('/api/admin-stats',{headers:{'Authorization':'Bearer '+jwt}});
+      if(!r.ok)throw new Error('API error '+r.status);
+      const d=await r.json();
+      S._adminData=d;
+      content.innerHTML='';
+      content.appendChild(renderTab(d));
+    }catch(e){
+      content.innerHTML='';
+      content.appendChild(el('div',{style:{color:'var(--coral)',fontWeight:700,padding:'16px'}},['Error: '+e.message]));
+    }
+  })();
+
+  return sec;
+}
+
+
+function renderSettings(){
+  if(session?.role==='specialist')return renderSpecialistSettings();
+  if(session?.email==='admin@huddledin.com')return renderAdminDashboard();
+  const sec=el('div',{class:'section'});
+  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},['Settings']));
+
+  // Push notif banner
+  const banner=renderPushBanner();
+  if(banner)sec.appendChild(banner);
+
+  // Notif prefs
+  const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['🔔 Notification Preferences']));
+  const prefs=DB.notifPrefs;
+  Object.entries(prefs).forEach(([key,val])=>{
+    const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('div',{},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)',textTransform:'capitalize'}},[key+' notifications']),
+      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},['Alerts for '+key+' activity'])
+    ]));
+    const tog=el('button',{class:'toggle'+(val?' on':'')});
+    tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
+    row.appendChild(tog);nc.appendChild(row);
+  });
+  sec.appendChild(nc);
+
+  // Push status
+  const pc2=el('div',{class:'card',style:{marginBottom:'16px'}});
+  pc2.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['📱 Push Notifications']));
+  const pushStatus=typeof Notification!=='undefined'?Notification.permission:'not-supported';
+  const statusColors={granted:'#166534',denied:'#be123c',default:'var(--slate)'};
+  pc2.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'14px',background:'var(--mint-ll)'}},[
+    el('span',{style:{fontSize:'1.3rem'}},['📱']),
+    el('div',{style:{flex:1}},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?'Push notifications enabled ✅':pushStatus==='denied'?'Push notifications blocked':'Push notifications not yet enabled']),
+      el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},['Browser status: '+pushStatus])
+    ]),
+    pushStatus==='default'?mkBtn('Enable','btn-sm btn-primary',()=>{
+      Notification.requestPermission().then(p=>{if(p==='granted'){DB.pushEnabled=true;re();toast('🔔 Push notifications enabled!');}});
+    }):el('span')
+  ]));
+  sec.appendChild(pc2);
+
+  // Account
+  const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
+  ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👤 Account']));
+  // Name row with edit pencil
+  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+  const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
+  const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
+  editBtn.onclick=()=>{
+    const newName=prompt('Enter your display name:',session?.name||'');
+    if(newName&&newName.trim()){
+      _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
+        .then(()=>{
+          session.name=newName.trim();
+          nameDisplay.textContent='👤 '+newName.trim();
+          toast('Name updated!','success');
+        }).catch(()=>toast('Could not save name.','error'));
+    }
+  };
+  nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
+  ac.appendChild(nameRow);
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
+  const acBtns=d('',[], {display:'flex',gap:'10px'});
+  acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
+  ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Shared Household (parent only)
+  if(session?.role==='parent'){
+    const hhPlaceholder=el('div',{class:'card',style:{marginBottom:'16px'}});
+    hhPlaceholder.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
+    hhPlaceholder.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},['Loading household info...']));
+    sec.appendChild(hhPlaceholder);
+    renderHouseholdCard().then(card=>{hhPlaceholder.replaceWith(card);});
+  }
+
+  // Manage Children (parent only — photo + delete)
+  if(session?.role==='parent'){
+    const mc=el('div',{class:'card',style:{marginBottom:'16px'}});
+    mc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👶 Manage Children']));
+    DB.children.forEach(child=>{
+      const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
+      if(child.photo){
+        row.appendChild(el('img',{src:child.photo,class:'avatar',style:{width:'40px',height:'40px',objectFit:'cover'}}));
+      } else {
+        row.appendChild(el('span',{style:{fontSize:'1.6rem'}},[child.avatar]));
+      }
+      row.appendChild(el('div',{style:{flex:1,fontWeight:700,color:'var(--navy)'}},[child.name]));
+      row.appendChild(mkBtn('✏️ Edit','btn-sm btn-slate',()=>showEditChildModal(child)));
+      row.appendChild(mkBtn('📷 Photo','btn-sm btn-slate',()=>showChildPhotoModal(child)));
+      row.appendChild(mkBtn('🗑️ Delete','btn-sm btn-danger',()=>showDeleteChildModal(child)));
+      mc.appendChild(row);
+    });
+    mc.appendChild(el('div',{style:{marginTop:'12px'}},[mkBtn('➕ Add Child','btn-md btn-secondary btn-full',()=>showAddChildModal())]));
+    sec.appendChild(mc);
+  }
+
+  // Privacy
+  const pv=el('div',{class:'card'});
+  pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
+  pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
+    ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
+  sec.appendChild(pv);
+
+  // Onboarding & Demo
+  const od=el('div',{class:'card',style:{marginTop:'16px'}});
+  od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🗺️ Onboarding & Demo']));
+  const tourDismissed=LS.get('tourDismissed',false);
+  const odRows=[
+    {
+      icon:'🗺️',title:'Guided Tour',desc:tourDismissed?'Tour dismissed. Click to restart it.':'Restart the step-by-step onboarding tour.',
+      btn:'Restart Tour',action:()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}
+    },
+    {
+      icon:'🎭',title:'Load Demo Data',desc:'Populate with sample data for Lily & Noah Carter to explore all features.',
+      btn:'Load Demo',action:()=>openConfirm('Load Demo Data','This replaces your current data with demo data. Are you sure?',true,()=>loadDemoData())
+    },
+    {
+      icon:'📅',title:'Clear All Appointments',desc:'Delete all appointments from this device and Supabase.',
+      btn:'Clear Appointments',danger:true,
+      action:()=>openConfirm('Clear All Appointments','Permanently delete ALL appointments? This cannot be undone.',true,async()=>{
+        try{
+          if(session?.id!=='demo'){
+            const hid=session?.householdId;
+            if(hid){await _supa.from('appointments').delete().neq('id','x').eq('household_id',hid);}
+            else if(session?.id){await _supa.from('appointments').delete().neq('id','x').eq('parent_id',session.id);}
+          }
+          LS.set('appointments',[]);re();toast('✅ All appointments cleared.');
+        }catch(e){LS.set('appointments',[]);re();toast('Local cleared. DB: '+e.message,'error');}
+      })
+    },
+    {
+      icon:'🗑️',title:'Clear All Data',desc:'Reset everything to a clean slate. This cannot be undone.',
+      btn:'Clear Data',danger:true,
+      action:()=>openConfirm('Clear All Data','This will permanently delete all your data including children, files, and connections. Are you sure?',true,()=>{
+        // Clear all hd9_ keys
+        Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+        doLogout().then(()=>{re();toast('All data cleared.','info');});
+      })
+    }
+  ];
+  odRows.forEach(({icon,title,desc,btn,action,danger})=>{
+    const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
+    row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},[icon]));
+    const info=el('div',{style:{flex:1}});
+    info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem'}},[title]));
+    info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginTop:'2px'}},[desc]));
+    row.appendChild(info);
+    row.appendChild(mkBtn(btn,'btn-sm '+(danger?'btn-danger':'btn-secondary'),action));
+    od.appendChild(row);
+  });
+  sec.appendChild(od);
+
+  // Google Calendar integration card
+  const gcCard=el('div',{class:'card',style:{marginBottom:'16px'}});
+  gcCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px'}},['📅 Google Calendar']));
+  const gcEnabled=session?.googleCalendarEnabled||false;
+  if(gcEnabled){
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--teal)',fontWeight:700,marginBottom:'12px'}},['✅ Connected — appointments sync automatically']));
+    const disconnBtn=mkBtn('Disconnect','btn-sm btn-danger',async()=>{
+      try{
+        await fetch('/api/google-disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:session.id})});
+        session.googleCalendarEnabled=false;
+        toast('Google Calendar disconnected.','info');re();
+      }catch(e){toast('Could not disconnect. Try again.','error');}
+    });
+    gcCard.appendChild(disconnBtn);
+  }else{
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.55'}},['Connect your Google Calendar and every appointment you add will appear there automatically.']));
+    gcCard.appendChild(mkBtn('🔗 Connect Google Calendar','btn-md btn-primary',()=>{
+      window.location.href='/api/google-auth?userId='+session.id;
+    }));
+  }
+  sec.appendChild(gcCard);
+
+  return sec;
+}
+
+/* -----------------------------------------------
+   ROOT RENDER
+----------------------------------------------- */
+let _reTimer=null;
+function re(){
+  // Debounce: collapse multiple rapid re() calls into one per animation frame
+  if(_reTimer)cancelAnimationFrame(_reTimer);
+  _reTimer=requestAnimationFrame(()=>{
+    _reTimer=null;
+    const root=document.getElementById('root');
+    if(!root)return;
+    root.innerHTML='';
+    root.appendChild(session?renderShell():renderAuth());
+  });
+}
+// Immediate re() — use only when timing is critical (e.g. after modal close)
+function reNow(){
+  if(_reTimer){cancelAnimationFrame(_reTimer);_reTimer=null;}
+  const root=document.getElementById('root');
+  if(!root)return;
+  root.innerHTML='';
+  root.appendChild(session?renderShell():renderAuth());
+}
+
+initData();
+// Handle magic link invite on page load (now via Supabase invites table)
+(async function handleHouseholdInviteLink(){
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
+  const hToken=params.get('household');
+  const hEmail=params.get('email');
+  if(hToken){
+    localStorage.setItem('pendingHouseholdToken',hToken);
+    if(hEmail)localStorage.setItem('pendingHouseholdEmail',decodeURIComponent(hEmail));
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🏠 Please sign in to join the shared family account.','info',5000),800);
+  }
+  const pendingHH=localStorage.getItem('pendingHouseholdToken');
+  if(pendingHH&&session){
+    await processHouseholdInvite(pendingHH);
+  } else if(pendingHH&&!session){
+    let retries=0;
+    const ri=setInterval(async()=>{
+      retries++;
+      if(session){clearInterval(ri);await processHouseholdInvite(localStorage.getItem('pendingHouseholdToken'));}
+      if(retries>20)clearInterval(ri);
+    },500);
+  }
+})();
+
+(function handleGoogleAuthCallback(){
+  const hash=window.location.hash;
+  if(hash==='#google-auth-success'){
+    history.replaceState(null,'','/');
+    const ri=setInterval(()=>{
+      if(session){clearInterval(ri);session.googleCalendarEnabled=true;toast('✅ Google Calendar connected!','success',5000);re();}
+    },300);setTimeout(()=>clearInterval(ri),8000);
+  }else if(hash==='#google-auth-error'){
+    history.replaceState(null,'','/');
+    setTimeout(()=>toast('Could not connect Google Calendar. Try again.','error',5000),800);
+  }
+})();
+
+(async function handleInviteLink(){
+  // Support both ?invite= and /#?invite= URL formats
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
+  const token=params.get('invite');
+  const childId=params.get('child');
+  const inviteEmail=params.get('email');
+  if(token){
+    // Store token so we can use it after login/signup
+    localStorage.setItem('pendingInviteToken', token);
+    if(childId) localStorage.setItem('pendingInviteChild', childId);
+    if(inviteEmail) localStorage.setItem('pendingInviteEmail', decodeURIComponent(inviteEmail));
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🤝 Please sign in or create an account to join the care team.','info',5000),800);
+  }
+  // Check for pending invite after session is loaded
+  const pendingToken=localStorage.getItem('pendingInviteToken');
+  if(pendingToken&&session){
+    await _processPendingInvite();
+  } else if(pendingToken&&!session){
+    // Session not ready yet (e.g. Google OAuth redirect) — retry after session loads
+    let retries=0;
+    const retryInterval=setInterval(async()=>{
+      retries++;
+      if(session){
+        clearInterval(retryInterval);
+        await _processPendingInvite();
+      }
+      if(retries>20) clearInterval(retryInterval); // give up after 10 seconds
+    },500);
+  }
+})();
+
+async function _processPendingInvite(){
+  const token=localStorage.getItem('pendingInviteToken');
+  const childId=localStorage.getItem('pendingInviteChild');
+  if(!token)return;
+  // Try Supabase first
+  let data=null,fetchErr=null;
+  try{
+    const res=await _supa.from('invites').select('*').eq('token',token).single();
+    data=res.data;fetchErr=res.error;
+  }catch(e){fetchErr=e;}
+  if(data){
+    if(new Date(data.expires_at)<new Date()){
+      toast('⚠️ This invite has expired. Ask the family for a new one.','error',5000);
+    } else {
+      // Mark accepted
+      await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+      // Add child to specialist's accessible children
+      await _supa.from('specialists').upsert({
+        id:session.id,
+        parent_id:data.parent_id,
+        child_id:data.child_id,
+        email:session.email,
+        name:session.name,
+        role:data.specialist_role||'Specialist',
+        status:'active'
+      }).then(({error:e})=>{if(e)console.error('Specialists upsert error:',e.code);});
+      // Load the child into local state
+      if(data.child_id){
+        let child=null;
+        try{const cr=await _supa.from('children').select('*').eq('id',data.child_id).single();child=cr.data;}catch(e){}
+        if(child){
+          const children=LS.get('children',[]);
+          if(!children.find(c=>c.id===child.id)){
+            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||null,photo:child.photo_url||null});
+            LS.set('children',children);
+          }
+          S.activeChild=child.id;
+        }
+      }
+      toast('🎉 Welcome! You have joined the care team!','success',5000);
+      re();
+    }
+  } else {
+    // Fallback: use stored child ID directly
+    const storedChild=localStorage.getItem('pendingInviteChild');
+    if(storedChild){
+      S.activeChild=storedChild;
+      // Load children from Supabase to make sure we have this child
+      if(session&&session.id!=='demo'){
+        let children=[];try{children=await SB.getChildren(session.id);}catch(e){}
+        if(children.length>0){LS.set('children',children);}
+      }
+      toast('🎉 Welcome to the care team!','success',5000);
+      re();
+    } else {
+      toast('⚠️ Could not process invite. Please ask the family to send a new one.','error',5000);
+    }
+  }
+  localStorage.removeItem('pendingInviteToken');
+  localStorage.removeItem('pendingInviteChild');
+  localStorage.removeItem('pendingInviteEmail');
+}
+// Note: re() is called inside the async Supabase session boot above
+</script>
+<script>
+  // Register service worker for PWA offline support
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg=>console.log('SW registered'))
+        .catch(err=>console.log('SW registration failed:', err));
+    });
+  }
+</script>
+</body>
+</html>
