@@ -8822,43 +8822,139 @@ function renderAdminDashboard(){
 
       // ── USER MANAGEMENT ──
       frag.appendChild(sectionHead('👥 All Users'));
-      const searchInp=el('input',{placeholder:'🔍 Search by name or email…',style:{width:'100%',padding:'8px 12px',borderRadius:'10px',border:'1.5px solid var(--mint-l)',fontSize:'.84rem',marginBottom:'10px',boxSizing:'border-box'}});
+
+      // CSV Export
+      const exportBtn=mkBtn('⬇️ Export CSV','btn-sm btn-secondary',()=>{
+        const headers=['Name','Email','Role','Joined','Last Login','Flagged','Banned'];
+        const rows=(lists.allUsers||[]).map(u=>[
+          u.name,u.email,u.role,
+          u.created_at?new Date(u.created_at).toLocaleDateString():'',
+          u.lastLogin?new Date(u.lastLogin).toLocaleDateString():'',
+          u.flagged?'Yes':'No',
+          u.banned?'Yes':'No'
+        ]);
+        const csv=[headers,...rows].map(r=>r.map(v=>'"'+(String(v||'').replace(/"/g,'""'))+'"').join(',')).join('\n');
+        const blob=new Blob([csv],{type:'text/csv'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;a.download='huddledin-users-'+new Date().toISOString().slice(0,10)+'.csv';
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('✅ CSV downloaded','success');
+      });
+      exportBtn.style.marginBottom='10px';
+      frag.appendChild(exportBtn);
+
+      const searchInp=el('input',{placeholder:'🔍 Search by name or email…',style:{width:'100%',padding:'8px 12px',borderRadius:'10px',border:'1.5px solid var(--mint-l)',fontSize:'.84rem',marginBottom:'10px',boxSizing:'border-box',marginTop:'8px'}});
       frag.appendChild(searchInp);
+
+      // Drill-down modal
+      const showUserDrilldown=async(u)=>{
+        openModal('User: '+u.name,(mb)=>{
+          mb.innerHTML='';
+          const topCard=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px',padding:'14px',background:'var(--mint-ll)',borderRadius:'12px'}});
+          topCard.appendChild(el('div',{style:{fontSize:'2rem'}},[u.role==='specialist'?'🔬':'👥']));
+          const topInfo=el('div');
+          topInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem'}},[u.name+(u.flagged?' 🚩':'')+(u.banned?' 🔴 Banned':'')]));
+          topInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},[u.email]));
+          topInfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'2px'}},[u.role+' · Joined '+(u.created_at?new Date(u.created_at).toLocaleDateString():'unknown')+(u.lastLogin?' · Last login '+new Date(u.lastLogin).toLocaleDateString():'')]));
+          topCard.appendChild(topInfo);
+          mb.appendChild(topCard);
+
+          const loading=el('div',{style:{textAlign:'center',color:'var(--slate)',padding:'20px'}},['Loading activity…']);
+          mb.appendChild(loading);
+
+          (async()=>{
+            try{
+              const sess=await _supa.auth.getSession();
+              const jwt=sess?.data?.session?.access_token;
+              const r=await fetch('/api/admin-user-detail?userId='+u.id,{headers:{'Authorization':'Bearer '+jwt}});
+              const detail=r.ok?await r.json():{};
+              loading.remove();
+
+              const statsGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'16px'}});
+              [['📅','Appointments',detail.appointments||0],
+               ['💬','Messages',detail.messages||0],
+               ['📁','Files',detail.files||0],
+               ['✅','To-Dos',detail.todos||0],
+               ['📋','Notes',detail.notes||0],
+               ['🤝','Connections',detail.connections||0]
+              ].forEach(([icon,label,val])=>{
+                const c=el('div',{style:{background:'var(--mint-ll)',borderRadius:'10px',padding:'10px',textAlign:'center'}});
+                c.appendChild(el('div',{style:{fontSize:'1.2rem'}},[icon]));
+                c.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.1rem',color:'var(--navy)'}},[String(val)]));
+                c.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',fontWeight:700}},[label]));
+                statsGrid.appendChild(c);
+              });
+              mb.appendChild(statsGrid);
+
+              // Email compose section
+              const emailSection=el('div',{style:{marginBottom:'12px',padding:'14px',background:'var(--mint-ll)',borderRadius:'12px'}});
+              emailSection.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',marginBottom:'8px',fontSize:'.84rem'}},['📧 Send Email to '+u.name]));
+              const subjInp=el('input',{placeholder:'Subject',style:{width:'100%',padding:'8px 10px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',fontSize:'.84rem',marginBottom:'8px',boxSizing:'border-box'}});
+              const bodyInp=el('textarea',{placeholder:'Message…',style:{width:'100%',minHeight:'80px',padding:'8px 10px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',fontSize:'.84rem',resize:'vertical',boxSizing:'border-box',marginBottom:'8px',fontFamily:'inherit'}});
+              const sendEmailBtn=mkBtn('Send Email','btn-sm btn-primary',async()=>{
+                if(!subjInp.value.trim()||!bodyInp.value.trim()){toast('Fill in subject and message','error');return;}
+                sendEmailBtn.disabled=true;sendEmailBtn.textContent='Sending…';
+                const res=await adminAction('send_email',{to:u.email,toName:u.name,subject:subjInp.value.trim(),body:bodyInp.value.trim()});
+                sendEmailBtn.disabled=false;sendEmailBtn.textContent='Send Email';
+                if(res.ok)toast('Email sent to '+u.email,'success');
+                else toast('Error: '+(res.error||'failed'),'error');
+              });
+              emailSection.appendChild(subjInp);
+              emailSection.appendChild(bodyInp);
+              emailSection.appendChild(sendEmailBtn);
+              mb.appendChild(emailSection);
+
+              const actRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}});
+              const flagBtn2=mkBtn(u.flagged?'Remove Flag':'Flag User','btn-sm '+(u.flagged?'btn-danger':'btn-secondary'),async()=>{
+                const res=await adminAction('flag_user',{userId:u.id,flagged:!u.flagged});
+                if(res.ok){u.flagged=!u.flagged;flagBtn2.textContent=u.flagged?'Remove Flag':'Flag User';}
+              });
+              const banBtn2=mkBtn(u.banned?'Unban':'Ban User','btn-sm '+(u.banned?'btn-secondary':'btn-danger'),async()=>{
+                if(!u.banned&&!confirm('Ban '+u.name+'?'))return;
+                banBtn2.disabled=true;
+                const res=await adminAction('disable_user',{userId:u.id,disabled:!u.banned});
+                if(res.ok){u.banned=!u.banned;banBtn2.textContent=u.banned?'Unban':'Ban User';banBtn2.disabled=false;}
+                else{banBtn2.disabled=false;toast('Error','error');}
+              });
+              actRow.appendChild(flagBtn2);
+              actRow.appendChild(banBtn2);
+              mb.appendChild(actRow);
+            }catch(e){
+              loading.textContent='Could not load activity: '+e.message;
+            }
+          })();
+        },500);
+      };
+
       const userListCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
       const renderUserList=(filter)=>{
         userListCard.innerHTML='';
         const users=(lists.allUsers||[]).filter(u=>!filter||u.name.toLowerCase().includes(filter)||u.email.toLowerCase().includes(filter));
         if(!users.length){userListCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem'}},['No users found']));return;}
         users.slice(0,50).forEach(u=>{
-          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap',cursor:'pointer'}});
+          row.onmouseenter=()=>row.style.background='var(--mint-ll)';
+          row.onmouseleave=()=>row.style.background='';
           const roleColor=u.role==='specialist'?'var(--lavender)':'var(--teal)';
+          const av=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:roleColor+'22',border:'2px solid '+roleColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.9rem',flexShrink:0}});
+          av.textContent=u.role==='specialist'?'🔬':'👥';
           const info=el('div',{style:{flex:1,minWidth:'140px'}});
-          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)'}},[u.name+(u.flagged?' 🚩':'')+(u.banned?' 🔴 Banned':'')]));
+          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)'}},[u.name+(u.flagged?' 🚩':'')+(u.banned?' 🔴':'')]));
           info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[u.email+' · '+u.role]));
-          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['Joined '+new Date(u.created_at).toLocaleDateString()+(u.lastLogin?' · Login '+new Date(u.lastLogin).toLocaleDateString():'')]));
-          row.appendChild(info);
-          const btnGrp=el('div',{style:{display:'flex',gap:'4px',flexWrap:'wrap'}});
-          const flagBtn=mkBtn(u.flagged?'🚩':'🏳️','btn-sm '+(u.flagged?'btn-danger':'btn-secondary'),async()=>{
-            const res=await adminAction('flag_user',{userId:u.id,flagged:!u.flagged});
-            if(res.ok){u.flagged=!u.flagged;flagBtn.textContent=u.flagged?'🚩':'🏳️';flagBtn.className='btn btn-sm '+(u.flagged?'btn-danger':'btn-secondary');}
-          });
-          const banBtn=mkBtn(u.banned?'Unban':'Ban','btn-sm '+(u.banned?'btn-secondary':'btn-danger'),async()=>{
-            if(!u.banned&&!confirm('Ban '+u.name+'? They will not be able to log in.'))return;
-            banBtn.disabled=true;
-            const res=await adminAction('disable_user',{userId:u.id,disabled:!u.banned});
-            if(res.ok){u.banned=!u.banned;banBtn.textContent=u.banned?'Unban':'Ban';banBtn.className='btn btn-sm '+(u.banned?'btn-secondary':'btn-danger');banBtn.disabled=false;}
-            else{banBtn.disabled=false;toast('Error','error');}
-          });
-          btnGrp.appendChild(flagBtn);
-          btnGrp.appendChild(banBtn);
-          row.appendChild(btnGrp);
+          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['Joined '+(u.created_at?new Date(u.created_at).toLocaleDateString():'?')+(u.lastLogin?' · Login '+new Date(u.lastLogin).toLocaleDateString():'')]));
+          row.appendChild(av);row.appendChild(info);
+          const viewBtn=mkBtn('View','btn-sm btn-secondary',e=>{e.stopPropagation();showUserDrilldown(u);});
+          row.appendChild(viewBtn);
+          row.onclick=()=>showUserDrilldown(u);
           userListCard.appendChild(row);
         });
         if(users.length>50)userListCard.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',padding:'8px 0',textAlign:'center'}},['Showing first 50 — use search to filter']));
       };
       renderUserList('');
       searchInp.oninput=e=>renderUserList(e.target.value.toLowerCase().trim());
-      frag.appendChild(userListCard);
+      frag.appendChild(userListCard);;
 
       return frag;
     }
