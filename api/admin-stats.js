@@ -19,7 +19,9 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
         }
       });
-      if (!r.ok) { console.error(`Query failed ${table}:`, await r.text()); return []; }
+      const text = await r.text();
+      if (!r.ok) { console.error(`Query failed ${table} (${r.status}):`, text); return []; }
+      try { return JSON.parse(text); } catch(e) { console.error(`Parse failed ${table}:`, text.slice(0,200)); return []; }
       return r.json();
     };
 
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
     authUsers.forEach(u => { authMap[u.id] = u; });
 
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
-      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name,flagged'),
+      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name'),
       q('children', 'select=id,household_id,created_at'),
       q('appointments', 'select=id,created_at,household_id,child_id,type'),
       q('messages', 'select=id,created_at,chat_id'),
@@ -113,7 +115,7 @@ export default async function handler(req, res) {
         role: p.role,
         created_at: p.created_at,
         lastLogin: authMap[p.id]?.last_sign_in_at || null,
-        flagged: p.flagged || false
+        flagged: false
       }));
 
     // Pending specialist requests with details
@@ -164,7 +166,7 @@ export default async function handler(req, res) {
         role: p.role,
         created_at: p.created_at,
         lastLogin: authMap[p.id]?.last_sign_in_at || null,
-        flagged: p.flagged || false,
+        flagged: false,
         banned: authMap[p.id]?.banned_until ? new Date(authMap[p.id].banned_until) > new Date() : false
       }));
 
