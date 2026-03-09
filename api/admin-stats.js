@@ -19,35 +19,32 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
         }
       });
-      if (!r.ok) {
-        console.error(`Query failed for ${table}:`, await r.text());
-        return [];
-      }
+      if (!r.ok) { console.error(`Query failed ${table}:`, await r.text()); return []; }
       return r.json();
     };
 
     const now = Date.now();
     const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
     const monthAgo = new Date(now - 30*24*60*60*1000).toISOString();
+    const sevenDaysAgo = new Date(now - 7*24*60*60*1000).toISOString();
 
-    // Fetch auth users for last_sign_in_at (from admin API)
-    const authUsersRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
-      headers: {
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
-      }
+    // Auth users for last_sign_in_at
+    const authRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+      headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
     });
-    const authData = authUsersRes.ok ? await authUsersRes.json() : { users: [] };
+    const authData = authRes.ok ? await authRes.json() : { users: [] };
     const authUsers = authData.users || [];
+    const authMap = {};
+    authUsers.forEach(u => { authMap[u.id] = u; });
 
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
-      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled'),
+      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name,flagged'),
       q('children', 'select=id,household_id,created_at'),
       q('appointments', 'select=id,created_at,household_id,child_id,type'),
       q('messages', 'select=id,created_at,chat_id'),
       q('files', 'select=id,created_at,household_id'),
       q('todos', 'select=id,created_at,completed,user_id'),
-      q('specialist_requests', 'select=specialist_id,household_id,status,created_at'),
+      q('specialist_requests', 'select=id,specialist_id,household_id,status,created_at,specialist_name,child_id,role'),
       q('chats', 'select=id,household_id,created_at,type'),
       q('vault_notes', 'select=id,created_at,specialist_id,published')
     ]);
@@ -60,7 +57,6 @@ export default async function handler(req, res) {
     const householdsWithSpec = new Set(approvedReqs.map(r => r.household_id));
     const specsWithFamily = new Set(approvedReqs.map(r => r.specialist_id));
 
-    // Retention from auth users
     const activeUsersWeek = authUsers.filter(u => u.last_sign_in_at > weekAgo).length;
     const activeUsersMonth = authUsers.filter(u => u.last_sign_in_at > monthAgo).length;
     const dormantUsers = authUsers.filter(u => u.last_sign_in_at && u.last_sign_in_at < monthAgo).length;
@@ -73,12 +69,11 @@ export default async function handler(req, res) {
     const householdsUsingChats = new Set(chats.map(c => c.household_id).filter(Boolean));
 
     const specsNoFamily = specialists.filter(s => !specsWithFamily.has(s.id)).length;
-
     const specFamilyCount = {};
     approvedReqs.forEach(r => { specFamilyCount[r.specialist_id] = (specFamilyCount[r.specialist_id]||0)+1; });
     const powerSpecialists = Object.values(specFamilyCount).filter(c => c >= 2).length;
 
-    // Growth: signups by week for last 8 weeks
+    // Weekly growth
     const weeklySignups = [];
     for (let i = 7; i >= 0; i--) {
       const start = new Date(now - (i+1)*7*24*60*60*1000).toISOString();
@@ -103,6 +98,75 @@ export default async function handler(req, res) {
 
     const aptTypes = {};
     appointments.forEach(a => { const t=a.type||'other'; aptTypes[t]=(aptTypes[t]||0)+1; });
+
+    // ── Lists for controls tab ──
+
+    // Recent signups (last 30 days)
+    const recentSignups = profiles
+      .filter(p => p.created_at > monthAgo)
+      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 50)
+      .map(p => ({
+        id: p.id,
+        name: p.display_name || authMap[p.id]?.user_metadata?.full_name || '—',
+        email: authMap[p.id]?.email || '—',
+        role: p.role,
+        created_at: p.created_at,
+        lastLogin: authMap[p.id]?.last_sign_in_at || null,
+        flagged: p.flagged || false
+      }));
+
+    // Pending specialist requests with details
+    const pendingList = pendingReqs
+      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+      .map(r => ({
+        id: r.id,
+        specialistId: r.specialist_id,
+        specialistName: r.specialist_name || '—',
+        specialistEmail: authMap[r.specialist_id]?.email || '—',
+        role: r.role || '—',
+        householdId: r.household_id,
+        childId: r.child_id,
+        created_at: r.created_at
+      }));
+
+    // Stuck households: signed up 7+ days ago, no children OR no specialist
+    const stuckHouseholds = [...households]
+      .map(hid => {
+        const hProfiles = profiles.filter(p => p.household_id === hid);
+        const oldestSignup = hProfiles.map(p => p.created_at).sort()[0];
+        if (!oldestSignup || oldestSignup > sevenDaysAgo) return null;
+        const hasChildren = householdsWithChildren.has(hid);
+        const hasSpec = householdsWithSpec.has(hid);
+        if (hasChildren && hasSpec) return null;
+        const parentProfile = hProfiles.find(p => p.role === 'parent');
+        return {
+          householdId: hid,
+          parentName: parentProfile?.display_name || authMap[parentProfile?.id]?.user_metadata?.full_name || '—',
+          parentEmail: authMap[parentProfile?.id]?.email || '—',
+          signedUp: oldestSignup,
+          hasChildren,
+          hasSpec,
+          issue: !hasChildren ? 'No children added' : 'No specialist connected'
+        };
+      })
+      .filter(Boolean)
+      .sort((a,b) => a.signedUp.localeCompare(b.signedUp))
+      .slice(0, 30);
+
+    // All users list for management
+    const allUsers = profiles
+      .sort((a,b) => b.created_at.localeCompare(a.created_at))
+      .map(p => ({
+        id: p.id,
+        name: p.display_name || authMap[p.id]?.user_metadata?.full_name || '—',
+        email: authMap[p.id]?.email || '—',
+        role: p.role,
+        created_at: p.created_at,
+        lastLogin: authMap[p.id]?.last_sign_in_at || null,
+        flagged: p.flagged || false,
+        banned: authMap[p.id]?.banned_until ? new Date(authMap[p.id].banned_until) > new Date() : false
+      }));
 
     res.status(200).json({
       overview: {
@@ -147,10 +211,8 @@ export default async function handler(req, res) {
         gcal: profiles.filter(p => p.google_calendar_enabled && p.role==='specialist').length,
         pendingRequests: pendingReqs.length
       },
-      growth: {
-        weekly: weeklySignups,
-        childDist
-      }
+      growth: { weekly: weeklySignups, childDist },
+      lists: { recentSignups, pendingList, stuckHouseholds, allUsers }
     });
 
   } catch (err) {
