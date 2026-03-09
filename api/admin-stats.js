@@ -1,91 +1,148 @@
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  // Verify the Authorization header contains a valid Supabase JWT
-  // and that the user is admin@huddledin.com
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace('Bearer ', '').trim();
-
+  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    // Verify the JWT by calling Supabase auth
+    // Verify JWT and check admin email
     const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'apikey': process.env.SUPABASE_SERVICE_KEY
-      }
+      headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_KEY }
     });
-
     if (!userRes.ok) return res.status(401).json({ error: 'Invalid token' });
-
     const user = await userRes.json();
-    if (user.email !== 'admin@huddledin.com') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
+    if (user.email !== 'admin@huddledin.com') return res.status(403).json({ error: 'Forbidden' });
 
-    // Helper to query Supabase REST
     const q = async (table, params = '') => {
-      const r = await fetch(
-        `${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`,
-        {
-          headers: {
-            'apikey': process.env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
-          }
+      const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`, {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
         }
-      );
+      });
       return r.json();
     };
 
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
+    const monthAgo = new Date(now - 30*24*60*60*1000).toISOString();
 
-    const [
-      profiles, children, appointments, messages,
-      files, todos, requests
-    ] = await Promise.all([
-      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled'),
-      q('children', 'select=id,household_id'),
-      q('appointments', 'select=id,created_at'),
-      q('messages', 'select=id,created_at'),
-      q('files', 'select=id'),
-      q('todos', 'select=id,completed'),
-      q('specialist_requests', 'select=specialist_id,household_id&status=eq.approved')
+    const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
+      q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,last_sign_in_at'),
+      q('children', 'select=id,household_id,created_at'),
+      q('appointments', 'select=id,created_at,household_id,child_id,type'),
+      q('messages', 'select=id,created_at,chat_id'),
+      q('files', 'select=id,created_at,household_id'),
+      q('todos', 'select=id,created_at,completed,user_id'),
+      q('specialist_requests', 'select=specialist_id,household_id,status,created_at'),
+      q('chats', 'select=id,household_id,created_at,type'),
+      q('vault_notes', 'select=id,created_at,specialist_id,published')
     ]);
 
     const parents = profiles.filter(p => p.role === 'parent');
     const specialists = profiles.filter(p => p.role === 'specialist');
+    const approvedReqs = requests.filter(r => r.status === 'approved');
+    const pendingReqs = requests.filter(r => r.status === 'pending');
     const households = new Set(profiles.filter(p => p.household_id).map(p => p.household_id));
-    const householdsWithSpec = new Set(requests.map(r => r.household_id));
-    const specsWithFamily = new Set(requests.map(r => r.specialist_id));
-    const gcal = profiles.filter(p => p.google_calendar_enabled);
+    const householdsWithSpec = new Set(approvedReqs.map(r => r.household_id));
+    const specsWithFamily = new Set(approvedReqs.map(r => r.specialist_id));
+
+    // Retention
+    const activeUsersWeek = profiles.filter(p => p.last_sign_in_at > weekAgo).length;
+    const activeUsersMonth = profiles.filter(p => p.last_sign_in_at > monthAgo).length;
+    const dormantUsers = profiles.filter(p => p.last_sign_in_at && p.last_sign_in_at < monthAgo).length;
+
+    // Households with no children (signed up but stuck)
+    const householdsWithChildren = new Set(children.map(c => c.household_id));
+    const emptyHouseholds = [...households].filter(hid => !householdsWithChildren.has(hid)).length;
+
+    // Feature usage per household
+    const householdsUsingApts = new Set(appointments.map(a => a.household_id).filter(Boolean));
+    const householdsUsingFiles = new Set(files.map(f => f.household_id).filter(Boolean));
+    const householdsUsingChats = new Set(chats.map(c => c.household_id).filter(Boolean));
+
+    // Specialists: registered but no family
+    const specsNoFamily = specialists.filter(s => !specsWithFamily.has(s.id)).length;
+
+    // Specialists with 2+ families
+    const specFamilyCount = {};
+    approvedReqs.forEach(r => { specFamilyCount[r.specialist_id] = (specFamilyCount[r.specialist_id]||0)+1; });
+    const powerSpecialists = Object.values(specFamilyCount).filter(c => c >= 2).length;
+
+    // Growth: signups by week for last 8 weeks
+    const weeklySignups = [];
+    for (let i = 7; i >= 0; i--) {
+      const start = new Date(now - (i+1)*7*24*60*60*1000).toISOString();
+      const end = new Date(now - i*7*24*60*60*1000).toISOString();
+      const label = new Date(now - i*7*24*60*60*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
+      weeklySignups.push({
+        label,
+        users: profiles.filter(p => p.created_at >= start && p.created_at < end).length,
+        appointments: appointments.filter(a => a.created_at >= start && a.created_at < end).length,
+        messages: messages.filter(m => m.created_at >= start && m.created_at < end).length
+      });
+    }
+
+    // Children distribution
+    const childrenPerHousehold = {};
+    children.forEach(c => { childrenPerHousehold[c.household_id] = (childrenPerHousehold[c.household_id]||0)+1; });
+    const childDist = { one: 0, two: 0, threePlus: 0 };
+    Object.values(childrenPerHousehold).forEach(n => {
+      if(n===1) childDist.one++;
+      else if(n===2) childDist.two++;
+      else childDist.threePlus++;
+    });
+
+    // Appointment types
+    const aptTypes = {};
+    appointments.forEach(a => { const t=a.type||'other'; aptTypes[t]=(aptTypes[t]||0)+1; });
 
     res.status(200).json({
-      users: {
-        total: profiles.length,
+      overview: {
+        totalUsers: profiles.length,
         parents: parents.length,
         specialists: specialists.length,
-        newThisWeek: profiles.filter(p => p.created_at > weekAgo).length
-      },
-      families: {
         households: households.size,
         children: children.length,
-        withSpecialist: householdsWithSpec.size,
-        noSpecialist: households.size - householdsWithSpec.size
+        newUsersWeek: profiles.filter(p => p.created_at > weekAgo).length,
+        pendingRequests: pendingReqs.length,
+        gcalConnected: profiles.filter(p => p.google_calendar_enabled).length
       },
-      activity: {
+      retention: {
+        activeWeek: activeUsersWeek,
+        activeMonth: activeUsersMonth,
+        dormant: dormantUsers,
+        emptyHouseholds,
+        householdsNoSpec: households.size - householdsWithSpec.size
+      },
+      engagement: {
         appointments: appointments.length,
-        appointmentsThisWeek: appointments.filter(a => a.created_at > weekAgo).length,
+        appointmentsWeek: appointments.filter(a => a.created_at > weekAgo).length,
         messages: messages.length,
-        messagesThisWeek: messages.filter(m => m.created_at > weekAgo).length,
+        messagesWeek: messages.filter(m => m.created_at > weekAgo).length,
         files: files.length,
+        filesWeek: files.filter(f => f.created_at > weekAgo).length,
         todos: todos.length,
-        todosCompleted: todos.filter(t => t.completed).length
+        todosCompleted: todos.filter(t => t.completed).length,
+        notes: notes.length,
+        notesPublished: notes.filter(n => n.published).length,
+        chats: chats.length,
+        householdsUsingApts: householdsUsingApts.size,
+        householdsUsingFiles: householdsUsingFiles.size,
+        householdsUsingChats: householdsUsingChats.size,
+        aptTypes
       },
       specialists: {
         total: specialists.length,
         active: specsWithFamily.size,
-        googleCal: gcal.length
+        noFamily: specsNoFamily,
+        powerUsers: powerSpecialists,
+        gcal: profiles.filter(p => p.google_calendar_enabled && p.role==='specialist').length,
+        pendingRequests: pendingReqs.length
+      },
+      growth: {
+        weekly: weeklySignups,
+        childDist
       }
     });
 
