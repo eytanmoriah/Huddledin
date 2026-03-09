@@ -1676,7 +1676,11 @@ async function refreshFromSupabase(){
         // Chats
         _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
           .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
-          .catch(e=>console.error('refresh spec chats:',e))
+          .catch(e=>console.error('refresh spec chats:',e)),
+        // Specialist clinical tasks (own table — separate from parent todos)
+        _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
+          .then(({data:tasks})=>LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at}))))
+          .catch(e=>console.error('refresh spec_tasks:',e))
       ]);
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
@@ -2628,24 +2632,15 @@ function openConfirm(title,msg,danger,onOk){
 ----------------------------------------------- */
 const PARENT_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
-  {id:'files',label:'Files',icon:'📁'},
-  {id:'team',label:'Team',icon:'👥'},
   {id:'calendar',label:'Calendar',icon:'📅'},
-  {id:'progress',label:'Progress',icon:'📈'},
   {id:'chat',label:'Chat',icon:'💬'},
-  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
-  {id:'email',label:'Inbox',icon:'📧'},
   {id:'settings',label:'Settings',icon:'⚙️'}
 ];
 const SPEC_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'patients',label:'Patients',icon:'👤'},
   {id:'calendar',label:'Calendar',icon:'📅'},
-  {id:'vault',label:'Clinical Notes',icon:'📋'},
-  {id:'homework',label:'Tasks',icon:'📋'},
-  {id:'files',label:'Files',icon:'📁'},
-  {id:'chat',label:'Chat',icon:'💬'},
   {id:'todo',label:'To-Do',icon:'✅'},
   {id:'notifications',label:'Alerts',icon:'🔔'},
   {id:'credentials',label:'My Folder',icon:'🗂️'},
@@ -3235,10 +3230,7 @@ function renderDrawer(){
     const coreItems=[
       {icon:'🏠',label:'Family Home',id:'home'},
       {icon:'📊',label:'Dashboard',id:'dashboard'},
-      {icon:'📁',label:'Files',id:'files'},
-      {icon:'👥',label:'Care Team',id:'team'},
       {icon:'📅',label:'Calendar',id:'calendar'},
-      {icon:'📈',label:'Progress',id:'progress'},
       {icon:'💬',label:'Chat',id:'chat'},
     ];
     coreItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
@@ -3246,10 +3238,8 @@ function renderDrawer(){
     const specItems=[
       {icon:'🏠',label:'Home',id:'dashboard'},
       {icon:'👤',label:'Patients',id:'patients'},
-      {icon:'📋',label:'Clinical Notes',id:'vault'},
-      {icon:'📋',label:'Tasks',id:'homework'},
-      {icon:'📁',label:'Files',id:'files'},
-      {icon:'💬',label:'Chat',id:'chat'},
+      {icon:'📅',label:'Calendar',id:'calendar'},
+      {icon:'✅',label:'My Tasks',id:'todo'},
       {icon:'🔔',label:'Alerts',id:'notifications'},
       {icon:'⚙️',label:'Settings',id:'settings'},
     ];
@@ -3456,11 +3446,11 @@ function renderBottomNav(){
       inner.appendChild(b);
     });
   } else {
-    // Specialists keep their existing 3-tab layout
+    // Specialist bottom nav: Home, Patients, To-Do, Menu
     const specTabs=[
       {id:'dashboard',label:'Home',icon:'🏠',action:()=>switchTab('dashboard')},
-      {id:'chat',label:'Chat',icon:'💬',action:()=>switchTab('chat')},
-      {id:'vault',label:'Clinical Notes',icon:'📋',action:()=>switchTab('vault')},
+      {id:'patients',label:'Patients',icon:'👤',action:()=>switchTab('patients')},
+      {id:'todo',label:'To-Do',icon:'✅',action:()=>switchTab('todo')},
     ];
     specTabs.forEach(t=>{
       const isActive=S.activeTab===t.id;
@@ -4158,10 +4148,10 @@ function renderContent(){
   if(t==='patients')return renderPatients();
   if(t==='patient-detail')return renderPatientDashboard();
   if(t==='vault')return renderVault();
-  if(t==='todo')return renderTodoList();
+  if(t==='todo')return r==='specialist'?renderSpecTodo():renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
-  if(t==='progress')return renderProgress();
+  if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
   if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
   if(t==='request')return renderSpecialistRequest();
@@ -4233,12 +4223,12 @@ function renderParentDashboard(){
   // Big square navigation grid (like file manager)
   const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
   [
-    {icon:'📈',label:'Progress',color:'#0d9488',bg:'#ecfdf5',tab:'progress'},
+    {icon:'📄',label:'Session Summaries',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries'},
     {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
     {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
-    {icon:'📅',label:'Upcoming Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
+    {icon:'📅',label:'Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
     {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
-    {icon:'👥',label:'Specialists',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
+    {icon:'👥',label:'Care Team',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
   ].forEach(({icon,label,color,bg,tab,fn})=>{
     const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
@@ -4318,10 +4308,6 @@ function renderParentDashboard(){
   grid.appendChild(aptCard);
   sec.appendChild(grid);
 
-  // Published summaries
-  const pubSummaries=renderPublishedSummaries();
-  if(pubSummaries)sec.appendChild(pubSummaries);
-
   return sec;
 }
 
@@ -4400,7 +4386,7 @@ function renderSpecDashboard(){
   const stats=el('div',{class:'g3',style:{marginBottom:'22px'}});
   [{icon:'👤',color:'#0d9488',lbl:'Patients',tab:'patients'},
    {icon:'📅',color:'#7c3aed',lbl:'Calendar',tab:'calendar'},
-   {icon:'📋',color:'#f59e0b',lbl:'Clinical Notes',tab:'vault'}
+   {icon:'✅',color:'#f59e0b',lbl:'To-Do',tab:'todo'}
   ].forEach(({icon,color,lbl,tab})=>{
     const sc=el('div',{class:'card hov',style:{cursor:'pointer'}});
     sc.appendChild(d('stat-card',[d('stat-icon',[icon],{background:color+'22'}),el('div',{class:'stat-lbl'},[lbl])]));
@@ -6399,262 +6385,247 @@ function showConsultModal(){
 function renderVault(){
   const specId=session?.specialistId||null;
   const child=DB.children.find(c=>c.id===S.activeChild);
-  const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild);
-  const activeNote=myNotes.find(n=>n.id===S.activeVaultId)||null;
+  // Sort newest first
+  const myNotes=[...DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild)]
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   const sec=el('div',{class:'section'});
   const _vBar=mkSpecBackBar(child?.name);if(_vBar)sec.appendChild(_vBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Clinical Notes']),
-    el('p',{class:'page-sub'},['🔒 Clinical notes — hidden until published · '+child?.avatar+' '+child?.name])
+    el('p',{class:'page-sub'},['🔒 Private notes — publish summaries to share with parents · '+child?.avatar+' '+child?.name])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn('✏️ New Note','btn-md btn-primary',async()=>{
-      const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:new Date().toISOString().split('T')[0],title:'New Session Notes',content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
+      const today=new Date().toISOString().split('T')[0];
+      const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:today,title:today,content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
       try{
-        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:null,title:nn.title,content:'',is_draft:true,locked:false,published:false});
+        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:null,title:nn.title,content:'',is_draft:true,locked:false,published:false,last_saved:new Date().toISOString()});
       }catch(e){console.error('create vault note:',e);}
       const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
-      S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=true;re();
+      S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=false;re();
     })
   ]));
   sec.appendChild(hd);
 
-  // Unsaved banner
-  if(S.vaultHasUnsaved){
-    const banner=el('div',{class:'unsaved-banner'});
-    banner.innerHTML='⚠️ You have unsaved changes in this note.';
-    sec.appendChild(banner);
+  if(!myNotes.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📋']),
+      el('div',{class:'empty-state-title'},['No notes yet']),
+      el('div',{class:'empty-state-body'},["Click 'New Note' to start a session note."]),
+    ]));
+    return sec;
   }
 
-  const isMobile=window.innerWidth<768;
-  const layout=el('div',{class:'vault-layout',style:{display:'flex',flexDirection:isMobile?'column':'row',gap:'16px',alignItems:'flex-start'}});
+  // Accordion note list — each note expands inline
+  const noteStack=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}});
 
-  // Note list sidebar
-  const noteList=el('div',{class:'vault-sidebar',style:{width:isMobile?'100%':'255px',minWidth:isMobile?'unset':'255px',display:'flex',flexDirection:'column',gap:'10px'}});
-  if(!myNotes.length)noteList.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},["No vault notes yet. Click 'New Note' to start!"]));
   myNotes.forEach(note=>{
-    const nc=el('div',{class:'card click',style:{border:S.activeVaultId===note.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)'}});
-    const nh=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'});
-    nh.appendChild(el('span',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)',lineHeight:'1.3',flex:1}},[note.title]));
-    const flags=d('',[], {display:'flex',gap:'4px',flexShrink:0,marginLeft:'6px'});
-    if(note.locked)flags.appendChild(el('span',{},'🔒'));
-    if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},['Draft']));
-    if(note.published&&!note.locked)flags.appendChild(badge('Published','green'));
-    nh.appendChild(flags);
-    nc.appendChild(nh);
-    nc.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'4px'}},[note.date+(note.lastSaved?' · Saved '+note.lastSaved.split(' ')[1]:'')]));
-    nc.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[note.content.slice(0,52)+'…']));
-    nc.onclick=()=>{
-      if(S.vaultHasUnsaved&&S.activeVaultId!==note.id){
-        openConfirm('Unsaved Changes','You have unsaved changes. Switch note without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
+    const isOpen=S.activeVaultId===note.id;
+    const wrapper=el('div',{class:'card',style:{
+      border:isOpen?'2px solid var(--teal)':'1.5px solid var(--mint-l)',
+      transition:'border .2s',padding:'0',overflow:'hidden'
+    }});
+
+    // ── Note header (always visible) ──
+    const header=el('div',{style:{
+      display:'flex',alignItems:'center',gap:'10px',padding:'12px 14px',
+      cursor:'pointer',background:isOpen?'var(--mint-ll)':'#fff',transition:'background .2s'
+    }});
+    const flags=el('div',{style:{display:'flex',gap:'5px',flexShrink:0}});
+    if(note.locked)flags.appendChild(el('span',{style:{fontSize:'.9rem'}},['🔒']));
+    if(note.published)flags.appendChild(badge('Published','green'));
+    else if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},['Draft']));
+    const titleEl=el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)',flex:1,lineHeight:'1.3'}},[note.title]);
+    const dateEl=el('div',{style:{fontSize:'.72rem',color:'var(--slate)',flexShrink:0}},[note.date]);
+    const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transition:'transform .2s',transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
+    header.appendChild(flags);
+    header.appendChild(titleEl);
+    header.appendChild(dateEl);
+    header.appendChild(chevron);
+    header.onclick=()=>{
+      if(S.vaultHasUnsaved&&!isOpen){
+        openConfirm('Unsaved Changes','Switch note without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
         return;
       }
-      S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();
+      S.activeVaultId=isOpen?null:note.id;
+      if(!isOpen)S.vaultSummary=note.summary||'';
+      re();
     };
-    noteList.appendChild(nc);
-  });
-  layout.appendChild(noteList);
+    wrapper.appendChild(header);
 
-  // Note editor
-  if(activeNote){
-    const ed=el('div',{class:'vault-content card',style:{flex:1,display:'flex',flexDirection:'column',gap:'14px',minWidth:0}});
+    // ── Expanded content ──
+    if(isOpen){
+      const body=el('div',{style:{padding:'14px',borderTop:'1.5px solid var(--mint-l)',display:'flex',flexDirection:'column',gap:'12px'}});
 
-    // Title row
-    const titleRow=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'});
-    const ti=el('input',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.02rem',fontWeight:800,border:'none',outline:'none',flex:'1',background:'transparent',color:'var(--navy)'}});
-    ti.value=activeNote.title;
-    ti.disabled=activeNote.locked;
-    ti.oninput=e=>{
-      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-      if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
-      S.vaultHasUnsaved=true;
-    };
-    titleRow.appendChild(ti);
-    const closeBtn=el('button',{style:{background:'var(--mint-ll)',border:'none',cursor:'pointer',width:'30px',height:'30px',borderRadius:'50%',fontSize:'.88rem',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
-    closeBtn.onclick=()=>{
+      // Unsaved banner
       if(S.vaultHasUnsaved){
-        openConfirm('Unsaved Changes','Close without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
-        return;
+        const banner=el('div',{class:'unsaved-banner',style:{marginBottom:'0'}});
+        banner.textContent='⚠️ Unsaved changes in this note.';
+        body.appendChild(banner);
       }
-      S.activeVaultId=null;S.vaultSummary='';re();
-    };
-    titleRow.appendChild(closeBtn);
-    ed.appendChild(titleRow);
 
-    if(activeNote.locked){
-      ed.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},['🔒 This record is permanently locked and read-only']));
-    }
+      if(note.locked){
+        body.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},['🔒 Permanently locked — read-only']));
+      }
 
-    // Clinical notes area
-    const clinLbl=el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']);
-    ed.appendChild(clinLbl);
-    const ta=el('textarea',{class:'inp'});
-    ta.value=activeNote.content;
-    ta.readOnly=activeNote.locked;
-    ta.style.background=activeNote.locked?'#f8fafc':'';
-    ta.oninput=e=>{
-      const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-      if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
-      S.vaultHasUnsaved=true;
-    };
-    ed.appendChild(ta);
-
-    // Action buttons
-    if(!activeNote.locked){
-      const actRow=d('',[], {display:'flex',gap:'9px',flexWrap:'wrap'});
-
-      // Save draft
-      const saveDraftBtn=mkBtn('💾 Save Draft','btn-sm btn-slate',async()=>{
-        const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-        if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
-        try{
-          await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:activeNote.summary||null,is_draft:true,locked:false,published:activeNote.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
-        }catch(e){console.error('save draft:',e);}
-        S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
-      });
-
-      // AI Summarize — opens full-screen overlay on mobile for maximum typing space
-      const aiBtn=mkBtn('✨ AI Summarize','btn-sm btn-secondary',async()=>{
-        if(!ta.value.trim()){toast('⚠️ Write some notes first!','error');return;}
-
-        // -- FULL-SCREEN AI OVERLAY --
-        // Gives specialist maximum screen space to review/edit on mobile keyboard
-        const overlay=el('div',{class:'ai-fullscreen'});
-        
-        const fsHd=el('div',{class:'ai-fs-hd'});
-        const closeFs=mkBtn('✕','btn-sm btn-slate',()=>overlay.remove());
-        closeFs.style.cssText='min-height:36px;padding:8px 12px;border-radius:50%;width:36px';
-        fsHd.appendChild(closeFs);
-        fsHd.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1rem',color:'var(--navy)',marginLeft:'4px'}},['✨ AI Summary']));
-        const fsStatus=el('span',{style:{fontSize:'.78rem',color:'var(--slate)',fontWeight:600,marginLeft:'auto'}},['Generating…']);
-        fsHd.appendChild(fsStatus);
-        overlay.appendChild(fsHd);
-
-        const fsBody=el('div',{class:'ai-fs-body'});
-        const loadBlock=el('div',{class:'ai-block',style:{marginBottom:'16px'}});
-        loadBlock.appendChild(el('div',{class:'ai-label'},['✨ AI is converting your notes…']));
-        const ld=d('',[], {display:'flex',gap:'11px',alignItems:'center',color:'var(--slate)',fontWeight:600,fontSize:'.9rem'});
-        ld.appendChild(spinner());ld.appendChild(el('span',{},'Generating parent-friendly summary…'));
-        loadBlock.appendChild(ld);
-        fsBody.appendChild(loadBlock);
-        overlay.appendChild(fsBody);
-        document.body.appendChild(overlay);
-
-        S.vaultSummarizing=true;
-        try{
-          // FIX B2: Anthropic API requires x-api-key and anthropic-version headers.
-          // NOTE: In a production app, API calls must be proxied through a server to avoid exposing keys.
-          // The ANTHROPIC_API_KEY constant should be configured server-side; this is a client-side demo placeholder.
-          const ANTHROPIC_API_KEY = typeof window.ANTHROPIC_API_KEY !== 'undefined' ? window.ANTHROPIC_API_KEY : '';
-          const resp=await fetch('https://api.anthropic.com/v1/messages',{
-            method:'POST',headers:{
-              'Content-Type':'application/json',
-              'x-api-key': ANTHROPIC_API_KEY,
-              'anthropic-version': '2023-06-01',
-              'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Convert these clinical session notes into a warm, encouraging, parent-friendly summary. Avoid all clinical jargon. Be positive, supportive and specific. Keep to 3-4 sentences.\n\nClinical notes:\n${ta.value}`}]})
-          });
-          const data=await resp.json();
-          const text=data.content?.[0]?.text||'Unable to generate summary — please write one manually.';
-          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-          if(i>-1){ns[i].summary=text;DB.vaultNotes=ns;}
-          S.vaultSummary=text;S.vaultSummarizing=false;
-
-          // Replace loading with editable result in full-screen overlay
-          fsBody.innerHTML='';
-          fsStatus.textContent='Tap to edit before publishing';
-          const resultBlock=el('div',{class:'ai-block',style:{marginBottom:'14px'}});
-          resultBlock.appendChild(el('div',{class:'ai-label'},['✨ Parent-Friendly Summary']));
-          const fsTa=el('textarea',{class:'inp',style:{background:'white',minHeight:'200px',fontSize:'16px'}});
-          fsTa.value=text;
-          fsTa.oninput=e=>{
-            S.vaultSummary=e.target.value;
-            const ns2=DB.vaultNotes,i2=ns2.findIndex(n=>n.id===activeNote.id);
-            if(i2>-1){ns2[i2].summary=e.target.value;DB.vaultNotes=ns2;}
-          };
-          resultBlock.appendChild(fsTa);
-          fsBody.appendChild(resultBlock);
-
-          const fsFoot=el('div',{class:'ai-fs-footer'});
-          const acceptBtn=mkBtn('✅ Use This Summary','btn-lg btn-primary btn-full',()=>{overlay.remove();re();});
-          fsFoot.appendChild(acceptBtn);
-          overlay.appendChild(fsFoot);
-          // Focus textarea for immediate editing
-          setTimeout(()=>fsTa.focus(),100);
-        }catch(e){
-          S.vaultSummarizing=false;
-          S.vaultSummary='AI unavailable — please write a summary manually.';
-          overlay.remove();re();
-        }
-      });
-
-      // Lock report
-      const lockBtn=mkBtn('🔒 Lock Report','btn-sm btn-ghost',()=>openConfirm('Lock Report?',
-        'Locking makes this a permanent, uneditable record. This cannot be undone.',true,async()=>{
-          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-          if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
-          try{await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:activeNote.summary||null,is_draft:false,locked:true,published:activeNote.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
-          S.vaultHasUnsaved=false;re();toast('🔒 Report locked permanently!');
-        }));
-
-      actRow.appendChild(saveDraftBtn);actRow.appendChild(aiBtn);actRow.appendChild(lockBtn);
-      ed.appendChild(actRow);
-    }
-
-    // Summary block
-    const sumTxt=S.vaultSummary||(activeNote.summary||'');
-    if(S.vaultSummarizing){
-      const lb=el('div',{class:'ai-block'});
-      lb.appendChild(el('div',{class:'ai-label'},['✨ AI is thinking…']));
-      const ld=d('',[], {display:'flex',gap:'11px',alignItems:'center',color:'var(--slate)',fontWeight:600});
-      ld.appendChild(spinner());ld.appendChild(el('span',{},'Generating parent-friendly summary…'));
-      lb.appendChild(ld);
-      ed.appendChild(lb);
-    } else if(sumTxt){
-      const ab=el('div',{class:'ai-block'});
-      ab.appendChild(el('div',{class:'ai-label'},['✨ Parent-Friendly Summary']));
-      const sta=el('textarea',{class:'inp',style:{background:'white',minHeight:'88px'}});
-      sta.value=sumTxt;
-      sta.readOnly=activeNote.locked;
-      sta.oninput=e=>{
-        S.vaultSummary=e.target.value;
-        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+      // Editable title
+      const titleRow=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
+      const ti=el('input',{class:'inp',style:{fontWeight:800,fontSize:'.95rem',marginBottom:'0',flex:1}});
+      ti.value=note.title;
+      ti.disabled=note.locked;
+      ti.placeholder='Session date or title';
+      ti.oninput=e=>{
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+        if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
+        S.vaultHasUnsaved=true;
       };
-      ab.appendChild(sta);
-      if(!activeNote.locked&&!activeNote.published){
-        const pubBtn=mkBtn('📤 Lock & Publish to Parent','btn-md btn-primary',()=>{
-          openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
-            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===activeNote.id);
-            if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
-            try{
-              await _supa.from('vault_notes').upsert({id:activeNote.id,specialist_id:specId,child_id:activeNote.childId,household_id:null,title:activeNote.title,content:activeNote.content,summary:S.vaultSummary||activeNote.summary||null,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
-              const noteChild=DB.children.find(c=>c.id===activeNote.childId)||(LS.get('children',[])).find(c=>c.id===activeNote.childId);
-              if(noteChild?.householdId){
-                const {data:parentProfile}=await _supa.from('profiles').select('id').eq('household_id',noteChild.householdId).eq('role','parent').single();
-                if(parentProfile){
-                  await _supa.from('notifications').insert({id:'notif_'+Date.now(),user_id:parentProfile.id,household_id:noteChild.householdId,child_id:activeNote.childId,type:'report',message:`${session.name||'Your specialist'} published a session summary for ${noteChild.name}`,read:false});
-                }
-              }
-            }catch(e){console.error('publish note:',e);}
-            // notifyOtherParty called via parent insert above
-            S.vaultHasUnsaved=false;re();toast('🎉 Summary published!');
-          });
+      const minBtn=mkBtn('▲ Minimise','btn-sm btn-ghost',()=>{
+        if(S.vaultHasUnsaved){
+          openConfirm('Unsaved Changes','Minimise without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
+          return;
+        }
+        S.activeVaultId=null;S.vaultSummary='';re();
+      });
+      titleRow.appendChild(ti);
+      titleRow.appendChild(minBtn);
+      body.appendChild(titleRow);
+
+      // Clinical notes textarea
+      body.appendChild(el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']));
+      const ta=el('textarea',{class:'inp',style:{minHeight:'120px',background:note.locked?'#f8fafc':''}});
+      ta.value=note.content;
+      ta.readOnly=note.locked;
+      ta.oninput=e=>{
+        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+        if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
+        S.vaultHasUnsaved=true;
+      };
+      body.appendChild(ta);
+
+      if(!note.locked){
+        // Action buttons row
+        const actRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}});
+
+        // Save draft
+        const saveDraftBtn=mkBtn('💾 Save Draft','btn-sm btn-slate',async()=>{
+          const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+          if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
+          try{
+            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+          }catch(e){console.error('save draft:',e);}
+          S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
         });
-        pubBtn.style.marginTop='12px';
-        ab.appendChild(pubBtn);
+
+        // Create parent summary button (replaces AI Summarize)
+        const summaryBtn=mkBtn('📝 Create Parent Summary','btn-sm btn-secondary',()=>{
+          if(!ta.value.trim()){toast('Write some notes first!','error');return;}
+          // Expand the summary section and focus it
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+          if(i>-1&&!ns[i].summary){ns[i].summary='';DB.vaultNotes=ns;}
+          S.vaultSummary=note.summary||'';
+          re();
+          // Scroll to summary after render
+          setTimeout(()=>{const sa=document.getElementById('vault-summary-'+note.id);if(sa)sa.focus();},100);
+        });
+
+        // Lock session notes button
+        const lockBtn=mkBtn('🔒 Lock Session Notes','btn-sm btn-ghost',()=>{
+          const hasSummary=!!(S.vaultSummary||(note.summary||''));
+          if(!hasSummary){
+            // Warn: no parent summary written
+            openConfirm(
+              '⚠️ No Parent Summary',
+              'You haven\'t written a parent summary for this note. Parents won\'t be able to see a summary. Continue locking anyway?',
+              true,
+              ()=>{
+                // Second confirm: permanent lock warning
+                openConfirm('Lock Session Notes?',
+                  'This will permanently lock these notes and make them a read-only record. This cannot be undone.',
+                  true,
+                  async()=>{
+                    const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+                    if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                    S.vaultHasUnsaved=false;re();toast('🔒 Session notes locked!');
+                  }
+                );
+              }
+            );
+          } else {
+            openConfirm('Lock Session Notes?',
+              'This will permanently lock these notes and make them a read-only record. This cannot be undone.',
+              true,
+              async()=>{
+                const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+                if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                S.vaultHasUnsaved=false;re();toast('🔒 Session notes locked!');
+              }
+            );
+          }
+        });
+
+        actRow.appendChild(saveDraftBtn);
+        actRow.appendChild(summaryBtn);
+        actRow.appendChild(lockBtn);
+        body.appendChild(actRow);
       }
-      ed.appendChild(ab);
+
+      // Parent summary section
+      const sumTxt=S.vaultSummary||(note.summary||'');
+      if(sumTxt!==undefined){
+        const hasSumContent=sumTxt.length>0;
+        const showSumSection=hasSumContent||(note.isDraft&&!note.locked);
+        if(showSumSection||!note.locked){
+          const ab=el('div',{class:'ai-block'});
+          ab.appendChild(el('div',{class:'ai-label'},['📤 Parent Summary']));
+          const sta=el('textarea',{class:'inp',style:{background:note.locked?'#f8fafc':'white',minHeight:'88px'}});
+          sta.id='vault-summary-'+note.id;
+          sta.value=sumTxt;
+          sta.readOnly=note.locked;
+          sta.placeholder='Write a parent-friendly summary here. This will be published to the parent when you\'re ready.';
+          sta.oninput=e=>{
+            S.vaultSummary=e.target.value;
+            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+            if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+            S.vaultHasUnsaved=true;
+          };
+          ab.appendChild(sta);
+          if(!note.locked&&!note.published){
+            const pubBtn=mkBtn('📤 Publish Summary to Parent','btn-md btn-primary',()=>{
+              if(!(S.vaultSummary||note.summary||'').trim()){toast('Write a summary before publishing','error');return;}
+              openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
+                const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+                if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+                try{
+                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:S.vaultSummary||note.summary||null,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+                  // Notify ALL household members (not just primary parent)
+                  const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
+                  await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
+                }catch(e){console.error('publish note:',e);}
+                S.vaultHasUnsaved=false;re();toast('🎉 Summary published to parent!');
+              });
+            });
+            pubBtn.style.marginTop='10px';
+            ab.appendChild(pubBtn);
+          }
+          body.appendChild(ab);
+        }
+      }
+
+      wrapper.appendChild(body);
     }
-    layout.appendChild(ed);
-  }
-  sec.appendChild(layout);
+
+    noteStack.appendChild(wrapper);
+  });
+
+  sec.appendChild(noteStack);
   return sec;
 }
+
 
 /* -----------------------------------------------
    HOMEWORK — PARENT VIEW
@@ -6663,6 +6634,300 @@ function renderVault(){
 /* -----------------------------------------------
    TO-DO LIST WITH REMINDERS
 ----------------------------------------------- */
+
+/* -----------------------------------------------
+   SPECIALIST CLINICAL TASK MANAGER
+   A focused task manager for clinical work —
+   separate from the parent personal to-do list.
+----------------------------------------------- */
+function renderSpecTodo(){
+  const specId=session?.specialistId||session?.id;
+  const allTasks=(DB.specTasks||[]).filter(t=>t.specialistId===specId||t.specialist_id===specId);
+  const children=DB.children.length?DB.children:LS.get('children',[]);
+
+  const CATEGORIES=['All','Follow-up','Report Due','Assessment','IEP/EHCP','Referral','Parent Comms','Admin','Other'];
+  const PRIORITIES=[{v:'urgent',label:'🔴 Urgent',color:'var(--coral)'},{v:'normal',label:'🟡 Normal',color:'var(--amber)'},{v:'low',label:'🟢 Low',color:'var(--teal)'}];
+
+  const activeFilter=S._specTaskFilter||'All';
+
+  const filtered=allTasks.filter(t=>{
+    if(activeFilter==='All')return true;
+    return (t.category||'Other')===activeFilter;
+  });
+  const pending=filtered.filter(t=>!t.completed).sort((a,b)=>{
+    // Urgent first, then by due date
+    const pa=a.priority==='urgent'?0:a.priority==='low'?2:1;
+    const pb=b.priority==='urgent'?0:b.priority==='low'?2:1;
+    if(pa!==pb)return pa-pb;
+    if(a.dueDate&&b.dueDate)return a.dueDate.localeCompare(b.dueDate);
+    if(a.dueDate)return -1;if(b.dueDate)return 1;
+    return 0;
+  });
+  const done=filtered.filter(t=>t.completed).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+
+  const sec=el('div',{class:'section'});
+  const hd=el('div',{class:'sec-hd'});
+  hd.appendChild(el('div',{class:'sec-hd-left'},[
+    el('h2',{class:'page-title'},['✅ Clinical Tasks']),
+    el('p',{class:'page-sub'},['Follow-ups, reports, referrals and reminders'])
+  ]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[
+    mkBtn('➕ New Task','btn-md btn-primary',()=>showSpecTaskModal())
+  ]));
+  sec.appendChild(hd);
+
+  // Stats row
+  const urgentCount=allTasks.filter(t=>!t.completed&&t.priority==='urgent').length;
+  const overdueCount=allTasks.filter(t=>!t.completed&&t.dueDate&&t.dueDate<new Date().toISOString().split('T')[0]).length;
+  const todayStr=new Date().toISOString().split('T')[0];
+  const todayCount=allTasks.filter(t=>!t.completed&&t.dueDate===todayStr).length;
+
+  if(urgentCount||overdueCount||todayCount){
+    const statsRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
+    if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' Urgent']));
+    if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' Overdue']));
+    if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' Due Today']));
+    sec.appendChild(statsRow);
+  }
+
+  // Category filter chips
+  const filterRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'16px',overflowX:'auto',paddingBottom:'4px'}});
+  CATEGORIES.forEach(cat=>{
+    const count=cat==='All'?allTasks.filter(t=>!t.completed).length:allTasks.filter(t=>!t.completed&&(t.category||'Other')===cat).length;
+    if(cat!=='All'&&count===0)return; // hide empty categories
+    const isActive=activeFilter===cat;
+    const chip=el('button',{style:{
+      padding:'5px 13px',borderRadius:'99px',border:'1.5px solid '+(isActive?'var(--teal)':'var(--mint-l)'),
+      background:isActive?'var(--teal)':'#fff',color:isActive?'#fff':'var(--navy)',
+      fontWeight:700,fontSize:'.76rem',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0
+    }},[cat+(count?` (${count})`:'')]);
+    chip.onclick=()=>{S._specTaskFilter=cat;re();};
+    filterRow.appendChild(chip);
+  });
+  sec.appendChild(filterRow);
+
+  if(!allTasks.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['✅']),
+      el('div',{class:'empty-state-title'},['No tasks yet']),
+      el('div',{class:'empty-state-body'},['Add clinical tasks — follow-ups, reports, referrals — to stay on top of your caseload.'])
+    ]));
+    return sec;
+  }
+
+  // Pending tasks
+  if(pending.length){
+    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['Pending ('+pending.length+')']));
+    const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'20px'}});
+    pending.forEach(task=>_renderSpecTaskCard(task,stack,specId,children));
+    sec.appendChild(stack);
+  }
+
+  // Done tasks (collapsible, max 10)
+  if(done.length){
+    const doneHd=el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}});
+    doneHd.appendChild(el('span',{},[`Completed (${done.length})`]));
+    doneHd.appendChild(el('span',{style:{fontSize:'.8rem',color:'var(--slate-l)'}},[S._specTaskDoneOpen?'▲':'▼']));
+    doneHd.onclick=()=>{S._specTaskDoneOpen=!S._specTaskDoneOpen;re();};
+    sec.appendChild(doneHd);
+    if(S._specTaskDoneOpen){
+      const doneStack=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}});
+      done.slice(0,10).forEach(task=>_renderSpecTaskCard(task,doneStack,specId,children));
+      sec.appendChild(doneStack);
+    }
+  }
+
+  return sec;
+}
+
+function _renderSpecTaskCard(task,container,specId,children){
+  const child=task.childId?(children.find(c=>c.id===task.childId)):null;
+  const today=new Date().toISOString().split('T')[0];
+  const isOverdue=task.dueDate&&!task.completed&&task.dueDate<today;
+  const isDueToday=task.dueDate===today&&!task.completed;
+
+  const priorityColor=task.priority==='urgent'?'var(--coral)':task.priority==='low'?'var(--teal)':'var(--amber)';
+
+  const card=el('div',{class:'card',style:{
+    display:'flex',gap:'12px',alignItems:'flex-start',
+    borderLeft:'4px solid '+(task.completed?'var(--mint-l)':isOverdue?'var(--coral)':isDueToday?'#f59e0b':priorityColor),
+    opacity:task.completed?'0.6':'1',padding:'12px 14px'
+  }});
+
+  // Checkbox
+  const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+  chk.style.cssText='flex-shrink:0;margin-top:2px;';
+  chk.onclick=async()=>{
+    const nowDone=!task.completed;
+    const all=DB.specTasks,i=all.findIndex(t=>t.id===task.id);
+    if(i>-1){all[i].completed=nowDone;all[i].completedAt=nowDone?new Date().toISOString():null;DB.specTasks=all;}
+    try{await _supa.from('spec_tasks').update({completed:nowDone,completed_at:nowDone?new Date().toISOString():null}).eq('id',task.id);}catch(e){}
+    re();
+  };
+  card.appendChild(chk);
+
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  info.appendChild(el('div',{style:{
+    fontWeight:700,fontSize:'.87rem',lineHeight:'1.4',marginBottom:'5px',
+    color:task.completed?'var(--slate-l)':'var(--navy)',
+    textDecoration:task.completed?'line-through':'none'
+  }},[task.title||'Task']));
+
+  const meta=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}});
+  // Category badge
+  if(task.category&&task.category!=='Other')meta.appendChild(badge(task.category,'teal'));
+  // Patient link
+  if(child)meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},[child.avatar+' '+child.name]));
+  // Due date
+  if(task.dueDate){
+    const dueStyle={fontSize:'.7rem',fontWeight:700,color:isOverdue?'var(--coral)':isDueToday?'#f59e0b':'var(--slate)'};
+    meta.appendChild(el('span',{style:dueStyle},[isOverdue?'⚠️ Overdue: '+task.dueDate:isDueToday?'📅 Due today':'📅 '+task.dueDate]));
+  }
+  // Reminder
+  if(task.reminder&&task.reminder!=='none')meta.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:600}},['🔔 '+task.reminder.replace(/-/g,' ')]));
+  if(meta.childNodes.length)info.appendChild(meta);
+
+  // Notes preview
+  if(task.notes&&!task.completed){
+    info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'5px',lineHeight:'1.4',fontStyle:'italic'}},[task.notes.slice(0,80)+(task.notes.length>80?'…':'')]));
+  }
+
+  card.appendChild(info);
+
+  if(!task.completed){
+    const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showSpecTaskModal(task));
+    editBtn.style.flexShrink='0';
+    card.appendChild(editBtn);
+  }
+
+  container.appendChild(card);
+}
+
+function showSpecTaskModal(existing=null){
+  const title=existing?'Edit Clinical Task':'New Clinical Task';
+  openModal(title,(mb,close)=>{
+    const children=DB.children.length?DB.children:LS.get('children',[]);
+    const specId=session?.specialistId||session?.id;
+
+    const CATS=['Follow-up','Report Due','Assessment','IEP/EHCP','Referral','Parent Comms','Admin','Other'];
+
+    // Task title
+    mb.appendChild(el('div',{class:'inp-label'},['Task *']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Write progress report for Lily'});
+    if(existing)titleInp.value=existing.title||'';
+    mb.appendChild(titleInp);
+
+    // Notes
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const notesInp=el('textarea',{class:'inp',style:{minHeight:'60px'},placeholder:'Add any context or details…'});
+    if(existing)notesInp.value=existing.notes||'';
+    mb.appendChild(notesInp);
+
+    // Category
+    mb.appendChild(el('div',{class:'inp-label'},['Category']));
+    const catSel=el('select',{class:'inp'});
+    CATS.forEach(c=>{
+      const opt=el('option',{value:c},[c]);
+      if((existing?.category||'Follow-up')===c)opt.selected=true;
+      catSel.appendChild(opt);
+    });
+    mb.appendChild(catSel);
+
+    // Priority
+    mb.appendChild(el('div',{class:'inp-label'},['Priority']));
+    const priRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
+    const priState={v:existing?.priority||'normal'};
+    [['urgent','🔴 Urgent'],['normal','🟡 Normal'],['low','🟢 Low']].forEach(([v,l])=>{
+      const btn=el('button',{style:{
+        flex:1,padding:'7px 4px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',
+        cursor:'pointer',fontSize:'.76rem',fontWeight:700,
+        background:priState.v===v?'var(--navy)':'#fff',
+        color:priState.v===v?'#fff':'var(--navy)'
+      }},[l]);
+      btn.onclick=()=>{
+        priState.v=v;
+        priRow.querySelectorAll('button').forEach((b,i)=>{
+          const vals=['urgent','normal','low'];
+          b.style.background=priState.v===vals[i]?'var(--navy)':'#fff';
+          b.style.color=priState.v===vals[i]?'#fff':'var(--navy)';
+        });
+      };
+      priRow.appendChild(btn);
+    });
+    mb.appendChild(priRow);
+
+    // Related patient
+    mb.appendChild(el('div',{class:'inp-label'},['Related Patient (optional)']));
+    const childSel=el('select',{class:'inp'});
+    childSel.appendChild(el('option',{value:''},['— No specific patient —']));
+    children.forEach(c=>{
+      const opt=el('option',{value:c.id},[c.avatar+' '+c.name]);
+      if(existing?.childId===c.id)opt.selected=true;
+      childSel.appendChild(opt);
+    });
+    mb.appendChild(childSel);
+
+    // Due date
+    mb.appendChild(el('div',{class:'inp-label'},['Due Date (optional)']));
+    const dueInp=el('input',{class:'inp',type:'date'});
+    if(existing?.dueDate)dueInp.value=existing.dueDate;
+    mb.appendChild(dueInp);
+
+    // Reminder
+    mb.appendChild(el('div',{class:'inp-label'},['Reminder (optional)']));
+    const remSel=el('select',{class:'inp'});
+    [['','No reminder'],['on-due-date','On due date'],['1-day-before','1 day before'],['1-week-before','1 week before']].forEach(([v,l])=>{
+      const opt=el('option',{value:v},[l]);
+      if((existing?.reminder||'')===v)opt.selected=true;
+      remSel.appendChild(opt);
+    });
+    mb.appendChild(remSel);
+
+    // Delete option for existing tasks
+    if(existing){
+      const delBtn=mkBtn('🗑️ Delete Task','btn-sm btn-ghost',async()=>{
+        const all=DB.specTasks.filter(t=>t.id!==existing.id);DB.specTasks=all;
+        try{await _supa.from('spec_tasks').delete().eq('id',existing.id);}catch(e){}
+        close();re();toast('Task deleted');
+      });
+      delBtn.style.cssText='margin-top:6px;width:100%;color:var(--coral);';
+      mb.appendChild(delBtn);
+    }
+
+    const saveBtn=mkBtn(existing?'Save Changes':'Add Task','btn-lg btn-primary btn-full',async()=>{
+      const taskTitle=titleInp.value.trim();
+      if(!taskTitle){toast('Enter a task title','error');return;}
+      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      const now=new Date().toISOString();
+
+      if(existing){
+        const all=DB.specTasks,i=all.findIndex(t=>t.id===existing.id);
+        if(i>-1){
+          Object.assign(all[i],{title:taskTitle,notes:notesInp.value.trim(),category:catSel.value,priority:priState.v,childId:childSel.value||null,dueDate:dueInp.value||null,reminder:remSel.value||null});
+          DB.specTasks=all;
+        }
+        try{
+          await _supa.from('spec_tasks').update({title:taskTitle,notes:notesInp.value.trim(),category:catSel.value,priority:priState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null}).eq('id',existing.id);
+        }catch(e){console.error('update spec task:',e);}
+      } else {
+        const newTask={id:'st_'+Date.now(),specialistId:specId,specialist_id:specId,
+          title:taskTitle,notes:notesInp.value.trim(),category:catSel.value,priority:priState.v,
+          childId:childSel.value||null,child_id:childSel.value||null,
+          dueDate:dueInp.value||null,due_date:dueInp.value||null,
+          reminder:remSel.value||null,completed:false,createdAt:now,created_at:now};
+        const all=DB.specTasks;all.unshift(newTask);DB.specTasks=all;
+        try{
+          await _supa.from('spec_tasks').insert({id:newTask.id,specialist_id:specId,title:taskTitle,notes:notesInp.value.trim(),category:catSel.value,priority:priState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null,completed:false,created_at:now});
+        }catch(e){console.error('create spec task:',e);}
+      }
+      close();re();toast(existing?'Task updated':'Task added ✅');
+    });
+    mb.appendChild(saveBtn);
+  },480);
+}
+
+
+
 function renderTodoList(){
   const isParent=session?.role==='parent';
   const childId=S.activeChild;
@@ -7423,167 +7688,7 @@ function renderEmailInbox(){
   return sec;
 }
 
-/* -----------------------------------------------
-   2. PROGRESS TRACKING (charts + milestones)
------------------------------------------------ */
-function renderProgress(){
-  const child=DB.children.find(c=>c.id===S.activeChild);
-  const progressData=DB.progress.filter(p=>p.childId===S.activeChild);
-  const milestones=DB.milestones.filter(m=>m.childId===S.activeChild);
-  const sec=el('div',{class:'section'});
-
-  const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
-  rightEl.appendChild(mkBtn('➕','btn-sm btn-primary',()=>showAddMilestoneModal()));
-  rightEl.appendChild(mkBtn('📊','btn-sm btn-ghost',()=>showLogMeasurementModal()));
-  sec.appendChild(mkSubHeader('📈 Progress',rightEl));
-
-  // Tab bar
-  const tabs=el('div',{class:'prog-tabs'});
-  [{id:'overview',label:'📊 Overview'},{id:'milestones',label:'🏆 Milestones'},{id:'history',label:'📅 History'}].forEach(t=>{
-    const tb=el('div',{class:'prog-tab'+(S.activeProgressTab===t.id?' active':'')});
-    tb.textContent=t.label;tb.onclick=()=>{S.activeProgressTab=t.id;re();};
-    tabs.appendChild(tb);
-  });
-  sec.appendChild(tabs);
-
-  if(S.activeProgressTab==='overview'){
-    // Group by category, show latest value as progress bar
-    const cats=[...new Set(progressData.map(p=>p.category))];
-    if(!cats.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No measurements logged yet. Click "Log Measurement" to start!']));return sec;}
-    const g=el('div',{class:'g2'});
-    cats.forEach(cat=>{
-      const catData=progressData.filter(p=>p.category===cat).sort((a,b)=>b.date.localeCompare(a.date));
-      const latest=catData[0];const prev=catData[1];
-      const pct=Math.round((latest.value/latest.maxValue)*100);
-      const trend=prev?latest.value-prev.value:null;
-      const card=el('div',{class:'card hov'});
-      card.appendChild(badge(cat,catBadge(cat)));
-      card.appendChild(el('div',{style:{fontWeight:800,fontSize:'1.3rem',color:'var(--navy)',margin:'10px 0 2px'}},[latest.value+latest.unit+' / '+latest.maxValue+latest.unit]));
-      card.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginBottom:'10px'}},[latest.label+' · '+latest.date]));
-      const bar=el('div',{class:'progress-bar-wrap'});
-      const fill=el('div',{class:'progress-bar-fill',style:{width:pct+'%',background:cat==='Speech'?'var(--teal)':cat==='OT'?'var(--coral)':cat==='PT'?'var(--lav-d)':'var(--slate)'}});
-      bar.appendChild(fill);card.appendChild(bar);
-      if(trend!==null){
-        const trendEl=el('div',{style:{fontSize:'.76rem',marginTop:'7px',fontWeight:700,color:trend>=0?'#166534':'#be123c'}},
-          [(trend>=0?'▲ +':'▼ ')+Math.abs(trend)+latest.unit+' since last session']);
-        card.appendChild(trendEl);
-      }
-      g.appendChild(card);
-    });
-    sec.appendChild(g);
-
-  } else if(S.activeProgressTab==='milestones'){
-    const achieved=milestones.filter(m=>m.achieved);
-    const pending=milestones.filter(m=>!m.achieved);
-    if(!milestones.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No milestones set yet. Click "Add Milestone" to add some!']));return sec;}
-    if(achieved.length){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🏆 Achieved']));
-      achieved.forEach(m=>{
-        const mi=el('div',{class:'milestone-item'});
-        mi.appendChild(el('div',{class:'milestone-dot done'}));
-        const inf=d('',[], {flex:1});
-        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
-        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},['✅ Achieved '+m.date]));
-        mi.appendChild(inf);mi.appendChild(badge(m.category,catBadge(m.category)));
-        sec.appendChild(mi);
-      });
-    }
-    if(pending.length){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'18px 0 12px'}},['🎯 In Progress']));
-      pending.forEach(m=>{
-        const mi=el('div',{class:'milestone-item'});
-        mi.appendChild(el('div',{class:'milestone-dot pending'}));
-        const inf=d('',[], {flex:1});
-        inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[m.title]));
-        inf.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'2px'}},['Target: '+m.date]));
-        mi.appendChild(inf);
-        const acts=d('',[], {display:'flex',gap:'7px'});
-        acts.appendChild(badge(m.category,catBadge(m.category)));
-        acts.appendChild(mkBtn('✅ Mark Achieved','btn-sm btn-secondary',async()=>{
-          const today=new Date().toISOString().split('T')[0];
-          const ms=DB.milestones,i=ms.findIndex(x=>x.id===m.id);
-          if(i>-1){ms[i].achieved=true;ms[i].date=today;DB.milestones=ms;}
-          try{await _supa.from('milestones').update({achieved:true,date:today}).eq('id',m.id);}catch(e){console.error('mark milestone:',e);}
-          await notifyOtherParty('report','🏆 Milestone achieved: "'+m.title+'"',S.activeChild,'progress');re();toast('🏆 Milestone marked as achieved!');
-        }));
-        acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Milestone','Remove this milestone?',true,()=>{
-          const ms=DB.milestones;DB.milestones=ms.filter(x=>x.id!==m.id);re();
-        })));
-        mi.appendChild(acts);
-        sec.appendChild(mi);
-      });
-    }
-
-  } else { // history
-    if(!progressData.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No history yet.']));return sec;}
-    const sorted=[...progressData].sort((a,b)=>b.date.localeCompare(a.date));
-    const stack=el('div',{class:'stack'});
-    sorted.forEach(p=>{
-      const spec=getChildTeam(S.activeChild).find(s=>s.id===p.specialistId)||{name:p.specialistName||'Specialist'};
-      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center'}});
-      const pct=Math.round((p.value/p.maxValue)*100);
-      const circ=el('div',{style:{width:'52px',height:'52px',borderRadius:'50%',background:`conic-gradient(var(--teal) ${pct*3.6}deg,#e2e8f0 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
-      circ.appendChild(el('div',{style:{width:'38px',height:'38px',borderRadius:'50%',background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.68rem',fontWeight:900,color:'var(--navy)'}},[pct+'%']));
-      card.appendChild(circ);
-      const inf=d('',[], {flex:1});
-      inf.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[p.label]));
-      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[p.value+p.unit+' / '+p.maxValue+p.unit+' · '+p.date]));
-      if(spec)inf.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[spec.name]));
-      card.appendChild(inf);
-      card.appendChild(badge(p.category,catBadge(p.category)));
-      stack.appendChild(card);
-    });
-    sec.appendChild(stack);
-  }
-  return sec;
-}
-
-function showAddMilestoneModal(){
-  openModal('🏆 Add Milestone',(mb,close)=>{
-    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
-    const ti=el('input',{class:'inp',placeholder:'e.g. First full sentence spoken'});
-    const catSel=el('select',{class:'inp'});
-    ['Speech','OT','PT','General','School'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date',placeholder:'Target date','data-placeholder':'Target date'});
-    [ti,catSel,di].forEach(i=>ig.appendChild(i));
-    mb.appendChild(ig);
-    mb.appendChild(mkBtn('✅ Add Milestone','btn-lg btn-primary btn-full',()=>{
-      if(!ti.value||!di.value){toast('⚠️ Title and target date required.','error');return;}
-      const newMs={id:'ml_'+Date.now(),childId:S.activeChild,title:ti.value.trim(),date:di.value,achieved:false,category:catSel.value,specialistId:session?.specialistId||null};
-      (async()=>{
-        try{
-          await _supa.from('milestones').insert({id:newMs.id,child_id:newMs.childId,household_id:session.householdId||null,label:newMs.title,date:newMs.date,achieved:false,category:newMs.category,specialist_id:newMs.specialistId||null});
-          const ms=DB.milestones;ms.push(newMs);DB.milestones=ms;close();re();toast('✅ Milestone added!');
-        }catch(e){console.error('add milestone:',e);toast('Could not save milestone.','error');}
-      })();
-    }));
-  },440);
-}
-
-function showLogMeasurementModal(){
-  openModal('📊 Log Measurement',(mb,close)=>{
-    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
-    const lb=el('input',{class:'inp',placeholder:'e.g. S-blend accuracy'});
-    const catSel=el('select',{class:'inp'});
-    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
-    const vi=el('input',{class:'inp',type:'number',placeholder:'Value (e.g. 78)'});
-    const mi2=el('input',{class:'inp',type:'number',placeholder:'Max value (e.g. 100)'});
-    const ui=el('input',{class:'inp',placeholder:'Unit (e.g. %, pts, sec)'});
-    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
-    [lb,catSel,vi,mi2,ui,di].forEach(i=>ig.appendChild(i));
-    mb.appendChild(ig);
-    mb.appendChild(mkBtn('📊 Save Measurement','btn-lg btn-primary btn-full',()=>{
-      if(!lb.value||!vi.value||!mi2.value||!di.value){toast('⚠️ All fields required.','error');return;}
-      const newProg={id:'p_'+Date.now(),childId:S.activeChild,category:catSel.value,label:lb.value.trim(),value:parseFloat(vi.value),maxValue:parseFloat(mi2.value),unit:ui.value||'',date:di.value,specialistId:session?.specialistId||null};
-      (async()=>{
-        try{
-          await _supa.from('progress').insert({id:newProg.id,child_id:newProg.childId,household_id:session.householdId||null,specialist_id:newProg.specialistId,category:newProg.category,label:newProg.label,value:newProg.value,max_value:newProg.maxValue,unit:newProg.unit,date:newProg.date});
-          const ps=DB.progress;ps.push(newProg);DB.progress=ps;close();S.activeProgressTab='overview';re();toast('📊 Measurement logged!');
-        }catch(e){console.error('log measurement:',e);toast('Could not save measurement.','error');}
-      })();
-    }));
-  },460);
-}
+function renderProgress(){return renderSessionSummaries();}
 
 /* -----------------------------------------------
    3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
@@ -7924,38 +8029,112 @@ function renderSpecialistRequest(){
       (injected into parent dashboard as a section)
 ----------------------------------------------- */
 function renderPublishedSummaries(){
-  const child=DB.children.find(c=>c.id===S.activeChild);
-  const published=DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary);
-  if(!published.length)return null;
+  // Kept for backward compatibility — no longer rendered directly on parent dashboard
+  return null;
+}
 
-  const wrap=el('div',{class:'card',style:{marginBottom:'20px'}});
-  wrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📄 Session Summaries from Your Team']));
-  published.forEach(note=>{
-    const spec=getChildTeam(note.childId||S.activeChild).find(s=>s.id===note.specialistId)||{name:note.specialistName||'Specialist'};
-    const nb=el('div',{class:'ai-block',style:{marginBottom:'12px'}});
-    const hdr=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'});
-    hdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.86rem'}},[spec?.name+' · '+note.date]));
-    hdr.appendChild(badge(note.locked?'🔒 Locked':'Published','teal'));
-    nb.appendChild(hdr);
-    // Parents see read-only view; specialists can edit until locked
-    const isParentView=session?.role==='parent';
-    const isReadOnly=note.locked||isParentView;
-    const ta=el('textarea',{class:'inp',style:{background:isReadOnly?'#f8fafc':'white',minHeight:'80px',fontSize:'.85rem'}});
-    ta.value=note.summary;
-    ta.readOnly=isReadOnly;
-    if(!isReadOnly){
-      ta.oninput=e=>{
-        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-        if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
-      };
+/* Session Summaries — full view for parents (accessed via child profile bubble) */
+function renderSessionSummaries(){
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const sec=el('div',{class:'section'});
+
+  // Back button to child profile
+  const backBtn=mkBtn('← '+( child?.name||'Back'),'btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+
+  sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
+  sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+" · Summaries published by your care team"]));
+
+  // Get published notes for this child — from all specialists
+  const published=[...DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary)]
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+  if(!published.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📄']),
+      el('div',{class:'empty-state-title'},['No summaries yet']),
+      el('div',{class:'empty-state-body'},['When a specialist publishes a session summary, it will appear here.'])
+    ]));
+    return sec;
+  }
+
+  // Group by specialist
+  const specIds=[...new Set(published.map(n=>n.specialistId))];
+  const selectedSpec=S._summarySpecFilter||null;
+
+  // Specialist filter row
+  if(specIds.length>1){
+    const filterRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
+    const allBtn=el('button',{style:{
+      padding:'6px 14px',borderRadius:'99px',border:'1.5px solid var(--mint-l)',
+      cursor:'pointer',fontSize:'.78rem',fontWeight:700,
+      background:!selectedSpec?'var(--teal)':'#fff',
+      color:!selectedSpec?'#fff':'var(--navy)'
+    }},['All Specialists']);
+    allBtn.onclick=()=>{S._summarySpecFilter=null;re();};
+    filterRow.appendChild(allBtn);
+    specIds.forEach(sid=>{
+      const spec=getChildTeam(S.activeChild).find(s=>s.id===sid)||{name:'Specialist'};
+      const btn=el('button',{style:{
+        padding:'6px 14px',borderRadius:'99px',border:'1.5px solid var(--mint-l)',
+        cursor:'pointer',fontSize:'.78rem',fontWeight:700,
+        background:selectedSpec===sid?'var(--teal)':'#fff',
+        color:selectedSpec===sid?'#fff':'var(--navy)'
+      }},[spec.name]);
+      btn.onclick=()=>{S._summarySpecFilter=sid;re();};
+      filterRow.appendChild(btn);
+    });
+    sec.appendChild(filterRow);
+  }
+
+  const filtered=selectedSpec?published.filter(n=>n.specialistId===selectedSpec):published;
+
+  // Accordion list
+  const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}});
+  filtered.forEach(note=>{
+    const spec=getChildTeam(S.activeChild).find(s=>s.id===note.specialistId)||{name:note.specialistName||'Specialist'};
+    const isOpen=S._summaryOpen===note.id;
+
+    const wrapper=el('div',{class:'card',style:{
+      border:isOpen?'2px solid var(--teal)':'1.5px solid var(--mint-l)',
+      padding:'0',overflow:'hidden'
+    }});
+
+    // Header row
+    const header=el('div',{style:{
+      display:'flex',alignItems:'center',gap:'10px',padding:'12px 14px',
+      cursor:'pointer',background:isOpen?'var(--mint-ll)':'#fff'
+    }});
+    const specAvatar=el('div',{style:{
+      width:'32px',height:'32px',borderRadius:'50%',background:'var(--lavender)',
+      display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0
+    }},['🔬']);
+    const info=el('div',{style:{flex:1,minWidth:0}});
+    info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)'}},[note.title||note.date]));
+    info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'2px'}},[spec.name+(note.date?' · '+note.date:'')]));
+    const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
+    header.appendChild(specAvatar);
+    header.appendChild(info);
+    if(note.locked)header.appendChild(el('span',{style:{fontSize:'.85rem'}},['🔒']));
+    header.appendChild(chevron);
+    header.onclick=()=>{S._summaryOpen=isOpen?null:note.id;re();};
+    wrapper.appendChild(header);
+
+    if(isOpen){
+      const body=el('div',{style:{padding:'14px',borderTop:'1.5px solid var(--mint-l)'}});
+      body.appendChild(el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.7',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[note.summary]));
+      const minBtn=mkBtn('▲ Minimise','btn-sm btn-ghost',()=>{S._summaryOpen=null;re();});
+      minBtn.style.marginTop='12px';
+      body.appendChild(minBtn);
+      wrapper.appendChild(body);
     }
-    nb.appendChild(ta);
-    if(!isReadOnly){
-      nb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['✏️ Edit your summary before locking']));
-    }
-    wrap.appendChild(nb);
+
+    stack.appendChild(wrapper);
   });
-  return wrap;
+
+  sec.appendChild(stack);
+  return sec;
 }
 
 /* -----------------------------------------------
