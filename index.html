@@ -8352,88 +8352,371 @@ function renderSpecialistSettings(){
 }
 
 function renderAdminDashboard(){
-  const sec=el('div',{class:'section',style:{maxWidth:'900px',margin:'0 auto'}});
-  sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'4px'}},['⚙️ Admin Dashboard']));
-  sec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'24px'}},['Live data from Supabase']));
+  if(session?.email!=='admin@huddledin.com')return renderSettings();
+  const sec=el('div',{class:'section',style:{maxWidth:'960px',margin:'0 auto',paddingBottom:'40px'}});
 
-  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'14px',marginBottom:'24px'}});
+  // Header
+  const hdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}});
+  hdr.appendChild(el('div',{},[
+    el('h2',{class:'page-title',style:{marginBottom:'2px'}},['⚙️ Admin Dashboard']),
+    el('div',{style:{fontSize:'.75rem',color:'var(--slate)'}},['admin@huddledin.com — live data'])
+  ]));
+  const refreshBtn=mkBtn('🔄 Refresh','btn-sm btn-secondary',()=>{S._adminData=null;re();});
+  hdr.appendChild(refreshBtn);
+  sec.appendChild(hdr);
 
-  function statCard(icon,label,value,sub,color){
-    const c=el('div',{class:'card',style:{padding:'18px 16px',borderTop:'3px solid '+(color||'var(--teal)')}});
-    c.appendChild(el('div',{style:{fontSize:'1.6rem',marginBottom:'6px'}},[icon]));
-    c.appendChild(el('div',{style:{fontSize:'1.5rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},[value]));
-    c.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--slate)',marginTop:'4px'}},[label]));
-    if(sub)c.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'2px'}},[sub]));
+  // Tabs
+  const TABS=[{id:'overview',label:'📊 Overview'},{id:'retention',label:'❤️ Retention'},{id:'engagement',label:'⚡ Engagement'},{id:'specialists',label:'🔬 Specialists'},{id:'growth',label:'📈 Growth'}];
+  if(!S._adminTab)S._adminTab='overview';
+  const tabBar=el('div',{style:{display:'flex',gap:'6px',marginBottom:'20px',flexWrap:'wrap'}});
+  TABS.forEach(t=>{
+    const active=S._adminTab===t.id;
+    const btn=el('button',{style:{padding:'7px 14px',borderRadius:'99px',border:'none',cursor:'pointer',fontSize:'.78rem',fontWeight:700,background:active?'var(--teal)':'var(--mint-ll)',color:active?'#fff':'var(--navy)',transition:'all .15s'}});
+    btn.textContent=t.label;
+    btn.onclick=()=>{S._adminTab=t.id;re();};
+    tabBar.appendChild(btn);
+  });
+  sec.appendChild(tabBar);
+
+  // Content area — shows loading state, replaced with real data
+  const content=el('div',{id:'admin-content'});
+  sec.appendChild(content);
+
+  function statCard(icon,label,value,sub,color,warn){
+    const c=el('div',{class:'card',style:{padding:'16px',borderTop:'3px solid '+(color||'var(--teal)'),position:'relative'}});
+    if(warn)c.appendChild(el('div',{style:{position:'absolute',top:'10px',right:'12px',fontSize:'.7rem',background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[warn]));
+    c.appendChild(el('div',{style:{fontSize:'1.4rem',marginBottom:'4px'}},[icon]));
+    c.appendChild(el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},[String(value)]));
+    c.appendChild(el('div',{style:{fontSize:'.76rem',fontWeight:700,color:'var(--slate)',marginTop:'4px'}},[label]));
+    if(sub)c.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'2px'}},[sub]));
     return c;
   }
 
+  function grid(...cards){
+    const g=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:'12px',marginBottom:'20px'}});
+    cards.forEach(c=>{if(c)g.appendChild(c);});
+    return g;
+  }
+
   function sectionHead(title){
-    const h=el('div',{style:{gridColumn:'1/-1',fontWeight:800,color:'var(--navy)',fontSize:'.82rem',textTransform:'uppercase',letterSpacing:'.06em',marginTop:'8px',paddingBottom:'6px',borderBottom:'1.5px solid var(--mint-l)'}});
+    const h=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.8rem',textTransform:'uppercase',letterSpacing:'.07em',margin:'20px 0 10px',paddingBottom:'6px',borderBottom:'1.5px solid var(--mint-l)'}});
     h.textContent=title;
     return h;
   }
 
-  // Placeholder cards while loading
-  const placeholders=['👥 Users','🏠 Households','👶 Children','🔗 Specialists','📅 Appointments','💬 Messages','📁 Files','✅ To-Dos','📆 Google Cal','⚠️ At Risk'];
-  grid.appendChild(sectionHead('Users'));
-  placeholders.forEach(p=>{grid.appendChild(statCard(p.split(' ')[0],p.split(' ').slice(1).join(' '),'…','loading','var(--mint-l)'));});
-  sec.appendChild(grid);
+  function barChart(data,key,color,title,height){
+    height=height||120;
+    const max=Math.max(...data.map(d=>d[key]),1);
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},[title]));
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','100%');
+    svg.setAttribute('height',String(height+30));
+    svg.style.overflow='visible';
+    const w=100/data.length;
+    data.forEach((d,i)=>{
+      const barH=Math.max(2,Math.round((d[key]/max)*height));
+      const x=i*w+w*0.15;
+      const bw=w*0.7;
+      // Bar
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',x+'%');
+      rect.setAttribute('y',String(height-barH));
+      rect.setAttribute('width',bw+'%');
+      rect.setAttribute('height',String(barH));
+      rect.setAttribute('rx','3');
+      rect.setAttribute('fill',color||'var(--teal)');
+      svg.appendChild(rect);
+      // Value label
+      if(d[key]>0){
+        const vt=document.createElementNS('http://www.w3.org/2000/svg','text');
+        vt.setAttribute('x',(x+bw/2)+'%');
+        vt.setAttribute('y',String(height-barH-4));
+        vt.setAttribute('text-anchor','middle');
+        vt.setAttribute('font-size','9');
+        vt.setAttribute('fill','var(--navy)');
+        vt.setAttribute('font-weight','700');
+        vt.textContent=String(d[key]);
+        svg.appendChild(vt);
+      }
+      // X label
+      const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      lt.setAttribute('x',(x+bw/2)+'%');
+      lt.setAttribute('y',String(height+16));
+      lt.setAttribute('text-anchor','middle');
+      lt.setAttribute('font-size','8');
+      lt.setAttribute('fill','var(--slate)');
+      lt.textContent=d.label||'';
+      svg.appendChild(lt);
+    });
+    wrap.appendChild(svg);
+    return wrap;
+  }
 
-  // Load all stats from secure API route
+  function multiBarChart(data,keys,colors,title){
+    const height=100;
+    const max=Math.max(...data.flatMap(d=>keys.map(k=>d[k])),1);
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'8px'}},[title]));
+    // Legend
+    const leg=el('div',{style:{display:'flex',gap:'12px',marginBottom:'10px',flexWrap:'wrap'}});
+    keys.forEach((k,i)=>{
+      const item=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',fontSize:'.72rem',color:'var(--slate)',fontWeight:700}});
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'3px',background:colors[i],flexShrink:0}});
+      item.appendChild(dot);item.appendChild(document.createTextNode(k));
+      leg.appendChild(item);
+    });
+    wrap.appendChild(leg);
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','100%');
+    svg.setAttribute('height',String(height+30));
+    svg.style.overflow='visible';
+    const groupW=100/data.length;
+    const barW=groupW*0.7/keys.length;
+    data.forEach((d,i)=>{
+      keys.forEach((k,ki)=>{
+        const barH=Math.max(1,Math.round((d[k]/max)*height));
+        const x=i*groupW+groupW*0.15+ki*barW;
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',x+'%');
+        rect.setAttribute('y',String(height-barH));
+        rect.setAttribute('width',(barW*0.85)+'%');
+        rect.setAttribute('height',String(barH));
+        rect.setAttribute('rx','2');
+        rect.setAttribute('fill',colors[ki]);
+        svg.appendChild(rect);
+      });
+      const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      lt.setAttribute('x',(i*groupW+groupW/2)+'%');
+      lt.setAttribute('y',String(height+16));
+      lt.setAttribute('text-anchor','middle');
+      lt.setAttribute('font-size','8');
+      lt.setAttribute('fill','var(--slate)');
+      lt.textContent=d.label||'';
+      svg.appendChild(lt);
+    });
+    wrap.appendChild(svg);
+    return wrap;
+  }
+
+  function donutChart(slices,title){
+    const wrap=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+    wrap.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},[title]));
+    const total=slices.reduce((s,sl)=>s+sl.value,0)||1;
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','-1 -1 2 2');
+    svg.setAttribute('width','120');svg.setAttribute('height','120');
+    svg.style.transform='rotate(-90deg)';
+    let cumAngle=0;
+    slices.forEach(sl=>{
+      const angle=(sl.value/total)*Math.PI*2;
+      const x1=Math.cos(cumAngle),y1=Math.sin(cumAngle);
+      const x2=Math.cos(cumAngle+angle),y2=Math.sin(cumAngle+angle);
+      const large=angle>Math.PI?1:0;
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',`M 0 0 L ${x1} ${y1} A 1 1 0 ${large} 1 ${x2} ${y2} Z`);
+      path.setAttribute('fill',sl.color);
+      svg.appendChild(path);
+      cumAngle+=angle;
+    });
+    // Center hole
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx','0');circle.setAttribute('cy','0');circle.setAttribute('r','0.6');
+    circle.setAttribute('fill','white');
+    svg.appendChild(circle);
+    const row=el('div',{style:{display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}});
+    row.appendChild(svg);
+    const leg=el('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}});
+    slices.forEach(sl=>{
+      const item=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'.75rem',color:'var(--navy)',fontWeight:700}});
+      const dot=el('div',{style:{width:'10px',height:'10px',borderRadius:'50%',background:sl.color,flexShrink:0}});
+      const pct=total>0?Math.round((sl.value/total)*100):0;
+      item.appendChild(dot);
+      item.appendChild(document.createTextNode(sl.label+': '+sl.value+' ('+pct+'%)'));
+      leg.appendChild(item);
+    });
+    row.appendChild(leg);
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function progressBar(label,value,total,color){
+    const pct=total>0?Math.round((value/total)*100):0;
+    const wrap=el('div',{style:{marginBottom:'10px'}});
+    const lrow=el('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'.76rem',fontWeight:700,color:'var(--navy)',marginBottom:'4px'}});
+    lrow.appendChild(document.createTextNode(label));
+    lrow.appendChild(document.createTextNode(value+' / '+total+' ('+pct+'%)'));
+    wrap.appendChild(lrow);
+    const track=el('div',{style:{height:'8px',borderRadius:'99px',background:'var(--mint-ll)',overflow:'hidden'}});
+    const fill=el('div',{style:{height:'100%',width:pct+'%',borderRadius:'99px',background:color||'var(--teal)',transition:'width .4s ease'}});
+    track.appendChild(fill);wrap.appendChild(track);
+    return wrap;
+  }
+
+  function renderTab(d){
+    const t=S._adminTab;
+    if(t==='overview'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📊 Users'));
+      frag.appendChild(grid(
+        statCard('👥','Total Users',d.overview.totalUsers,'','var(--teal)'),
+        statCard('👨‍👩‍👧','Parents',d.overview.parents,'','var(--teal)'),
+        statCard('🔬','Specialists',d.overview.specialists,'','var(--lavender)'),
+        statCard('✨','New This Week',d.overview.newUsersWeek,'','var(--teal-l)')
+      ));
+      frag.appendChild(sectionHead('🏠 Families'));
+      frag.appendChild(grid(
+        statCard('🏠','Households',d.overview.households,'','var(--coral)'),
+        statCard('👶','Children',d.overview.children,'','var(--coral)'),
+        statCard('📅','Appointments',d.engagement.appointments,'all time','var(--teal)'),
+        statCard('💬','Messages',d.engagement.messages,'all time','var(--lavender)')
+      ));
+      frag.appendChild(sectionHead('⚡ Quick Health'));
+      frag.appendChild(grid(
+        statCard('✅','Active (7d)',d.retention.activeWeek,'users logged in','var(--teal)'),
+        statCard('😴','Dormant',d.retention.dormant,'no login 30d+','#f59e0b',d.retention.dormant>0?'Watch':''),
+        statCard('⚠️','No Specialist',d.retention.householdsNoSpec,'households','#f59e0b',d.retention.householdsNoSpec>0?'Gap':''),
+        statCard('🔔','Pending Requests',d.overview.pendingRequests,'awaiting approval',d.overview.pendingRequests>0?'var(--coral)':'var(--teal)',d.overview.pendingRequests>0?'Action':'')
+      ));
+      return frag;
+    }
+    if(t==='retention'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('👥 User Activity'));
+      frag.appendChild(grid(
+        statCard('✅','Active (7 days)',d.retention.activeWeek,'logged in recently','var(--teal)'),
+        statCard('📅','Active (30 days)',d.retention.activeMonth,'','var(--teal-l)'),
+        statCard('😴','Dormant',d.retention.dormant,'no login 30d+','#f59e0b'),
+        statCard('👻','Never Returned',d.overview.totalUsers-d.retention.activeMonth-d.retention.dormant,'never logged in again','var(--slate)')
+      ));
+      const retCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      retCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Activity Breakdown']));
+      retCard.appendChild(progressBar('Active this week',d.retention.activeWeek,d.overview.totalUsers,'var(--teal)'));
+      retCard.appendChild(progressBar('Active this month',d.retention.activeMonth,d.overview.totalUsers,'var(--teal-l)'));
+      retCard.appendChild(progressBar('Dormant 30d+',d.retention.dormant,d.overview.totalUsers,'#f59e0b'));
+      frag.appendChild(retCard);
+      frag.appendChild(sectionHead('🏠 Household Health'));
+      frag.appendChild(grid(
+        statCard('🏠','Total Households',d.overview.households,'','var(--coral)'),
+        statCard('🔗','With Specialist',d.overview.households-d.retention.householdsNoSpec,'connected','var(--teal)'),
+        statCard('⚠️','No Specialist Yet',d.retention.householdsNoSpec,'onboarding gap','#f59e0b'),
+        statCard('👻','No Children Added',d.retention.emptyHouseholds,'setup incomplete','#f59e0b')
+      ));
+      const hhCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      hhCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Household Funnel']));
+      hhCard.appendChild(progressBar('Added children',d.overview.households-d.retention.emptyHouseholds,d.overview.households,'var(--teal)'));
+      hhCard.appendChild(progressBar('Connected a specialist',d.overview.households-d.retention.householdsNoSpec,d.overview.households,'var(--lavender)'));
+      hhCard.appendChild(progressBar('Used appointments',d.engagement.householdsUsingApts,d.overview.households,'var(--coral)'));
+      hhCard.appendChild(progressBar('Used file sharing',d.engagement.householdsUsingFiles,d.overview.households,'var(--teal-l)'));
+      hhCard.appendChild(progressBar('Used chat',d.engagement.householdsUsingChats,d.overview.households,'var(--lavender)'));
+      frag.appendChild(hhCard);
+      return frag;
+    }
+    if(t==='engagement'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📅 Appointments'));
+      frag.appendChild(grid(
+        statCard('📅','Total',d.engagement.appointments,'all time','var(--teal)'),
+        statCard('📅','This Week',d.engagement.appointmentsWeek,'','var(--teal-l)')
+      ));
+      // Appointment types donut
+      const aptTypeSlices=Object.entries(d.engagement.aptTypes).map(([k,v],i)=>({
+        label:k,value:v,color:['var(--teal)','var(--lavender)','var(--coral)','var(--teal-l)','#f59e0b'][i%5]
+      }));
+      if(aptTypeSlices.length)frag.appendChild(donutChart(aptTypeSlices,'Appointment Types'));
+      frag.appendChild(sectionHead('💬 Communication'));
+      frag.appendChild(grid(
+        statCard('💬','Messages',d.engagement.messages,'all time','var(--lavender)'),
+        statCard('💬','This Week',d.engagement.messagesWeek,'','var(--lavender)'),
+        statCard('🗨️','Chat Threads',d.engagement.chats,'total','var(--lavender)')
+      ));
+      frag.appendChild(sectionHead('📁 Content'));
+      frag.appendChild(grid(
+        statCard('📁','Files',d.engagement.files,'uploaded','var(--coral)'),
+        statCard('📁','This Week',d.engagement.filesWeek,'','var(--coral)'),
+        statCard('✅','To-Dos',d.engagement.todos,'created','var(--teal)'),
+        statCard('✅','Completed',d.engagement.todosCompleted,'','var(--teal-l)'),
+        statCard('📋','Vault Notes',d.engagement.notes,'total','var(--lavender)'),
+        statCard('📋','Published',d.engagement.notesPublished,'shared with family','var(--lavender)')
+      ));
+      // Feature adoption
+      const featureCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      featureCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Feature Adoption by Household']));
+      featureCard.appendChild(progressBar('Appointments',d.engagement.householdsUsingApts,d.overview.households,'var(--teal)'));
+      featureCard.appendChild(progressBar('Chat',d.engagement.householdsUsingChats,d.overview.households,'var(--lavender)'));
+      featureCard.appendChild(progressBar('File Sharing',d.engagement.householdsUsingFiles,d.overview.households,'var(--coral)'));
+      frag.appendChild(featureCard);
+      return frag;
+    }
+    if(t==='specialists'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('🔬 Specialist Overview'));
+      frag.appendChild(grid(
+        statCard('🔬','Total',d.specialists.total,'registered','var(--lavender)'),
+        statCard('✅','Active',d.specialists.active,'have families','var(--teal)'),
+        statCard('👻','No Family Yet',d.specialists.noFamily,'registered but idle','#f59e0b',d.specialists.noFamily>0?'Idle':''),
+        statCard('⭐','Power Users',d.specialists.powerUsers,'2+ families','var(--teal)'),
+        statCard('📆','Google Cal',d.specialists.gcal,'connected','var(--teal-l)'),
+        statCard('🔔','Pending Requests',d.specialists.pendingRequests,'awaiting approval',d.specialists.pendingRequests>0?'var(--coral)':'var(--teal)')
+      ));
+      const specCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'14px'}});
+      specCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.82rem',marginBottom:'12px'}},['Specialist Funnel']));
+      specCard.appendChild(progressBar('Connected to a family',d.specialists.active,d.specialists.total,'var(--teal)'));
+      specCard.appendChild(progressBar('Power users (2+ families)',d.specialists.powerUsers,d.specialists.total,'var(--lavender)'));
+      specCard.appendChild(progressBar('Google Calendar connected',d.specialists.gcal,d.specialists.total,'var(--teal-l)'));
+      frag.appendChild(specCard);
+      frag.appendChild(donutChart([
+        {label:'Active',value:d.specialists.active,color:'var(--teal)'},
+        {label:'No family yet',value:d.specialists.noFamily,color:'#f59e0b'}
+      ],'Specialist Status'));
+      return frag;
+    }
+    if(t==='growth'){
+      const frag=document.createDocumentFragment();
+      frag.appendChild(sectionHead('📈 Weekly Trends (Last 8 Weeks)'));
+      frag.appendChild(multiBarChart(d.growth.weekly,['users','appointments','messages'],['var(--teal)','var(--coral)','var(--lavender)'],'Signups, Appointments & Messages by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'users','var(--teal)','New User Signups by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'appointments','var(--coral)','Appointments Created by Week'));
+      frag.appendChild(barChart(d.growth.weekly,'messages','var(--lavender)','Messages Sent by Week'));
+      frag.appendChild(sectionHead('👶 Children per Household'));
+      frag.appendChild(donutChart([
+        {label:'1 child',value:d.growth.childDist.one,color:'var(--teal)'},
+        {label:'2 children',value:d.growth.childDist.two,color:'var(--lavender)'},
+        {label:'3+ children',value:d.growth.childDist.threePlus,color:'var(--coral)'}
+      ],'Household Size Distribution'));
+      return frag;
+    }
+    return el('div',{},[]);
+  }
+
+  // Show loading skeleton then load
+  content.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',padding:'24px 0',textAlign:'center'}},['Loading…']));
+
   (async()=>{
     try{
-      const session_obj=await _supa.auth.getSession();
-      const jwt=session_obj?.data?.session?.access_token;
-      if(!jwt)throw new Error('No session token');
-
-      const r=await fetch('/api/admin-stats',{
-        headers:{'Authorization':'Bearer '+jwt}
-      });
-      if(!r.ok)throw new Error('API returned '+r.status);
+      if(S._adminData){
+        content.innerHTML='';
+        content.appendChild(renderTab(S._adminData));
+        return;
+      }
+      const sess=await _supa.auth.getSession();
+      const jwt=sess?.data?.session?.access_token;
+      if(!jwt)throw new Error('No session');
+      const r=await fetch('/api/admin-stats',{headers:{'Authorization':'Bearer '+jwt}});
+      if(!r.ok)throw new Error('API error '+r.status);
       const d=await r.json();
-
-      // Rebuild grid with real data
-      grid.innerHTML='';
-
-      grid.appendChild(sectionHead('👥 Users'));
-      grid.appendChild(statCard('👥','Total Users',String(d.users.total),'all roles','var(--teal)'));
-      grid.appendChild(statCard('👨‍👩‍👧','Parent Accounts',String(d.users.parents),'','var(--teal)'));
-      grid.appendChild(statCard('🔬','Specialists',String(d.users.specialists),'registered','var(--lavender)'));
-      grid.appendChild(statCard('✨','New This Week',String(d.users.newThisWeek),'signups','var(--teal-l)'));
-
-      grid.appendChild(sectionHead('🏠 Families'));
-      grid.appendChild(statCard('🏠','Households',String(d.families.households),'unique families','var(--coral)'));
-      grid.appendChild(statCard('👶','Children',String(d.families.children),'total','var(--coral)'));
-      grid.appendChild(statCard('🔗','Connected',String(d.families.withSpecialist),'have a specialist','var(--teal)'));
-      grid.appendChild(statCard('⚠️','No Specialist Yet',String(d.families.noSpecialist),'onboarding gap','#f59e0b'));
-
-      grid.appendChild(sectionHead('📊 Activity'));
-      grid.appendChild(statCard('📅','Appointments',String(d.activity.appointments),'all time','var(--teal)'));
-      grid.appendChild(statCard('📅','New This Week',String(d.activity.appointmentsThisWeek),'appointments','var(--teal-l)'));
-      grid.appendChild(statCard('💬','Messages',String(d.activity.messages),'all time','var(--lavender)'));
-      grid.appendChild(statCard('💬','New This Week',String(d.activity.messagesThisWeek),'messages','var(--lavender)'));
-      grid.appendChild(statCard('📁','Files',String(d.activity.files),'uploaded','var(--coral)'));
-      grid.appendChild(statCard('✅','To-Dos',String(d.activity.todos),'created | '+d.activity.todosCompleted+' done','var(--teal)'));
-
-      grid.appendChild(sectionHead('🔬 Specialists'));
-      grid.appendChild(statCard('🔬','Total',String(d.specialists.total),'registered','var(--lavender)'));
-      grid.appendChild(statCard('✅','Active',String(d.specialists.active),'have families','var(--teal)'));
-      grid.appendChild(statCard('📆','Google Cal',String(d.specialists.googleCal),'connected','var(--teal-l)'));
-
-      // Refresh button
-      const refreshBtn=mkBtn('🔄 Refresh','btn-sm btn-secondary',()=>{S.activeTab='settings';re();setTimeout(()=>{S.activeTab='admin';re();},50);});
-      refreshBtn.style.marginTop='8px';
-      sec.appendChild(refreshBtn);
-
+      S._adminData=d;
+      content.innerHTML='';
+      content.appendChild(renderTab(d));
     }catch(e){
-      console.error('Admin dashboard error:',e);
-      grid.innerHTML='';
-      grid.appendChild(el('div',{style:{gridColumn:'1/-1',color:'var(--coral)',fontWeight:700}},['Error loading data: '+e.message]));
+      content.innerHTML='';
+      content.appendChild(el('div',{style:{color:'var(--coral)',fontWeight:700,padding:'16px'}},['Error: '+e.message]));
     }
   })();
 
   return sec;
 }
+
 
 function renderSettings(){
   if(session?.role==='specialist')return renderSpecialistSettings();
