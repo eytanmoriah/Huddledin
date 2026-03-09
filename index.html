@@ -2669,7 +2669,7 @@ const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:
 function pushNotif(type,msg,childId,linkTab=null){
   // Auto-derive linkTab from type if not provided
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'chat',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Write to LOCAL DB only — so the current user sees it in their UI immediately
@@ -2686,7 +2686,7 @@ function pushNotif(type,msg,childId,linkTab=null){
 async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
   if(session?.id==='demo')return;
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'chat',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Get household_id — try cache first, then live Supabase lookup as fallback
@@ -3163,6 +3163,10 @@ function renderNotifBell(){
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
         } else if(tab){
           S.calFullscreen=false;S.activeTab=tab;
+          // Refresh data when deep-linking to team (so consult requests are loaded)
+          if(tab==='team'&&session?.role==='parent'&&session?.id!=='demo'){
+            refreshFromSupabase().then(()=>re()).catch(()=>{});
+          }
         } else {
           S.activeTab='notifications';
         }
@@ -3424,6 +3428,10 @@ function switchTab(id){
   }
   // Refresh published summaries when parent opens session-summaries view
   if(id==='session-summaries'&&session?.role==='parent'&&session?.id!=='demo'){
+    refreshFromSupabase().then(()=>re()).catch(()=>{});
+  }
+  // Refresh team/requests when parent opens Care Team (ensures consult requests are fresh)
+  if(id==='team'&&session?.role==='parent'&&session?.id!=='demo'){
     refreshFromSupabase().then(()=>re()).catch(()=>{});
   }
 }
@@ -7711,6 +7719,10 @@ function renderNotifications(){
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
         } else {
           S.calFullscreen=false;S.activeTab=tab;
+          // Refresh data when deep-linking to team (so consult requests are loaded)
+          if(tab==='team'&&session?.role==='parent'&&session?.id!=='demo'){
+            refreshFromSupabase().then(()=>re()).catch(()=>{});
+          }
         }
       }
       re();
