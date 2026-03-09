@@ -2288,9 +2288,9 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
       try{
-        // Only create if no existing request (don't overwrite already-approved)
+        // Only skip if there's already a pending row — approved rows don't block new requests
         const {data:existingReq}=await _supa.from('specialist_requests')
-          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).maybeSingle();
+          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).eq('status','pending').maybeSingle();
         if(!existingReq){
           // Resolve household_id — may not be on code row if parent hadn't set it yet
           let _hhid=row.household_id||null;
@@ -2376,8 +2376,8 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   try{
     if(_supa&&req.specialistId){
       await _supa.from('specialists').update({status:'active',child_id:req.childId}).eq('id',req.specialistId);
-      // Mark the request as approved so it stops appearing in parent notifications
-      await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
+      // Mark the request as approved — skip for synthetic rows (no real DB row to update)
+      if(!req._synthetic)await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
     }
   }catch(e){}
   // Auto-create folder + grant permission for specialist's profession
@@ -5276,6 +5276,17 @@ function renderTeam(){
     })();
   }
   if(child){
+    // Also synthesize join requests from specialists table for any pending specialist
+    // with no corresponding specialist_requests row (handles race conditions / old data)
+    const pendingSpecs=(DB.specialists||[]).filter(s=>s.status==='pending'&&(s.childId===child.id||s.child_id===child.id));
+    pendingSpecs.forEach(s=>{
+      const alreadyHasReq=(DB.specialistRequests||[]).some(r=>r.specialistId===s.id&&r.childId===child.id&&r.status==='pending');
+      if(!alreadyHasReq){
+        // Synthesize a virtual request so the approval card renders
+        const synth={id:'synth_'+s.id,specialistId:s.id,specialistName:s.name,role:s.role,childId:child.id,requestedAt:new Date().toISOString(),status:'pending',requestType:'join',requestedFolder:null,requestedFolderName:null,_synthetic:true};
+        const reqs=DB.specialistRequests||[];reqs.push(synth);DB.specialistRequests=reqs;
+      }
+    });
     const allPending=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
     const joinReqs=allPending.filter(r=>!r.requestType||r.requestType==='join');
     const folderReqs=allPending.filter(r=>r.requestType==='folder');
@@ -5363,8 +5374,12 @@ function renderTeam(){
             if(i>-1){all[i].status='approved';DB.specialistRequests=all;}
             const cs=DB.chats;cs.push(newChat);DB.chats=cs;
             // Notify both specialists
+            const _notifTime=new Date().toISOString();
             if(_supa&&specId){
-              try{await _supa.from('notifications').insert({id:'notif_'+Date.now(),user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:'Your consultation request was approved. Your secure chat is ready.',read:false});}catch(e){}
+              try{await _supa.from('notifications').insert({id:'notif_a_'+Date.now(),user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ Your consultation request regarding ${child.name} was approved. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});}catch(e){}
+            }
+            if(_supa&&targetSpecId&&targetSpecId!==specId){
+              try{await _supa.from('notifications').insert({id:'notif_b_'+Date.now(),user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});}catch(e){}
             }
           }catch(e){console.error('approve consult:',e);toast('Error approving. Try again.','error');return;}
           re();toast('✅ Consultation approved! Chat created.');
@@ -6134,7 +6149,7 @@ function renderChat(){
   }
   const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
   if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
-  if(role==='specialist')hdRight.appendChild(mkBtn('💬 Chat','btn-sm btn-primary',()=>showConsultModal()));
+  // Consult requests are initiated from the Patients list, not here
   hd.appendChild(hdRight);
   listWrap.appendChild(hd);
 
@@ -6415,111 +6430,130 @@ function renderChatThread(activeChat,specId,myId,onBack){
   return wrap;
 }
 
-function showConsultModal(){
-  openModal('🤝 Request to Consult',(mb,close)=>{
-    const specId=session?.specialistId;
-    // "Start Chat with Parent" section — no approval required
-    const chatSection=el('div',{style:{marginBottom:'18px',padding:'14px',background:'var(--mint-ll)',borderRadius:'14px',border:'1.5px solid var(--mint-l)'}});
-    chatSection.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'8px',fontSize:'.9rem'}},['💬 Start Chat with Parent']));
-    chatSection.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'10px',margin:'0 0 10px'}},['Open a direct message thread with the parent — no approval required.']));
-    chatSection.appendChild(mkBtn('💬 Start Chat with Parent','btn-sm btn-primary',()=>{
-      let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(specId)&&c.childId===S.activeChild);
-      (async()=>{
-        if(!chat){
-          chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',specId],childId:S.activeChild,approved:true,messages:[],unreadFor:['parent']};
-          try{
-            await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:chat.name||null,participants:chat.participants,approved:true,unread_for:['parent']});
-            const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
-            await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,S.activeChild,'chat',{chatId:chat.id});
-          }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
-        }
-        S.activeChatId=chat.id;S.chatsLoaded=true;
-        close();switchTab('chat');
-      })();
-    }));
-    mb.appendChild(chatSection);
-    // FIX B3: declare spec before it is referenced in the click handler closure
-    const spec=getMySpecialistRecord();
-    const otherSpecs=getChildTeam(S.activeChild).filter(s=>s.id!==session?.specialistId&&s.status!=='pending');
-    if(otherSpecs.length){
-      mb.appendChild(el('div',{style:{borderTop:'1.5px solid var(--mint-l)',marginTop:'14px',paddingTop:'14px'}}));
-      mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
-        ['Request a specialist-to-specialist consultation:']));
-      otherSpecs.forEach(s=>{
-        const includeState={v:false};
-        const panel=el('div',{style:{borderRadius:'14px',border:'1.5px solid var(--mint-l)',marginBottom:'12px',overflow:'hidden'}});
-        // Specialist row
-        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'11px 14px',background:'var(--mint-ll)'}});
-        topRow.appendChild(mkAvatar(s.avatar,34));
-        const info=d('',[], {flex:1});
-        info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]));
-        info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
-        topRow.appendChild(info);
-        panel.appendChild(topRow);
-        // Include parent toggle
-        const toggleRow=el('div',{style:{padding:'10px 14px',borderTop:'1px solid var(--mint-l)',display:'flex',flexDirection:'column',gap:'8px'}});
-        const toggleLbl=el('div',{style:{fontSize:'.76rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'4px'}},['Chat Visibility']);
-        toggleRow.appendChild(toggleLbl);
-        const opts=el('div',{style:{display:'flex',gap:'8px'}});
-        const mkOptBtn=(label,icon,val,desc)=>{
-          const btn=el('button',{style:{
-            flex:1,padding:'8px 6px',borderRadius:'10px',border:'1.5px solid var(--mint-l)',
-            cursor:'pointer',textAlign:'center',fontSize:'.76rem',fontWeight:700,
-            background:includeState.v===val?'var(--navy)':'#fff',
-            color:includeState.v===val?'#fff':'var(--navy)',transition:'all .15s'
-          }});
-          btn.appendChild(el('div',{style:{fontSize:'1.1rem',marginBottom:'3px'}},[icon]));
-          btn.appendChild(el('div',{},[label]));
-          btn.appendChild(el('div',{style:{fontSize:'.67rem',fontWeight:500,marginTop:'2px',opacity:'.8'}},[desc]));
-          btn.onclick=()=>{
-            includeState.v=val;
-            opts.querySelectorAll('button').forEach((b,i)=>{
-              const vals=[false,true];
-              b.style.background=includeState.v===vals[i]?'var(--navy)':'#fff';
-              b.style.color=includeState.v===vals[i]?'#fff':'var(--navy)';
-            });
-          };
-          return btn;
-        };
-        opts.appendChild(mkOptBtn('Private','🔒',false,'Specialists only'));
-        opts.appendChild(mkOptBtn('Include Parent','👨‍👩‍👧',true,'3-way chat'));
-        toggleRow.appendChild(opts);
-        panel.appendChild(toggleRow);
-        // Request button
-        const reqRow=el('div',{style:{padding:'10px 14px',borderTop:'1px solid var(--mint-l)'}});
-        const reqBtn=mkBtn('📤 Send Consultation Request','btn-sm btn-primary btn-full',async()=>{
-          reqBtn.disabled=true;reqBtn.textContent='Sending…';
-          try{
-            const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
-            const visLabel=includeState.v?'inclusive':'private';
-            await _supa.from('specialist_requests').insert({
-              specialist_id:session.specialistId||session.id,
-              specialist_name:spec?.name||session?.name||'Specialist',
-              role:spec?.role||session?.profession||'Specialist',
-              child_id:S.activeChild,
-              parent_id:child?.parentId||null,
-              household_id:getChildHouseholdId(S.activeChild),
-              status:'pending',
-              request_type:'consult',
-              requested_folder:s.id,
-              requested_folder_name:s.name+'|'+visLabel,
-              requested_at:new Date().toISOString()
-            });
-            const visText=includeState.v?'inclusive (you will be included)':'private (specialists only)';
-            await notifyOtherParty('consult',`${spec?.name||'A specialist'} has requested to consult with ${s.name} regarding ${child?.name||'your child'}. This will be a ${visText} conversation.`,S.activeChild,'team');
-            close();toast('✅ Request sent — parent will be notified.');
-          }catch(e){
-            console.error('consult request:',e);
-            reqBtn.disabled=false;reqBtn.textContent='📤 Send Consultation Request';
-            toast('Could not send request. Try again.','error');
-          }
-        });
-        reqRow.appendChild(reqBtn);
-        panel.appendChild(reqRow);
-        mb.appendChild(panel);
-      });
+function showConsultModal(childId){
+  // childId can be passed directly or fall back to active child
+  const cid=childId||S.activeChild;
+  const child=DB.children.find(c=>c.id===cid)||(LS.get('children',[])||[]).find(c=>c.id===cid);
+  const spec=getMySpecialistRecord();
+  const mySpecId=session?.specialistId||session?.id;
+
+  openModal('🤝 Request Consultation',(mb,close)=>{
+    // Header — who this is about
+    const hdr=el('div',{style:{
+      background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+      borderRadius:'12px',padding:'13px 15px',marginBottom:'18px',
+      border:'1.5px solid var(--lav)'
+    }});
+    hdr.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'.92rem',marginBottom:'3px'}},
+      ['Specialist Consultation Request']));
+    hdr.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},
+      ['Regarding: '+(child?.name||'this patient')+'. The parent will be notified and must approve before the chat begins.']));
+    mb.appendChild(hdr);
+
+    // Pick a specialist to consult with
+    const otherSpecs=getChildTeam(cid).filter(s=>s.id!==mySpecId&&s.status!=='pending');
+
+    if(!otherSpecs.length){
+      mb.appendChild(el('div',{style:{textAlign:'center',padding:'24px 0',color:'var(--slate)'}},
+        [el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['👥']),
+         el('div',{style:{fontWeight:700}},['No other specialists on this team yet.']),
+         el('div',{style:{fontSize:'.8rem',marginTop:'6px'}},['The parent needs to add another specialist to this child\'s care team before you can request a consultation.'])]));
+      mb.appendChild(mkBtn('Close','btn-md btn-ghost',close));
+      return;
     }
-  },480);
+
+    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},['Select specialist to consult with:']));
+
+    // State for selected specialist and visibility
+    const state={targetId:otherSpecs[0].id,targetName:otherSpecs[0].name,inclusive:false};
+
+    // Specialist picker
+    const specList=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'18px'}});
+    otherSpecs.forEach(s=>{
+      const row=el('div',{style:{
+        display:'flex',alignItems:'center',gap:'12px',padding:'11px 13px',
+        borderRadius:'13px',border:'2px solid var(--mint-l)',
+        background:'var(--mint-ll)',cursor:'pointer',transition:'all .15s'
+      }});
+      const rb=el('input',{type:'radio',name:'consult-spec-pick'});
+      rb.value=s.id; rb.checked=(s.id===state.targetId);
+      rb.onchange=()=>{state.targetId=s.id;state.targetName=s.name;};
+      row.appendChild(rb);
+      row.appendChild(mkAvatar(s.avatar||'🩺',34,'#d1fae5'));
+      const si=d('',[], {flex:1});
+      si.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}},[s.name]));
+      si.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
+      row.appendChild(si);
+      row.onclick=()=>{rb.checked=true;state.targetId=s.id;state.targetName=s.name;};
+      specList.appendChild(row);
+    });
+    mb.appendChild(specList);
+
+    // Visibility toggle
+    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Parent access to this chat:']));
+    const visRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'20px'}});
+    const mkVisBtn=(label,icon,val,desc)=>{
+      const btn=el('button',{style:{
+        flex:1,padding:'10px 8px',borderRadius:'11px',cursor:'pointer',textAlign:'center',
+        border:'2px solid '+(state.inclusive===val?'var(--navy)':'var(--mint-l)'),
+        background:state.inclusive===val?'var(--navy)':'#fff',
+        color:state.inclusive===val?'#fff':'var(--navy)',
+        fontWeight:700,fontSize:'.76rem',transition:'all .15s'
+      }});
+      btn.appendChild(el('div',{style:{fontSize:'1.2rem',marginBottom:'4px'}},[icon]));
+      btn.appendChild(el('div',{},[label]));
+      btn.appendChild(el('div',{style:{fontSize:'.66rem',opacity:'.75',marginTop:'3px',fontWeight:500}},[desc]));
+      btn.onclick=()=>{
+        state.inclusive=val;
+        visRow.querySelectorAll('button').forEach((b,i)=>{
+          const matched=(i===0&&val===false)||(i===1&&val===true);
+          b.style.background=matched?'var(--navy)':'#fff';
+          b.style.color=matched?'#fff':'var(--navy)';
+          b.style.borderColor=matched?'var(--navy)':'var(--mint-l)';
+        });
+      };
+      return btn;
+    };
+    visRow.appendChild(mkVisBtn('Private','🔒',false,'Specialists only'));
+    visRow.appendChild(mkVisBtn('Include Parent','👨‍👩‍👧',true,'Parent joins chat'));
+    mb.appendChild(visRow);
+
+    // Send button
+    const sendBtn=mkBtn('📤 Send Consultation Request','btn-md btn-primary btn-full',async()=>{
+      sendBtn.disabled=true;sendBtn.textContent='Sending…';
+      try{
+        const hhid=getChildHouseholdId(cid);
+        const childParentId=child?.parentId||null;
+        const visLabel=state.inclusive?'inclusive':'private';
+        const visText=state.inclusive
+          ?'inclusive — you will be included in the conversation'
+          :'private — specialists only (you will be able to see the chat exists but not read messages)';
+        await _supa.from('specialist_requests').insert({
+          specialist_id:mySpecId,
+          specialist_name:spec?.name||session?.name||'Specialist',
+          role:spec?.role||session?.profession||'Specialist',
+          child_id:cid,
+          parent_id:childParentId,
+          household_id:hhid,
+          status:'pending',
+          request_type:'consult',
+          requested_folder:state.targetId,
+          requested_folder_name:state.targetName+'|'+visLabel,
+          requested_at:new Date().toISOString()
+        });
+        await notifyOtherParty('consult',
+          `${spec?.name||'A specialist'} has requested to consult with ${state.targetName} regarding ${child?.name||'your patient'}. This conversation will be ${visText}.`,
+          cid,'team');
+        close();
+        toast('✅ Request sent — awaiting parent approval.');
+      }catch(e){
+        console.error('consult request error:',e);
+        sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
+        toast('Could not send request. Please try again.','error');
+      }
+    });
+    mb.appendChild(sendBtn);
+  },500);
 }
 
 /* -----------------------------------------------
@@ -7506,6 +7540,15 @@ function renderPatients(){
         re();
       };
       card.appendChild(toggle);
+      // Consult button — only for active patients
+      if(!isInactive){
+        const consultBtn=mkBtn('🤝 Consult','btn-sm btn-lav',e=>{
+          e.stopPropagation();
+          S.activeChild=c.id;
+          showConsultModal(c.id);
+        });
+        card.appendChild(consultBtn);
+      }
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
       card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
       stack.appendChild(card);
