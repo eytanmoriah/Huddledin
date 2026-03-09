@@ -5276,11 +5276,22 @@ function renderTeam(){
     (async()=>{
       try{
         const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
+        console.log('[renderTeam] querying with householdId:',session.householdId,'parentId:',session.id,'childIds:',_childIds);
         let _allReqs=[];
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        if(session.householdId){const {data:r1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId);_dedup(r1);}
-        const {data:r2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);_dedup(r2);
-        if(_childIds.length){const {data:r3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);_dedup(r3);}
+        if(session.householdId){
+          const {data:r1,error:e1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId);
+          console.log('[renderTeam] by household_id:',r1?.length||0,'rows, error:',e1);_dedup(r1);
+        }
+        const {data:r2,error:e2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);
+        console.log('[renderTeam] by parent_id:',r2?.length||0,'rows, error:',e2);_dedup(r2);
+        if(_childIds.length){
+          const {data:r3,error:e3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);
+          console.log('[renderTeam] by child_id:',r3?.length||0,'rows, error:',e3);_dedup(r3);
+        }
+        // Last resort — fetch ALL pending requests visible to this user
+        const {data:r4,error:e4}=await _supa.from('specialist_requests').select('*').eq('status','pending');
+        console.log('[renderTeam] all pending visible:',r4?.length||0,'rows, error:',e4);_dedup(r4);
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prev=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
