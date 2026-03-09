@@ -16,11 +16,15 @@ export default async function handler(req, res) {
       const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`, {
         headers: {
           'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Prefer': 'count=none'
         }
       });
       const text = await r.text();
       if (!r.ok) { console.error(`Query failed ${table} (${r.status}):`, text); return []; }
+      if (!text || text === 'null') { console.warn(`Empty response for ${table}`); return []; }
       try { return JSON.parse(text); } catch(e) { console.error(`Parse failed ${table}:`, text.slice(0,200)); return []; }
       return r.json();
     };
@@ -38,6 +42,10 @@ export default async function handler(req, res) {
     const authUsers = authData.users || [];
     const authMap = {};
     authUsers.forEach(u => { authMap[u.id] = u; });
+
+    // Diagnostic: test one query directly
+    const testProfiles = await q('profiles', 'select=id,role&limit=3');
+    console.log('DIAGNOSTIC profiles sample:', JSON.stringify(testProfiles).slice(0, 200));
 
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
       q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name'),
