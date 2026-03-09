@@ -1614,7 +1614,17 @@ async function refreshFromSupabase(){
         // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
         _supa.from('chats').select('*').eq('household_id',hid||session.id)
           .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
-          .catch(e=>console.error('refresh chats:',e))
+          .catch(e=>console.error('refresh chats:',e)),
+        // Published session summaries — parents see only published:true, no clinical content
+        (async()=>{
+          try{
+            const childIds=(LS.get('children',[])||[]).map(c=>c.id);
+            if(childIds.length){
+              const {data:vnotes}=await _supa.from('vault_notes').select('id,specialist_id,child_id,title,summary,published,locked,created_at').in('child_id',childIds).eq('published',true);
+              LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||''})));
+            }
+          }catch(e){console.error('refresh parent vaultNotes:',e);}
+        })()
       ]);
     } else if(session.role==='specialist'){
       const specId=session.specialistId||session.id;
@@ -2659,7 +2669,7 @@ const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:
 function pushNotif(type,msg,childId,linkTab=null){
   // Auto-derive linkTab from type if not provided
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'chat',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Write to LOCAL DB only — so the current user sees it in their UI immediately
@@ -2676,7 +2686,7 @@ function pushNotif(type,msg,childId,linkTab=null){
 async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
   if(session?.id==='demo')return;
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'vault',invite:'team',consult:'chat',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'chat',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Get household_id — try cache first, then live Supabase lookup as fallback
@@ -3410,6 +3420,10 @@ function switchTab(id){
   re();
   // Refresh folders+files from Supabase when opening File Manager
   if(id==='files'&&session?.id!=='demo'){
+    refreshFromSupabase().then(()=>re()).catch(()=>{});
+  }
+  // Refresh published summaries when parent opens session-summaries view
+  if(id==='session-summaries'&&session?.role==='parent'&&session?.id!=='demo'){
     refreshFromSupabase().then(()=>re()).catch(()=>{});
   }
 }
@@ -4233,7 +4247,7 @@ function renderParentDashboard(){
     const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
-    sq.onclick=()=>{if(fn)fn();else{S.activeTab=tab;re();}};
+    sq.onclick=()=>{if(fn)fn();else switchTab(tab);};
     navGrid.appendChild(sq);
   });
   sec.appendChild(navGrid);
