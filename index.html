@@ -8876,17 +8876,44 @@ function renderAdminDashboard(){
               [['📅','Appointments',detail.appointments||0],
                ['💬','Messages',detail.messages||0],
                ['📁','Files',detail.files||0],
-               ['✅','To-Dos',detail.todos||0],
-               ['📋','Notes',detail.notes||0],
-               ['🤝','Connections',detail.connections||0]
+               ['✅','To-Dos',(detail.todos||0)+' / '+(detail.todosCompleted||0)+' done'],
+               ['📋','Notes',(detail.notes||0)+' / '+(detail.notesPublished||0)+' pub'],
+               ['🤝','Connections',detail.connections||0],
+               ['👶','Children',detail.children||0],
+               ['⏳','Pending',detail.pendingRequests||0]
               ].forEach(([icon,label,val])=>{
                 const c=el('div',{style:{background:'var(--mint-ll)',borderRadius:'10px',padding:'10px',textAlign:'center'}});
                 c.appendChild(el('div',{style:{fontSize:'1.2rem'}},[icon]));
-                c.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.1rem',color:'var(--navy)'}},[String(val)]));
+                c.appendChild(el('div',{style:{fontWeight:900,fontSize:'1rem',color:'var(--navy)'}},[String(val)]));
                 c.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',fontWeight:700}},[label]));
                 statsGrid.appendChild(c);
               });
               mb.appendChild(statsGrid);
+
+              // Recent appointments
+              if((detail.recentApts||[]).length){
+                const aptSec=el('div',{style:{marginBottom:'12px'}});
+                aptSec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.78rem',color:'var(--navy)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.05em'}},['Recent Appointments']));
+                (detail.recentApts||[]).forEach(a=>{
+                  const row=el('div',{style:{fontSize:'.76rem',padding:'4px 0',borderBottom:'1px solid var(--mint-ll)',color:'var(--navy)'}});
+                  row.textContent=(a.date||'?')+' — '+(a.title||'Appointment')+(a.type?' ('+a.type+')':'');
+                  aptSec.appendChild(row);
+                });
+                mb.appendChild(aptSec);
+              }
+
+              // Team members / families
+              const teamList=detail.teamMembers||detail.approvedFamilies||[];
+              if(teamList.length){
+                const teamSec=el('div',{style:{marginBottom:'12px'}});
+                teamSec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.78rem',color:'var(--navy)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.05em'}},['Connected '+(u.role==='specialist'?'Families':'Specialists')]));
+                teamList.forEach(r=>{
+                  const row=el('div',{style:{fontSize:'.76rem',padding:'4px 0',borderBottom:'1px solid var(--mint-ll)',color:'var(--navy)'}});
+                  row.textContent=(r.specialist_name||r.role||'Member')+' — connected '+new Date(r.created_at||Date.now()).toLocaleDateString();
+                  teamSec.appendChild(row);
+                });
+                mb.appendChild(teamSec);
+              }
 
               // Email compose section
               const emailSection=el('div',{style:{marginBottom:'12px',padding:'14px',background:'var(--mint-ll)',borderRadius:'12px'}});
