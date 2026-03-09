@@ -42,9 +42,9 @@ export default async function handler(req, res) {
       q('children', 'select=id,household_id,created_at'),
       q('appointments', 'select=id,created_at,household_id,child_id,type'),
       q('messages', 'select=id,created_at,chat_id'),
-      q('files', 'select=id,created_at,household_id'),
+      q('files', 'select=id,created_at'),
       q('todos', 'select=id,created_at,completed,user_id'),
-      q('specialist_requests', 'select=id,specialist_id,household_id,status,created_at,specialist_name,child_id,role'),
+      q('specialist_requests', 'select=id,specialist_id,household_id,status,created_at,specialist_name,child_id'),
       q('chats', 'select=id,household_id,created_at,type'),
       q('vault_notes', 'select=id,created_at,specialist_id,published')
     ]);
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     const emptyHouseholds = [...households].filter(hid => !householdsWithChildren.has(hid)).length;
 
     const householdsUsingApts = new Set(appointments.map(a => a.household_id).filter(Boolean));
-    const householdsUsingFiles = new Set(files.map(f => f.household_id).filter(Boolean));
+    const householdsUsingFiles = new Set(); // files table has no household_id
     const householdsUsingChats = new Set(chats.map(c => c.household_id).filter(Boolean));
 
     const specsNoFamily = specialists.filter(s => !specsWithFamily.has(s.id)).length;
@@ -192,7 +192,7 @@ export default async function handler(req, res) {
         messages: messages.length,
         messagesWeek: messages.filter(m => m.created_at > weekAgo).length,
         files: files.length,
-        filesWeek: files.filter(f => f.created_at > weekAgo).length,
+        filesWeek: files.filter(f => f.created_at && f.created_at > weekAgo).length,
         todos: todos.length,
         todosCompleted: todos.filter(t => t.completed).length,
         notes: notes.length,
