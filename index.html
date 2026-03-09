@@ -1563,15 +1563,20 @@ async function refreshFromSupabase(){
         if(allFolders.length>0)LS.set('folders',allFolders);
       }catch(e){}
       // Load pending specialist requests from Supabase
+      // Use multiple queries with OR logic — rows may be missing household_id or parent_id
       try{
-        let _reqQ=_supa.from('specialist_requests').select('*').eq('status','pending');
-        _reqQ=session.householdId?_reqQ.eq('household_id',session.householdId):_reqQ.eq('parent_id',session.id);
-        const {data:reqs}=await _reqQ;
-        if(reqs&&reqs.length>0){
-          const mapped=reqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
+        const _hid=session.householdId;
+        const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
+        let _allReqs=[];
+        const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
+        if(_hid){const {data:r1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',_hid);_dedup(r1);}
+        const {data:r2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);_dedup(r2);
+        if(_childIds.length){const {data:r3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);_dedup(r3);}
+        if(_allReqs.length>0){
+          const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
           DB.specialistRequests=mapped;
         }
-      }catch(e){}
+      }catch(e){console.error('load specialist_requests:',e);}
       // Fetch all secondary data in parallel for speed
       await Promise.allSettled([
         // Appointments
@@ -2287,14 +2292,18 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
         const {data:existingReq}=await _supa.from('specialist_requests')
           .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).maybeSingle();
         if(!existingReq){
+          // Resolve household_id — may not be on code row if parent hadn't set it yet
+          let _hhid=row.household_id||null;
+          if(!_hhid&&childId){try{const {data:_ch}=await _supa.from('children').select('household_id').eq('id',childId).single();if(_ch?.household_id)_hhid=_ch.household_id;}catch(e){}}
           await _supa.from('specialist_requests').insert({
             specialist_id:specialistId,
             specialist_name:specialistName,
             role,
             child_id:childId,
             parent_id:parentId,
-            household_id:row.household_id||null,
+            household_id:_hhid,
             status:'pending',
+            request_type:'join',
             requested_at:new Date().toISOString()
           });
         }
@@ -5248,6 +5257,23 @@ function renderTeam(){
   }
 
   // Pending requests — split into join requests vs folder access requests
+  // Fire a silent background refresh so new connection-code requests appear without full page reload
+  if(child&&session?.id!=='demo'&&_supa){
+    (async()=>{
+      try{
+        const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
+        let _allReqs=[];
+        const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
+        if(session.householdId){const {data:r1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId);_dedup(r1);}
+        const {data:r2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);_dedup(r2);
+        if(_childIds.length){const {data:r3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);_dedup(r3);}
+        const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
+        const prev=JSON.stringify(DB.specialistRequests);
+        DB.specialistRequests=mapped;
+        if(JSON.stringify(mapped)!==prev)re();
+      }catch(e){}
+    })();
+  }
   if(child){
     const allPending=(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending');
     const joinReqs=allPending.filter(r=>!r.requestType||r.requestType==='join');
