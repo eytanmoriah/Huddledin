@@ -50,8 +50,8 @@ export default async function handler(req, res) {
       household_id ? q('files', `household_id=eq.${household_id}&select=id,name,created_at`) : Promise.resolve([]),
       q('todos', `user_id=eq.${userId}&select=id,title,completed,created_at`),
       q('vault_notes', `specialist_id=eq.${userId}&select=id,title,published,created_at`),
-      q('specialist_requests', `specialist_id=eq.${userId}&select=id,status,created_at,role,specialist_name`),
-      household_id ? q('specialist_requests', `household_id=eq.${household_id}&select=id,status,specialist_name,role`) : Promise.resolve([]),
+      q('specialist_requests', `specialist_id=eq.${userId}&select=id,status,requested_at,role,specialist_name`),
+      household_id ? q('specialist_requests', `household_id=eq.${household_id}&select=id,status,requested_at,specialist_name,role`) : Promise.resolve([]),
       household_id ? q('children', `household_id=eq.${household_id}&select=id,name,created_at`) : Promise.resolve([])
     ]);
 
