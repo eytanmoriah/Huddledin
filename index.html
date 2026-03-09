@@ -5270,8 +5270,9 @@ function renderTeam(){
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prev=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
+        console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows',mapped);
         if(JSON.stringify(mapped)!==prev)re();
-      }catch(e){}
+      }catch(e){console.error('[renderTeam] specialist_requests fetch error:',e);}
     })();
   }
   if(child){
