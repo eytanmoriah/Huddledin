@@ -8366,7 +8366,7 @@ function renderAdminDashboard(){
   sec.appendChild(hdr);
 
   // Tabs
-  const TABS=[{id:'overview',label:'📊 Overview'},{id:'retention',label:'❤️ Retention'},{id:'engagement',label:'⚡ Engagement'},{id:'specialists',label:'🔬 Specialists'},{id:'growth',label:'📈 Growth'}];
+  const TABS=[{id:'overview',label:'📊 Overview'},{id:'retention',label:'❤️ Retention'},{id:'engagement',label:'⚡ Engagement'},{id:'specialists',label:'🔬 Specialists'},{id:'growth',label:'📈 Growth'},{id:'controls',label:'🎛️ Controls'}];
   if(!S._adminTab)S._adminTab='overview';
   const tabBar=el('div',{style:{display:'flex',gap:'6px',marginBottom:'20px',flexWrap:'wrap'}});
   TABS.forEach(t=>{
@@ -8684,6 +8684,182 @@ function renderAdminDashboard(){
         {label:'2 children',value:d.growth.childDist.two,color:'var(--lavender)'},
         {label:'3+ children',value:d.growth.childDist.threePlus,color:'var(--coral)'}
       ],'Household Size Distribution'));
+      return frag;
+    }
+    if(t==='controls'){
+      const frag=document.createDocumentFragment();
+      const lists=d.lists||{};
+      const jwt_ref={v:null};
+      // Helper to call admin-action API
+      const adminAction=async(action,payload)=>{
+        if(!jwt_ref.v){const s=await _supa.auth.getSession();jwt_ref.v=s?.data?.session?.access_token;}
+        const r=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt_ref.v},body:JSON.stringify({action,payload})});
+        return r.json();
+      };
+
+      // ── BROADCAST ──
+      frag.appendChild(sectionHead('📢 Broadcast Notification'));
+      const bcCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
+      bcCard.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'12px'}},['Send an in-app notification to users. They will see it in their Alerts tab.']));
+      const bcMsg=el('textarea',{placeholder:'Type your message…',style:{width:'100%',minHeight:'72px',borderRadius:'10px',border:'1.5px solid var(--mint-l)',padding:'10px',fontSize:'.85rem',fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',marginBottom:'10px'}});
+      const audRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap'}});
+      let bcAudience='all';
+      ['all','parents','specialists'].forEach(a=>{
+        const btn=el('button',{style:{padding:'6px 14px',borderRadius:'99px',border:'1.5px solid var(--mint-l)',cursor:'pointer',fontSize:'.76rem',fontWeight:700,background:bcAudience===a?'var(--teal)':'#fff',color:bcAudience===a?'#fff':'var(--navy)'}});
+        btn.textContent=a==='all'?'👥 Everyone':a==='parents'?'👨‍👩‍👧 Parents':'🔬 Specialists';
+        btn.onclick=()=>{bcAudience=a;audRow.querySelectorAll('button').forEach((b,i)=>{b.style.background=['all','parents','specialists'][i]===a?'var(--teal)':'#fff';b.style.color=['all','parents','specialists'][i]===a?'#fff':'var(--navy)';});};
+        audRow.appendChild(btn);
+      });
+      bcCard.appendChild(audRow);
+      bcCard.appendChild(bcMsg);
+      const bcSend=mkBtn('📢 Send Broadcast','btn-md btn-primary',async()=>{
+        const msg=bcMsg.value.trim();
+        if(!msg)return toast('Enter a message first','error');
+        bcSend.textContent='Sending…';bcSend.disabled=true;
+        const r=await adminAction('broadcast',{message:msg,audience:bcAudience});
+        bcSend.textContent='📢 Send Broadcast';bcSend.disabled=false;
+        if(r.ok)toast('✅ Sent to '+r.sent+' users','success');
+        else toast('Error: '+(r.error||'failed'),'error');
+        bcMsg.value='';
+      });
+      bcCard.appendChild(bcSend);
+      frag.appendChild(bcCard);
+
+      // ── PENDING REQUESTS ──
+      frag.appendChild(sectionHead('🔔 Pending Specialist Requests ('+(lists.pendingList||[]).length+')'));
+      const pendCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
+      if(!(lists.pendingList||[]).length){
+        pendCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['✅ No pending requests']));
+      } else {
+        (lists.pendingList||[]).forEach(r=>{
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
+          const info=el('div',{style:{flex:1,minWidth:'160px'}});
+          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)'}},[r.specialistName||'Unknown']));
+          info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[r.specialistEmail+' · '+r.role]));
+          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['Requested '+new Date(r.created_at).toLocaleDateString()]));
+          row.appendChild(info);
+          const approveBtn=mkBtn('✅ Approve','btn-sm btn-primary',async()=>{
+            approveBtn.disabled=true;approveBtn.textContent='…';
+            const res=await adminAction('approve_request',{requestId:r.id});
+            if(res.ok){row.style.opacity='0.4';toast('Approved!','success');S._adminData=null;}
+            else{approveBtn.disabled=false;approveBtn.textContent='✅ Approve';toast('Error','error');}
+          });
+          const rejectBtn=mkBtn('✗ Reject','btn-sm btn-danger',async()=>{
+            rejectBtn.disabled=true;rejectBtn.textContent='…';
+            const res=await adminAction('reject_request',{requestId:r.id});
+            if(res.ok){row.style.opacity='0.4';toast('Rejected','info');S._adminData=null;}
+            else{rejectBtn.disabled=false;rejectBtn.textContent='✗ Reject';toast('Error','error');}
+          });
+          const btnRow=el('div',{style:{display:'flex',gap:'6px'}});
+          btnRow.appendChild(approveBtn);btnRow.appendChild(rejectBtn);
+          row.appendChild(btnRow);
+          pendCard.appendChild(row);
+        });
+      }
+      frag.appendChild(pendCard);
+
+      // ── STUCK HOUSEHOLDS ──
+      frag.appendChild(sectionHead('⚠️ Stuck Households ('+(lists.stuckHouseholds||[]).length+')'));
+      const stuckCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
+      if(!(lists.stuckHouseholds||[]).length){
+        stuckCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['✅ No stuck households']));
+      } else {
+        const nudgeAllBtn=mkBtn('👋 Nudge All ('+lists.stuckHouseholds.length+')','btn-sm btn-secondary',async()=>{
+          nudgeAllBtn.disabled=true;nudgeAllBtn.textContent='Sending…';
+          const ids=lists.stuckHouseholds.map(h=>h.householdId);
+          const res=await adminAction('nudge_stuck',{householdIds:ids});
+          nudgeAllBtn.disabled=false;nudgeAllBtn.textContent='👋 Nudge All';
+          if(res.ok)toast('✅ Nudged '+res.sent+' parents','success');
+          else toast('Error','error');
+        });
+        stuckCard.appendChild(nudgeAllBtn);
+        stuckCard.appendChild(el('div',{style:{height:'10px'}}));
+        (lists.stuckHouseholds||[]).forEach(h=>{
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
+          const info=el('div',{style:{flex:1,minWidth:'160px'}});
+          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)'}},[h.parentName]));
+          info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[h.parentEmail]));
+          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'#f59e0b',fontWeight:700}},[h.issue+' · Joined '+new Date(h.signedUp).toLocaleDateString()]));
+          row.appendChild(info);
+          const nudgeBtn=mkBtn('👋 Nudge','btn-sm btn-secondary',async()=>{
+            nudgeBtn.disabled=true;nudgeBtn.textContent='…';
+            const res=await adminAction('nudge_stuck',{householdIds:[h.householdId]});
+            nudgeBtn.disabled=false;nudgeBtn.textContent='👋 Nudge';
+            if(res.ok)toast('Nudge sent!','success');else toast('Error','error');
+          });
+          row.appendChild(nudgeBtn);
+          stuckCard.appendChild(row);
+        });
+      }
+      frag.appendChild(stuckCard);
+
+      // ── NEW SIGNUPS ──
+      frag.appendChild(sectionHead('✨ Recent Signups ('+(lists.recentSignups||[]).length+' this month)'));
+      const signupCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
+      if(!(lists.recentSignups||[]).length){
+        signupCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem'}},['No new signups this month']));
+      } else {
+        (lists.recentSignups||[]).forEach(u=>{
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
+          const roleColor=u.role==='specialist'?'var(--lavender)':'var(--teal)';
+          const av=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:roleColor+'22',border:'2px solid '+roleColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.9rem',flexShrink:0}});
+          av.textContent=u.role==='specialist'?'🔬':'👨‍👩‍👧';
+          row.appendChild(av);
+          const info=el('div',{style:{flex:1,minWidth:'140px'}});
+          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)'}},[u.name+(u.flagged?' 🚩':'')]));
+          info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[u.email+' · '+u.role]));
+          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['Joined '+new Date(u.created_at).toLocaleDateString()+(u.lastLogin?' · Last login '+new Date(u.lastLogin).toLocaleDateString():'')]));
+          row.appendChild(info);
+          const flagBtn=mkBtn(u.flagged?'🚩 Flagged':'🏳️ Flag','btn-sm '+(u.flagged?'btn-danger':'btn-secondary'),async()=>{
+            const res=await adminAction('flag_user',{userId:u.id,flagged:!u.flagged});
+            if(res.ok){u.flagged=!u.flagged;flagBtn.textContent=u.flagged?'🚩 Flagged':'🏳️ Flag';flagBtn.className='btn btn-sm '+(u.flagged?'btn-danger':'btn-secondary');toast(u.flagged?'User flagged':'Flag removed','info');}
+          });
+          row.appendChild(flagBtn);
+          signupCard.appendChild(row);
+        });
+      }
+      frag.appendChild(signupCard);
+
+      // ── USER MANAGEMENT ──
+      frag.appendChild(sectionHead('👥 All Users'));
+      const searchInp=el('input',{placeholder:'🔍 Search by name or email…',style:{width:'100%',padding:'8px 12px',borderRadius:'10px',border:'1.5px solid var(--mint-l)',fontSize:'.84rem',marginBottom:'10px',boxSizing:'border-box'}});
+      frag.appendChild(searchInp);
+      const userListCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
+      const renderUserList=(filter)=>{
+        userListCard.innerHTML='';
+        const users=(lists.allUsers||[]).filter(u=>!filter||u.name.toLowerCase().includes(filter)||u.email.toLowerCase().includes(filter));
+        if(!users.length){userListCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem'}},['No users found']));return;}
+        users.slice(0,50).forEach(u=>{
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
+          const roleColor=u.role==='specialist'?'var(--lavender)':'var(--teal)';
+          const info=el('div',{style:{flex:1,minWidth:'140px'}});
+          info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.82rem',color:'var(--navy)'}},[u.name+(u.flagged?' 🚩':'')+(u.banned?' 🔴 Banned':'')]));
+          info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[u.email+' · '+u.role]));
+          info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['Joined '+new Date(u.created_at).toLocaleDateString()+(u.lastLogin?' · Login '+new Date(u.lastLogin).toLocaleDateString():'')]));
+          row.appendChild(info);
+          const btnGrp=el('div',{style:{display:'flex',gap:'4px',flexWrap:'wrap'}});
+          const flagBtn=mkBtn(u.flagged?'🚩':'🏳️','btn-sm '+(u.flagged?'btn-danger':'btn-secondary'),async()=>{
+            const res=await adminAction('flag_user',{userId:u.id,flagged:!u.flagged});
+            if(res.ok){u.flagged=!u.flagged;flagBtn.textContent=u.flagged?'🚩':'🏳️';flagBtn.className='btn btn-sm '+(u.flagged?'btn-danger':'btn-secondary');}
+          });
+          const banBtn=mkBtn(u.banned?'Unban':'Ban','btn-sm '+(u.banned?'btn-secondary':'btn-danger'),async()=>{
+            if(!u.banned&&!confirm('Ban '+u.name+'? They will not be able to log in.'))return;
+            banBtn.disabled=true;
+            const res=await adminAction('disable_user',{userId:u.id,disabled:!u.banned});
+            if(res.ok){u.banned=!u.banned;banBtn.textContent=u.banned?'Unban':'Ban';banBtn.className='btn btn-sm '+(u.banned?'btn-secondary':'btn-danger');banBtn.disabled=false;}
+            else{banBtn.disabled=false;toast('Error','error');}
+          });
+          btnGrp.appendChild(flagBtn);
+          btnGrp.appendChild(banBtn);
+          row.appendChild(btnGrp);
+          userListCard.appendChild(row);
+        });
+        if(users.length>50)userListCard.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',padding:'8px 0',textAlign:'center'}},['Showing first 50 — use search to filter']));
+      };
+      renderUserList('');
+      searchInp.oninput=e=>renderUserList(e.target.value.toLowerCase().trim());
+      frag.appendChild(userListCard);
+
       return frag;
     }
     return el('div',{},[]);
