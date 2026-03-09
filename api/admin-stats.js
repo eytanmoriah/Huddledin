@@ -43,9 +43,19 @@ export default async function handler(req, res) {
     const authMap = {};
     authUsers.forEach(u => { authMap[u.id] = u; });
 
-    // Diagnostic: test one query directly
-    const testProfiles = await q('profiles', 'select=id,role&limit=3');
-    console.log('DIAGNOSTIC profiles sample:', JSON.stringify(testProfiles).slice(0, 200));
+    // Diagnostic
+    const diagUrl = `${process.env.SUPABASE_URL}/rest/v1/profiles?select=id,role&limit=3`;
+    console.log('DIAG URL:', diagUrl);
+    console.log('DIAG KEY prefix:', (process.env.SUPABASE_SERVICE_KEY||'').slice(0,20));
+    const diagR = await fetch(diagUrl, {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Accept': 'application/json'
+      }
+    });
+    const diagText = await diagR.text();
+    console.log('DIAG status:', diagR.status, 'body:', diagText.slice(0, 300));
 
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
       q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name'),
