@@ -8052,101 +8052,130 @@ function renderSessionSummaries(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
 
-  // Back button to child profile
-  const backBtn=mkBtn('← '+( child?.name||'Back'),'btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
-  backBtn.style.marginBottom='16px';
-  sec.appendChild(backBtn);
-
-  sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
-  sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+" · Summaries published by your care team"]));
-
-  // Get published notes for this child — from all specialists
+  // All published summaries for this child — newest first
   const published=[...DB.vaultNotes.filter(n=>n.childId===S.activeChild&&n.published&&n.summary)]
     .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
-  if(!published.length){
+  // Unique specialist IDs that have published summaries
+  const specIds=[...new Set(published.map(n=>n.specialistId))];
+  const team=getChildTeam(S.activeChild);
+
+  // ── STEP 1: Specialist picker ──
+  const selectedSpec=S._summarySpecFilter||null;
+  if(!selectedSpec){
+    const backBtn=mkBtn('← '+(child?.name||'Back'),'btn-sm btn-ghost',()=>{switchTab('dashboard');});
+    backBtn.style.marginBottom='16px';
+    sec.appendChild(backBtn);
+    sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
+    sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+' · Select a provider to view their summaries']));
+
+    if(!published.length){
+      sec.appendChild(el('div',{class:'empty-state'},[
+        el('span',{class:'empty-state-icon'},['📄']),
+        el('div',{class:'empty-state-title'},['No summaries yet']),
+        el('div',{class:'empty-state-body'},['When a specialist publishes a session summary, it will appear here.'])
+      ]));
+      return sec;
+    }
+
+    // One card per specialist who has published
+    const list=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}});
+    specIds.forEach(sid=>{
+      const spec=team.find(s=>s.id===sid)||{name:'Specialist',role:'',avatar:'🔬'};
+      const count=published.filter(n=>n.specialistId===sid).length;
+      const latest=published.find(n=>n.specialistId===sid); // already sorted newest-first
+
+      const card=el('div',{class:'card hov',style:{
+        display:'flex',alignItems:'center',gap:'14px',cursor:'pointer',
+        padding:'16px',border:'1.5px solid var(--mint-l)'
+      }});
+      // Avatar circle
+      const av=el('div',{style:{
+        width:'48px',height:'48px',borderRadius:'50%',
+        background:'linear-gradient(135deg,var(--teal),var(--lavender))',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:'1.4rem',flexShrink:0
+      }},[spec.avatar||'🔬']);
+      card.appendChild(av);
+      // Info
+      const info=el('div',{style:{flex:1,minWidth:0}});
+      info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.92rem',color:'var(--navy)',marginBottom:'3px'}},[spec.name]));
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:600,marginBottom:'4px'}},[spec.role||'Specialist']));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700}},
+        [count+' summar'+(count===1?'y':'ies')+' · Latest: '+(latest?.title||latest?.date||'—')]));
+      card.appendChild(info);
+      card.appendChild(el('div',{style:{fontSize:'.9rem',color:'var(--slate-l)'}},['›']));
+      card.onclick=()=>{S._summarySpecFilter=sid;S._summaryOpen=null;re();};
+      list.appendChild(card);
+    });
+    sec.appendChild(list);
+    return sec;
+  }
+
+  // ── STEP 2: Summaries list for selected specialist ──
+  const spec=team.find(s=>s.id===selectedSpec)||{name:'Specialist',role:'',avatar:'🔬'};
+  const specNotes=published.filter(n=>n.specialistId===selectedSpec); // already newest-first
+
+  const backBtn=mkBtn('← All Providers','btn-sm btn-ghost',()=>{S._summarySpecFilter=null;S._summaryOpen=null;re();});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+
+  // Specialist header
+  const specHd=el('div',{style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'20px'}});
+  const av=el('div',{style:{
+    width:'48px',height:'48px',borderRadius:'50%',
+    background:'linear-gradient(135deg,var(--teal),var(--lavender))',
+    display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',flexShrink:0
+  }},[spec.avatar||'🔬']);
+  specHd.appendChild(av);
+  const hdInfo=el('div',{});
+  hdInfo.appendChild(el('div',{class:'page-title',style:{marginBottom:'2px'}},[spec.name]));
+  hdInfo.appendChild(el('p',{class:'page-sub',style:{margin:0}},[spec.role||'Specialist'+' · '+specNotes.length+' summar'+(specNotes.length===1?'y':'ies')]));
+  specHd.appendChild(hdInfo);
+  sec.appendChild(specHd);
+
+  if(!specNotes.length){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📄']),
       el('div',{class:'empty-state-title'},['No summaries yet']),
-      el('div',{class:'empty-state-body'},['When a specialist publishes a session summary, it will appear here.'])
+      el('div',{class:'empty-state-body'},['This specialist hasn't published any summaries yet.'])
     ]));
     return sec;
   }
 
-  // Group by specialist
-  const specIds=[...new Set(published.map(n=>n.specialistId))];
-  const selectedSpec=S._summarySpecFilter||null;
-
-  // Specialist filter row
-  if(specIds.length>1){
-    const filterRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
-    const allBtn=el('button',{style:{
-      padding:'6px 14px',borderRadius:'99px',border:'1.5px solid var(--mint-l)',
-      cursor:'pointer',fontSize:'.78rem',fontWeight:700,
-      background:!selectedSpec?'var(--teal)':'#fff',
-      color:!selectedSpec?'#fff':'var(--navy)'
-    }},['All Specialists']);
-    allBtn.onclick=()=>{S._summarySpecFilter=null;re();};
-    filterRow.appendChild(allBtn);
-    specIds.forEach(sid=>{
-      const spec=getChildTeam(S.activeChild).find(s=>s.id===sid)||{name:'Specialist'};
-      const btn=el('button',{style:{
-        padding:'6px 14px',borderRadius:'99px',border:'1.5px solid var(--mint-l)',
-        cursor:'pointer',fontSize:'.78rem',fontWeight:700,
-        background:selectedSpec===sid?'var(--teal)':'#fff',
-        color:selectedSpec===sid?'#fff':'var(--navy)'
-      }},[spec.name]);
-      btn.onclick=()=>{S._summarySpecFilter=sid;re();};
-      filterRow.appendChild(btn);
-    });
-    sec.appendChild(filterRow);
-  }
-
-  const filtered=selectedSpec?published.filter(n=>n.specialistId===selectedSpec):published;
-
-  // Accordion list
+  // Accordion list — newest first (already sorted)
   const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}});
-  filtered.forEach(note=>{
-    const spec=getChildTeam(S.activeChild).find(s=>s.id===note.specialistId)||{name:note.specialistName||'Specialist'};
+  specNotes.forEach(note=>{
     const isOpen=S._summaryOpen===note.id;
-
     const wrapper=el('div',{class:'card',style:{
       border:isOpen?'2px solid var(--teal)':'1.5px solid var(--mint-l)',
       padding:'0',overflow:'hidden'
     }});
-
-    // Header row
+    // Header
     const header=el('div',{style:{
-      display:'flex',alignItems:'center',gap:'10px',padding:'12px 14px',
+      display:'flex',alignItems:'center',gap:'10px',padding:'13px 15px',
       cursor:'pointer',background:isOpen?'var(--mint-ll)':'#fff'
     }});
-    const specAvatar=el('div',{style:{
-      width:'32px',height:'32px',borderRadius:'50%',background:'var(--lavender)',
-      display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0
-    }},['🔬']);
-    const info=el('div',{style:{flex:1,minWidth:0}});
-    info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.84rem',color:'var(--navy)'}},[note.title||note.date]));
-    info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'2px'}},[spec.name+(note.date?' · '+note.date:'')]));
-    const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
-    header.appendChild(specAvatar);
-    header.appendChild(info);
-    if(note.locked)header.appendChild(el('span',{style:{fontSize:'.85rem'}},['🔒']));
+    const hInfo=el('div',{style:{flex:1,minWidth:0}});
+    hInfo.appendChild(el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)',marginBottom:'2px'}},[note.title||note.date||'Session']));
+    if(note.date&&note.title!==note.date)hInfo.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},[note.date]));
+    const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transition:'transform .2s',transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
+    header.appendChild(hInfo);
+    if(note.locked)header.appendChild(el('span',{style:{fontSize:'.85rem',marginRight:'4px'}},['🔒']));
     header.appendChild(chevron);
     header.onclick=()=>{S._summaryOpen=isOpen?null:note.id;re();};
     wrapper.appendChild(header);
-
+    // Expanded body
     if(isOpen){
-      const body=el('div',{style:{padding:'14px',borderTop:'1.5px solid var(--mint-l)'}});
-      body.appendChild(el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.7',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[note.summary]));
+      const body=el('div',{style:{padding:'14px 15px',borderTop:'1.5px solid var(--mint-l)'}});
+      body.appendChild(el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.75',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[note.summary]));
       const minBtn=mkBtn('▲ Minimise','btn-sm btn-ghost',()=>{S._summaryOpen=null;re();});
-      minBtn.style.marginTop='12px';
+      minBtn.style.marginTop='14px';
       body.appendChild(minBtn);
       wrapper.appendChild(body);
     }
-
     stack.appendChild(wrapper);
   });
-
   sec.appendChild(stack);
   return sec;
 }
