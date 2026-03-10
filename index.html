@@ -6267,13 +6267,7 @@ function renderChat(){
   } else {
     titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Messages']));
   }
-  if(S.activeChatChildId){
-    const backRow=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'All Chats']);
-    backRow.onclick=()=>{S.activeChatChildId=null;re();};
-    hd.appendChild(backRow);
-  } else {
-    hd.appendChild(titleRow);
-  }
+  hd.appendChild(titleRow);
   const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
   if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
   if(role==='specialist')hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>showNewMessageModal()));
