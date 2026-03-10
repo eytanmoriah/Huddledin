@@ -8164,6 +8164,43 @@ function showAddHomeworkTaskModal(existing,prefill){
 }
 
 /* -----------------------------------------------
+   HOMEWORK — ICS CALENDAR EXPORT
+----------------------------------------------- */
+function generateICS(task,occs,reminderTime){
+  const[rh,rm]=(reminderTime||'08:00').split(':');
+  const pad=n=>String(n).padStart(2,'0');
+  const events=occs.map(occ=>{
+    const ds=(occ.date||'').replace(/-/g,'');
+    if(!ds)return '';
+    const dtStart=ds+'T'+pad(rh)+pad(rm)+'00';
+    const uid='huddledin-'+task.id+'-'+ds+'@huddledin.app';
+    const desc=((task.description||'').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'))+'\\nAssigned by: '+(task.specialistName||'Specialist')+'\\nDifficulty: '+(task.difficulty||'');
+    const title=('Huddledin: '+task.title).replace(/,/g,'\\,').replace(/;/g,'\\;');
+    return ['BEGIN:VEVENT','UID:'+uid,'DTSTART:'+dtStart,'DTEND:'+dtStart,'SUMMARY:'+title,'DESCRIPTION:'+desc,'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:Reminder: '+task.title,'END:VALARM','END:VEVENT'].join('\r\n');
+  }).filter(Boolean);
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Huddledin//Homework Reminders//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',...events,'END:VCALENDAR'].join('\r\n');
+}
+
+function addTaskToCalendar(taskId){
+  const remInp=document.getElementById('rem-inp-'+taskId);
+  const reminderTime=remInp?.value;
+  if(!reminderTime){toast('Set a reminder time first, then tap Add to Calendar.','error',4000);return;}
+  const task=(DB.homeworkTasks||[]).find(t=>t.id===taskId);
+  if(!task)return;
+  const today=new Date().toISOString().split('T')[0];
+  const occs=(DB.homeworkOccurrences||[]).filter(o=>o.taskId===taskId&&(o.date||'')>=today).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if(!occs.length){toast('No upcoming scheduled days found for this task.','error',4000);return;}
+  const ics=generateICS(task,occs,reminderTime);
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=task.title.slice(0,50).replace(/\s+/g,'_')+'_reminders.ics';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('📅 '+occs.length+' reminder'+(occs.length>1?'s':'')+' ready — open the .ics file to import into your calendar app.','success',5000);
+}
+
+/* -----------------------------------------------
    HOMEWORK — PARENT VIEW
 ----------------------------------------------- */
 function renderHomeworkParent(){
@@ -8317,7 +8354,7 @@ function renderHomeworkParent(){
       const _exRem=(DB.homeworkReminders||[]).find(r=>r.taskId===task.id);
       const _remRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:'1px solid var(--mint-l)',marginTop:'8px',flexWrap:'wrap'}});
       _remRow.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:600,color:'var(--navy)',flexShrink:0}},['🔔 Daily Reminder']));
-      const _remInp=el('input',{type:'time',value:_exRem?.time||'',style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'120px'}});
+      const _remInp=el('input',{type:'time',id:'rem-inp-'+task.id,value:_exRem?.time||'',style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'120px'}});
       _remRow.appendChild(_remInp);
       const _remSaveBtn=mkBtn('Save','btn-sm btn-primary',async()=>{
         if(!_remInp.value){toast('Pick a time first.','error');return;}
@@ -8331,6 +8368,8 @@ function renderHomeworkParent(){
         }catch(e){console.error('save reminder:',e);toast('Could not save reminder.','error');}
       });
       _remRow.appendChild(_remSaveBtn);
+      const _calBtn=mkBtn('📅 Add to Calendar','btn-sm btn-ghost',()=>addTaskToCalendar(task.id));
+      _remRow.appendChild(_calBtn);
       detail.appendChild(_remRow);
       card.appendChild(detail);
     }
