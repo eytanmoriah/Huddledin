@@ -2411,7 +2411,9 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   // Auto-create folder + grant permission for specialist's profession
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
   const folderKey=prof?prof.key:'spec_'+req.specialistId;
-  const folderName=prof?prof.label:req.specialistName+"'s Folder";
+  const folderName=prof
+    ?(prof.label+' - '+req.specialistName)
+    :(req.role?req.role+' - '+req.specialistName:req.specialistName+"'s Folder");
   const folderIcon=prof?prof.icon:'📁';
   if(prof){
     // Grant profession key permission immediately
@@ -9931,4 +9933,6 @@ async function _processPendingInvite(){
         .catch(err=>console.log('SW registration failed:', err));
     });
   }
-</scri
+</script>
+</body>
+</html>
