@@ -8050,7 +8050,7 @@ function showAddHomeworkTaskModal(existing){
           if(taskErr)throw taskErr;
           await _generateOccurrences(newTask);
           if(saveTemplate&&(tmplNameInp.value.trim()||title)){
-            await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:selTime,difficulty:selDiff}).catch(e=>console.error('save template:',e));
+            try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:selTime,difficulty:selDiff});}catch(e){console.error('save template:',e);}
           }
           const all=DB.homeworkTasks||[];
           all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',createdAt:new Date().toISOString()});
