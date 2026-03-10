@@ -452,6 +452,8 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .page-title{font-size:1.55rem}
 }
 @media(min-width:1200px){.section{padding:28px 32px}}
+.patient-count-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,0,0,.12);color:inherit;border-radius:20px;min-width:22px;height:22px;font-size:12px;font-weight:600;padding:0 6px;margin-left:6px;vertical-align:middle}
+.btn-primary .patient-count-badge{background:rgba(255,255,255,.25)}
 @media(hover:none){.card.hov:hover,.nav-btn:hover,.btn:hover{transform:none;background:transparent;color:inherit}}
 @media(max-height:500px) and (orientation:landscape){
   #header{height:calc(44px + var(--safe-top))}
@@ -4410,10 +4412,7 @@ function renderSpecDashboard(){
   const wName=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:800,color:'#fff',marginBottom:'5px'}},[(spec?.name||session?.name||'Specialist')+' 👋']);
   welcome.appendChild(wName);
   const wRole=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:500}});
-  wRole.appendChild(document.createTextNode((session?.profession||'Specialist')+' · '));
-  const wPt=el('strong',{style:{color:'#fff'}},[String(myPatients.length)]);
-  wRole.appendChild(wPt);
-  wRole.appendChild(document.createTextNode(' patient'+(myPatients.length!==1?'s':'')));
+  wRole.appendChild(document.createTextNode(session?.profession||'Specialist'));
   welcome.appendChild(wRole);
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
   [
@@ -7771,6 +7770,13 @@ function renderPatients(){
   const allChildren=[...DB.children];
   lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
   const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+  // Count badges — derived from full unfiltered list so they always reflect totals
+  const _aC=sorted.filter(c=>(c.status||'active')==='active').length;
+  const _iC=sorted.filter(c=>c.status==='inactive').length;
+  Object.entries({active:_aC,inactive:_iC,all:sorted.length}).forEach(([f,n])=>{
+    const _badge=el('span',{class:'patient-count-badge'},[String(n)]);
+    filterBtns[f].appendChild(_badge);
+  });
 
   const doFilter=q=>{
     stack.innerHTML='';
