@@ -4330,6 +4330,7 @@ function renderParentDashboard(){
           if(session&&session.id!=='demo'){
             try{await _supa.from('homework').update({completed:nv}).eq('id',hw.id);}catch(e){console.error('hw complete:',e);toast('⚠️ Could not save change.','error');}
           }
+        }
         re();
       };
       const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},[hw.task]);
@@ -9930,5 +9931,4 @@ async function _processPendingInvite(){
         .catch(err=>console.log('SW registration failed:', err));
     });
   }
-</script>
-</body
+</scri
