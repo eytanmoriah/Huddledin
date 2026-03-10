@@ -3107,7 +3107,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});S.chatsLoaded=false;re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -4784,11 +4784,17 @@ function renderFiles(){
     rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
     sec.appendChild(mkSubHeader('File Manager',rightEl));
   } else {
+    const fiSpec=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fiSpec.id='fileInputSpec';
+    fiSpec.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
+    sec.appendChild(fiSpec);
     const hd=el('div',{class:'sec-hd'});
     hd.appendChild(el('div',{class:'sec-hd-left'},[
       el('h2',{class:'page-title'},['File Manager']),
       el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
     ]));
+    const hdRight=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    hdRight.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInputSpec')?.click()));
+    hd.appendChild(hdRight);
     sec.appendChild(hd);
   }
 
