@@ -3107,7 +3107,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=null;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -3715,7 +3715,7 @@ function renderGlobalHome(){
     if(childHW.length>0){
       bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
     }
-    bubble.onclick=()=>{_pushNav();S.activeChatChildId=null;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
+    bubble.onclick=()=>{_pushNav();S.activeChatChildId=c.id;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
     row.appendChild(bubble);
   });
@@ -6632,16 +6632,31 @@ function showConsultModal(childId){
     const sendBtn=mkBtn('📤 Send Consultation Request','btn-md btn-primary btn-full',async()=>{
       sendBtn.disabled=true;sendBtn.textContent='Sending…';
       try{
-        // Check for existing consult in either direction
-        const {data:existingConsult}=await _supa.from('specialist_requests')
-          .select('id').eq('child_id',cid).eq('request_type','consult')
-          .in('status',['pending','approved'])
-          .or('and(specialist_id.eq.'+mySpecId+',requested_folder.eq.'+state.targetId+'),and(specialist_id.eq.'+state.targetId+',requested_folder.eq.'+mySpecId+')');
-        if(existingConsult?.length>0){
-          sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
-          toast('A consultation with this specialist already exists or is pending.','error',4000);
-          return;
-        }
+        // Check for duplicate based on exact participant combination
+        const _newParticipants=state.inclusive?[mySpecId,state.targetId,'parent']:[mySpecId,state.targetId];
+        const _sortedNew=[..._newParticipants].sort().join(',');
+        try{
+          // 1. Check approved chats — same child + type + exact participants
+          const {data:_existingChats}=await _supa.from('chats')
+            .select('id,participants').eq('child_id',cid).eq('type','specialist-consult');
+          const _chatDupe=_existingChats?.find(c=>[...(c.participants||[])].sort().join(',')===_sortedNew);
+          if(_chatDupe){
+            sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
+            toast('A conversation with these exact participants already exists.','error',4000);
+            return;
+          }
+          // 2. Check pending requests — same specialist pair + same visibility
+          const _visLabel=state.inclusive?'inclusive':'private';
+          const {data:_pendingReqs}=await _supa.from('specialist_requests')
+            .select('id,requested_folder_name').eq('child_id',cid).eq('request_type','consult').eq('status','pending')
+            .or('and(specialist_id.eq.'+mySpecId+',requested_folder.eq.'+state.targetId+'),and(specialist_id.eq.'+state.targetId+',requested_folder.eq.'+mySpecId+')');
+          const _pendingDupe=_pendingReqs?.find(r=>(r.requested_folder_name||'').split('|')[1]===_visLabel);
+          if(_pendingDupe){
+            sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
+            toast('A pending request with these participants already exists.','error',4000);
+            return;
+          }
+        }catch(e){console.error('duplicate consult check:',e);}
         // Resolve household_id and parent_id — look up from children table if not in local state
         let hhid=getChildHouseholdId(cid);
         let childParentId=child?.parentId||child?.parent_id||null;
