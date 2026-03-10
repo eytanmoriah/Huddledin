@@ -1823,7 +1823,7 @@ function _migrateChildColors(children){
       if(c.color!==assigned){
         c.color=assigned;
         needsSave=true;
-        _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(()=>{});
+        _supa.from('children').update({color:assigned}).eq('id',c.id).then(()=>{}).catch(e=>console.error('color migration:',e));
       }
       _usedColors.add(assigned);
     } else {
@@ -3454,7 +3454,7 @@ function switchTab(id){
   }
   // Always reset folder view when navigating to files tab
   if(id==='files')S.activeFolderId=null;
-  if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.chatsLoaded=false;}
+  if(id!=='chat'){if(_chatSub){_chatSub.unsubscribe();_chatSub=null;}S.activeChatChildId=null;S.activeChatId=null;S.chatsLoaded=false;}
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
   S.isDrawerOpen=false;
@@ -4327,7 +4327,9 @@ function renderParentDashboard(){
         const all=DB.homework,i=all.findIndex(h=>h.id===hw.id);
         if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
           if(nv)pushNotif('homework',`"${hw.task.slice(0,38)}…" marked complete`,child.id);
-          _supa.from('homework').update({completed:nv}).eq('id',hw.id).then(()=>{}).catch(e=>console.error('hw complete:',e));}
+          if(session&&session.id!=='demo'){
+            try{await _supa.from('homework').update({completed:nv}).eq('id',hw.id);}catch(e){console.error('hw complete:',e);toast('⚠️ Could not save change.','error');}
+          }
         re();
       };
       const info=el('div',{style:{flex:1,fontSize:'.83rem',color:hw.completed?'var(--slate-l)':'var(--navy)',textDecoration:hw.completed?'line-through':'none',fontWeight:600}},[hw.task]);
@@ -5788,7 +5790,7 @@ function showEditAptModal(apt){
     mb.appendChild(el('div',{class:'inp-label'},['Title']));
     const ti=el('input',{class:'inp',value:apt.title||'',style:{marginBottom:'10px'}});mb.appendChild(ti);
     mb.appendChild(el('div',{class:'inp-label'},['Date']));
-    const di=el('input',{class:'inp',type:'date',value:apt.date||'',style:{marginBottom:'10px'}});mb.appendChild(di);
+    const di=makeDateInput('Select date',{value:apt.date||'',style:{marginBottom:'10px'}});mb.appendChild(di);
     mb.appendChild(el('div',{class:'inp-label'},['Time']));
     const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
     const tmi=el('input',{class:'inp',type:'time',value:apt.time?.split(' – ')[0]||''});
@@ -5998,7 +6000,7 @@ function showAddEventModal(prefilledDate=null){
     mb.appendChild(si);
 
     mb.appendChild(el('div',{class:'inp-label'},['Date *']));
-    const di=el('input',{class:'inp',type:'date',style:{marginBottom:'10px'}});
+    const di=makeDateInput('Select date',{style:{marginBottom:'10px'}});
     if(prefilledDate)di.value=prefilledDate;
     mb.appendChild(di);
 
@@ -6048,8 +6050,9 @@ function showAddEventModal(prefilledDate=null){
       mb.appendChild(shr);
     }
 
-    mb.appendChild(mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
+    const _aptSaveBtn=mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
       if(!ti.value||!di.value){toast('⚠️ Title and date required.','error');return;}
+      _aptSaveBtn.disabled=true;_aptSaveBtn.textContent='Saving…';
       const specId2=session?.specialistId||null;
       const childId=S.activeChild;
       const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
@@ -6086,12 +6089,13 @@ function showAddEventModal(prefilledDate=null){
               }})
             }).then(r=>r.json()).then(d=>{
               if(d.ok)toast('📅 Added to Google Calendar!','success',3000);
-            }).catch(()=>{});
+            }).catch(()=>toast('⚠️ Could not sync to Google Calendar.','error',3000));
           }
           close();re();toast('✅ Appointment added!');track('Appointment Added');
-        }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');}
+        }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');_aptSaveBtn.disabled=false;_aptSaveBtn.textContent='✅ Add Appointment';}
       })();
-    }));
+    });
+    mb.appendChild(_aptSaveBtn);
   },580);
 }
 /* -----------------------------------------------
@@ -6108,7 +6112,7 @@ function markChatRead(chatId){
     all[ci].unreadCount=0;
     DB.chats=all;
     if(session?.id!=='demo'){
-      _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(()=>{});
+      _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(e=>console.error('mark read:',e));
     }
   }
 }
@@ -6456,7 +6460,7 @@ function renderChatThread(activeChat,specId,myId,onBack){
       if(session?.id!=='demo'){
         try{
           await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
-          _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(()=>{});
+          _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
         }catch(e){console.error('send message:',e);}
       }
     }
@@ -7173,7 +7177,7 @@ function showSpecTaskModal(existing=null){
 
     // Due date
     mb.appendChild(el('div',{class:'inp-label'},['Due Date (optional)']));
-    const dueInp=el('input',{class:'inp',type:'date'});
+    const dueInp=makeDateInput('Due date');
     if(existing?.dueDate)dueInp.value=existing.dueDate;
     mb.appendChild(dueInp);
 
@@ -7295,7 +7299,11 @@ function renderTodoCard(todo,today){
   chk.onclick=()=>{
     const all=DB.todos||[];
     const i=all.findIndex(t=>t.id===todo.id);
-    if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.todos=all;_supa.from('todos').update({completed:nv}).eq('id',todo.id).then(()=>{}).catch(e=>console.error('todo complete:',e));}
+    if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.todos=all;
+      if(session&&session.id!=='demo'){
+        try{await _supa.from('todos').update({completed:nv}).eq('id',todo.id);}catch(e){console.error('todo complete:',e);toast('⚠️ Could not save change.','error');}
+      }
+    }
     re();
   };
   card.appendChild(chk);
@@ -7572,7 +7580,7 @@ function showAssignModal(){
     const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
     const sel=el('select',{class:'inp'});
     ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=el('input',{class:'inp',type:'date','data-placeholder':'Select date'});
+    const di=makeDateInput('Select date');
     [ta,sel,di].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
@@ -8121,7 +8129,7 @@ function showAddChildModal(){
       const _takenColors=(DB.children||[]).map(c=>c.color);
       const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
       if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){toast('Could not save: '+e.message,'error');return;}}
-      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null};
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null,householdId:session.householdId||null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
       S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
@@ -8575,7 +8583,7 @@ async function showHouseholdInviteModal(fromSettings=false){
       const role=roleSelect.value;
       errBox.innerHTML='';
       if(!name){errBox.appendChild(el('div',{class:'auth-error'},['Please enter their name.']));return;}
-      if(!email||!email.includes('@')){errBox.appendChild(el('div',{class:'auth-error'},['Please enter a valid email.']));return;}
+      if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errBox.appendChild(el('div',{class:'auth-error'},['Please enter a valid email.']));return;}
 
       sendBtn.disabled=true;sendBtn.textContent='Sending...';
 
@@ -8651,13 +8659,17 @@ async function processHouseholdInvite(token){
   if(data.accepted){toast('⚠️ This invite has already been used.','error',5000);return;}
 
   // Link this user to the household
-  await _supa.from('profiles').update({
-    household_id:data.household_id,
-    is_primary:false
-  }).eq('id',session.id);
+  try{
+    await _supa.from('profiles').update({
+      household_id:data.household_id,
+      is_primary:false
+    }).eq('id',session.id);
+  }catch(e){toast('⚠️ Could not link to family account. Please try again.','error',5000);return;}
 
   // Mark invite accepted
-  await _supa.from('household_invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+  try{
+    await _supa.from('household_invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
+  }catch(e){console.error('household invite accept:',e);}
 
   // Clear pending tokens
   localStorage.removeItem('pendingHouseholdToken');
