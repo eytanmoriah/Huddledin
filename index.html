@@ -2683,7 +2683,7 @@ const PARENT_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'calendar',label:'Calendar',icon:'📅'},
   {id:'chat',label:'Chat',icon:'💬'},
-  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'notifications',label:'Notifications',icon:'🔔'},
   {id:'settings',label:'Settings',icon:'⚙️'}
 ];
 const SPEC_TABS=[
@@ -2691,7 +2691,7 @@ const SPEC_TABS=[
   {id:'patients',label:'Patients',icon:'👤'},
   {id:'calendar',label:'Calendar',icon:'📅'},
   {id:'todo',label:'To-Do',icon:'✅'},
-  {id:'notifications',label:'Alerts',icon:'🔔'},
+  {id:'notifications',label:'Notifications',icon:'🔔'},
   {id:'credentials',label:'My Folder',icon:'🗂️'},
   {id:'request',label:'Join Team',icon:'📨'},
   {id:'settings',label:'Settings',icon:'⚙️'}
@@ -3107,7 +3107,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=null;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -3293,7 +3293,7 @@ function renderDrawer(){
       {icon:'👤',label:'Patients',id:'patients'},
       {icon:'📅',label:'Calendar',id:'calendar'},
       {icon:'✅',label:'My Tasks',id:'todo'},
-      {icon:'🔔',label:'Alerts',id:'notifications'},
+      {icon:'🔔',label:'Notifications',id:'notifications'},
       {icon:'⚙️',label:'Settings',id:'settings'},
     ];
     specItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
@@ -3318,9 +3318,11 @@ function renderDrawer(){
   const notifItem=drawerItem('🔔','Notifications','notifications',unreadNotifs);
   scroll.appendChild(notifItem);
 
-  // Email/Inbox
-  const emailItem=drawerItem('📧',session?.role==='parent'?'Inbox':'Alerts','email',unreadEmails);
-  scroll.appendChild(emailItem);
+  // Email/Inbox (specialists only)
+  if(session?.role!=='parent'){
+    const emailItem=drawerItem('📧','Alerts','email',unreadEmails);
+    scroll.appendChild(emailItem);
+  }
 
   // Settings (if in tabs)
   if(session?.role==='parent'){
@@ -3491,7 +3493,7 @@ function renderBottomNav(){
       {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
       {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
       {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;switchTab('chat');}},
-      {id:'notifications',label:'Alerts',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
+      {id:'notifications',label:'Notifications',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
     ];
     parentTabs.forEach(t=>{
       const b=el('button',{class:'bnav-btn'+(t.isActive?' active':'')});
@@ -3526,7 +3528,7 @@ function renderBottomNav(){
     const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
     menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
     menuBtn.appendChild(menuIcon);
-    menuBtn.appendChild(document.createTextNode('Menu'));
+    menuBtn.appendChild(document.createTextNode('Notifications'));
     if(totalBadge>0){
       menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
     }
@@ -3715,7 +3717,7 @@ function renderGlobalHome(){
     if(childHW.length>0){
       bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
     }
-    bubble.onclick=()=>{_pushNav();S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
+    bubble.onclick=()=>{_pushNav();S.activeChatChildId=null;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
     row.appendChild(bubble);
   });
@@ -6632,6 +6634,16 @@ function showConsultModal(childId){
     const sendBtn=mkBtn('📤 Send Consultation Request','btn-md btn-primary btn-full',async()=>{
       sendBtn.disabled=true;sendBtn.textContent='Sending…';
       try{
+        // Check for existing consult in either direction
+        const {data:existingConsult}=await _supa.from('specialist_requests')
+          .select('id').eq('child_id',cid).eq('request_type','consult')
+          .in('status',['pending','approved'])
+          .or('and(specialist_id.eq.'+mySpecId+',requested_folder.eq.'+state.targetId+'),and(specialist_id.eq.'+state.targetId+',requested_folder.eq.'+mySpecId+')');
+        if(existingConsult?.length>0){
+          sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
+          toast('A consultation with this specialist already exists or is pending.','error',4000);
+          return;
+        }
         // Resolve household_id and parent_id — look up from children table if not in local state
         let hhid=getChildHouseholdId(cid);
         let childParentId=child?.parentId||child?.parent_id||null;
@@ -6882,6 +6894,19 @@ function renderVault(){
         actRow.appendChild(saveDraftBtn);
         actRow.appendChild(summaryBtn);
         actRow.appendChild(lockBtn);
+        if(!note.published){
+          const delBtn=mkBtn('🗑️ Delete','btn-sm btn-ghost',()=>{
+            openConfirm('Delete Note?','Permanently delete this draft? This cannot be undone.',true,async()=>{
+              if(session&&session.id!=='demo'){
+                try{await _supa.from('vault_notes').delete().eq('id',note.id);}catch(e){console.error('delete note:',e);}
+              }
+              const ns=DB.vaultNotes.filter(n=>n.id!==note.id);DB.vaultNotes=ns;
+              S.activeVaultId=null;S.vaultHasUnsaved=false;re();
+            });
+          });
+          delBtn.style.marginLeft='auto';
+          actRow.appendChild(delBtn);
+        }
         body.appendChild(actRow);
       }
 
@@ -7489,6 +7514,11 @@ function renderHomeworkParent(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const hw=DB.homework.filter(h=>h.childId===S.activeChild);
   const sec=el('div',{class:'section'});
+  const _hwBackBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
+  const _hwBackBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to '+(child?.name||'Child')]);
+  _hwBackBtn.onclick=()=>{S.activeTab='patient-detail';re();};
+  _hwBackBar.appendChild(_hwBackBtn);
+  sec.appendChild(_hwBackBar);
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
   sec.appendChild(el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assigned tasks`]));
 
