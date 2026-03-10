@@ -7895,7 +7895,7 @@ function renderPatientDashboard(){
     }});
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
-    sq.onclick=()=>{S.activeTab=tab;re();};
+    sq.onclick=()=>{if(tab==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;}S.activeTab=tab;re();};
     grid.appendChild(sq);
   });
   sec.appendChild(grid);
