@@ -4728,6 +4728,34 @@ function renderFolderGrid(folder,isParent,childColor){
         });
       }));
     }
+    if(!isParent&&f.uploadedBy===session?.id){
+      actions.appendChild(mkAct('✏️','Rename',()=>{
+        openModal('Rename File',(mb,close)=>{
+          mb.appendChild(el('div',{class:'inp-label'},['New name']));
+          const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});
+          mb.appendChild(ni);
+          mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',async()=>{
+            if(!ni.value.trim())return;
+            try{
+              await SB.renameFile(f.id,ni.value.trim());
+              const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
+              if(ff){ff.name=ni.value.trim();DB.folders=fls;}
+              close();re();toast('File renamed!');
+            }catch(e){toast('❌ Rename failed: '+e.message,'error');}
+          }));
+        },380);
+      }));
+      actions.appendChild(mkAct('🗑','Delete',()=>{
+        openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
+          try{
+            await SB.deleteFile(f.id);
+            const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
+            if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+            re();toast('🗑 File deleted.');
+          }catch(e){toast('❌ Delete failed: '+e.message,'error');}
+        });
+      }));
+    }
     card.appendChild(actions);
 
     // Tap the card itself = preview
@@ -5187,12 +5215,59 @@ function showFolderModal(folder,isParent){
         });
         actions.appendChild(delBtn);
       }
+      if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
+        actions.appendChild(mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            try{
+              await SB.renameFile(f.id,newName.trim());
+              const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+            }catch(e){toast('❌ Rename failed: '+e.message,'error');}
+          }
+        }));
+        actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',async()=>{
+          openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
+            try{
+              await SB.deleteFile(f.id);
+              const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+              close();re();toast('🗑 File deleted.');
+            }catch(e){toast('❌ Delete failed: '+e.message,'error');}
+          });
+        }));
+      }
       if(actions.children.length>0)fi.appendChild(actions);
       stack.appendChild(fi);
     });
     mb.appendChild(stack);
     if(isParent){
       mb.appendChild(mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
+    } else {
+      const fiPop=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});
+      mb.appendChild(fiPop);
+      const upPopBtn=mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>fiPop.click());
+      fiPop.onchange=async e=>{
+        const file=e.target.files[0];if(!file)return;
+        upPopBtn.textContent='⏳ Uploading…';upPopBtn.disabled=true;
+        try{
+          const {path,url}=await SB.uploadFile(S.activeChild,file);
+          const newFile={childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder.key||'general'};
+          const saved=await SB.addFile(newFile);
+          const fileId=saved?.id||crypto.randomUUID();
+          const fls=DB.folders;
+          const fo=fls.find(x=>x.id===folder.id);
+          if(fo)fo.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
+          DB.folders=fls;
+          close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);
+          toast('✅ "'+file.name+'" uploaded!');
+        }catch(e){
+          upPopBtn.textContent='📤 Upload to This Folder';upPopBtn.disabled=false;
+          toast('❌ Upload failed: '+e.message,'error');
+        }
+      };
+      mb.appendChild(upPopBtn);
     }
   },540);
 }
