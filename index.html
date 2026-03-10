@@ -6240,6 +6240,9 @@ function renderChat(){
   });
 
   const sec=el('div',{class:'section',style:{padding:0,overflow:'hidden'}});
+  const _chatBkChild=DB.children.find(c=>c.id===S.activeChatChildId);
+  const _chatBkBar=mkSpecBackBar(_chatBkChild?.name);
+  if(_chatBkBar){_chatBkBar.style.paddingLeft='16px';_chatBkBar.style.paddingRight='16px';_chatBkBar.style.paddingTop='12px';sec.appendChild(_chatBkBar);}
 
   // -- MOBILE: full-screen thread view --
   if(isMobile&&S.activeChatId){
