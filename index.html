@@ -215,6 +215,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .toggle.on::after{left:24px}
 .chk{width:28px;height:28px;border-radius:10px;border:2px solid var(--mint);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s;font-size:.8rem;font-weight:900;color:#fff;min-width:28px}
 .chk.done{background:linear-gradient(135deg,var(--teal),var(--teal-l));border-color:var(--teal);box-shadow:0 4px 12px rgba(13,148,136,.35)}
+.chk.missed{background:var(--rose-l);border-color:var(--rose);color:#be123c}
+.hw-cal-chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 8px;border-radius:10px;min-width:38px;flex-shrink:0;cursor:default}
+.hw-cal-chip.clickable{cursor:pointer}
+.hw-cal-chip-label{font-size:.62rem;font-weight:700}
+.hw-cal-chip-num{font-size:.78rem;font-weight:800}
+.hw-cal-chip-icon{font-size:.75rem}
 /* Spring animation class — JS adds this then removes for haptic bounce effect */
 .chk.spring{animation:taskSpring .5s cubic-bezier(.34,1.56,.64,1)}
 
@@ -1611,12 +1617,24 @@ async function refreshFromSupabase(){
         _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
           .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
           .catch(e=>console.error('refresh appointments:',e)),
-        // Homework — parent: by household_id; specialist: by specialist_id
+        // Homework — legacy simple table (kept for backward compat)
         (hid
           ? _supa.from('homework').select('*').eq('household_id',hid)
           : _supa.from('homework').select('*').eq('specialist_id',session.id)
         ).then(({data:hw})=>LS.set('homework',(hw||[]).map(h=>({id:h.id,childId:h.child_id,task:h.task,category:h.category,due:h.due,completed:h.completed,specialist:h.specialist_name||'',specialistId:h.specialist_id||''}))))
           .catch(e=>console.error('refresh homework:',e)),
+        // Homework Tasks — new recurring task system
+        (hid
+          ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+          : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+        ).then(({data:hwt})=>LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',createdAt:t.created_at}))))
+          .catch(e=>console.error('refresh homework_tasks:',e)),
+        // Homework Occurrences — parent only (specialist loads per-task on demand)
+        hid
+          ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-7*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+31*86400000).toISOString().split('T')[0])
+              .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false}))))
+              .catch(e=>console.error('refresh homework_occurrences:',e))
+          : Promise.resolve(),
         // Notifications
         _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
           .then(({data:notifs})=>{
@@ -2032,7 +2050,11 @@ let S={
   patientStatusFilter:'active',  // filter state for renderPatients — survives re()
   calendarMode:'child',          // 'joint' = all children; 'child' = active child only
   activeChatChildId:null,
-  chatsLoaded:false
+  chatsLoaded:false,
+  _hwSpecTab:'active',    // specialist homework: 'active'|'archive'
+  _hwParentTab:'active',  // parent homework: 'active'|'archive'
+  _hwExpandedId:null,     // parent: expanded task card id
+  _hwTaskView:null        // specialist: task id for detail view
 };
 
 /* -----------------------------------------------
@@ -7611,48 +7633,575 @@ function showAddTodoModal(childId,existing){
   },520);
 }
 
+/* -----------------------------------------------
+   HOMEWORK — HELPERS
+----------------------------------------------- */
+function calculateCompletionRate(occurrences){
+  const today=new Date().toISOString().split('T')[0];
+  const past=(occurrences||[]).filter(o=>(o.date||o.scheduled_date)<=today);
+  if(!past.length)return{completed:0,total:0,rate:'0%',calendar:[]};
+  const completed=past.filter(o=>o.status==='completed').length;
+  const rate=Math.round((completed/past.length)*100)+'%';
+  const calendar=[];
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().split('T')[0];const occ=(occurrences||[]).find(o=>(o.date||o.scheduled_date)===ds);calendar.push({date:ds,status:occ?.status||'none'});}
+  return{completed,total:past.length,rate,calendar};
+}
+
+async function _generateOccurrences(task){
+  const today=new Date();today.setHours(0,0,0,0);
+  const dates=[];
+  const dayMap={mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
+  if(task.recurrence==='once'){
+    dates.push(today.toISOString().split('T')[0]);
+  } else {
+    let endDate=new Date(today);
+    if(task.duration_type==='end_date'&&task.end_date){endDate=new Date(task.end_date+'T23:59:59');}
+    else{endDate.setDate(endDate.getDate()+30);}
+    let cur=new Date(today);
+    while(cur<=endDate&&dates.length<60){
+      const daysFromStart=Math.round((cur-today)/86400000);
+      const dow=cur.getDay();
+      let inc=false;
+      if(task.recurrence==='daily')inc=true;
+      else if(task.recurrence==='every_other_day')inc=(daysFromStart%2===0);
+      else if(task.recurrence==='specific_days')inc=(task.specific_days||[]).some(d=>dayMap[d]===dow);
+      if(inc)dates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  if(!dates.length)return;
+  const rows=dates.map(date=>({task_id:task.id,child_id:task.child_id,household_id:task.household_id,scheduled_date:date,status:'pending',acknowledged_by_parent:false}));
+  for(let i=0;i<rows.length;i+=50){
+    const {error}=await _supa.from('homework_occurrences').insert(rows.slice(i,i+50));
+    if(error)throw error;
+  }
+}
+
+function _hwRecLabel(task){
+  if(task.recurrence==='once')return'Once';
+  if(task.recurrence==='daily')return'Daily';
+  if(task.recurrence==='every_other_day')return'Every other day';
+  return(task.specificDays||[]).map(d=>d.charAt(0).toUpperCase()+d.slice(1)).join(', ')||'Custom';
+}
+
+function _hwDiffBadge(diff){
+  if(!diff)return null;
+  const col=diff==='easy'?'green':diff==='hard'?'rose':'amber';
+  return badge(diff.charAt(0).toUpperCase()+diff.slice(1),col);
+}
+
+function _hwCalRow(occurrences,startDaysAgo,numDays,showFuture,onClickOcc){
+  const row=el('div',{style:{display:'flex',gap:'6px',overflowX:'auto',paddingBottom:'4px'}});
+  const today=new Date().toISOString().split('T')[0];
+  for(let i=startDaysAgo;i<startDaysAgo+numDays;i++){
+    const d=new Date();d.setDate(d.getDate()-i*-1+(startDaysAgo>=0?-startDaysAgo:0));
+    // Recalculate: i goes from 0..numDays-1, offset by startDaysAgo
+    const dd=new Date();dd.setDate(dd.getDate()+i-(startDaysAgo>=0?startDaysAgo:0));
+    const ds=dd.toISOString().split('T')[0];
+    const occ=(occurrences||[]).find(o=>(o.date||o.scheduled_date)===ds);
+    const st=occ?.status||'none';
+    const isFut=ds>today;
+    const bg=st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':st==='pending'&&!isFut?'var(--amber-l)':'var(--mint-ll)';
+    const col=st==='completed'?'#fff':st==='missed'?'#be123c':st==='pending'&&!isFut?'#92400e':'var(--slate)';
+    const icon=st==='completed'?'✅':st==='missed'?'❌':st==='pending'&&!isFut?'⏳':'○';
+    const chip=el('div',{class:'hw-cal-chip'+(onClickOcc&&occ&&st!=='completed'?' clickable':''),style:{background:bg,minWidth:'38px'}});
+    chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col}},[dd.toLocaleDateString([],{weekday:'short'})]));
+    chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(dd.getDate())]));
+    chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[icon]));
+    if(onClickOcc&&occ&&st!=='completed')chip.onclick=()=>onClickOcc(occ);
+    row.appendChild(chip);
+  }
+  return row;
+}
+
+function showCheckOffModal(occ,task,childColor){
+  openModal('Mark as Done',(mb,close)=>{
+    mb.appendChild(el('div',{style:{fontWeight:700,fontSize:'.95rem',color:'var(--navy)',marginBottom:'3px'}},[task.title]));
+    const dLabel=new Date((occ.date||occ.scheduled_date)+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+    mb.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px'}},[dLabel]));
+    mb.appendChild(el('div',{class:'inp-label'},['Note for specialist (optional)']));
+    const noteInp=el('textarea',{class:'inp',placeholder:'How did it go?',style:{minHeight:'75px',marginBottom:'12px'}});
+    mb.appendChild(noteInp);
+    mb.appendChild(el('div',{class:'inp-label'},['Photo (optional)']));
+    const photoInp=el('input',{type:'file',accept:'image/*',style:{marginBottom:'16px',fontSize:'.84rem',display:'block'}});
+    mb.appendChild(photoInp);
+    const saveBtn=mkBtn('✅ Mark as Done','btn-lg btn-primary btn-full',async()=>{
+      if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
+      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      try{
+        let photoUrl=null;
+        if(photoInp.files[0]){
+          const {url}=await SB.uploadFile('homework/'+S.activeChild+'/'+occ.id,photoInp.files[0]);
+          photoUrl=url;
+        }
+        await _supa.from('homework_occurrences').update({status:'completed'}).eq('id',occ.id);
+        await _supa.from('homework_completions').insert({occurrence_id:occ.id,task_id:task.id,child_id:occ.childId||S.activeChild,completed_by:session.id,note:noteInp.value.trim()||null,photo_url:photoUrl,completed_at:new Date().toISOString()});
+        const all=DB.homeworkOccurrences||[];
+        const i=all.findIndex(o=>o.id===occ.id);
+        if(i>-1){all[i].status='completed';DB.homeworkOccurrences=all;}
+        const child=DB.children.find(c=>c.id===S.activeChild);
+        await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework');
+        close();re();toast('✅ Marked as done!');
+      }catch(e){console.error('check off:',e);toast('Could not save. Please try again.','error');saveBtn.disabled=false;saveBtn.textContent='✅ Mark as Done';}
+    });
+    mb.appendChild(saveBtn);
+  },460);
+}
+
+function _mkHwSpecCard(task,allOccs,child){
+  const taskOccs=(allOccs||[]).filter(o=>o.taskId===task.id);
+  const rate=calculateCompletionRate(taskOccs);
+  const card=el('div',{class:'card hov',style:{marginBottom:'12px',padding:'14px 16px'}});
+  const top=el('div',{style:{display:'flex',gap:'10px',alignItems:'flex-start'}});
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'7px',flexWrap:'wrap',marginBottom:'5px'}});
+  if(task.isPinned)titleRow.appendChild(el('span',{style:{fontSize:'.75rem'}},['📌']));
+  titleRow.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[task.title]));
+  const db=_hwDiffBadge(task.difficulty);if(db)titleRow.appendChild(db);
+  if(task.isPaused)titleRow.appendChild(badge('Paused','slate'));
+  info.appendChild(titleRow);
+  const metaRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',fontSize:'.76rem',color:'var(--slate)',fontWeight:600,marginBottom:'4px'}});
+  metaRow.appendChild(el('span',{},[_hwRecLabel(task)]));
+  if(rate.total>0)metaRow.appendChild(el('span',{style:{color:'var(--teal)'}},[rate.completed+'/'+rate.total+' done ('+rate.rate+')']));
+  const pendingAck=(taskOccs||[]).filter(o=>!o.acknowledgedByParent).length;
+  if(pendingAck>0)metaRow.appendChild(el('span',{style:{color:'var(--coral)'}},['⏳ '+pendingAck+' unacknowledged']));
+  info.appendChild(metaRow);
+  top.appendChild(info);
+  const acts=el('div',{style:{display:'flex',gap:'5px',flexShrink:0,flexWrap:'wrap',alignItems:'flex-start'}});
+  const viewBtn=mkBtn('📊','btn-sm btn-ghost',()=>{S._hwTaskView=task.id;re();});
+  viewBtn.title='View details';acts.appendChild(viewBtn);
+  const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showAddHomeworkTaskModal(task));
+  editBtn.title='Edit';acts.appendChild(editBtn);
+  const pinBtn=mkBtn(task.isPinned?'📌':'📍','btn-sm btn-ghost',async()=>{
+    if(session?.id==='demo'){toast('Demo mode.','error');return;}
+    try{
+      const np=!task.isPinned;
+      await _supa.from('homework_tasks').update({is_pinned:np}).eq('id',task.id);
+      const all=DB.homeworkTasks||[];const i=all.findIndex(t=>t.id===task.id);
+      if(i>-1){all[i].isPinned=np;DB.homeworkTasks=all;}
+      re();
+    }catch(e){console.error('pin task:',e);toast('Could not update.','error');}
+  });
+  pinBtn.title=task.isPinned?'Unpin':'Pin to top';acts.appendChild(pinBtn);
+  if(task.status==='active'){
+    const archBtn=mkBtn('🗄','btn-sm btn-ghost',()=>openConfirm('Archive Task','Move to archive? You can restore it later.',false,async()=>{
+      if(session?.id==='demo'){toast('Demo mode.','error');return;}
+      try{
+        await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id);
+        const all=DB.homeworkTasks||[];const i=all.findIndex(t=>t.id===task.id);
+        if(i>-1){all[i].status='archived';DB.homeworkTasks=all;}
+        re();toast('Task archived.');
+      }catch(e){console.error('archive:',e);toast('Could not archive.','error');}
+    }));
+    archBtn.title='Archive';acts.appendChild(archBtn);
+  } else {
+    const restBtn=mkBtn('♻️','btn-sm btn-ghost',()=>openConfirm('Restore Task','Move back to active tasks?',false,async()=>{
+      if(session?.id==='demo'){toast('Demo mode.','error');return;}
+      try{
+        await _supa.from('homework_tasks').update({status:'active'}).eq('id',task.id);
+        const all=DB.homeworkTasks||[];const i=all.findIndex(t=>t.id===task.id);
+        if(i>-1){all[i].status='active';DB.homeworkTasks=all;}
+        re();toast('Task restored.');
+      }catch(e){console.error('restore:',e);toast('Could not restore.','error');}
+    }));
+    restBtn.title='Restore';acts.appendChild(restBtn);
+  }
+  const delBtn=mkBtn('🗑','btn-sm btn-danger',()=>openConfirm('Delete Task','Permanently delete this task and all its history?',true,async()=>{
+    if(session?.id==='demo'){toast('Demo mode.','error');return;}
+    try{
+      await _supa.from('homework_tasks').update({status:'deleted'}).eq('id',task.id);
+      DB.homeworkTasks=(DB.homeworkTasks||[]).filter(t=>t.id!==task.id);
+      re();toast('Task deleted.');
+    }catch(e){console.error('delete task:',e);toast('Could not delete.','error');}
+  }));
+  delBtn.title='Delete';acts.appendChild(delBtn);
+  top.appendChild(acts);
+  card.appendChild(top);
+  return card;
+}
+
+function _renderHwTaskDashboard(taskId){
+  const sec=el('div',{class:'section'});
+  const task=(DB.homeworkTasks||[]).find(t=>t.id===taskId);
+  if(!task){
+    sec.appendChild(el('div',{class:'empty-inline'},['Task not found.']));
+    sec.appendChild(mkBtn('← Back','btn-sm btn-ghost',()=>{S._hwTaskView=null;re();}));
+    return sec;
+  }
+  const backRow=el('div',{style:{marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
+  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to Task List']);
+  backBtn.onclick=()=>{S._hwTaskView=null;re();};
+  backRow.appendChild(backBtn);
+  sec.appendChild(backRow);
+  sec.appendChild(el('h2',{class:'page-title'},[task.title]));
+  const metaRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px',alignItems:'center'}});
+  const db=_hwDiffBadge(task.difficulty);if(db)metaRow.appendChild(db);
+  metaRow.appendChild(badge(_hwRecLabel(task),'teal'));
+  if(task.isPaused)metaRow.appendChild(badge('Paused','slate'));
+  sec.appendChild(metaRow);
+  if(task.description)sec.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'16px',padding:'12px',background:'var(--mint-ll)',borderRadius:'var(--r)'}},[task.description]));
+  const loadDiv=el('div',{style:{padding:'20px',textAlign:'center',color:'var(--slate)',fontSize:'.84rem'}},['Loading completion data…']);
+  sec.appendChild(loadDiv);
+  (async()=>{
+    try{
+      const [occsRes,compsRes]=await Promise.all([
+        _supa.from('homework_occurrences').select('*').eq('task_id',taskId).order('scheduled_date'),
+        _supa.from('homework_completions').select('*').eq('task_id',taskId).order('completed_at',{ascending:false})
+      ]);
+      const occs=occsRes.data||[];
+      const comps=compsRes.data||[];
+      const rate=calculateCompletionRate(occs.map(o=>({...o,date:o.scheduled_date})));
+      loadDiv.innerHTML='';
+      // Stats
+      const statsRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'18px'}});
+      const mkStat=(v,l,c)=>{
+        const s=el('div',{style:{background:'var(--mint-ll)',borderRadius:'var(--r)',padding:'11px 16px',minWidth:'72px',textAlign:'center'}});
+        s.appendChild(el('div',{style:{fontWeight:800,fontSize:'1.25rem',color:c||'var(--teal)'}},[v]));
+        s.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',fontWeight:600,marginTop:'2px'}},[l]));
+        return s;
+      };
+      statsRow.appendChild(mkStat(String(rate.completed),'Done'));
+      statsRow.appendChild(mkStat(String(rate.total),'Total'));
+      statsRow.appendChild(mkStat(rate.rate,'Rate',rate.completed>0?'var(--teal)':'var(--slate)'));
+      loadDiv.appendChild(statsRow);
+      // 7-day calendar
+      loadDiv.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'7px'}},['Last 7 Days']));
+      const today=new Date().toISOString().split('T')[0];
+      const calRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'20px',overflowX:'auto',paddingBottom:'4px'}});
+      for(let i=6;i>=0;i--){
+        const d=new Date();d.setDate(d.getDate()-i);
+        const ds=d.toISOString().split('T')[0];
+        const occ=occs.find(o=>o.scheduled_date===ds);
+        const st=occ?.status||'none';
+        const bg=st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':st==='pending'&&ds<=today?'var(--amber-l)':'var(--mint-ll)';
+        const col=st==='completed'?'#fff':st==='missed'?'#be123c':st==='pending'&&ds<=today?'#92400e':'var(--slate)';
+        const chip=el('div',{class:'hw-cal-chip',style:{background:bg}});
+        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col}},[d.toLocaleDateString([],{weekday:'short'})]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(d.getDate())]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[st==='completed'?'✅':st==='missed'?'❌':st==='pending'&&ds<=today?'⏳':'○']));
+        calRow.appendChild(chip);
+      }
+      loadDiv.appendChild(calRow);
+      // Completions
+      loadDiv.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['Completions ('+comps.length+')']));
+      if(!comps.length){
+        loadDiv.appendChild(el('div',{class:'empty-inline'},['No completions yet.']));
+      } else {
+        comps.forEach(comp=>{
+          const cc=el('div',{class:'card',style:{marginBottom:'10px',padding:'13px'}});
+          const compDate=new Date(comp.completed_at).toLocaleDateString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+          cc.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)',marginBottom:'5px'}},['✅ '+compDate]));
+          if(comp.note)cc.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.5',marginBottom:'6px',fontStyle:'italic'}},['"'+comp.note+'"']));
+          if(comp.photo_url){
+            const img=el('img',{src:comp.photo_url,style:{maxWidth:'100%',maxHeight:'180px',borderRadius:'8px',marginBottom:'8px',objectFit:'cover',display:'block'}});
+            cc.appendChild(img);
+          }
+          cc.appendChild(mkBtn('💬 Add Comment','btn-sm btn-ghost',()=>{
+            openModal('Add Comment',(mb2,close2)=>{
+              mb2.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--slate)',marginBottom:'10px'}},['Feedback for: '+compDate]));
+              const cta=el('textarea',{class:'inp',placeholder:'Your feedback for the parent...',style:{minHeight:'80px',marginBottom:'12px'}});
+              mb2.appendChild(cta);
+              mb2.appendChild(mkBtn('Send Comment','btn-lg btn-primary btn-full',async()=>{
+                if(!cta.value.trim()){toast('Write a comment first.','error');return;}
+                try{
+                  await _supa.from('homework_comments').insert({completion_id:comp.id,task_id:taskId,specialist_id:session?.specialistId||session?.id,comment:cta.value.trim()});
+                  await notifyOtherParty('homework','💬 '+(session?.name||'Specialist')+' commented on "'+task.title.slice(0,30)+'"',S.activeChild,'homework');
+                  close2();toast('Comment sent!');
+                }catch(e){console.error('add comment:',e);toast('Could not send comment.','error');}
+              }));
+            },420);
+          }));
+          loadDiv.appendChild(cc);
+        });
+      }
+    }catch(e){console.error('load task dashboard:',e);loadDiv.textContent='Could not load completion data.';}
+  })();
+  return sec;
+}
+
+function showAddHomeworkTaskModal(existing){
+  openModal((existing?'✏️ Edit Task':'➕ Add Homework Task'),(mb,close)=>{
+    const ig=el('div',{class:'inp-group',style:{gap:'14px'}});
+    // Title
+    ig.appendChild(el('div',{class:'inp-label'},['Task Title *']));
+    const titleInp=el('input',{class:'inp',type:'text',placeholder:'e.g. Practice breathing exercises for 5 minutes'});
+    if(existing)titleInp.value=existing.title||'';
+    ig.appendChild(titleInp);
+    // Description
+    ig.appendChild(el('div',{class:'inp-label'},['Instructions for parent (optional)']));
+    const descInp=el('textarea',{class:'inp',placeholder:'Describe how to do this task...',style:{minHeight:'70px'}});
+    if(existing)descInp.value=existing.description||'';
+    ig.appendChild(descInp);
+
+    // Difficulty pills
+    ig.appendChild(el('div',{class:'inp-label'},['Difficulty']));
+    let selDiff=existing?.difficulty||'medium';
+    const diffRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+    const diffBtns={};
+    ['easy','medium','hard'].forEach(d=>{
+      const b=el('button',{class:selDiff===d?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[d.charAt(0).toUpperCase()+d.slice(1)]);
+      b.onclick=()=>{selDiff=d;Object.entries(diffBtns).forEach(([k,v])=>{v.className=k===d?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});};
+      diffBtns[d]=b;diffRow.appendChild(b);
+    });
+    ig.appendChild(diffRow);
+
+    // Recurrence pills
+    ig.appendChild(el('div',{class:'inp-label'},['Frequency']));
+    let selRec=existing?.recurrence||'daily';
+    const recRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+    const recBtns={};
+    const daysSection=el('div',{style:{display:selRec==='specific_days'?'block':'none',marginTop:'8px'}});
+    const dayBtns={};
+    const dayKeys=['mon','tue','wed','thu','fri','sat','sun'];
+    const selDays=new Set(existing?.specificDays||[]);
+    const dayRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}});
+    dayKeys.forEach(d=>{
+      const b=el('button',{class:selDays.has(d)?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[d.charAt(0).toUpperCase()+d.slice(1)]);
+      b.onclick=()=>{
+        if(selDays.has(d)){selDays.delete(d);b.className='btn btn-sm btn-ghost';}
+        else{selDays.add(d);b.className='btn btn-sm btn-primary';}
+      };
+      dayBtns[d]=b;dayRow.appendChild(b);
+    });
+    daysSection.appendChild(dayRow);
+    [['once','Once'],['daily','Daily'],['every_other_day','Every other day'],['specific_days','Specific days']].forEach(([val,label])=>{
+      const b=el('button',{class:selRec===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
+      b.onclick=()=>{selRec=val;Object.entries(recBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});daysSection.style.display=val==='specific_days'?'block':'none';};
+      recBtns[val]=b;recRow.appendChild(b);
+    });
+    ig.appendChild(recRow);ig.appendChild(daysSection);
+
+    // Duration pills
+    ig.appendChild(el('div',{class:'inp-label'},['Duration']));
+    let selDur=existing?.durationType||'open_ended';
+    const durRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+    const durBtns={};
+    const endDateSection=el('div',{style:{display:selDur==='end_date'?'block':'none',marginTop:'8px'}});
+    const endDateInp=makeDateInput('Select end date');
+    if(existing?.endDate)endDateInp.value=existing.endDate;
+    endDateSection.appendChild(endDateInp);
+    [['open_ended','Open-ended'],['end_date','Until date'],['next_appointment','Next appt']].forEach(([val,label])=>{
+      const b=el('button',{class:selDur===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
+      b.onclick=()=>{selDur=val;Object.entries(durBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});endDateSection.style.display=val==='end_date'?'block':'none';};
+      durBtns[val]=b;durRow.appendChild(b);
+    });
+    ig.appendChild(durRow);ig.appendChild(endDateSection);
+
+    // Time of day pills
+    ig.appendChild(el('div',{class:'inp-label'},['Best time of day']));
+    let selTime=existing?.timeOfDay||'morning';
+    const timeRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+    const timeBtns={};
+    ['morning','afternoon','evening'].forEach(t=>{
+      const b=el('button',{class:selTime===t?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[t.charAt(0).toUpperCase()+t.slice(1)]);
+      b.onclick=()=>{selTime=t;Object.entries(timeBtns).forEach(([k,v])=>{v.className=k===t?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});};
+      timeBtns[t]=b;timeRow.appendChild(b);
+    });
+    ig.appendChild(timeRow);
+
+    // Pin toggle
+    let isPinned=existing?.isPinned||false;
+    const pinRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:'1px solid var(--mint-l)',cursor:'pointer'}});
+    const pinChk=el('div',{class:'chk'+(isPinned?' done':''),style:{flexShrink:0}},[isPinned?'✓':'']);
+    pinRow.onclick=()=>{isPinned=!isPinned;pinChk.className='chk'+(isPinned?' done':'');pinChk.textContent=isPinned?'✓':'';};
+    pinRow.appendChild(pinChk);
+    pinRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},['📌 Pin to top of list']));
+    ig.appendChild(pinRow);
+
+    // Save as template (new tasks only)
+    let saveTemplate=false;
+    const tmplNameSection=el('div',{style:{display:'none',marginTop:'8px'}});
+    const tmplNameInp=el('input',{class:'inp',type:'text',placeholder:'Template name (e.g. Daily Breathing)...'});
+    tmplNameSection.appendChild(tmplNameInp);
+    if(!existing){
+      const tmplRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:'1px solid var(--mint-l)',cursor:'pointer'}});
+      const tmplChk=el('div',{class:'chk',style:{flexShrink:0}},['']);
+      tmplRow.onclick=()=>{saveTemplate=!saveTemplate;tmplChk.className='chk'+(saveTemplate?' done':'');tmplChk.textContent=saveTemplate?'✓':'';tmplNameSection.style.display=saveTemplate?'block':'none';};
+      tmplRow.appendChild(tmplChk);
+      tmplRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},['💾 Save as template']));
+      ig.appendChild(tmplRow);
+      ig.appendChild(tmplNameSection);
+    }
+    mb.appendChild(ig);
+    mb.appendChild(el('div',{style:{height:'12px'}}));
+
+    const saveBtn=mkBtn(existing?'✅ Save Changes':'✅ Assign Task','btn-lg btn-primary btn-full',async()=>{
+      const title=titleInp.value.trim();
+      if(!title){toast('⚠️ Task title is required.','error');return;}
+      if(selRec==='specific_days'&&selDays.size===0){toast('⚠️ Select at least one day.','error');return;}
+      if(selDur==='end_date'&&!endDateInp.value){toast('⚠️ Select an end date.','error');return;}
+      if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
+      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      const specId=session?.specialistId||session?.id;
+      const specName=session?.name||getMySpecialistRecord()?.name||'Specialist';
+      const specificDays=selRec==='specific_days'?[...selDays]:null;
+      const childId=S.activeChild;
+      const householdId=getChildHouseholdId(childId);
+      const payload={child_id:childId,household_id:householdId,specialist_id:specId,specialist_name:specName,title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,end_date:selDur==='end_date'?endDateInp.value:null,time_of_day:selTime,difficulty:selDiff,is_pinned:isPinned,is_paused:false,status:'active'};
+      try{
+        if(existing){
+          await _supa.from('homework_tasks').update({...payload,updated_at:new Date().toISOString()}).eq('id',existing.id);
+          const all=DB.homeworkTasks||[];
+          const i=all.findIndex(t=>t.id===existing.id);
+          if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned};DB.homeworkTasks=all;}
+          close();re();toast('✅ Task updated!');
+        } else {
+          const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
+          if(taskErr)throw taskErr;
+          await _generateOccurrences(newTask);
+          if(saveTemplate&&(tmplNameInp.value.trim()||title)){
+            await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:selTime,difficulty:selDiff}).catch(e=>console.error('save template:',e));
+          }
+          const all=DB.homeworkTasks||[];
+          all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',createdAt:new Date().toISOString()});
+          DB.homeworkTasks=all;
+          const child=DB.children.find(c=>c.id===childId);
+          await notifyOtherParty('homework','📋 New task for '+(child?.name||'your child')+': "'+title.slice(0,42)+'"',childId,'homework');
+          close();re();toast('✅ Task assigned!');
+        }
+      }catch(e){console.error('save homework task:',e);toast('Could not save task.','error');saveBtn.disabled=false;saveBtn.textContent=existing?'✅ Save Changes':'✅ Assign Task';}
+    });
+    mb.appendChild(saveBtn);
+    if(existing){
+      mb.appendChild(el('div',{style:{height:'8px'}}));
+      mb.appendChild(mkBtn('Cancel','btn-lg btn-ghost btn-full',()=>close()));
+    }
+  },540);
+}
+
+/* -----------------------------------------------
+   HOMEWORK — PARENT VIEW
+----------------------------------------------- */
 function renderHomeworkParent(){
   const child=DB.children.find(c=>c.id===S.activeChild);
-  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const allTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status!=='deleted');
+  const allOccs=DB.homeworkOccurrences||[];
   const sec=el('div',{class:'section'});
-  const _hwBackBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const _hwBackBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to '+(child?.name||'Child')]);
-  _hwBackBtn.onclick=()=>{S.activeTab='patient-detail';re();};
-  _hwBackBar.appendChild(_hwBackBtn);
-  sec.appendChild(_hwBackBar);
+  // Back button
+  const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
+  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to '+(child?.name||'Child')]);
+  backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
+  backBar.appendChild(backBtn);sec.appendChild(backBar);
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
-  sec.appendChild(el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assigned tasks`]));
-
-  if(!hw.length){sec.appendChild(p('No tasks assigned yet. Your care team will add them here!'));return sec;}
-  const _hwChildColor=child?.color||'var(--teal)';
-  hw.forEach(task=>{
-    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px',borderLeft:'4px solid '+_hwChildColor}});
-    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
-    chk.onclick=async()=>{
-      try{
-        const nowDone=!task.completed;
-        await _supa.from('homework').update({completed:nowDone}).eq('id',task.id);
-        const all=DB.homework;
-        const i=all.findIndex(h=>h.id===task.id);
-        if(i>-1){all[i].completed=nowDone;DB.homework=all;}
-        const child=DB.children.find(c=>c.id===S.activeChild);
-        if(nowDone){
-          // Notify the specialist — not the parent themselves
-          await notifyOtherParty('homework',`✅ ${child?.name||'Child'} completed: "${task.task.slice(0,42)}"`,S.activeChild,'homework');
-        }
-        re();
-      }catch(e){toast('Could not update task.','error');}
-    };
-    card.appendChild(chk);
-    const info=d('',[], {flex:1});
-    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',lineHeight:'1.4',marginBottom:'5px'}},[task.task]));
-    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
-    meta.appendChild(badge(task.category,catBadge(task.category)));
-    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
-    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},['by '+task.specialist]));
-    if(task.completed)meta.appendChild(badge('✅ Complete','green'));
-    info.appendChild(meta);
-    card.appendChild(info);
+  sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s assigned tasks"]));
+  // Tabs
+  const tab=S._hwParentTab||'active';
+  const activeTasks=allTasks.filter(t=>t.status==='active');
+  const archiveTasks=allTasks.filter(t=>t.status==='archived'||t.isPaused);
+  const tabBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
+  ['active','archive'].forEach(f=>{
+    const cnt=f==='active'?activeTasks.length:archiveTasks.length;
+    const isAct=tab===f;
+    const tbtn=el('button',{class:isAct?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[(f==='active'?'Active':'Archived')]);
+    tbtn.appendChild(el('span',{class:'patient-count-badge'},[String(cnt)]));
+    tbtn.onclick=()=>{S._hwParentTab=f;re();};
+    tabBar.appendChild(tbtn);
+  });
+  sec.appendChild(tabBar);
+  // NEW tasks banner
+  const unackedTasks=activeTasks.filter(t=>(allOccs.filter(o=>o.taskId===t.id&&!o.acknowledgedByParent)).length>0);
+  if(tab==='active'&&unackedTasks.length>0){
+    const banner=el('div',{style:{background:'var(--lav-l)',border:'1.5px solid var(--lav)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'10px'}});
+    banner.appendChild(el('span',{style:{fontSize:'1.2rem'}},['🔔']));
+    banner.appendChild(el('div',{style:{flex:1}},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.85rem'}},['New task'+(unackedTasks.length>1?'s':'')+' assigned!']),
+      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[unackedTasks.length+' task'+(unackedTasks.length>1?'s need':'needs')+' your acknowledgement'])
+    ]));
+    sec.appendChild(banner);
+  }
+  const tasks=tab==='active'?activeTasks:archiveTasks;
+  if(!tasks.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📋']),
+      el('div',{class:'empty-state-title'},[tab==='active'?'No tasks yet':'No archived tasks']),
+      el('div',{class:'empty-state-body'},[tab==='active'?'Your care team will assign tasks here.':'Completed or paused tasks will appear here.'])
+    ]));
+    return sec;
+  }
+  const childColor=child?.color||'var(--teal)';
+  const today=new Date().toISOString().split('T')[0];
+  tasks.forEach(task=>{
+    const taskOccs=allOccs.filter(o=>o.taskId===task.id);
+    const todayOcc=taskOccs.find(o=>o.date===today);
+    const isExpanded=S._hwExpandedId===task.id;
+    const isNew=taskOccs.some(o=>!o.acknowledgedByParent);
+    const card=el('div',{class:'card',style:{marginBottom:'12px',borderLeft:'4px solid '+childColor,opacity:task.isPaused?'.65':'1',cursor:'pointer'}});
+    // Header row
+    const hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'11px',padding:'2px 0'}});
+    // Today's checkbox
+    const todaySt=todayOcc?.status||'none';
+    const chkCls='chk'+(todaySt==='completed'?' done':todaySt==='missed'?' missed':'');
+    const chk=el('div',{class:chkCls,style:{flexShrink:0}},[todaySt==='completed'?'✓':todaySt==='missed'?'✗':'']);
+    if(todayOcc&&todaySt!=='completed'){
+      chk.onclick=e=>{e.stopPropagation();showCheckOffModal(todayOcc,task,childColor);};
+    }
+    hdr.appendChild(chk);
+    const titleWrap=el('div',{style:{flex:1,minWidth:0}});
+    const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}});
+    if(task.isPinned)titleRow.appendChild(el('span',{style:{fontSize:'.75rem'}},['📌']));
+    titleRow.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[task.title]));
+    if(isNew)titleRow.appendChild(badge('NEW','lav'));
+    if(task.isPaused)titleRow.appendChild(badge('Paused','slate'));
+    const db=_hwDiffBadge(task.difficulty);if(db)titleRow.appendChild(db);
+    titleWrap.appendChild(titleRow);
+    titleWrap.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600,marginTop:'2px'}},[_hwRecLabel(task)+' · by '+task.specialistName]));
+    hdr.appendChild(titleWrap);
+    hdr.appendChild(el('span',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,padding:'4px'}},[isExpanded?'▲':'▼']));
+    card.appendChild(hdr);
+    card.onclick=e=>{if(e.target===chk||chk.contains(e.target))return;S._hwExpandedId=isExpanded?null:task.id;re();};
+    // Expanded detail
+    if(isExpanded){
+      const detail=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
+      if(task.description)detail.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[task.description]));
+      // Next 7 days occurrence row
+      detail.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},['Next 7 Days']));
+      const calRow=el('div',{style:{display:'flex',gap:'5px',marginBottom:'14px',overflowX:'auto',paddingBottom:'4px'}});
+      for(let i=0;i<7;i++){
+        const d=new Date();d.setDate(d.getDate()+i);
+        const ds=d.toISOString().split('T')[0];
+        const occ=taskOccs.find(o=>o.date===ds);
+        const st=occ?.status||'none';
+        const bg=st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':ds===today?'var(--amber-l)':'var(--mint-ll)';
+        const col=st==='completed'?'#fff':st==='missed'?'#be123c':ds===today?'#92400e':'var(--slate)';
+        const chip=el('div',{class:'hw-cal-chip'+(occ&&st!=='completed'?' clickable':''),style:{background:bg,minWidth:'38px'}});
+        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col}},[d.toLocaleDateString([],{weekday:'short'})]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(d.getDate())]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[st==='completed'?'✅':st==='pending'&&ds<=today?'⏳':'○']));
+        if(occ&&st!=='completed')chip.onclick=()=>showCheckOffModal(occ,task,childColor);
+        calRow.appendChild(chip);
+      }
+      detail.appendChild(calRow);
+      // Acknowledge button
+      if(isNew){
+        const ackBtn=mkBtn('✓ Accept this task','btn-sm btn-primary',async()=>{
+          if(session?.id==='demo'){toast('Demo mode.','error');return;}
+          try{
+            const unackedIds=taskOccs.filter(o=>!o.acknowledgedByParent).map(o=>o.id);
+            if(unackedIds.length)await _supa.from('homework_occurrences').update({acknowledged_by_parent:true,acknowledged_at:new Date().toISOString()}).in('id',unackedIds);
+            const all=DB.homeworkOccurrences||[];
+            all.forEach(o=>{if(unackedIds.includes(o.id))o.acknowledgedByParent=true;});
+            DB.homeworkOccurrences=all;
+            await notifyOtherParty('homework','✓ Parent accepted: "'+task.title.slice(0,42)+'"',S.activeChild,'homework');
+            toast('Task accepted!');re();
+          }catch(e){console.error('ack task:',e);toast('Could not acknowledge.','error');}
+        });
+        ackBtn.style.marginBottom='8px';
+        detail.appendChild(ackBtn);
+      }
+      // Pause/Resume
+      const pauseBtn=mkBtn(task.isPaused?'▶ Resume Task':'⏸ Pause Task','btn-sm btn-ghost',async()=>{
+        if(session?.id==='demo'){toast('Demo mode.','error');return;}
+        try{
+          const np=!task.isPaused;
+          await _supa.from('homework_tasks').update({is_paused:np}).eq('id',task.id);
+          const all=DB.homeworkTasks||[];const i=all.findIndex(t=>t.id===task.id);
+          if(i>-1){all[i].isPaused=np;DB.homeworkTasks=all;}
+          toast(np?'Task paused.':'Task resumed.');re();
+        }catch(e){console.error('pause:',e);toast('Could not update task.','error');}
+      });
+      detail.appendChild(pauseBtn);
+      card.appendChild(detail);
+    }
     sec.appendChild(card);
   });
   return sec;
@@ -7662,78 +8211,57 @@ function renderHomeworkParent(){
    HOMEWORK — SPECIALIST VIEW
 ----------------------------------------------- */
 function renderHomeworkSpec(){
+  // Guard: if task view is for a different child, clear it
+  if(S._hwTaskView){
+    const _t=(DB.homeworkTasks||[]).find(t=>t.id===S._hwTaskView);
+    if(!_t||_t.childId!==S.activeChild)S._hwTaskView=null;
+  }
+  if(S._hwTaskView)return _renderHwTaskDashboard(S._hwTaskView);
   const child=DB.children.find(c=>c.id===S.activeChild);
-  const hw=DB.homework.filter(h=>h.childId===S.activeChild);
+  const allTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild);
+  const allOccs=DB.homeworkOccurrences||[];
   const sec=el('div',{class:'section'});
   const _hwBar=mkSpecBackBar(child?.name);if(_hwBar)sec.appendChild(_hwBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['Homework & Tasks']),
-    el('p',{class:'page-sub'},[`${child?.avatar} ${child?.name}'s assignments`])
+    el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s tasks"])
   ]));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Assign Task','btn-md btn-primary',()=>showAssignModal())]));
+  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Add Task','btn-md btn-primary',()=>showAddHomeworkTaskModal(null))]));
   sec.appendChild(hd);
-
-  if(!hw.length){sec.appendChild(p("No tasks assigned yet. Click 'Assign Task' to add one!"));return sec;}
-  hw.forEach(task=>{
-    const card=el('div',{class:'card hov',style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'11px'}});
-    const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
-    chk.onclick=async()=>{
-      const all=DB.homework,i=all.findIndex(h=>h.id===task.id);
-      if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.homework=all;
-        _supa.from('homework').update({completed:nv}).eq('id',task.id).then(()=>{}).catch(e=>console.error('hw complete:',e));
-        if(nv){await notifyOtherParty('homework',`✅ ${DB.children.find(c=>c.id===task.childId)?.name||'Child'} completed: "${task.task.slice(0,42)}"`,task.childId,'homework');}
-      }re();
-    };
-    card.appendChild(chk);
-    const info=d('',[], {flex:1});
-    info.appendChild(el('div',{style:{fontWeight:700,color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none',fontSize:'.88rem',marginBottom:'5px'}},[task.task]));
-    const meta=d('',[], {display:'flex',gap:'7px',flexWrap:'wrap',alignItems:'center'});
-    meta.appendChild(badge(task.category,catBadge(task.category)));
-    meta.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate-l)',fontWeight:600}},['Due '+task.due]));
-    if(task.completed)meta.appendChild(badge('✅ Completed by parent','green'));
-    info.appendChild(meta);
-    card.appendChild(info);
-    if(!task.completed){
-      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,async()=>{
-        const hid=task.id;
-        DB.homework=(DB.homework||[]).filter(h=>h.id!==hid);re();
-        if(session&&session.id!=='demo'){
-          try{await _supa.from('homework').delete().eq('id',hid);}catch(e){console.error('homework delete:',e);}
-        }
-      })));
-    }
-    sec.appendChild(card);
+  // Tabs
+  const tab=S._hwSpecTab||'active';
+  const activeTasks=allTasks.filter(t=>t.status==='active');
+  const archiveTasks=allTasks.filter(t=>t.status==='archived');
+  const tabBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
+  ['active','archive'].forEach(f=>{
+    const cnt=f==='active'?activeTasks.length:archiveTasks.length;
+    const isAct=tab===f;
+    const tbtn=el('button',{class:isAct?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[(f==='active'?'Active':'Archive')]);
+    tbtn.appendChild(el('span',{class:'patient-count-badge'},[String(cnt)]));
+    tbtn.onclick=()=>{S._hwSpecTab=f;re();};
+    tabBar.appendChild(tbtn);
   });
+  sec.appendChild(tabBar);
+  const tasks=tab==='active'?activeTasks:archiveTasks;
+  if(!tasks.length){
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📋']),
+      el('div',{class:'empty-state-title'},[tab==='active'?'No active tasks':'No archived tasks']),
+      el('div',{class:'empty-state-body'},[tab==='active'?"Click 'Add Task' to assign homework.":'Archived tasks will appear here.'])
+    ]));
+    return sec;
+  }
+  // Pinned section
+  const pinned=tasks.filter(t=>t.isPinned);
+  const rest=tasks.filter(t=>!t.isPinned);
+  if(pinned.length){
+    sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['📌 Pinned']));
+    pinned.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
+    if(rest.length)sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',margin:'14px 0 8px'}},['Other Tasks']));
+  }
+  rest.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
   return sec;
-}
-
-function showAssignModal(){
-  openModal('➕ Assign Homework Task',(mb,close)=>{
-    const ig=el('div',{class:'inp-group',style:{marginBottom:'14px'}});
-    const ta=el('textarea',{class:'inp',placeholder:'Describe the task clearly for the parent...'});
-    const sel=el('select',{class:'inp'});
-    ['Speech','OT','PT','General'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;sel.appendChild(o);});
-    const di=makeDateInput('Select date');
-    [ta,sel,di].forEach(i=>ig.appendChild(i));
-    mb.appendChild(ig);
-    mb.appendChild(mkBtn('✅ Assign Task','btn-lg btn-primary btn-full',()=>{
-      if(!ta.value.trim()||!di.value){toast('⚠️ Task and due date required.','error');return;}
-      const specId=session?.specialistId||null;
-      const spec=getMySpecialistRecord();
-      const newHw={id:'h_'+Date.now(),childId:S.activeChild,task:ta.value.trim(),specialist:spec?.name||session?.name||'Specialist',specialistId:specId,due:di.value,completed:false,category:sel.value};
-      (async()=>{
-        try{
-          await _supa.from('homework').insert({id:newHw.id,child_id:newHw.childId,household_id:getChildHouseholdId(newHw.childId),specialist_id:specId,specialist_name:newHw.specialist,task:newHw.task,category:newHw.category,due:newHw.due,completed:false});
-          const all=DB.homework;all.unshift(newHw);DB.homework=all;
-          // Notify parent (not self)
-          const _child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])||[]).find(c=>c.id===S.activeChild);
-          await notifyOtherParty('homework',`📋 New task for ${_child?.name||'your child'}: "${ta.value.slice(0,42)}"`,S.activeChild,'homework');
-          close();re();toast('✅ Task assigned!');
-        }catch(e){console.error('assign homework:',e);toast('Could not save task.','error');}
-      })();
-    }));
-  },460);
 }
 
 /* -----------------------------------------------
