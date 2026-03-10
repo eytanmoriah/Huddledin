@@ -1591,9 +1591,13 @@ async function refreshFromSupabase(){
         const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
         let _allReqs=[];
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        if(_hid){const {data:r1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',_hid);_dedup(r1);}
-        const {data:r2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);_dedup(r2);
-        if(_childIds.length){const {data:r3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);_dedup(r3);}
+        // Parallel: all 3 request sources fetched simultaneously
+        const [_reqR1,_reqR2,_reqR3]=await Promise.all([
+          _hid?_supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
+          _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id),
+          _childIds.length?_supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+        ]);
+        _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);
         if(_allReqs.length>0){
           const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
           DB.specialistRequests=mapped;
@@ -1790,11 +1794,18 @@ async function loadChatsFromSupabase(){
       q=q.eq('child_id',S.activeChild);
     }
     const {data:chatRows}=await q;
-    const chatsWithMessages=await Promise.all((chatRows||[]).map(async ch=>{
-      const {data:msgs}=await _supa.from('messages').select('*').eq('chat_id',ch.id).order('created_at');
+    // Batch: one messages query for all chats instead of N separate queries
+    const _chatIds=(chatRows||[]).map(ch=>ch.id);
+    const {data:_allMsgs}=_chatIds.length
+      ? await _supa.from('messages').select('*').in('chat_id',_chatIds).order('created_at')
+      : {data:[]};
+    const _msgsByChatId={};
+    (_allMsgs||[]).forEach(m=>{if(!_msgsByChatId[m.chat_id])_msgsByChatId[m.chat_id]=[];_msgsByChatId[m.chat_id].push(m);});
+    const chatsWithMessages=(chatRows||[]).map(ch=>{
+      const msgs=_msgsByChatId[ch.id]||[];
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,
-        messages:(msgs||[]).map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
-    }));
+        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
+    });
     LS.set('chats',chatsWithMessages);
   }catch(e){console.error('loadChatsFromSupabase:',e);}
 }
@@ -5374,19 +5385,13 @@ function renderTeam(){
         console.log('[renderTeam] querying with householdId:',session.householdId,'parentId:',session.id,'childIds:',_childIds);
         let _allReqs=[];
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        if(session.householdId){
-          const {data:r1,error:e1}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId);
-          console.log('[renderTeam] by household_id:',r1?.length||0,'rows, error:',e1);_dedup(r1);
-        }
-        const {data:r2,error:e2}=await _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id);
-        console.log('[renderTeam] by parent_id:',r2?.length||0,'rows, error:',e2);_dedup(r2);
-        if(_childIds.length){
-          const {data:r3,error:e3}=await _supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds);
-          console.log('[renderTeam] by child_id:',r3?.length||0,'rows, error:',e3);_dedup(r3);
-        }
-        // Last resort — fetch ALL pending requests visible to this user
-        const {data:r4,error:e4}=await _supa.from('specialist_requests').select('*').eq('status','pending');
-        console.log('[renderTeam] all pending visible:',r4?.length||0,'rows, error:',e4);_dedup(r4);
+        // Parallel: all 3 request sources simultaneously; r4 full-table fallback removed
+        const [_tR1,_tR2,_tR3]=await Promise.all([
+          session.householdId?_supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId):Promise.resolve({data:[]}),
+          _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id),
+          _childIds.length?_supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+        ]);
+        _dedup(_tR1.data);_dedup(_tR2.data);_dedup(_tR3.data);
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prev=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
