@@ -1479,7 +1479,15 @@ const SB = {
     return data;
   },
   async updateChild(id,patch){await _supa.from('children').update(patch).eq('id',id);},
-  async deleteChild(id){await _supa.from('children').delete().eq('id',id);},
+  async deleteChild(id){
+    // Only remove access/permission records — clinical records (messages, appointments,
+    // homework, files, folders) are retained for legal/compliance purposes on the specialist side.
+    await Promise.allSettled([
+      _supa.from('folder_permissions').delete().eq('child_id',id),
+      _supa.from('specialist_requests').delete().eq('child_id',id),
+    ]);
+    await _supa.from('children').delete().eq('id',id);
+  },
   async getSpecialists(parentId){
     const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
     const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
@@ -1660,7 +1668,7 @@ async function refreshFromSupabase(){
         if(children.length>0){
           const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
           LS.set('children',mapped);
-          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild))S.activeChild=mapped[0].id;
+          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild)){if(mapped.length>0)S.activeChild=mapped[0].id;}
           // Save appointments immediately — no waiting
           if(aptsRes.data&&aptsRes.data.length>0){
             LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
@@ -1837,7 +1845,11 @@ let session=null;
 
 async function _loadSessionFromSupabase(s){
   if(!s)return;
-  const {data:profile}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
+  let profile=null;
+  try{
+    const {data,error}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
+    if(!error)profile=data;
+  }catch(e){console.error('_loadSessionFromSupabase profile fetch:',e);}
   if(profile){
     // Use display_name → Google full_name → email prefix
     const _displayName=profile.display_name&&!profile.display_name.includes('@')
@@ -3731,7 +3743,7 @@ function renderGlobalHome(){
     connInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
       ['Share a Connection Code with a therapist so they can join your care team.']));
     connBanner.appendChild(connInfo);
-    const connBtn=mkBtn('Get Code','btn-sm btn-secondary',()=>showConnectionCodeModal(children[0].id));
+    const connBtn=mkBtn('Get Code','btn-sm btn-secondary',()=>{if(children.length>0)showConnectionCodeModal(children[0].id);});
     connBanner.appendChild(connBtn);
     sec.appendChild(connBanner);
   }
@@ -5223,9 +5235,9 @@ function showAccessRequest(folder){
       DB.specialistRequests=reqs;
       // Save to Supabase so parent on any device sees it
       if(session&&session.id!=='demo'){
-        _supa.from('children').select('parent_id').eq('id',childId).single().then(({data})=>{
+        _supa.from('children').select('parent_id,household_id').eq('id',childId).single().then(({data})=>{
           if(data?.parent_id){
-            _supa.from('specialist_requests').insert({id:newReq.id,parent_id:data.parent_id,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'}).catch(()=>{});
+            _supa.from('specialist_requests').insert({id:newReq.id,parent_id:data.parent_id,household_id:data.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'}).catch(()=>{});
           }
         }).catch(()=>{});
       }
@@ -7311,8 +7323,13 @@ function renderTodoCard(todo,today){
   // Actions
   const acts=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',flexShrink:0}});
   acts.appendChild(mkBtn('✏️','btn-sm btn-ghost',()=>showAddTodoModal(todo.childId,todo)));
-  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
-    DB.todos=(DB.todos||[]).filter(t=>t.id!==todo.id);re();toast('Task removed.');
+  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,async()=>{
+    const tid=todo.id;
+    DB.todos=(DB.todos||[]).filter(t=>t.id!==tid);re();toast('Task removed.');
+    if(session&&session.id!=='demo'){
+      try{await _supa.from('todos').delete().eq('id',tid);}catch(e){console.error('todo delete:',e);}
+      try{await _supa.from('todo_reminders').delete().eq('todo_id',tid);}catch(e){console.error('todo_reminder delete:',e);}
+    }
   })));
   card.appendChild(acts);
   return card;
@@ -7536,8 +7553,12 @@ function renderHomeworkSpec(){
     info.appendChild(meta);
     card.appendChild(info);
     if(!task.completed){
-      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,()=>{
-        const all=DB.homework;DB.homework=all.filter(h=>h.id!==task.id);re();
+      card.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,async()=>{
+        const hid=task.id;
+        DB.homework=(DB.homework||[]).filter(h=>h.id!==hid);re();
+        if(session&&session.id!=='demo'){
+          try{await _supa.from('homework').delete().eq('id',hid);}catch(e){console.error('homework delete:',e);}
+        }
       })));
     }
     sec.appendChild(card);
@@ -7778,7 +7799,14 @@ function renderCredentials(){
   } else {
     creds.forEach(cr=>{
       const fi=el('div',{class:'file-item'});
-      fi.innerHTML=`<span style="font-size:1.3rem">📄</span><div style="flex:1"><div style="font-weight:700;font-size:.84rem;color:var(--navy)">${cr.name}</div><div style="font-size:.71rem;color:var(--slate);margin-top:2px">${cr.date} · ${cr.type}</div></div>`;
+      const _crIcon=el('span',{style:{fontSize:'1.3rem'}},['📄']);
+      const _crInfo=el('div',{style:{flex:1}});
+      const _crName=el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}});
+      _crName.textContent=cr.name;
+      const _crMeta=el('div',{style:{fontSize:'.71rem',color:'var(--slate)',marginTop:'2px'}});
+      _crMeta.textContent=(cr.date||'')+' · '+(cr.type||'');
+      _crInfo.appendChild(_crName);_crInfo.appendChild(_crMeta);
+      fi.appendChild(_crIcon);fi.appendChild(_crInfo);
       fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Document','Remove this document permanently?',true,()=>{
         const mySpec=getMySpecialistRecord();
         const updatedCreds=(mySpec.credentials||[]).filter(c=>c.id!==cr.id);
