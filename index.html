@@ -8242,9 +8242,10 @@ function renderHomeworkParent(){
     titleWrap.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600,marginTop:'2px'}},[_hwRecLabel(task)+' · by '+task.specialistName]));
     hdr.appendChild(titleWrap);
     const arrowBtn=el('button',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,background:'none',border:'none',cursor:'pointer',minWidth:'44px',minHeight:'44px',display:'flex',alignItems:'center',justifyContent:'center'}},[isExpanded?'▲':'▼']);
-    arrowBtn.onclick=e=>{e.stopPropagation();S._hwExpandedId=isExpanded?null:task.id;re();};
+    arrowBtn.onclick=e=>{e.stopPropagation();if(isExpanded){S._hwExpandedId=null;re();}};
     hdr.appendChild(arrowBtn);
     card.appendChild(hdr);
+    if(!isExpanded){card.style.cursor='pointer';card.onclick=e=>{S._hwExpandedId=task.id;re();};}
     // Expanded detail
     if(isExpanded){
       const detail=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
