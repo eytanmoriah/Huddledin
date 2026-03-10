@@ -4399,15 +4399,14 @@ function renderSpecDashboard(){
   const wName=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:800,color:'#fff',marginBottom:'5px'}},[(spec?.name||session?.name||'Specialist')+' 👋']);
   welcome.appendChild(wName);
   const wRole=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:500}});
-  wRole.appendChild(document.createTextNode((spec?.role||'Specialist')+' · '));
+  wRole.appendChild(document.createTextNode((session?.profession||'Specialist')+' · '));
   const wPt=el('strong',{style:{color:'#fff'}},[String(myPatients.length)]);
   wRole.appendChild(wPt);
   wRole.appendChild(document.createTextNode(' patient'+(myPatients.length!==1?'s':'')));
   welcome.appendChild(wRole);
   const wBtns=el('div',{style:{display:'flex',gap:'8px',marginTop:'14px',flexWrap:'wrap'}});
   [
-    ['🔗 Enter Patient Code',()=>showEnterCodeModal()],
-    ['📝 New Note',()=>{S.activeTab='vault';re();}]
+    ['🔗 Enter Patient Code',()=>showEnterCodeModal()]
   ].forEach(([label,fn])=>{
     const b=el('button',{style:{background:'rgba(255,255,255,.2)',border:'1.5px solid rgba(255,255,255,.3)',color:'#fff',borderRadius:'99px',padding:'7px 13px',fontSize:'.76rem',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}},[label]);
     b.onclick=fn;wBtns.appendChild(b);
@@ -7854,7 +7853,7 @@ function renderPatientDashboard(){
   const sec=el('div',{class:'section'});
 
   // Back button
-  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{if(window.history.length>1)window.history.back();else{S.activeTab='patients';re();}});
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{S.activeTab='patients';re();});
   backBtn.style.marginBottom='16px';
   sec.appendChild(backBtn);
 
