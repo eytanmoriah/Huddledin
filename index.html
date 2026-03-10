@@ -1627,13 +1627,19 @@ async function refreshFromSupabase(){
         (hid
           ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-        ).then(({data:hwt})=>LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',createdAt:t.created_at}))))
+        ).then(({data:hwt})=>LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at}))))
           .catch(e=>console.error('refresh homework_tasks:',e)),
         // Homework Occurrences — parent only (specialist loads per-task on demand)
         hid
           ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-7*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+31*86400000).toISOString().split('T')[0])
               .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false}))))
               .catch(e=>console.error('refresh homework_occurrences:',e))
+          : Promise.resolve(),
+        // Homework Reminders (parent only)
+        hid
+          ? _supa.from('homework_reminders').select('*').eq('parent_id',session.id)
+              .then(({data:hwrem})=>LS.set('homeworkReminders',(hwrem||[]).map(r=>({id:r.id,taskId:r.task_id,time:r.reminder_time,isEnabled:r.is_enabled}))))
+              .catch(e=>console.error('refresh homework_reminders:',e))
           : Promise.resolve(),
         // Notifications
         _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
@@ -7273,7 +7279,7 @@ function showSpecTaskModal(existing=null){
     // Task title
     mb.appendChild(el('div',{class:'inp-label'},['Task *']));
     const titleInp=el('input',{class:'inp',placeholder:'e.g. Write progress report for Lily'});
-    if(existing)titleInp.value=existing.title||'';
+    if(_pre)titleInp.value=_pre.title||'';
     mb.appendChild(titleInp);
 
     // Notes
@@ -7714,7 +7720,28 @@ function _hwCalRow(occurrences,startDaysAgo,numDays,showFuture,onClickOcc){
   return row;
 }
 
+function isScheduledDay(task,dateStr){
+  const d=new Date(dateStr+'T12:00:00');
+  const day=['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
+  if(task.recurrence==='daily')return true;
+  if(task.recurrence==='specific_days')return (task.specificDays||[]).includes(day);
+  if(task.recurrence==='every_other_day'){
+    const start=new Date((task.createdAt||new Date().toISOString()).split('T')[0]+'T12:00:00');
+    const diff=Math.round((d.getTime()-start.getTime())/(1000*60*60*24));
+    return diff>=0&&diff%2===0;
+  }
+  if(task.recurrence==='once'){return dateStr===(task.createdAt||'').split('T')[0];}
+  return true;
+}
+
 function showCheckOffModal(occ,task,childColor){
+  const _today=new Date().toISOString().split('T')[0];
+  const _oDate=(occ.date||occ.scheduled_date||'T').split('T')[0];
+  if(_oDate!==_today){
+    if(_oDate>_today){toast("This task isn't due yet. You can only complete today's tasks.",'error',4000);}
+    else{toast('This task day has passed and can no longer be completed.','error',4000);}
+    return;
+  }
   openModal('Mark as Done',(mb,close)=>{
     mb.appendChild(el('div',{style:{fontWeight:700,fontSize:'.95rem',color:'var(--navy)',marginBottom:'3px'}},[task.title]));
     const dLabel=new Date((occ.date||occ.scheduled_date)+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
@@ -7864,21 +7891,27 @@ function _renderHwTaskDashboard(taskId){
       statsRow.appendChild(mkStat(String(rate.total),'Total'));
       statsRow.appendChild(mkStat(rate.rate,'Rate',rate.completed>0?'var(--teal)':'var(--slate)'));
       loadDiv.appendChild(statsRow);
-      // 7-day calendar
-      loadDiv.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'7px'}},['Last 7 Days']));
+      // 14-day calendar (7 back · today · 7 ahead)
+      loadDiv.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'7px'}},['Last 7 · Today · Next 7']));
       const today=new Date().toISOString().split('T')[0];
-      const calRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'20px',overflowX:'auto',paddingBottom:'4px'}});
-      for(let i=6;i>=0;i--){
-        const d=new Date();d.setDate(d.getDate()-i);
+      const calRow=el('div',{style:{display:'flex',gap:'5px',marginBottom:'20px',overflowX:'auto',paddingBottom:'4px'}});
+      for(let i=-7;i<=7;i++){
+        const d=new Date();d.setDate(d.getDate()+i);
         const ds=d.toISOString().split('T')[0];
         const occ=occs.find(o=>o.scheduled_date===ds);
         const st=occ?.status||'none';
-        const bg=st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':st==='pending'&&ds<=today?'var(--amber-l)':'var(--mint-ll)';
-        const col=st==='completed'?'#fff':st==='missed'?'#be123c':st==='pending'&&ds<=today?'#92400e':'var(--slate)';
-        const chip=el('div',{class:'hw-cal-chip',style:{background:bg}});
-        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col}},[d.toLocaleDateString([],{weekday:'short'})]));
-        chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(d.getDate())]));
-        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[st==='completed'?'✅':st==='missed'?'❌':st==='pending'&&ds<=today?'⏳':'○']));
+        const isToday=ds===today;const isFuture=ds>today;
+        const isSched=isScheduledDay(task,ds);
+        let bg,col,icon;
+        if(!isSched){bg='transparent';col='var(--slate)';icon='·';}
+        else if(st==='completed'){bg='var(--teal)';col='#fff';icon='✅';}
+        else if(st==='missed'||(!occ&&!isFuture&&!isToday)){bg='var(--rose-l)';col='#be123c';icon='❌';}
+        else if(isFuture){bg='var(--mint-ll)';col='var(--slate)';icon='○';}
+        else{bg='var(--amber-l)';col='#92400e';icon='⏳';}
+        const chip=el('div',{class:'hw-cal-chip',style:{background:bg,minWidth:'34px',opacity:!isSched?'.3':'1',border:isToday&&isSched?'2px solid var(--teal)':'none',boxSizing:'border-box'}});
+        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col,fontWeight:isToday?'800':'600'}},[d.toLocaleDateString([],{weekday:'short'})]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col,fontWeight:isToday?'800':'inherit'}},[String(d.getDate())]));
+        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[icon]));
         calRow.appendChild(chip);
       }
       loadDiv.appendChild(calRow);
@@ -7919,9 +7952,39 @@ function _renderHwTaskDashboard(taskId){
   return sec;
 }
 
-function showAddHomeworkTaskModal(existing){
+function showAddHomeworkTaskModal(existing,prefill){
+  const _pre=existing||prefill;
   openModal((existing?'✏️ Edit Task':'➕ Add Homework Task'),(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{gap:'14px'}});
+    if(!existing){
+      const _uBtn=el('button',{style:{minHeight:'44px',width:'100%',marginBottom:'8px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:700,color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}},['📋 Use Template']);
+      _uBtn.onclick=async()=>{
+        try{
+          const _sid=session?.specialistId||session?.id;
+          const{data:_td,error:_te}=await _supa.from('homework_templates').select('*').eq('specialist_id',_sid).order('times_used',{ascending:false});
+          if(_te)throw _te;
+          if(!_td||!_td.length){toast('No templates saved yet. Create a task and check "Save as template".');return;}
+          openModal('📋 Use Template',(mb2,close2)=>{
+            _td.forEach(tmpl=>{
+              const row=el('div',{class:'card hov',style:{marginBottom:'8px',padding:'13px',cursor:'pointer'}});
+              row.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem',marginBottom:'3px'}},[tmpl.title]));
+              const _meta=[];
+              if(tmpl.recurrence)_meta.push(_hwRecLabel({recurrence:tmpl.recurrence,specificDays:tmpl.specific_days||[]}));
+              if(tmpl.difficulty)_meta.push(tmpl.difficulty.charAt(0).toUpperCase()+tmpl.difficulty.slice(1));
+              if(tmpl.times_used)_meta.push('Used '+tmpl.times_used+'×');
+              row.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate)',fontWeight:600}},[_meta.join(' · ')]));
+              row.onclick=()=>{
+                close2();close();
+                (async()=>{try{await _supa.from('homework_templates').update({times_used:(tmpl.times_used||0)+1}).eq('id',tmpl.id);}catch(e){console.error('tmpl inc:',e);}})();
+                showAddHomeworkTaskModal(null,tmpl);
+              };
+              mb2.appendChild(row);
+            });
+          },480);
+        }catch(e){console.error('load templates:',e);toast('Could not load templates.','error');}
+      };
+      ig.appendChild(_uBtn);
+    }
     // Title
     ig.appendChild(el('div',{class:'inp-label'},['Task Title *']));
     const titleInp=el('input',{class:'inp',type:'text',placeholder:'e.g. Practice breathing exercises for 5 minutes'});
@@ -7930,12 +7993,43 @@ function showAddHomeworkTaskModal(existing){
     // Description
     ig.appendChild(el('div',{class:'inp-label'},['Instructions for parent (optional)']));
     const descInp=el('textarea',{class:'inp',placeholder:'Describe how to do this task...',style:{minHeight:'70px'}});
-    if(existing)descInp.value=existing.description||'';
+    if(_pre)descInp.value=_pre.description||'';
     ig.appendChild(descInp);
-
+    ig.appendChild(el('div',{class:'inp-label'},['Attach Files (optional)']));
+    ig.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',margin:'-4px 0 8px 0'}},['Add instruction sheets, images or videos for parents']));
+    let hwDraftUrls=(existing?.attachedFileUrls||[]).slice();
+    let hwDraftNames=(existing?.attachedFileNames||[]).slice();
+    const _fpEl=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'8px'}});
+    const _renderFP=()=>{
+      _fpEl.innerHTML='';
+      hwDraftUrls.forEach((url,i)=>{
+        const isImg=/\.(png|jpe?g|gif|webp|heic)(\?|$)/i.test(url);
+        const fc=el('div',{style:{border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'6px 8px',display:'flex',alignItems:'center',gap:'6px',background:'var(--mint-ll)',maxWidth:'160px'}});
+        if(isImg){fc.appendChild(el('img',{src:url,style:{width:'32px',height:'32px',objectFit:'cover',borderRadius:'4px',flexShrink:'0'}}));}
+        else{fc.appendChild(el('span',{style:{fontSize:'1.1rem'}},['📄']));}
+        fc.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'80px'}},[hwDraftNames[i]||'File '+(i+1)]));
+        const rb=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--slate)',padding:'2px 4px',fontSize:'.8rem',flexShrink:'0',minWidth:'28px',minHeight:'28px'}},['✕']);
+        rb.onclick=()=>{hwDraftUrls.splice(i,1);hwDraftNames.splice(i,1);_renderFP();};
+        fc.appendChild(rb);_fpEl.appendChild(fc);
+      });
+    };
+    _renderFP();
+    ig.appendChild(_fpEl);
+    const _afBtn=el('button',{style:{minHeight:'44px',padding:'0 16px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:600,color:'var(--teal)'}},['+ Add Files']);
+    _afBtn.onclick=async()=>{
+      const _fi=document.createElement('input');_fi.type='file';_fi.multiple=true;_fi.accept='image/*,video/*,.pdf,.doc,.docx';
+      _fi.onchange=async ev=>{
+        _afBtn.disabled=true;_afBtn.textContent='Uploading…';
+        try{for(const f of Array.from(ev.target.files)){const{url}=await SB.uploadFile('homework/'+S.activeChild,f);hwDraftUrls.push(url);hwDraftNames.push(f.name);}}
+        catch(e2){console.error('hw file upload:',e2);toast('Could not upload file. Please try again.','error');}
+        _afBtn.disabled=false;_afBtn.textContent='+ Add Files';_renderFP();
+      };_fi.click();
+    };
+    ig.appendChild(_afBtn);
+    ig.appendChild(el('div',{style:{height:'8px'}}));
     // Difficulty pills
     ig.appendChild(el('div',{class:'inp-label'},['Difficulty']));
-    let selDiff=existing?.difficulty||'medium';
+    let selDiff=_pre?.difficulty||'medium';
     const diffRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const diffBtns={};
     ['easy','medium','hard'].forEach(d=>{
@@ -7947,13 +8041,13 @@ function showAddHomeworkTaskModal(existing){
 
     // Recurrence pills
     ig.appendChild(el('div',{class:'inp-label'},['Frequency']));
-    let selRec=existing?.recurrence||'daily';
+    let selRec=_pre?.recurrence||'daily';
     const recRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const recBtns={};
     const daysSection=el('div',{style:{display:selRec==='specific_days'?'block':'none',marginTop:'8px'}});
     const dayBtns={};
     const dayKeys=['mon','tue','wed','thu','fri','sat','sun'];
-    const selDays=new Set(existing?.specificDays||[]);
+    const selDays=new Set(_pre?.specificDays||_pre?.specific_days||[]);
     const dayRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}});
     dayKeys.forEach(d=>{
       const b=el('button',{class:selDays.has(d)?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[d.charAt(0).toUpperCase()+d.slice(1)]);
@@ -7973,12 +8067,12 @@ function showAddHomeworkTaskModal(existing){
 
     // Duration pills
     ig.appendChild(el('div',{class:'inp-label'},['Duration']));
-    let selDur=existing?.durationType||'open_ended';
+    let selDur=_pre?.durationType||_pre?.duration_type||'open_ended';
     const durRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const durBtns={};
     const endDateSection=el('div',{style:{display:selDur==='end_date'?'block':'none',marginTop:'8px'}});
     const endDateInp=makeDateInput('Select end date');
-    if(existing?.endDate)endDateInp.value=existing.endDate;
+    if(_pre?.endDate||_pre?.end_date)endDateInp.value=_pre.endDate||_pre.end_date||'';
     endDateSection.appendChild(endDateInp);
     [['open_ended','Open-ended'],['end_date','Until date'],['next_appointment','Next appt']].forEach(([val,label])=>{
       const b=el('button',{class:selDur===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
@@ -7989,7 +8083,7 @@ function showAddHomeworkTaskModal(existing){
 
     // Time of day pills
     ig.appendChild(el('div',{class:'inp-label'},['Best time of day']));
-    let selTime=existing?.timeOfDay||'morning';
+    let selTime=_pre?.timeOfDay||_pre?.time_of_day||'morning';
     const timeRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const timeBtns={};
     ['morning','afternoon','evening'].forEach(t=>{
@@ -8037,13 +8131,13 @@ function showAddHomeworkTaskModal(existing){
       const specificDays=selRec==='specific_days'?[...selDays]:null;
       const childId=S.activeChild;
       const householdId=getChildHouseholdId(childId);
-      const payload={child_id:childId,household_id:householdId,specialist_id:specId,specialist_name:specName,title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,end_date:selDur==='end_date'?endDateInp.value:null,time_of_day:selTime,difficulty:selDiff,is_pinned:isPinned,is_paused:false,status:'active'};
+      const payload={child_id:childId,household_id:householdId,specialist_id:specId,specialist_name:specName,title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,end_date:selDur==='end_date'?endDateInp.value:null,time_of_day:selTime,difficulty:selDiff,is_pinned:isPinned,is_paused:false,status:'active',attached_file_urls:hwDraftUrls,attached_file_names:hwDraftNames};
       try{
         if(existing){
           await _supa.from('homework_tasks').update({...payload,updated_at:new Date().toISOString()}).eq('id',existing.id);
           const all=DB.homeworkTasks||[];
           const i=all.findIndex(t=>t.id===existing.id);
-          if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned};DB.homeworkTasks=all;}
+          if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames};DB.homeworkTasks=all;}
           close();re();toast('✅ Task updated!');
         } else {
           const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
@@ -8053,7 +8147,7 @@ function showAddHomeworkTaskModal(existing){
             try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:selTime,difficulty:selDiff});}catch(e){console.error('save template:',e);}
           }
           const all=DB.homeworkTasks||[];
-          all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',createdAt:new Date().toISOString()});
+          all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames,createdAt:new Date().toISOString()});
           DB.homeworkTasks=all;
           const child=DB.children.find(c=>c.id===childId);
           await notifyOtherParty('homework','📋 New task for '+(child?.name||'your child')+': "'+title.slice(0,42)+'"',childId,'homework');
@@ -8130,8 +8224,9 @@ function renderHomeworkParent(){
     const hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'11px',padding:'2px 0'}});
     // Today's checkbox
     const todaySt=todayOcc?.status||'none';
+    const _noTask=!todayOcc;
     const chkCls='chk'+(todaySt==='completed'?' done':todaySt==='missed'?' missed':'');
-    const chk=el('div',{class:chkCls,style:{flexShrink:0}},[todaySt==='completed'?'✓':todaySt==='missed'?'✗':'']);
+    const chk=el('div',{class:chkCls,style:{flexShrink:0,opacity:_noTask?'.3':'1'}},[todaySt==='completed'?'✓':todaySt==='missed'?'✗':_noTask?'—':'']);
     if(todayOcc&&todaySt!=='completed'){
       chk.onclick=e=>{e.stopPropagation();showCheckOffModal(todayOcc,task,childColor);};
     }
@@ -8153,6 +8248,20 @@ function renderHomeworkParent(){
     if(isExpanded){
       const detail=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
       if(task.description)detail.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[task.description]));
+      if(task.attachedFileUrls&&task.attachedFileUrls.length>0){
+        detail.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},['📎 Attachments']));
+        const _fRow=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'12px'}});
+        (task.attachedFileUrls||[]).forEach((url,i)=>{
+          const name=(task.attachedFileNames||[])[i]||'File '+(i+1);
+          const isImg=/\.(png|jpe?g|gif|webp|heic)(\?|$)/i.test(url);
+          const fc=el('a',{href:url,target:'_blank',rel:'noopener',style:{display:'flex',alignItems:'center',gap:'6px',border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'7px 10px',background:'var(--mint-ll)',textDecoration:'none',color:'var(--navy)',minHeight:'44px',maxWidth:'160px'}});
+          if(isImg){fc.appendChild(el('img',{src:url,style:{width:'36px',height:'36px',objectFit:'cover',borderRadius:'4px',flexShrink:'0'}}));}
+          else{fc.appendChild(el('span',{style:{fontSize:'1.2rem'}},['📄']));}
+          fc.appendChild(el('span',{style:{fontSize:'.76rem',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'90px'}},[name]));
+          _fRow.appendChild(fc);
+        });
+        detail.appendChild(_fRow);
+      }
       // Next 7 days occurrence row
       detail.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},['Next 7 Days']));
       const calRow=el('div',{style:{display:'flex',gap:'5px',marginBottom:'14px',overflowX:'auto',paddingBottom:'4px'}});
@@ -8161,13 +8270,16 @@ function renderHomeworkParent(){
         const ds=d.toISOString().split('T')[0];
         const occ=taskOccs.find(o=>o.date===ds);
         const st=occ?.status||'none';
-        const bg=st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':ds===today?'var(--amber-l)':'var(--mint-ll)';
-        const col=st==='completed'?'#fff':st==='missed'?'#be123c':ds===today?'#92400e':'var(--slate)';
-        const chip=el('div',{class:'hw-cal-chip'+(occ&&st!=='completed'?' clickable':''),style:{background:bg,minWidth:'38px'}});
-        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col}},[d.toLocaleDateString([],{weekday:'short'})]));
+        const isToday=ds===today;const isFuture=ds>today;
+        const isSched=isScheduledDay(task,ds);
+        const bg=!isSched?'transparent':st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':isToday?'var(--amber-l)':'var(--mint-ll)';
+        const col=st==='completed'?'#fff':st==='missed'?'#be123c':isToday&&isSched?'#92400e':'var(--slate)';
+        const icon=!isSched?'·':st==='completed'?'✅':isFuture?'○':isToday?'⏳':'○';
+        const chip=el('div',{class:'hw-cal-chip'+(isToday&&isSched&&st!=='completed'?' clickable':''),style:{background:bg,minWidth:'38px',opacity:!isSched?'.3':'1',border:isToday&&isSched?'1.5px solid '+childColor:'none',boxSizing:'border-box'}});
+        chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col,fontWeight:isToday?'800':'600'}},[d.toLocaleDateString([],{weekday:'short'})]));
         chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(d.getDate())]));
-        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[st==='completed'?'✅':st==='pending'&&ds<=today?'⏳':'○']));
-        if(occ&&st!=='completed')chip.onclick=()=>showCheckOffModal(occ,task,childColor);
+        chip.appendChild(el('div',{class:'hw-cal-chip-icon'},[icon]));
+        if(isToday&&isSched&&occ&&st!=='completed')chip.onclick=()=>showCheckOffModal(occ,task,childColor);
         calRow.appendChild(chip);
       }
       detail.appendChild(calRow);
@@ -8200,6 +8312,24 @@ function renderHomeworkParent(){
         }catch(e){console.error('pause:',e);toast('Could not update task.','error');}
       });
       detail.appendChild(pauseBtn);
+      const _exRem=(DB.homeworkReminders||[]).find(r=>r.taskId===task.id);
+      const _remRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:'1px solid var(--mint-l)',marginTop:'8px',flexWrap:'wrap'}});
+      _remRow.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:600,color:'var(--navy)',flexShrink:0}},['🔔 Daily Reminder']));
+      const _remInp=el('input',{type:'time',value:_exRem?.time||'',style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'120px'}});
+      _remRow.appendChild(_remInp);
+      const _remSaveBtn=mkBtn('Save','btn-sm btn-primary',async()=>{
+        if(!_remInp.value){toast('Pick a time first.','error');return;}
+        if(session?.id==='demo'){toast('Demo mode.','error');return;}
+        try{
+          const{error:_re}=await _supa.from('homework_reminders').upsert({task_id:task.id,child_id:S.activeChild,parent_id:session.id,reminder_time:_remInp.value,is_enabled:true},{onConflict:'task_id,parent_id'});
+          if(_re)throw _re;
+          const _all=DB.homeworkReminders||[];const _ri=_all.findIndex(r=>r.taskId===task.id);
+          if(_ri>-1){_all[_ri].time=_remInp.value;_all[_ri].isEnabled=true;}else{_all.push({id:'local-'+Date.now(),taskId:task.id,time:_remInp.value,isEnabled:true});}
+          DB.homeworkReminders=_all;toast('🔔 Reminder saved!');
+        }catch(e){console.error('save reminder:',e);toast('Could not save reminder.','error');}
+      });
+      _remRow.appendChild(_remSaveBtn);
+      detail.appendChild(_remRow);
       card.appendChild(detail);
     }
     sec.appendChild(card);
