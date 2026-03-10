@@ -8219,7 +8219,7 @@ function renderHomeworkParent(){
     const todayOcc=taskOccs.find(o=>o.date===today);
     const isExpanded=S._hwExpandedId===task.id;
     const isNew=taskOccs.some(o=>!o.acknowledgedByParent);
-    const card=el('div',{class:'card',style:{marginBottom:'12px',borderLeft:'4px solid '+childColor,opacity:task.isPaused?'.65':'1',cursor:'pointer'}});
+    const card=el('div',{class:'card',style:{marginBottom:'12px',borderLeft:'4px solid '+childColor,opacity:task.isPaused?'.65':'1'}});
     // Header row
     const hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'11px',padding:'2px 0'}});
     // Today's checkbox
@@ -8241,9 +8241,10 @@ function renderHomeworkParent(){
     titleWrap.appendChild(titleRow);
     titleWrap.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600,marginTop:'2px'}},[_hwRecLabel(task)+' · by '+task.specialistName]));
     hdr.appendChild(titleWrap);
-    hdr.appendChild(el('span',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,padding:'4px'}},[isExpanded?'▲':'▼']));
+    const arrowBtn=el('button',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,background:'none',border:'none',cursor:'pointer',minWidth:'44px',minHeight:'44px',display:'flex',alignItems:'center',justifyContent:'center'}},[isExpanded?'▲':'▼']);
+    arrowBtn.onclick=e=>{e.stopPropagation();S._hwExpandedId=isExpanded?null:task.id;re();};
+    hdr.appendChild(arrowBtn);
     card.appendChild(hdr);
-    card.onclick=e=>{if(e.target===chk||chk.contains(e.target))return;S._hwExpandedId=isExpanded?null:task.id;re();};
     // Expanded detail
     if(isExpanded){
       const detail=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
