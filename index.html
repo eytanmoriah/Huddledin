@@ -240,7 +240,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;overflow:hidden}
 
 /* -- FILE EXPLORER — Large folder cards (2-col) + long-press menu -- */
-.folder-card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:20px 14px;text-align:center;cursor:pointer;transition:transform var(--spring),box-shadow .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.folder-card{background:var(--white);border-radius:var(--r-lg);border:1px solid rgba(167,243,208,.5);box-shadow:var(--s1);padding:20px 14px;text-align:center;cursor:pointer;transition:transform var(--spring),box-shadow .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .folder-card:active{transform:scale(.93)}
 @media(hover:hover){.folder-card:hover{transform:translateY(-3px);box-shadow:var(--s2)}}
 .folder-icon-wrap{width:64px;height:64px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,.1)}
@@ -4873,10 +4873,13 @@ function renderFiles(){
       };
       
       // Touch events for long press
+      let longPressFired=false;
       wrap.addEventListener('pointerdown',(e)=>{
         moved=false;
+        longPressFired=false;
         pressTimer=setTimeout(()=>{
           if(!moved){
+            longPressFired=true;
             // Haptic-feel: trigger spring animation on folder card
             wrap.style.transform='scale(0.9)';
             setTimeout(()=>{wrap.style.transform='';},200);
@@ -4887,11 +4890,11 @@ function renderFiles(){
       wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
       wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
       wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
-      // Tap = open (use both touchend and click for Android compatibility)
-      const _openFolder=()=>{if(!moved){S.activeFolderId=folder.id;re();}};
+      // Single tap = open folder immediately (same action as "Open Folder" in context menu)
+      const _openFolder=()=>showFolderModal(folder,isParent);
       wrap.addEventListener('touchend',(e)=>{
         clearTimeout(pressTimer);
-        if(!moved){e.preventDefault();_openFolder();}
+        if(!moved&&!longPressFired){e.preventDefault();_openFolder();}
         moved=false;
       },{passive:false});
       // Desktop: onclick fires after pointerup; only block if this was a long-press that showed a menu
