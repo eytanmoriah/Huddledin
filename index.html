@@ -452,7 +452,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .page-title{font-size:1.55rem}
 }
 @media(min-width:1200px){.section{padding:28px 32px}}
-@media(hover:none){.card.hov:hover,.nav-btn:hover,.btn:hover{transform:none}}
+@media(hover:none){.card.hov:hover,.nav-btn:hover,.btn:hover{transform:none;background:transparent;color:inherit}}
 @media(max-height:500px) and (orientation:landscape){
   #header{height:calc(44px + var(--safe-top))}
   .header-inner{height:44px}
@@ -2448,7 +2448,7 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   }
   // Persist all manually selected folder permissions too
   if(_supa&&req.specialistId&&selectedFolders.length)
-    selectedFolders.forEach(async key=>{try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key});}catch(e){console.error('upsert perm:',e);}});
+    await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key}).catch(e=>console.error('upsert perm:',e))));
   const child=DB.children.find(c=>c.id===req.childId);
   // Notify the specialist they've been approved (not the parent themselves)
   await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
@@ -6546,7 +6546,14 @@ function renderChatThread(activeChat,specId,myId,onBack){
         try{
           await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
-        }catch(e){console.error('send message:',e);}
+        }catch(e){
+          console.error('send message:',e);
+          // Rollback: remove the optimistic message from local cache
+          const rb=DB.chats,rci=rb.findIndex(c=>c.id===activeChat.id);
+          if(rci>-1){rb[rci].messages=rb[rci].messages.filter(m=>m.id!==newMsg.id);DB.chats=rb;}
+          toast('❌ Message failed to send. Please try again.','error',4000);
+          return;
+        }
       }
     }
     S.chatMsg='';re();
@@ -6933,8 +6940,8 @@ function renderVault(){
           if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
           try{
             await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
-          }catch(e){console.error('save draft:',e);}
-          S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
+            S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
+          }catch(e){console.error('save draft:',e);toast('❌ Could not save draft. Please try again.','error');}
         });
 
         // Create parent summary button (replaces AI Summarize)
@@ -7036,8 +7043,8 @@ function renderVault(){
                   // Notify ALL household members (not just primary parent)
                   const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
                   await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
-                }catch(e){console.error('publish note:',e);}
-                S.vaultHasUnsaved=false;re();toast('🎉 Summary published to parent!');
+                  S.vaultHasUnsaved=false;re();toast('🎉 Summary published to parent!');
+                }catch(e){console.error('publish note:',e);toast('❌ Could not publish summary. Please try again.','error');}
               });
             });
             pubBtn.style.marginTop='10px';
