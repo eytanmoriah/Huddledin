@@ -5542,19 +5542,23 @@ function renderTeam(){
   return sec;
 }
 
-function removeSpecialist(spec){
+async function removeSpecialist(spec){
   const child=DB.children.find(c=>c.id===S.activeChild);
   // Create legacy archive entry
   const archive=DB.legacyArchive;
   const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===S.activeChild);
   archive.push({specialistId:spec.id,specialistName:spec.name,childId:S.activeChild,childName:child?.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes});
   DB.legacyArchive=archive;
-  // Revoke permissions
-  const specs=DB.specialists;
-  const i=specs.findIndex(s=>s.id===spec.id);
-  if(i>-1){specs[i].permissions[S.activeChild]=[];}
-  DB.specialists=specs;
+  // Remove from local cache entirely
+  DB.specialists=DB.specialists.filter(s=>s.id!==spec.id);
   re();toast('✅ '+spec.name+' removed. Their notes are in the Legacy Archive.');
+  // Sync removal to Supabase
+  if(session&&session.id!=='demo'){
+    try{await _supa.from('folder_permissions').delete().eq('specialist_id',spec.id).eq('child_id',S.activeChild);}
+    catch(e){console.error('removeSpecialist folder_permissions:',e);}
+    try{await _supa.from('specialists').delete().eq('id',spec.id);}
+    catch(e){console.error('removeSpecialist specialists:',e);}
+  }
 }
 
 function showPermModal(spec){
