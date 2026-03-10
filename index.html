@@ -4890,17 +4890,10 @@ function renderFiles(){
       wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
       wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
       wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
-      // Single tap = open folder immediately (same action as "Open Folder" in context menu)
-      const _openFolder=()=>showFolderModal(folder,isParent);
-      wrap.addEventListener('touchend',(e)=>{
-        clearTimeout(pressTimer);
-        if(!moved&&!longPressFired){e.preventDefault();_openFolder();}
-        moved=false;
-      },{passive:false});
-      // Desktop: onclick fires after pointerup; only block if this was a long-press that showed a menu
-      wrap.onclick=(e)=>{
-        if(document.querySelector('.long-press-menu'))return; // long-press menu is showing
-        if(e.pointerType!=='touch')_openFolder(); // desktop mouse click — always open
+      // Single tap = open folder (touch-action:manipulation removes 300ms delay)
+      wrap.onclick=()=>{
+        if(longPressFired||document.querySelector('.long-press-menu'))return;
+        showFolderModal(folder,isParent);
       };
       // Context menu (right-click on desktop = long-press equivalent)
       wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
