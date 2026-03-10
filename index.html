@@ -3523,16 +3523,14 @@ function renderBottomNav(){
       b.onclick=t.action;
       inner.appendChild(b);
     });
-    // Menu tab for specialists
-    const menuBtn=el('button',{class:'bnav-btn'+(S.isDrawerOpen?' active':'')});
-    const menuIcon=el('span',{class:'bnav-icon',style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'24px'}});
-    menuIcon.innerHTML='<svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect y="0" width="22" height="2.5" rx="1.25" fill="currentColor"/><rect y="6.75" width="16" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.5" width="22" height="2.5" rx="1.25" fill="currentColor"/></svg>';
-    menuBtn.appendChild(menuIcon);
+    // Notifications tab for specialists
+    const menuBtn=el('button',{class:'bnav-btn'+(S.activeTab==='notifications'?' active':'')});
+    menuBtn.appendChild(el('span',{class:'bnav-icon'},['🔔']));
     menuBtn.appendChild(document.createTextNode('Notifications'));
     if(totalBadge>0){
       menuBtn.appendChild(el('span',{class:'bnav-badge'},[totalBadge>9?'9+':String(totalBadge)]));
     }
-    menuBtn.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
+    menuBtn.onclick=()=>switchTab('notifications');
     inner.appendChild(menuBtn);
   }
 
