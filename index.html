@@ -1752,9 +1752,15 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh homework_tasks:',e)),
         // Homework Occurrences — parent only (specialist loads per-task on demand)
         hid
-          ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-7*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+31*86400000).toISOString().split('T')[0])
-              .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false}))))
+          ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent,time_of_day').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-30*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+90*86400000).toISOString().split('T')[0])
+              .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false,timeOfDay:o.time_of_day||null}))))
               .catch(e=>console.error('refresh homework_occurrences:',e))
+          : Promise.resolve(),
+        // Homework Comments (parent only)
+        hid
+          ? _supa.from('homework_comments').select('*').eq('household_id',hid)
+              .then(({data:hwcmt})=>LS.set('homeworkComments',(hwcmt||[]).map(c=>({id:c.id,taskId:c.task_id,completionId:c.completion_id,specialistId:c.specialist_id,comment:c.comment,createdAt:c.created_at}))))
+              .catch(e=>console.error('refresh homework_comments:',e))
           : Promise.resolve(),
         // Homework Reminders (parent only)
         hid
@@ -8264,11 +8270,13 @@ function calculateCompletionRate(occurrences){
 }
 
 async function _generateOccurrences(task){
-  const today=new Date();today.setHours(0,0,0,0);
+  // Bug2: use task's created_at UTC date as reference — matches isScheduledDay
+  const todayStr=(task.created_at||new Date().toISOString()).split('T')[0];
+  const today=new Date(todayStr+'T00:00:00');
   const dates=[];
   const dayMap={mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
   if(task.recurrence==='once'){
-    dates.push(today.toISOString().split('T')[0]);
+    dates.push(todayStr);
   } else {
     let endDate=new Date(today);
     if(task.duration_type==='end_date'&&task.end_date){endDate=new Date(task.end_date+'T23:59:59');}
@@ -8286,7 +8294,10 @@ async function _generateOccurrences(task){
     }
   }
   if(!dates.length)return;
-  const rows=dates.map(date=>({task_id:task.id,child_id:task.child_id,household_id:task.household_id,scheduled_date:date,status:'pending',acknowledged_by_parent:false}));
+  // Bug7: one row per time-of-day per date
+  const times=(task.time_of_day||'morning').split(',').filter(Boolean);
+  const rows=[];
+  dates.forEach(date=>{times.forEach(tod=>{rows.push({task_id:task.id,child_id:task.child_id,household_id:task.household_id,scheduled_date:date,status:'pending',acknowledged_by_parent:false,time_of_day:tod});});});
   for(let i=0;i<rows.length;i+=50){
     const {error}=await _supa.from('homework_occurrences').insert(rows.slice(i,i+50));
     if(error)throw error;
@@ -8331,16 +8342,20 @@ function _hwCalRow(occurrences,startDaysAgo,numDays,showFuture,onClickOcc){
 }
 
 function isScheduledDay(task,dateStr){
+  // Bug3: never show scheduled before task was created
+  const startDateStr=(task.createdAt||task.created_at||'').split('T')[0];
+  if(startDateStr&&dateStr<startDateStr)return false;
   const d=new Date(dateStr+'T12:00:00');
   const day=['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
   if(task.recurrence==='daily')return true;
   if(task.recurrence==='specific_days')return (task.specificDays||[]).includes(day);
   if(task.recurrence==='every_other_day'){
-    const start=new Date((task.createdAt||new Date().toISOString()).split('T')[0]+'T12:00:00');
+    // Bug2: use same UTC reference as _generateOccurrences
+    const start=new Date((startDateStr||new Date().toISOString().split('T')[0])+'T12:00:00');
     const diff=Math.round((d.getTime()-start.getTime())/(1000*60*60*24));
     return diff>=0&&diff%2===0;
   }
-  if(task.recurrence==='once'){return dateStr===(task.createdAt||'').split('T')[0];}
+  if(task.recurrence==='once'){return dateStr===startDateStr;}
   return true;
 }
 
@@ -8354,7 +8369,8 @@ function showCheckOffModal(occ,task,childColor){
   }
   openModal('Mark as Done',(mb,close)=>{
     mb.appendChild(el('div',{style:{fontWeight:700,fontSize:'.95rem',color:'var(--navy)',marginBottom:'3px'}},[task.title]));
-    const dLabel=new Date((occ.date||occ.scheduled_date)+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+    const _occSlot=occ.timeOfDay||occ.time_of_day||null;
+    const dLabel=new Date((occ.date||occ.scheduled_date)+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'})+(_occSlot?' — '+_occSlot.charAt(0).toUpperCase()+_occSlot.slice(1):'');
     mb.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px'}},[dLabel]));
     mb.appendChild(el('div',{class:'inp-label'},['Note for specialist (optional)']));
     const noteInp=el('textarea',{class:'inp',placeholder:'How did it go?',style:{minHeight:'75px',marginBottom:'12px'}});
@@ -8481,12 +8497,14 @@ function _renderHwTaskDashboard(taskId){
   sec.appendChild(loadDiv);
   (async()=>{
     try{
-      const [occsRes,compsRes]=await Promise.all([
+      const [occsRes,compsRes,cmtsRes]=await Promise.all([
         _supa.from('homework_occurrences').select('*').eq('task_id',taskId).order('scheduled_date'),
-        _supa.from('homework_completions').select('*').eq('task_id',taskId).order('completed_at',{ascending:false})
+        _supa.from('homework_completions').select('*').eq('task_id',taskId).order('completed_at',{ascending:false}),
+        _supa.from('homework_comments').select('*').eq('task_id',taskId).order('created_at')
       ]);
       const occs=occsRes.data||[];
       const comps=compsRes.data||[];
+      const cmts=cmtsRes.data||[];
       const rate=calculateCompletionRate(occs.map(o=>({...o,date:o.scheduled_date})));
       loadDiv.innerHTML='';
       // Stats
@@ -8539,7 +8557,10 @@ function _renderHwTaskDashboard(taskId){
             const img=el('img',{src:comp.photo_url,style:{maxWidth:'100%',maxHeight:'180px',borderRadius:'8px',marginBottom:'8px',objectFit:'cover',display:'block'}});
             cc.appendChild(img);
           }
-          cc.appendChild(mkBtn('💬 Add Comment','btn-sm btn-ghost',()=>{
+          // Bug1: show existing specialist comments for this completion
+          const _compCmts=(cmts||[]).filter(c=>c.completion_id===comp.id);
+          if(_compCmts.length){const _cmtDiv=el('div',{style:{marginBottom:'8px'}});_compCmts.forEach(cm=>{const _ce=el('div',{style:{background:'var(--mint-ll)',borderRadius:'8px',padding:'8px 10px',marginBottom:'5px',fontSize:'.78rem',lineHeight:'1.5'}});_ce.appendChild(el('div',{style:{fontWeight:700,color:'var(--teal)',fontSize:'.68rem',marginBottom:'2px'}},['💬 '+new Date(cm.created_at).toLocaleDateString([],{month:'short',day:'numeric'})]));_ce.appendChild(el('div',{style:{color:'var(--navy)'}},[cm.comment]));_cmtDiv.appendChild(_ce);});cc.appendChild(_cmtDiv);}
+          cc.appendChild(mkBtn('💬 '+(_compCmts.length?'Add Another Comment':'Add Comment'),'btn-sm btn-ghost',()=>{
             openModal('Add Comment',(mb2,close2)=>{
               mb2.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--slate)',marginBottom:'10px'}},['Feedback for: '+compDate]));
               const cta=el('textarea',{class:'inp',placeholder:'Your feedback for the parent...',style:{minHeight:'80px',marginBottom:'12px'}});
@@ -8547,7 +8568,7 @@ function _renderHwTaskDashboard(taskId){
               mb2.appendChild(mkBtn('Send Comment','btn-lg btn-primary btn-full',async()=>{
                 if(!cta.value.trim()){toast('Write a comment first.','error');return;}
                 try{
-                  await _supa.from('homework_comments').insert({completion_id:comp.id,task_id:taskId,specialist_id:session?.specialistId||session?.id,comment:cta.value.trim()});
+                  await _supa.from('homework_comments').insert({completion_id:comp.id,task_id:taskId,specialist_id:session?.specialistId||session?.id,comment:cta.value.trim(),household_id:task.householdId||null,child_id:task.childId||S.activeChild});
                   await notifyOtherParty('homework','💬 '+(session?.name||'Specialist')+' commented on "'+task.title.slice(0,30)+'"',S.activeChild,'homework');
                   close2();toast('Comment sent!');
                 }catch(e){console.error('add comment:',e);toast('Could not send comment.','error');}
@@ -8692,14 +8713,14 @@ function showAddHomeworkTaskModal(existing,prefill){
     ig.appendChild(durRow);ig.appendChild(endDateSection);
 
     // Time of day pills
-    ig.appendChild(el('div',{class:'inp-label'},['Best time of day']));
-    let selTime=_pre?.timeOfDay||_pre?.time_of_day||'morning';
+    ig.appendChild(el('div',{class:'inp-label'},['Time of day (select all that apply)']));
+    const _selTimesArr=(_pre?.timeOfDay||_pre?.time_of_day||'morning').split(',').filter(Boolean);
+    const selTimes=new Set(_selTimesArr);
     const timeRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
-    const timeBtns={};
     ['morning','afternoon','evening'].forEach(t=>{
-      const b=el('button',{class:selTime===t?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[t.charAt(0).toUpperCase()+t.slice(1)]);
-      b.onclick=()=>{selTime=t;Object.entries(timeBtns).forEach(([k,v])=>{v.className=k===t?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});};
-      timeBtns[t]=b;timeRow.appendChild(b);
+      const b=el('button',{class:selTimes.has(t)?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[t.charAt(0).toUpperCase()+t.slice(1)]);
+      b.onclick=()=>{if(selTimes.has(t)){if(selTimes.size===1){toast('Select at least one time of day.','error');return;}selTimes.delete(t);b.className='btn btn-sm btn-ghost';}else{selTimes.add(t);b.className='btn btn-sm btn-primary';}};
+      timeRow.appendChild(b);
     });
     ig.appendChild(timeRow);
 
@@ -8741,23 +8762,23 @@ function showAddHomeworkTaskModal(existing,prefill){
       const specificDays=selRec==='specific_days'?[...selDays]:null;
       const childId=S.activeChild;
       const householdId=getChildHouseholdId(childId);
-      const payload={child_id:childId,household_id:householdId,specialist_id:specId,specialist_name:specName,title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,end_date:selDur==='end_date'?endDateInp.value:null,time_of_day:selTime,difficulty:selDiff,is_pinned:isPinned,is_paused:false,status:'active',attached_file_urls:hwDraftUrls,attached_file_names:hwDraftNames};
+      const payload={child_id:childId,household_id:householdId,specialist_id:specId,specialist_name:specName,title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,end_date:selDur==='end_date'?endDateInp.value:null,time_of_day:[...selTimes].join(','),difficulty:selDiff,is_pinned:isPinned,is_paused:false,status:'active',attached_file_urls:hwDraftUrls,attached_file_names:hwDraftNames};
       try{
         if(existing){
           await _supa.from('homework_tasks').update({...payload,updated_at:new Date().toISOString()}).eq('id',existing.id);
           const all=DB.homeworkTasks||[];
           const i=all.findIndex(t=>t.id===existing.id);
-          if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames};DB.homeworkTasks=all;}
+          if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:[...selTimes].join(','),difficulty:selDiff,isPinned:isPinned,attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames};DB.homeworkTasks=all;}
           close();re();toast('✅ Task updated!');
         } else {
           const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
           if(taskErr)throw taskErr;
           await _generateOccurrences(newTask);
           if(saveTemplate&&(tmplNameInp.value.trim()||title)){
-            try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:selTime,difficulty:selDiff});}catch(e){console.error('save template:',e);}
+            try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:[...selTimes].join(','),difficulty:selDiff});}catch(e){console.error('save template:',e);}
           }
           const all=DB.homeworkTasks||[];
-          all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:selTime,difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames,createdAt:new Date().toISOString()});
+          all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:[...selTimes].join(','),difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames,createdAt:new Date().toISOString()});
           DB.homeworkTasks=all;
           const child=DB.children.find(c=>c.id===childId);
           await notifyOtherParty('homework','📋 New task for '+(child?.name||'your child')+': "'+title.slice(0,42)+'"',childId,'homework');
@@ -8779,14 +8800,24 @@ function showAddHomeworkTaskModal(existing,prefill){
 function generateICS(task,occs,reminderTime){
   const[rh,rm]=(reminderTime||'08:00').split(':');
   const pad=n=>String(n).padStart(2,'0');
+  // Bug5: RFC 5545 — add DTSTAMP, fix DTEND, fix TRIGGER
+  const dtstamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const _slotTimes={morning:'080000',afternoon:'140000',evening:'190000'};
   const events=occs.map(occ=>{
-    const ds=(occ.date||'').replace(/-/g,'');
+    const ds=(occ.date||occ.scheduled_date||'').replace(/-/g,'');
     if(!ds)return '';
-    const dtStart=ds+'T'+pad(rh)+pad(rm)+'00';
-    const uid='huddledin-'+task.id+'-'+ds+'@huddledin.app';
+    // Bug8: use time slot if available, else use reminder time
+    const slot=occ.timeOfDay||occ.time_of_day||null;
+    const timeStr=slot?(_slotTimes[slot]||'080000'):(pad(rh)+pad(rm)+'00');
+    const dtStart=ds+'T'+timeStr+'Z';
+    const startMs=new Date(ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8)+'T'+timeStr.slice(0,2)+':'+timeStr.slice(2,4)+':00Z').getTime();
+    const dtEnd=new Date(startMs+30*60000).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+    const uid='huddledin-'+task.id+'-'+ds+(slot?'-'+slot:'')+'@huddledin.app';
+    const slotLabel=slot?(slot.charAt(0).toUpperCase()+slot.slice(1)):'';
+    const rawTitle='Huddledin: '+task.title+(slotLabel?' \u2014 '+slotLabel:'');
+    const summary=rawTitle.replace(/,/g,'\\,').replace(/;/g,'\\;');
     const desc=((task.description||'').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'))+'\\nAssigned by: '+(task.specialistName||'Specialist')+'\\nDifficulty: '+(task.difficulty||'');
-    const title=('Huddledin: '+task.title).replace(/,/g,'\\,').replace(/;/g,'\\;');
-    return ['BEGIN:VEVENT','UID:'+uid,'DTSTART:'+dtStart,'DTEND:'+dtStart,'SUMMARY:'+title,'DESCRIPTION:'+desc,'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:Reminder: '+task.title,'END:VALARM','END:VEVENT'].join('\r\n');
+    return ['BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+dtstamp,'DTSTART:'+dtStart,'DTEND:'+dtEnd,'SUMMARY:'+summary,'DESCRIPTION:'+desc,'BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:Reminder: '+task.title,'END:VALARM','END:VEVENT'].join('\r\n');
   }).filter(Boolean);
   return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Huddledin//Homework Reminders//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',...events,'END:VCALENDAR'].join('\r\n');
 }
@@ -8863,21 +8894,35 @@ function renderHomeworkParent(){
   const today=new Date().toISOString().split('T')[0];
   tasks.forEach(task=>{
     const taskOccs=allOccs.filter(o=>o.taskId===task.id);
-    const todayOcc=taskOccs.find(o=>o.date===today);
+    const _TOrd={morning:0,afternoon:1,evening:2};
+    const todayOccs=taskOccs.filter(o=>o.date===today).sort((a,b)=>(_TOrd[a.timeOfDay]||0)-(_TOrd[b.timeOfDay]||0));
     const isExpanded=S._hwExpandedId===task.id;
     const isNew=taskOccs.some(o=>!o.acknowledgedByParent);
     const card=el('div',{class:'card',style:{marginBottom:'12px',borderLeft:'4px solid '+childColor,opacity:task.isPaused?'.65':'1'}});
     // Header row
     const hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'11px',padding:'2px 0'}});
-    // Today's checkbox
-    const todaySt=todayOcc?.status||'none';
-    const _noTask=!todayOcc;
-    const chkCls='chk'+(todaySt==='completed'?' done':todaySt==='missed'?' missed':'');
-    const chk=el('div',{class:chkCls,style:{flexShrink:0,opacity:_noTask?'.3':'1'}},[todaySt==='completed'?'✓':todaySt==='missed'?'✗':_noTask?'—':'']);
-    if(todayOcc&&todaySt!=='completed'){
-      chk.onclick=e=>{e.stopPropagation();showCheckOffModal(todayOcc,task,childColor);};
+    // Today's checkbox(es) — one per time-of-day slot
+    const _noTask=!todayOccs.length;
+    const chkWrap=el('div',{style:{display:'flex',flexDirection:'column',gap:'3px',flexShrink:0}});
+    if(_noTask){
+      chkWrap.appendChild(el('div',{class:'chk',style:{opacity:'.3'}},['—']));
+    } else if(todayOccs.length===1){
+      const _o=todayOccs[0];const _st=_o.status||'none';
+      const _c=el('div',{class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
+      if(_st!=='completed')_c.onclick=e=>{e.stopPropagation();showCheckOffModal(_o,task,childColor);};
+      chkWrap.appendChild(_c);
+    } else {
+      todayOccs.forEach(_o=>{
+        const _st=_o.status||'none';
+        const _lbl=(_o.timeOfDay||'').slice(0,3);
+        const _row=el('div',{style:{display:'flex',alignItems:'center',gap:'3px'}});
+        const _c=el('div',{class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{width:'26px',height:'26px',fontSize:'.55rem',flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
+        if(_st!=='completed')_c.onclick=e=>{e.stopPropagation();showCheckOffModal(_o,task,childColor);};
+        _row.appendChild(_c);_row.appendChild(el('span',{style:{fontSize:'.58rem',color:'var(--slate)',fontWeight:600}},[_lbl]));
+        chkWrap.appendChild(_row);
+      });
     }
-    hdr.appendChild(chk);
+    hdr.appendChild(chkWrap);
     const titleWrap=el('div',{style:{flex:1,minWidth:0}});
     const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}});
     if(task.isPinned)titleRow.appendChild(el('span',{style:{fontSize:'.75rem'}},['📌']));
@@ -8917,13 +8962,17 @@ function renderHomeworkParent(){
       for(let i=0;i<7;i++){
         const d=new Date();d.setDate(d.getDate()+i);
         const ds=d.toISOString().split('T')[0];
-        const occ=taskOccs.find(o=>o.date===ds);
-        const st=occ?.status||'none';
+        const _dayOccs=taskOccs.filter(o=>o.date===ds);
+        const _allDone=_dayOccs.length>0&&_dayOccs.every(o=>o.status==='completed');
+        const _someDone=_dayOccs.some(o=>o.status==='completed');
+        const _anyMissed=_dayOccs.some(o=>o.status==='missed');
+        const st=_allDone?'completed':_someDone?'partial':_anyMissed?'missed':_dayOccs.length?'pending':'none';
+        const occ=_dayOccs.find(o=>o.status!=='completed')||_dayOccs[0];
         const isToday=ds===today;const isFuture=ds>today;
         const isSched=isScheduledDay(task,ds);
-        const bg=!isSched?'transparent':st==='completed'?'var(--teal)':st==='missed'?'var(--rose-l)':isToday?'var(--amber-l)':'var(--mint-ll)';
-        const col=st==='completed'?'#fff':st==='missed'?'#be123c':isToday&&isSched?'#92400e':'var(--slate)';
-        const icon=!isSched?'·':st==='completed'?'✅':isFuture?'○':isToday?'⏳':'○';
+        const bg=!isSched?'transparent':st==='completed'?'var(--teal)':st==='partial'?'var(--amber-l)':st==='missed'?'var(--rose-l)':isToday?'var(--amber-l)':'var(--mint-ll)';
+        const col=st==='completed'?'#fff':st==='missed'?'#be123c':(isToday&&isSched)||st==='partial'?'#92400e':'var(--slate)';
+        const icon=!isSched?'·':st==='completed'?'✅':st==='partial'?'🔶':isFuture?'○':isToday?'⏳':'○';
         const chip=el('div',{class:'hw-cal-chip'+(isToday&&isSched&&st!=='completed'?' clickable':''),style:{background:bg,minWidth:'38px',opacity:!isSched?'.3':'1',border:isToday&&isSched?'1.5px solid '+childColor:'none',boxSizing:'border-box'}});
         chip.appendChild(el('div',{class:'hw-cal-chip-label',style:{color:col,fontWeight:isToday?'800':'600'}},[d.toLocaleDateString([],{weekday:'short'})]));
         chip.appendChild(el('div',{class:'hw-cal-chip-num',style:{color:col}},[String(d.getDate())]));
@@ -8932,6 +8981,17 @@ function renderHomeworkParent(){
         calRow.appendChild(chip);
       }
       detail.appendChild(calRow);
+      // Bug1: specialist comments for this task
+      const _hwCmts=(DB.homeworkComments||[]).filter(c=>c.taskId===task.id);
+      if(_hwCmts.length){
+        detail.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px',marginTop:'8px'}},['💬 Specialist Feedback']));
+        _hwCmts.slice(-5).forEach(c=>{
+          const _ce=el('div',{style:{background:'var(--mint-ll)',borderRadius:'8px',padding:'9px 11px',marginBottom:'6px',fontSize:'.8rem',color:'var(--navy)',lineHeight:'1.5'}});
+          _ce.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--teal)',marginBottom:'2px'}},[new Date(c.createdAt).toLocaleDateString([],{month:'short',day:'numeric'})]));
+          _ce.appendChild(el('div',{},[c.comment]));
+          detail.appendChild(_ce);
+        });
+      }
       // Acknowledge button
       if(isNew){
         const ackBtn=mkBtn('✓ Accept this task','btn-sm btn-primary',async()=>{
