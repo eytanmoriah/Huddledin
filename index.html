@@ -1748,7 +1748,7 @@ async function refreshFromSupabase(){
         (hid
           ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-        ).then(({data:hwt})=>LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at}))))
+        ).then(({data:hwt})=>{console.log('[Huddledin] homework_tasks loaded from Supabase:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
           .catch(e=>console.error('refresh homework_tasks:',e)),
         // Homework Occurrences — parent only (specialist loads per-task on demand)
         hid
@@ -1874,7 +1874,11 @@ async function refreshFromSupabase(){
         // Specialist clinical tasks (own table — separate from parent todos)
         _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
           .then(({data:tasks})=>LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at}))))
-          .catch(e=>console.error('refresh spec_tasks:',e))
+          .catch(e=>console.error('refresh spec_tasks:',e)),
+        // Homework Tasks — specialist loads their own created tasks (was missing, causing tasks to vanish on reload)
+        _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+          .then(({data:hwt})=>{console.log('[Huddledin] specialist homework_tasks loaded:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
+          .catch(e=>console.error('refresh specialist homework_tasks:',e))
       ]);
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
@@ -8750,6 +8754,7 @@ function showAddHomeworkTaskModal(existing,prefill){
         } else {
           const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
           if(taskErr)throw taskErr;
+          console.log('[Huddledin] homework_task saved to Supabase:',newTask);
           await _generateOccurrences(newTask);
           if(saveTemplate&&(tmplNameInp.value.trim()||title)){
             try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:[...selTimes].join(','),difficulty:selDiff});}catch(e){console.error('save template:',e);}
@@ -8909,7 +8914,12 @@ function renderHomeworkParent(){
     if(task.isPaused)titleRow.appendChild(badge('Paused','slate'));
     const db=_hwDiffBadge(task.difficulty);if(db)titleRow.appendChild(db);
     titleWrap.appendChild(titleRow);
-    titleWrap.appendChild(el('div',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600,marginTop:'2px'}},[_hwRecLabel(task)+' · by '+task.specialistName]));
+    const _subRow=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginTop:'2px',flexWrap:'wrap'}});
+    _subRow.appendChild(el('span',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600}},[_hwRecLabel(task)+' · by '+task.specialistName]));
+    const _specData=(DB.specialists||[]).find(s=>s.id===task.specialistId);
+    const _prof=_specData?.role;
+    if(_prof&&_prof!=='Specialist')_subRow.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:'var(--teal)',background:'var(--mint-ll)',borderRadius:'99px',padding:'2px 7px',flexShrink:0}},[_prof]));
+    titleWrap.appendChild(_subRow);
     hdr.appendChild(titleWrap);
     const arrowBtn=el('button',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,background:'none',border:'none',cursor:'pointer',minWidth:'44px',minHeight:'44px',display:'flex',alignItems:'center',justifyContent:'center'}},[isExpanded?'▲':'▼']);
     arrowBtn.onclick=e=>{e.stopPropagation();S._hwExpandedId=isExpanded?null:task.id;re();};
