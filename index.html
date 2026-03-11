@@ -8232,7 +8232,7 @@ async function _generateOccurrences(task){
       if(task.recurrence==='daily')inc=true;
       else if(task.recurrence==='every_other_day')inc=(daysFromStart%2===0);
       else if(task.recurrence==='specific_days')inc=(task.specific_days||[]).some(d=>dayMap[d]===dow);
-      if(inc)dates.push(cur.toISOString().split('T')[0]);
+      if(inc)dates.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
       cur.setDate(cur.getDate()+1);
     }
   }
@@ -8286,15 +8286,16 @@ function _hwCalRow(occurrences,startDaysAgo,numDays,showFuture,onClickOcc){
 
 function isScheduledDay(task,dateStr){
   // Bug3: never show scheduled before task was created
-  const startDateStr=(task.createdAt||task.created_at||'').split('T')[0];
+  const _cAtStr=task.createdAt||task.created_at||'';
+  const _cAt=_cAtStr?new Date(_cAtStr):new Date();
+  const startDateStr=_cAt.getFullYear()+'-'+String(_cAt.getMonth()+1).padStart(2,'0')+'-'+String(_cAt.getDate()).padStart(2,'0');
   if(startDateStr&&dateStr<startDateStr)return false;
   const d=new Date(dateStr+'T12:00:00');
   const day=['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
   if(task.recurrence==='daily')return true;
   if(task.recurrence==='specific_days')return (task.specificDays||[]).includes(day);
   if(task.recurrence==='every_other_day'){
-    // Bug2: use same UTC reference as _generateOccurrences
-    const start=new Date((startDateStr||new Date().toISOString().split('T')[0])+'T12:00:00');
+    const start=new Date(startDateStr+'T12:00:00');
     const diff=Math.round((d.getTime()-start.getTime())/(1000*60*60*24));
     return diff>=0&&diff%2===0;
   }
@@ -8303,7 +8304,7 @@ function isScheduledDay(task,dateStr){
 }
 
 function showCheckOffModal(occ,task,childColor){
-  const _today=new Date().toISOString().split('T')[0];
+  const _tdt=new Date();const _today=_tdt.getFullYear()+'-'+String(_tdt.getMonth()+1).padStart(2,'0')+'-'+String(_tdt.getDate()).padStart(2,'0');
   const _oDate=(occ.date||occ.scheduled_date||'T').split('T')[0];
   if(_oDate!==_today){
     if(_oDate>_today){toast("This task isn't due yet. You can only complete today's tasks.",'error',4000);}
@@ -8497,11 +8498,11 @@ function _renderHwTaskDashboard(taskId){
       loadDiv.appendChild(statsRow);
       // 14-day calendar (7 back · today · 7 ahead)
       loadDiv.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'7px'}},['Last 7 · Today · Next 7']));
-      const today=new Date().toISOString().split('T')[0];
+      const _tnow3=new Date();const today=_tnow3.getFullYear()+'-'+String(_tnow3.getMonth()+1).padStart(2,'0')+'-'+String(_tnow3.getDate()).padStart(2,'0');
       const calRow=el('div',{style:{display:'flex',gap:'5px',marginBottom:'20px',overflowX:'auto',paddingBottom:'4px'}});
       for(let i=-7;i<=7;i++){
         const d=new Date();d.setDate(d.getDate()+i);
-        const ds=d.toISOString().split('T')[0];
+        const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
         const occ=occs.find(o=>o.scheduled_date===ds);
         const st=occ?.status||'none';
         const isToday=ds===today;const isFuture=ds>today;
@@ -8785,9 +8786,10 @@ function generateICS(task,occs,reminderTime,slotTimesMap){
     // Bug8: use time slot if available, else use reminder time
     const slot=occ.timeOfDay||occ.time_of_day||null;
     let timeStr;if(slot&&slotTimesMap&&slotTimesMap[slot]){const[_sh,_sm]=(slotTimesMap[slot]).split(':');timeStr=_sh.padStart(2,'0')+_sm.padStart(2,'0')+'00';}else if(slot){timeStr=_slotTimes[slot]||'080000';}else{timeStr=pad(rh)+pad(rm)+'00';}
-    const dtStart=ds+'T'+timeStr+'Z';
-    const startMs=new Date(ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8)+'T'+timeStr.slice(0,2)+':'+timeStr.slice(2,4)+':00Z').getTime();
-    const dtEnd=new Date(startMs+30*60000).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+    // Treat user time as LOCAL, convert to UTC for ICS
+    const _localStart=new Date(ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8)+'T'+timeStr.slice(0,2)+':'+timeStr.slice(2,4)+':00');
+    const dtStart=_localStart.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+    const dtEnd=new Date(_localStart.getTime()+30*60000).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
     const uid='huddledin-'+task.id+'-'+ds+(slot?'-'+slot:'')+'@huddledin.app';
     const slotLabel=slot?(slot.charAt(0).toUpperCase()+slot.slice(1)):'';
     const rawTitle='Huddledin: '+task.title+(slotLabel?' \u2014 '+slotLabel:'');
@@ -8804,7 +8806,7 @@ function addTaskToCalendar(taskId){
   const _slots=(task.timeOfDay||'').split(',').map(s=>s.trim()).filter(Boolean);
   let reminderTime,slotTimesMap;
   if(_slots.length>1){slotTimesMap={};let _any=false;_slots.forEach(sl=>{const inp=document.getElementById('rem-inp-'+taskId+'-'+sl);if(inp?.value){slotTimesMap[sl]=inp.value;_any=true;}});if(!_any){toast('Set at least one reminder time, then tap Add to Calendar.','error',4000);return;}}else{const remInp=document.getElementById('rem-inp-'+taskId);reminderTime=remInp?.value;if(!reminderTime){toast('Set a reminder time first, then tap Add to Calendar.','error',4000);return;}}
-  const today=new Date().toISOString().split('T')[0];
+  const _tnow2=new Date();const today=_tnow2.getFullYear()+'-'+String(_tnow2.getMonth()+1).padStart(2,'0')+'-'+String(_tnow2.getDate()).padStart(2,'0');
   const occs=(DB.homeworkOccurrences||[]).filter(o=>o.taskId===taskId&&(o.date||'')>=today).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   if(!occs.length){toast('No upcoming scheduled days found for this task.','error',4000);return;}
   const ics=generateICS(task,occs,reminderTime,slotTimesMap);
@@ -8867,7 +8869,7 @@ function renderHomeworkParent(){
     return sec;
   }
   const childColor=child?.color||'var(--teal)';
-  const today=new Date().toISOString().split('T')[0];
+  const _tnow=new Date();const today=_tnow.getFullYear()+'-'+String(_tnow.getMonth()+1).padStart(2,'0')+'-'+String(_tnow.getDate()).padStart(2,'0');
   tasks.forEach(task=>{
     const taskOccs=allOccs.filter(o=>o.taskId===task.id);
     const _TOrd={morning:0,afternoon:1,evening:2};
@@ -8938,7 +8940,7 @@ function renderHomeworkParent(){
       const calRow=el('div',{style:{display:'flex',gap:'5px',marginBottom:'14px',overflowX:'auto',paddingBottom:'4px'}});
       for(let i=0;i<7;i++){
         const d=new Date();d.setDate(d.getDate()+i);
-        const ds=d.toISOString().split('T')[0];
+        const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
         const _dayOccs=taskOccs.filter(o=>o.date===ds);
         const _allDone=_dayOccs.length>0&&_dayOccs.every(o=>o.status==='completed');
         const _someDone=_dayOccs.some(o=>o.status==='completed');
