@@ -1198,31 +1198,124 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .wb-btn.primary:active{background:rgba(255,255,255,.9)}
 
 /* -----------------------------------------------
-   SPECIALIST DESKTOP LAYOUT (min-width: 1024px)
-   Mobile/parent views completely unaffected.
+   SPECIALIST DESKTOP LAYOUT  ≥1024px
+   Mobile / parent views completely unaffected.
 ----------------------------------------------- */
 @media(min-width:1024px){
-  .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:var(--bg)}
-  .spec-dt-sidebar{width:220px;min-width:220px;height:100vh;height:100dvh;background:linear-gradient(180deg,var(--mint-ll) 0%,var(--white) 100%);border-right:1.5px solid var(--mint-l);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;position:relative;z-index:10;box-shadow:2px 0 16px rgba(13,148,136,.06)}
-  .spec-dt-logo{padding:20px 16px 16px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--mint-l);flex-shrink:0;cursor:pointer;transition:background .15s}
-  .spec-dt-logo:hover{background:var(--mint-ll)}
-  .spec-dt-info-card{margin:14px 12px 6px;padding:13px 14px;border-radius:var(--r);background:var(--white);border:1.5px solid var(--mint-l);flex-shrink:0;box-shadow:var(--s0)}
-  .spec-dt-nav{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
-  .spec-dt-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-  .spec-dt-topbar{height:56px;background:rgba(240,253,249,.92);-webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);border-bottom:1px solid rgba(167,243,208,.4);box-shadow:0 1px 0 rgba(255,255,255,.5),0 2px 20px rgba(13,148,136,.06);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;z-index:5}
-  .spec-dt-topbar-title{font-family:'Fraunces',serif;font-size:1.15rem;font-weight:800;color:var(--navy);flex:1}
-  .spec-dt-topbar-btn{background:none;border:none;cursor:pointer;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:background .14s;position:relative;font-family:'Nunito',sans-serif}
-  .spec-dt-topbar-btn:hover{background:var(--mint-ll)}
+  /* ── Shell */
+  .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#f4fcf9}
+
+  /* ── Sidebar 240px */
+  .spec-dt-sidebar{width:240px;min-width:240px;height:100%;display:flex;flex-direction:column;background:linear-gradient(180deg,#e6f8f2 0%,#f4fcf9 45%,#fff 100%);border-right:1.5px solid var(--mint-l);overflow:hidden;flex-shrink:0;box-shadow:2px 0 14px rgba(13,148,136,.07)}
+  .spec-dt-logo{padding:18px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--mint-l);flex-shrink:0;cursor:pointer;transition:background .15s;-webkit-user-select:none;user-select:none}
+  .spec-dt-logo:hover{background:rgba(13,148,136,.06)}
+  .spec-dt-info-card{margin:14px 12px 4px;padding:14px 15px;border-radius:16px;background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 65%,var(--teal-l) 100%);flex-shrink:0;box-shadow:0 4px 16px rgba(13,148,136,.28)}
+  .spec-dt-info-name{font-weight:800;color:#fff;font-size:.9rem;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-info-role{font-size:.72rem;color:rgba(255,255,255,.8);font-weight:600;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-info-count{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:99px;padding:3px 11px;font-size:.7rem;color:rgba(255,255,255,.95);font-weight:700;border:1px solid rgba(255,255,255,.15)}
+  .spec-dt-nav{flex:1;overflow-y:auto;padding:10px 10px 4px;display:flex;flex-direction:column;gap:3px}
+  .spec-dt-nav-item{display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.86rem;color:var(--slate);text-align:left;transition:all .15s;width:100%;flex-shrink:0}
+  .spec-dt-nav-item:hover{background:var(--mint-ll);color:var(--navy)}
+  .spec-dt-nav-item.active{background:var(--teal);color:#fff;font-weight:800;box-shadow:0 3px 10px rgba(13,148,136,.28)}
+  .spec-dt-nav-item.active:hover{background:var(--teal-d)}
+  .spec-dt-nav-icon{font-size:1.05rem;width:22px;text-align:center;flex-shrink:0}
+  .spec-dt-nav-badge{margin-left:auto;background:var(--coral);color:#fff;border-radius:99px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;padding:0 5px;flex-shrink:0}
+  .spec-dt-nav-item.active .spec-dt-nav-badge{background:rgba(255,255,255,.3)}
+  .spec-dt-sidebar-footer{flex-shrink:0;border-top:1.5px solid var(--mint-l);padding:11px 14px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.75)}
+  .spec-dt-footer-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal-l));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.8rem;color:#fff;flex-shrink:0;border:2px solid rgba(255,255,255,.5)}
+  .spec-dt-footer-name{font-weight:800;color:var(--navy);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-footer-role{font-size:.68rem;color:var(--slate);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ── Main area */
+  .spec-dt-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+  /* ── Top bar */
+  .spec-dt-topbar{height:56px;background:rgba(244,252,249,.96);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1.5px solid rgba(167,243,208,.5);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;z-index:5;box-shadow:0 1px 0 rgba(255,255,255,.6)}
+  .spec-dt-bc{flex:1;display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--slate);min-width:0;overflow:hidden}
+  .spec-dt-bc-link{cursor:pointer;transition:color .12s;white-space:nowrap;flex-shrink:0}
+  .spec-dt-bc-link:hover{color:var(--teal)}
+  .spec-dt-bc-sep{color:var(--slate-l);font-size:.78rem;flex-shrink:0}
+  .spec-dt-bc-cur{color:var(--navy);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-tb-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+  .spec-dt-act-btn{display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:10px;border:1.5px solid var(--teal);background:transparent;color:var(--teal);font-family:'Nunito',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .spec-dt-act-btn:hover{background:var(--teal);color:#fff;box-shadow:0 2px 8px rgba(13,148,136,.3)}
+  .spec-dt-ic-btn{width:36px;height:36px;border-radius:50%;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background .14s;position:relative;flex-shrink:0;font-family:'Nunito',sans-serif}
+  .spec-dt-ic-btn:hover{background:var(--mint-ll)}
+
+  /* ── Body */
   .spec-dt-body{flex:1;display:flex;overflow:hidden}
-  .spec-dt-patient-list-panel{width:260px;min-width:260px;border-right:1.5px solid var(--mint-l);overflow-y:auto;background:var(--white);flex-shrink:0;padding:14px 10px;transition:all .2s ease}
-  .spec-dt-patient-list-item{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:14px;cursor:pointer;transition:background .15s,border-color .15s;border:1.5px solid transparent;margin-bottom:5px}
-  .spec-dt-patient-list-item:hover{background:var(--mint-ll)}
-  .spec-dt-patient-list-item.active{background:var(--teal-ll);border-color:var(--teal)}
-  .spec-dt-detail-panel{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg);transition:opacity .2s ease}
-  .spec-dt-content-panel{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg)}
-  .spec-dt-section-label{font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.08em;padding:4px 4px 10px;border-bottom:1px solid var(--mint-l);margin-bottom:10px}
-  /* Hide standard shell chrome on specialist desktop */
-  .spec-dt-shell~#header,.spec-dt-shell~#bottom-nav{display:none!important}
+
+  /* ── Patient list panel 260px */
+  .spec-dt-pl{width:260px;min-width:260px;border-right:1.5px solid var(--mint-l);overflow:hidden;background:#fff;flex-shrink:0;display:flex;flex-direction:column}
+  .spec-dt-pl-top{padding:12px 12px 0;flex-shrink:0}
+  .spec-dt-pl-search{width:100%;padding:8px 12px;border-radius:10px;border:1.5px solid var(--mint-l);background:var(--mint-ll);font-family:'Nunito',sans-serif;font-size:.82rem;color:var(--navy);outline:none;transition:border-color .15s;box-sizing:border-box;display:block}
+  .spec-dt-pl-search:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
+  .spec-dt-pl-filters{display:flex;gap:4px;padding:8px 12px;border-bottom:1.5px solid var(--mint-l);flex-shrink:0}
+  .spec-dt-pl-ftab{flex:1;padding:5px 2px;border-radius:8px;border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:700;color:var(--slate);cursor:pointer;transition:all .15s;text-align:center}
+  .spec-dt-pl-ftab:hover{background:var(--mint-ll);color:var(--navy)}
+  .spec-dt-pl-ftab.active{background:var(--teal);color:#fff}
+  .spec-dt-pl-list{flex:1;overflow-y:auto;padding:8px}
+  .spec-dt-pl-empty{color:var(--slate-l);font-size:.8rem;text-align:center;padding:28px 12px;font-weight:600;line-height:1.6}
+  .spec-dt-pl-row{display:flex;align-items:center;gap:9px;padding:10px 10px;border-radius:12px;cursor:pointer;transition:background .15s,border-color .15s;border:1.5px solid transparent;margin-bottom:4px;position:relative}
+  .spec-dt-pl-row:hover{background:var(--mint-ll)}
+  .spec-dt-pl-row.active{background:var(--teal-ll);border-color:var(--teal)}
+  .spec-dt-pl-ri{flex:1;min-width:0}
+  .spec-dt-pl-name{font-weight:800;color:var(--navy);font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-pl-age{font-size:.7rem;color:var(--slate);font-weight:500;margin-top:1px}
+  .spec-dt-pl-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;min-width:44px}
+  .spec-dt-pl-tasks{font-size:.66rem;font-weight:800;color:var(--teal-d);background:var(--teal-ll);border-radius:6px;padding:2px 6px;text-align:center}
+  .spec-dt-pl-tasks.overdue{color:#be123c;background:#fef2f2}
+  .spec-dt-pl-act{font-size:.64rem;color:var(--slate-l);font-weight:500;text-align:right;line-height:1.3;max-width:64px}
+  .spec-dt-pl-dot{position:absolute;top:10px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--coral);box-shadow:0 0 0 2px #fff}
+
+  /* ── Detail panel */
+  .spec-dt-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:#f4fcf9}
+
+  /* Patient header */
+  .spec-dt-det-hdr{padding:20px 24px 0;background:#fff;border-bottom:1.5px solid var(--mint-l);flex-shrink:0}
+  .spec-dt-det-pr{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
+  .spec-dt-det-pi{flex:1;min-width:0}
+  .spec-dt-det-name{font-family:'Fraunces',serif;font-weight:800;font-size:1.25rem;color:var(--navy);margin-bottom:4px}
+  .spec-dt-det-meta{font-size:.78rem;color:var(--slate);font-weight:600;display:flex;gap:12px;flex-wrap:wrap}
+  .spec-dt-det-stats{display:flex;gap:8px;flex-shrink:0}
+  .spec-dt-det-stat{display:flex;flex-direction:column;align-items:center;padding:8px 14px;border-radius:12px;background:var(--mint-ll);border:1.5px solid var(--mint-l);min-width:62px}
+  .spec-dt-det-sv{font-weight:900;color:var(--teal-d);font-size:.94rem;font-family:'Fraunces',serif}
+  .spec-dt-det-sl{font-size:.61rem;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;white-space:nowrap}
+  .spec-dt-det-ha{display:flex;gap:8px;margin-left:auto;flex-shrink:0;align-items:flex-start}
+
+  /* Tab bar */
+  .spec-dt-tabbar{display:flex;align-items:center;gap:0;padding:0 24px;background:#fff;flex-shrink:0}
+  .spec-dt-tab{padding:11px 16px;border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:.83rem;font-weight:700;color:var(--slate);cursor:pointer;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;margin-bottom:-1.5px}
+  .spec-dt-tab:hover{color:var(--teal-d)}
+  .spec-dt-tab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:800}
+
+  /* Detail scrollable content */
+  .spec-dt-det-body{flex:1;overflow-y:auto;padding:22px 24px;transition:opacity .18s ease}
+  .spec-dt-det-body .section,.spec-dt-content .section{padding:0!important}
+  .spec-dt-det-body .page-title,.spec-dt-content .page-title{display:none!important}
+  .spec-dt-det-body .page-sub,.spec-dt-content .page-sub{margin-top:0!important}
+
+  /* General content panel (To-Do, Notifs, Settings) */
+  .spec-dt-content{flex:1;overflow-y:auto;padding:28px 32px;background:#f4fcf9}
+
+  /* ── Desktop Dashboard */
+  .spec-dt-db{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+  .spec-dt-db-hdr{padding:28px 32px 24px;background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 65%,var(--teal-l) 100%);flex-shrink:0}
+  .spec-dt-db-greet{font-family:'Fraunces',serif;font-size:1.55rem;font-weight:800;color:#fff;margin-bottom:3px}
+  .spec-dt-db-date{font-size:.83rem;color:rgba(255,255,255,.75);font-weight:600}
+  .spec-dt-db-body{flex:1;padding:24px 32px;display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start}
+  .spec-dt-db-stitle{font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;margin-top:4px}
+  .spec-dt-db-card{background:#fff;border-radius:16px;border:1.5px solid var(--mint-l);padding:16px 20px;box-shadow:0 2px 8px rgba(0,0,0,.04);margin-bottom:18px}
+  .spec-dt-db-sgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+  .spec-dt-db-scard{background:#fff;border-radius:14px;border:1.5px solid var(--mint-l);padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .spec-dt-db-sv{font-weight:900;color:var(--teal-d);font-size:1.35rem;font-family:'Fraunces',serif}
+  .spec-dt-db-sl{font-size:.7rem;color:var(--slate);font-weight:600;margin-top:2px}
+  .spec-dt-db-trow{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--mint-ll)}
+  .spec-dt-db-trow:last-child{border-bottom:none}
+  .spec-dt-db-plabel{font-size:.7rem;font-weight:800;color:var(--teal-d);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  .spec-dt-db-nrow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--mint-ll);cursor:pointer;border-radius:8px;transition:background .12s;margin:0 -4px}
+  .spec-dt-db-nrow:last-child{border-bottom:none}
+  .spec-dt-db-nrow:hover{background:var(--mint-ll)}
 }
 </style>
 </head>
@@ -3118,23 +3211,39 @@ function renderShell(){
 }
 
 /* -----------------------------------------------
-   SPECIALIST DESKTOP SHELL (>= 1024px only)
-   Called by renderShell when specialist + desktop.
-   Mobile layout unchanged below 1024px.
+   SPECIALIST DESKTOP SHELL  ≥1024px
+   renderShell() delegates here for spec+desktop.
+   All mobile / parent layout completely unchanged.
 ----------------------------------------------- */
 function renderSpecDesktop(){
+  // Redirect patient-detail overview to notes tab on desktop
+  if(S.activeTab==='patient-detail')S.activeTab='vault';
+  // Lazy-init desktop state keys
+  if(!S._dtPF)S._dtPF='active';         // patient filter
+  if(S._dtPS===undefined)S._dtPS='';    // patient search
+
   const spec=getMySpecialistRecord();
-  const lsChildren=LS.get('children',[]);
-  const allChildren=[...DB.children];
-  lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
-  const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
-  const activePatientCount=sorted.filter(c=>(c.status||'active')==='active').length;
-  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
-  const isPatientView=S.activeTab==='patients'||S.activeTab==='patient-detail';
+  const lsKids=LS.get('children',[]);
+  const all=[...DB.children];
+  lsKids.forEach(lc=>{if(!all.find(c=>c.id===lc.id))all.push(lc);});
+  const sorted=[...all].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+  const activeCount=sorted.filter(c=>(c.status||'active')==='active').length;
+  const unreadN=DB.notifications.filter(n=>!n.read).length;
+  const specId=session?.specialistId;
+  const specName=spec?.name||session?.name||'Specialist';
+  const specProf=session?.profession||spec?.role||'Specialist';
+  const initials=specName.split(' ').filter(Boolean).slice(0,2).map(n=>n[0]).join('').toUpperCase();
+
+  const activeChild=DB.children.find(c=>c.id===S.activeChild)
+    ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+
+  const PATIENT_TABS=['vault','homework','files','chat','calendar'];
+  const isPatientCtx=!!(S.activeChild&&activeChild&&
+    (S.activeTab==='patient-detail'||PATIENT_TABS.includes(S.activeTab)));
 
   const shell=el('div',{class:'spec-dt-shell'});
 
-  // ── SIDEBAR ──────────────────────────────────────────────────────────────
+  /* ── SIDEBAR ───────────────────────────────────────────────────────── */
   const sidebar=el('div',{class:'spec-dt-sidebar'});
 
   // Logo
@@ -3144,150 +3253,445 @@ function renderSpecDesktop(){
   logo.onclick=()=>{S.activeTab='dashboard';re();};
   sidebar.appendChild(logo);
 
-  // Specialist info card
-  const infoCard=el('div',{class:'spec-dt-info-card'});
-  const icName=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}});
-  icName.textContent=spec?.name||session?.name||'Specialist';
-  infoCard.appendChild(icName);
-  const icRole=el('div',{style:{fontSize:'.74rem',color:'var(--teal-d)',fontWeight:700,marginBottom:'7px'}});
-  icRole.textContent=session?.profession||spec?.role||'Specialist';
-  infoCard.appendChild(icRole);
-  const icCount=el('div',{style:{display:'flex',alignItems:'center',gap:'5px'}});
-  icCount.appendChild(el('span',{style:{fontSize:'.8rem'}},['👤']));
-  const icCountText=el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}});
-  icCountText.textContent=activePatientCount+' active patient'+(activePatientCount!==1?'s':'');
-  icCount.appendChild(icCountText);
-  infoCard.appendChild(icCount);
-  sidebar.appendChild(infoCard);
+  // Info card
+  const ic=el('div',{class:'spec-dt-info-card'});
+  const icN=el('div',{class:'spec-dt-info-name'}); icN.textContent=specName;
+  const icR=el('div',{class:'spec-dt-info-role'}); icR.textContent=specProf;
+  const icC=el('div',{class:'spec-dt-info-count'},['👤 '+activeCount+' patient'+(activeCount!==1?'s':'')]);
+  ic.appendChild(icN); ic.appendChild(icR); ic.appendChild(icC);
+  sidebar.appendChild(ic);
 
-  // Nav items
-  const navWrap=el('div',{class:'spec-dt-nav'});
-  const navItems=[
+  // Nav
+  const nav=el('div',{class:'spec-dt-nav'});
+  const isPatientsActive=isPatientCtx||S.activeTab==='patients';
+  [
     {id:'dashboard',label:'Home',icon:'🏠'},
-    {id:'patients',label:'Patients',icon:'👤',badge:sorted.length>0?sorted.length:null},
-    {id:'todo',label:'To-Do',icon:'✅'},
-    {id:'notifications',label:'Notifications',icon:'🔔',badge:unreadNotifs>0?unreadNotifs:null},
-    {id:'credentials',label:'My Folder',icon:'🗂️'},
-    {id:'request',label:'Join Team',icon:'📨'},
-    {id:'settings',label:'Settings',icon:'⚙️'},
-  ];
-  navItems.forEach(item=>{
-    const isActive=item.id==='patients'?isPatientView:(S.activeTab===item.id);
-    const btn=el('button',{class:'nav-btn'+(isActive?' active':'')});
-    btn.appendChild(el('span',{class:'ni'},[item.icon]));
+    {id:'patients', label:'Patients',icon:'👤',badge:sorted.length||null},
+    {id:'todo',     label:'To-Do',  icon:'✅'},
+    {id:'notifications',label:'Notifications',icon:'🔔',badge:unreadN||null},
+    {id:'settings', label:'Settings',icon:'⚙️'},
+  ].forEach(item=>{
+    const isAct=item.id==='patients'?isPatientsActive:(S.activeTab===item.id);
+    const btn=el('button',{class:'spec-dt-nav-item'+(isAct?' active':'')});
+    btn.appendChild(el('span',{class:'spec-dt-nav-icon'},[item.icon]));
     btn.appendChild(document.createTextNode(item.label));
-    if(item.badge!=null){
-      const bdg=el('span',{style:{marginLeft:'auto',background:'var(--teal)',color:'#fff',borderRadius:'99px',minWidth:'18px',height:'18px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'.62rem',fontWeight:800,padding:'0 5px'}},
-        [item.badge>99?'99+':String(item.badge)]);
-      btn.appendChild(bdg);
+    if(item.badge){
+      btn.appendChild(el('span',{class:'spec-dt-nav-badge'},
+        [item.badge>99?'99+':String(item.badge)]));
     }
-    btn.onclick=()=>switchTab(item.id);
-    navWrap.appendChild(btn);
+    btn.onclick=()=>{
+      if(item.id==='patients'){
+        if(sorted.length>0&&!S.activeChild){S.activeChild=sorted[0].id;}
+        S.activeTab=S.activeChild?'vault':'patients';
+        re();
+      } else {switchTab(item.id);}
+    };
+    nav.appendChild(btn);
   });
-  sidebar.appendChild(navWrap);
+  sidebar.appendChild(nav);
+
+  // Footer
+  const footer=el('div',{class:'spec-dt-sidebar-footer'});
+  const fAv=el('div',{class:'spec-dt-footer-av'}); fAv.textContent=initials;
+  const fInfo=el('div',{style:{flex:1,minWidth:0}});
+  const fN=el('div',{class:'spec-dt-footer-name'}); fN.textContent=specName;
+  const fR=el('div',{class:'spec-dt-footer-role'}); fR.textContent=specProf;
+  fInfo.appendChild(fN); fInfo.appendChild(fR);
+  const fOut=el('button',{style:{background:'none',border:'none',cursor:'pointer',padding:'4px 6px',
+    borderRadius:'8px',color:'var(--slate)',fontSize:'.9rem',transition:'color .14s',flexShrink:0}},['↩']);
+  fOut.title='Sign out';
+  fOut.onmouseenter=()=>fOut.style.color='var(--coral)';
+  fOut.onmouseleave=()=>fOut.style.color='var(--slate)';
+  fOut.onclick=async()=>{try{await doLogout();}catch(e){}re();};
+  footer.appendChild(fAv); footer.appendChild(fInfo); footer.appendChild(fOut);
+  sidebar.appendChild(footer);
   shell.appendChild(sidebar);
 
-  // ── MAIN AREA ────────────────────────────────────────────────────────────
+  /* ── MAIN ──────────────────────────────────────────────────────────── */
   const main=el('div',{class:'spec-dt-main'});
 
-  // Top bar
+  /* Top bar */
   const topbar=el('div',{class:'spec-dt-topbar'});
-  const TAB_TITLES={
-    dashboard:'Dashboard',patients:'My Patients',todo:'To-Do',
-    notifications:'Notifications','patient-detail':'Patient Profile',
-    vault:'Clinical Notes',files:'Files',chat:'Chat',calendar:'Calendar',
-    credentials:'My Folder',request:'Join Team',settings:'Settings',
-    homework:'Tasks','session-summaries':'Session Summaries',email:'Messages'
-  };
-  topbar.appendChild(el('div',{class:'spec-dt-topbar-title'},[TAB_TITLES[S.activeTab]||'Huddledin']));
-  const topRight=el('div',{style:{display:'flex',alignItems:'center',gap:'6px'}});
-  const bellBtn=el('button',{class:'spec-dt-topbar-btn',title:'Notifications'},['🔔']);
-  if(unreadNotifs>0){bellBtn.appendChild(el('span',{class:'notif-count'},[unreadNotifs>9?'9+':String(unreadNotifs)]));}
-  bellBtn.onclick=()=>switchTab('notifications');
-  topRight.appendChild(bellBtn);
-  const settBtn=el('button',{class:'spec-dt-topbar-btn',title:'Settings'},['⚙️']);
-  settBtn.onclick=()=>switchTab('settings');
-  topRight.appendChild(settBtn);
-  topbar.appendChild(topRight);
-  main.appendChild(topbar);
+  const TAB_NAMES={dashboard:'Home',patients:'Patients',todo:'To-Do',
+    notifications:'Notifications',settings:'Settings',vault:'Notes',
+    homework:'Tasks',files:'Files',chat:'Chat',calendar:'Calendar',
+    credentials:'My Folder',request:'Join Team','session-summaries':'Session Summaries'};
 
-  // Content body (below topbar)
-  const body=el('div',{class:'spec-dt-body'});
-
-  if(isPatientView){
-    // ── TWO-PANEL PATIENT VIEW ─────────────────────────────────────────────
-    const listPanel=el('div',{class:'spec-dt-patient-list-panel'});
-    listPanel.appendChild(el('div',{class:'spec-dt-section-label'},['Patients ('+sorted.length+')']));
-
-    if(!sorted.length){
-      const empty=el('div',{style:{color:'var(--slate)',fontSize:'.8rem',textAlign:'center',padding:'20px 8px',fontWeight:600,lineHeight:'1.6'}});
-      empty.textContent='No patients yet. Enter a connection code to get started.';
-      listPanel.appendChild(empty);
+  // Breadcrumb
+  const bc=el('div',{class:'spec-dt-bc'});
+  if(isPatientCtx&&activeChild){
+    const bcP=el('span',{class:'spec-dt-bc-link'});bcP.textContent='Patients';
+    bcP.onclick=()=>{S.activeChild=null;S.activeTab='patients';re();};
+    bc.appendChild(bcP);
+    bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
+    if(S.activeTab!=='vault'){
+      const bcC=el('span',{class:'spec-dt-bc-link'});
+      bcC.textContent=activeChild.name.split(' ')[0];
+      bcC.onclick=()=>{S.activeTab='vault';re();};
+      bc.appendChild(bcC);
+      bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
+      const bcA=el('span',{class:'spec-dt-bc-cur'});
+      bcA.textContent=TAB_NAMES[S.activeTab]||S.activeTab;
+      bc.appendChild(bcA);
     } else {
-      // Auto-select first patient on initial load
-      if(!S.activeChild&&sorted.length>0){
-        S.activeChild=sorted[0].id;
-        S.activeTab='patient-detail';
-      }
-      sorted.forEach(c=>{
-        const isActive=c.id===S.activeChild;
-        const item=el('div',{class:'spec-dt-patient-list-item'+(isActive?' active':'')});
-        item.appendChild(mkChildAvatar(c,38,'10px'));
-        const info=el('div',{style:{flex:1,minWidth:0}});
-        const nameEl=el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
-        nameEl.textContent=c.name;
-        const metaEl=el('div',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:500,marginTop:'1px'}});
-        metaEl.textContent='Age '+(c.age||'—');
-        info.appendChild(nameEl);
-        info.appendChild(metaEl);
-        item.appendChild(info);
-        item.onclick=()=>{
-          _pushNav();
-          S.activeChild=c.id;
-          S.activeTab='patient-detail';
-          loadChildSpecialists(c.id).catch(()=>{});
-          re();
-        };
-        listPanel.appendChild(item);
-      });
+      const bcA=el('span',{class:'spec-dt-bc-cur'});
+      bcA.textContent=activeChild.name.split(' ')[0];
+      bc.appendChild(bcA);
     }
-    body.appendChild(listPanel);
-
-    // Right: patient detail panel
-    const detailPanel=el('div',{class:'spec-dt-detail-panel'});
-    if(S.activeChild){
-      const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
-      if(child){
-        // Hide back button on desktop — navigation is handled by the left panel
-        const detail=renderPatientDashboard();
-        const backBtn=detail.querySelector('button');
-        if(backBtn&&backBtn.textContent.includes('Patients'))backBtn.style.display='none';
-        detailPanel.appendChild(detail);
-      } else {
-        detailPanel.appendChild(el('div',{class:'empty-state'},[
-          el('span',{class:'empty-state-icon'},['👤']),
-          el('div',{class:'empty-state-title'},['Patient not found']),
-        ]));
-      }
-    } else {
-      detailPanel.appendChild(el('div',{class:'empty-state'},[
-        el('span',{class:'empty-state-icon'},['👤']),
-        el('div',{class:'empty-state-title'},['Select a patient']),
-        el('div',{class:'empty-state-body'},['Choose a patient from the list on the left to view their profile.']),
-      ]));
-    }
-    body.appendChild(detailPanel);
-
   } else {
-    // ── SINGLE CONTENT PANEL ──────────────────────────────────────────────
-    const contentPanel=el('div',{class:'spec-dt-content-panel'});
-    contentPanel.appendChild(renderContent());
-    body.appendChild(contentPanel);
+    const bcA=el('span',{class:'spec-dt-bc-cur'});
+    bcA.textContent=TAB_NAMES[S.activeTab]||S.activeTab;
+    bc.appendChild(bcA);
+  }
+  topbar.appendChild(bc);
+
+  // Quick-action buttons (when patient selected)
+  if(isPatientCtx&&activeChild){
+    const acts=el('div',{class:'spec-dt-tb-actions'});
+    const nNote=el('button',{class:'spec-dt-act-btn'},['+ Note']);
+    nNote.onclick=()=>{S.activeTab='vault';re();};
+    const nTask=el('button',{class:'spec-dt-act-btn'},['+ Task']);
+    nTask.onclick=()=>{S.activeTab='homework';re();};
+    acts.appendChild(nNote); acts.appendChild(nTask);
+    topbar.appendChild(acts);
   }
 
+  // Right icons
+  const tico=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',flexShrink:0,marginLeft:'8px'}});
+  const bell=el('button',{class:'spec-dt-ic-btn',title:'Notifications'},['🔔']);
+  if(unreadN>0)bell.appendChild(el('span',{class:'notif-count'},[unreadN>9?'9+':String(unreadN)]));
+  bell.onclick=()=>switchTab('notifications');
+  const sett=el('button',{class:'spec-dt-ic-btn',title:'Settings'},['⚙️']);
+  sett.onclick=()=>switchTab('settings');
+  tico.appendChild(bell); tico.appendChild(sett);
+  topbar.appendChild(tico);
+  main.appendChild(topbar);
+
+  /* Body */
+  const body=el('div',{class:'spec-dt-body'});
+
+  /* ── Patient list (always visible) ──────────────────────────────── */
+  const plPanel=el('div',{class:'spec-dt-pl'});
+
+  const plTop=el('div',{class:'spec-dt-pl-top'});
+  const searchI=el('input',{class:'spec-dt-pl-search',placeholder:'🔍 Search patients…',type:'text'});
+  searchI.value=S._dtPS||'';
+  plTop.appendChild(searchI);
+  plPanel.appendChild(plTop);
+
+  const filters=el('div',{class:'spec-dt-pl-filters'});
+  ['active','inactive','all'].forEach(f=>{
+    const lbl=f==='all'?'All':f==='active'?'Active':'Inactive';
+    const ft=el('button',{class:'spec-dt-pl-ftab'+(S._dtPF===f?' active':'')},[lbl]);
+    ft.onclick=()=>{S._dtPF=f;re();};
+    filters.appendChild(ft);
+  });
+  plPanel.appendChild(filters);
+
+  const plList=el('div',{class:'spec-dt-pl-list'});
+
+  const renderList=q=>{
+    plList.innerHTML='';
+    const shown=sorted.filter(c=>{
+      const nm=c.name.toLowerCase().includes(q.toLowerCase());
+      const st=c.status||'active';
+      const sf=S._dtPF==='all'||S._dtPF===st;
+      return nm&&sf;
+    });
+    if(!shown.length){
+      const empty=el('div',{class:'spec-dt-pl-empty'});
+      empty.textContent=S._dtPF==='all'?'No patients found.':'No '+S._dtPF+' patients.';
+      plList.appendChild(empty);
+      return;
+    }
+    shown.forEach(c=>{
+      const isAct=c.id===S.activeChild;
+      const tasks=(DB.specTasks||[]).filter(t=>
+        (t.specialistId===specId||t.specialist_id===specId)&&t.childId===c.id&&!t.done&&!t.completed);
+      const overdue=tasks.filter(t=>t.dueDate&&new Date(t.dueDate)<new Date());
+      const hasOD=overdue.length>0;
+      const myNotes=DB.vaultNotes.filter(n=>n.childId===c.id&&n.specialistId===specId);
+      let lastAct='';
+      if(myNotes.length){
+        const last=[...myNotes].sort((a,b)=>b.date.localeCompare(a.date))[0];
+        const days=Math.floor((Date.now()-new Date(last.date))/(864e5));
+        lastAct='Note · '+(days===0?'Today':days===1?'Yesterday':days+'d ago');
+      }
+
+      const row=el('div',{class:'spec-dt-pl-row'+(isAct?' active':'')});
+      row.appendChild(mkChildAvatar(c,36,'50%'));
+      const ri=el('div',{class:'spec-dt-pl-ri'});
+      const rn=el('div',{class:'spec-dt-pl-name'}); rn.textContent=c.name;
+      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent='Age '+(c.age||'—');
+      ri.appendChild(rn); ri.appendChild(ra);
+      row.appendChild(ri);
+      const rr=el('div',{class:'spec-dt-pl-right'});
+      if(tasks.length){
+        const tb=el('div',{class:'spec-dt-pl-tasks'+(hasOD?' overdue':'')});
+        tb.textContent=tasks.length+(hasOD?'!':'');
+        rr.appendChild(tb);
+      }
+      if(lastAct){const la=el('div',{class:'spec-dt-pl-act'});la.textContent=lastAct;rr.appendChild(la);}
+      row.appendChild(rr);
+      if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
+      row.onclick=()=>{
+        _pushNav();S.activeChild=c.id;S.activeTab='vault';
+        loadChildSpecialists(c.id).catch(()=>{});re();
+      };
+      plList.appendChild(row);
+    });
+  };
+
+  // Auto-select first active patient on initial patients view
+  if((S.activeTab==='patients'||isPatientCtx)&&!S.activeChild&&sorted.length>0){
+    S.activeChild=sorted[0].id;
+    S.activeTab='vault';
+  }
+
+  renderList(S._dtPS||'');
+  searchI.oninput=e=>{S._dtPS=e.target.value;renderList(e.target.value);};
+  plPanel.appendChild(plList);
+  body.appendChild(plPanel);
+
+  /* ── Right detail panel ─────────────────────────────────────────── */
+  const detail=el('div',{class:'spec-dt-detail'});
+
+  if(S.activeTab==='dashboard'){
+    detail.appendChild(_renderSpecDtDashboard(sorted,specId,specName));
+  } else if(isPatientCtx&&activeChild){
+    detail.appendChild(_renderSpecDtPatientDetail(activeChild,specId));
+  } else if(!isPatientCtx&&!['todo','notifications','settings','credentials','request',
+      'session-summaries','email','calendar','admin'].includes(S.activeTab)){
+    // Empty state — no patient selected
+    detail.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👤']),
+      el('div',{class:'empty-state-title'},['Select a patient']),
+      el('div',{class:'empty-state-body'},['Choose a patient from the list to view their profile.']),
+    ]));
+  } else {
+    const cp=el('div',{class:'spec-dt-content'});
+    cp.appendChild(renderContent());
+    detail.appendChild(cp);
+  }
+
+  body.appendChild(detail);
   main.appendChild(body);
   shell.appendChild(main);
   return shell;
+}
+
+/* Patient detail — header + tab bar + content ─────────────────────────── */
+function _renderSpecDtPatientDetail(child,specId){
+  const wrap=el('div',{style:{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}});
+
+  /* Header */
+  const hdr=el('div',{class:'spec-dt-det-hdr'});
+  const pr=el('div',{class:'spec-dt-det-pr'});
+
+  pr.appendChild(mkChildAvatar(child,54,'50%'));
+
+  const pi=el('div',{class:'spec-dt-det-pi'});
+  const pname=el('div',{class:'spec-dt-det-name'}); pname.textContent=child.name;
+  const pmeta=el('div',{class:'spec-dt-det-meta'});
+  const ageSp=el('span'); ageSp.textContent='Age '+(child.age||'—');
+  pmeta.appendChild(ageSp);
+  if(child.dob){const dobSp=el('span');dobSp.textContent='· DOB '+child.dob;pmeta.appendChild(dobSp);}
+  pi.appendChild(pname); pi.appendChild(pmeta);
+  pr.appendChild(pi);
+
+  // Quick stats
+  const myNotes=DB.vaultNotes.filter(n=>n.childId===child.id&&n.specialistId===specId);
+  const myTasks=(DB.specTasks||[]).filter(t=>
+    (t.specialistId===specId||t.specialist_id===specId)&&t.childId===child.id);
+  const done=myTasks.filter(t=>t.done||t.completed);
+  const pct=myTasks.length?Math.round(done.length/myTasks.length*100):null;
+  const lastN=myNotes.length?[...myNotes].sort((a,b)=>b.date.localeCompare(a.date))[0].date:null;
+
+  const statsWrap=el('div',{class:'spec-dt-det-stats'});
+  [{v:myNotes.length,l:'Notes'},{v:myTasks.length,l:'Tasks'},
+   {v:pct!==null?pct+'%':'—',l:'Done'},
+   {v:lastN?lastN.slice(5):'—',l:'Last Note'}
+  ].forEach(({v,l})=>{
+    const sc=el('div',{class:'spec-dt-det-stat'});
+    const sv=el('div',{class:'spec-dt-det-sv'}); sv.textContent=String(v);
+    const sl=el('div',{class:'spec-dt-det-sl'}); sl.textContent=l;
+    sc.appendChild(sv); sc.appendChild(sl); statsWrap.appendChild(sc);
+  });
+
+  // Action buttons in header
+  const ha=el('div',{class:'spec-dt-det-ha'});
+  const nNote=el('button',{class:'spec-dt-act-btn'},['+ Note']);
+  nNote.onclick=()=>{S.activeTab='vault';re();};
+  const nTask=el('button',{class:'spec-dt-act-btn'},['+ Task']);
+  nTask.onclick=()=>{S.activeTab='homework';re();};
+  ha.appendChild(nNote); ha.appendChild(nTask);
+
+  pr.appendChild(statsWrap);
+  pr.appendChild(ha);
+  hdr.appendChild(pr);
+
+  /* Tab bar */
+  const tabbar=el('div',{class:'spec-dt-tabbar'});
+  const PTABS=[
+    {id:'vault',    label:'📋 Notes'},
+    {id:'homework', label:'✅ Tasks'},
+    {id:'files',    label:'📁 Files'},
+    {id:'chat',     label:'💬 Chat'},
+    {id:'calendar', label:'📅 Calendar'},
+  ];
+  PTABS.forEach(t=>{
+    const isAct=S.activeTab===t.id||(t.id==='vault'&&S.activeTab==='patient-detail');
+    const btn=el('button',{class:'spec-dt-tab'+(isAct?' active':'')},[t.label]);
+    btn.onclick=()=>{
+      _pushNav();
+      S.activeTab=t.id;
+      if(t.id==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;S.chatsLoaded=false;}
+      if(t.id==='files')S.activeFolderId=null;
+      re();
+    };
+    tabbar.appendChild(btn);
+  });
+  hdr.appendChild(tabbar);
+  wrap.appendChild(hdr);
+
+  /* Content */
+  const body=el('div',{class:'spec-dt-det-body'});
+  body.appendChild(renderContent());
+  wrap.appendChild(body);
+  return wrap;
+}
+
+/* Desktop dashboard — teal header + two-column layout ─────────────────── */
+function _renderSpecDtDashboard(sorted,specId,specName){
+  const wrap=el('div',{class:'spec-dt-db'});
+
+  // Header
+  const now=new Date();
+  const hr=now.getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  const dateStr=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const hdr=el('div',{class:'spec-dt-db-hdr'});
+  const gEl=el('div',{class:'spec-dt-db-greet'}); gEl.textContent=greet+', '+specName.split(' ')[0]+' 👋';
+  const dEl=el('div',{class:'spec-dt-db-date'}); dEl.textContent=dateStr;
+  hdr.appendChild(gEl); hdr.appendChild(dEl);
+  wrap.appendChild(hdr);
+
+  // Two-column body
+  const body=el('div',{class:'spec-dt-db-body'});
+
+  /* LEFT — today tasks + recent notes */
+  const left=el('div',{});
+
+  // Today's tasks
+  left.appendChild(el('div',{class:'spec-dt-db-stitle'},["Today's Tasks"]));
+  const tCard=el('div',{class:'spec-dt-db-card'});
+  const todayStr=now.toISOString().slice(0,10);
+  const allTasks=(DB.specTasks||[]).filter(t=>t.specialistId===specId||t.specialist_id===specId);
+  const todayTasks=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed);
+
+  if(!todayTasks.length){
+    const noT=el('div',{style:{color:'var(--slate)',fontSize:'.84rem',textAlign:'center',padding:'14px 0',fontWeight:600}});
+    noT.textContent='✅ No tasks due today';
+    tCard.appendChild(noT);
+  } else {
+    const byPat={};
+    todayTasks.forEach(t=>{const k=t.childId||'gen';(byPat[k]=byPat[k]||[]).push(t);});
+    Object.entries(byPat).forEach(([cid,tasks])=>{
+      const c=DB.children.find(ch=>ch.id===cid)||(LS.get('children',[])).find(ch=>ch.id===cid);
+      if(c){const pl=el('div',{class:'spec-dt-db-plabel'});pl.textContent=c.name;tCard.appendChild(pl);}
+      tasks.forEach(t=>{
+        const row=el('div',{class:'spec-dt-db-trow'});
+        const od=t.dueDate&&new Date(t.dueDate)<now;
+        row.appendChild(el('span',{style:{fontSize:'.95rem',flexShrink:0}},[od?'🔴':'⏰']));
+        const ti=el('div',{style:{flex:1,fontWeight:600,fontSize:'.84rem',color:'var(--navy)'}});
+        ti.textContent=t.title||'Untitled task';
+        row.appendChild(ti);
+        const pb=el('span',{style:{fontSize:'.68rem',fontWeight:700,padding:'2px 8px',borderRadius:'6px',
+          background:od?'#fef2f2':'var(--mint-ll)',color:od?'#be123c':'var(--teal)',flexShrink:0}});
+        pb.textContent=t.category||'Task';
+        row.appendChild(pb);
+        tCard.appendChild(row);
+      });
+    });
+  }
+  left.appendChild(tCard);
+
+  // Recent notes
+  left.appendChild(el('div',{class:'spec-dt-db-stitle'},['Recent Notes']));
+  const nCard=el('div',{class:'spec-dt-db-card'});
+  const allN=DB.vaultNotes.filter(n=>n.specialistId===specId);
+  const recN=[...allN].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  if(!recN.length){
+    const noN=el('div',{style:{color:'var(--slate)',fontSize:'.84rem',textAlign:'center',padding:'12px 0',fontWeight:600}});
+    noN.textContent='No notes yet';
+    nCard.appendChild(noN);
+  } else {
+    recN.forEach(n=>{
+      const c=DB.children.find(ch=>ch.id===n.childId)||(LS.get('children',[])).find(ch=>ch.id===n.childId);
+      const row=el('div',{class:'spec-dt-db-nrow'});
+      if(c)row.appendChild(mkChildAvatar(c,30,'50%'));
+      const ni=el('div',{style:{flex:1,minWidth:0}});
+      const nt=el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)',
+        whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
+      nt.textContent=n.title||'Untitled note';
+      const nm=el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:500}});
+      nm.textContent=(c?c.name+' · ':'')+n.date;
+      ni.appendChild(nt); ni.appendChild(nm);
+      row.appendChild(ni);
+      row.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
+      nCard.appendChild(row);
+    });
+  }
+  left.appendChild(nCard);
+  body.appendChild(left);
+
+  /* RIGHT — stats + mini calendar */
+  const right=el('div',{});
+
+  right.appendChild(el('div',{class:'spec-dt-db-stitle'},['Overview']));
+  const sgrid=el('div',{class:'spec-dt-db-sgrid'});
+  const todayDue=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed).length;
+  const w7tasks=allTasks.filter(t=>{const d=new Date(t.dueDate||'');return d>new Date(Date.now()-6048e5)&&d<=now;});
+  const wPct=w7tasks.length?Math.round(w7tasks.filter(t=>t.done||t.completed).length/w7tasks.length*100):100;
+  const unreadMsgs=DB.chats.filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
+  [
+    {v:sorted.length,l:'Patients',clr:'var(--teal)'},
+    {v:todayDue,l:'Due Today',clr:todayDue>0?'var(--coral)':'var(--teal)'},
+    {v:wPct+'%',l:'Week Done',clr:'var(--teal)'},
+    {v:unreadMsgs,l:'Unread Msgs',clr:unreadMsgs>0?'var(--coral)':'var(--teal)'},
+  ].forEach(({v,l,clr})=>{
+    const sc=el('div',{class:'spec-dt-db-scard'});
+    const sv=el('div',{class:'spec-dt-db-sv'}); sv.style.color=clr; sv.textContent=String(v);
+    const sl=el('div',{class:'spec-dt-db-sl'}); sl.textContent=l;
+    sc.appendChild(sv); sc.appendChild(sl); sgrid.appendChild(sc);
+  });
+  right.appendChild(sgrid);
+
+  // Mini calendar
+  right.appendChild(el('div',{class:'spec-dt-db-stitle'},['Upcoming']));
+  const calCard=el('div',{class:'spec-dt-db-card',style:{padding:'4px'}});
+  const specId2=session?.specialistId;
+  calCard.appendChild(renderMiniCalendar(sorted,
+    DB.appointments.filter(a=>a.specialistId===specId2||a.sharedWith?.includes(specId2))));
+  right.appendChild(calCard);
+
+  // Unread messages shortcut
+  if(unreadMsgs>0){
+    const msgCard=el('div',{class:'spec-dt-db-card',style:{display:'flex',alignItems:'center',gap:'12px',cursor:'pointer',marginTop:'0'}});
+    msgCard.appendChild(el('span',{style:{fontSize:'1.4rem'}},['💬']));
+    const mi=el('div',{style:{flex:1}});
+    const mt=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.86rem'}});
+    mt.textContent=unreadMsgs+' unread message'+(unreadMsgs!==1?'s':'');
+    const ms=el('div',{style:{fontSize:'.74rem',color:'var(--slate)',fontWeight:500}},['Tap to view conversations']);
+    mi.appendChild(mt); mi.appendChild(ms);
+    msgCard.appendChild(mi);
+    msgCard.onclick=()=>switchTab('chat');
+    right.appendChild(msgCard);
+  }
+
+  body.appendChild(right);
+  wrap.appendChild(body);
+  return wrap;
 }
 
 /* -- HEADER — adapts to nav level -- */
