@@ -1196,6 +1196,34 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .wb-btn:active{transform:scale(.94);background:rgba(255,255,255,.35)}
 .wb-btn.primary{background:#fff;color:var(--teal-d);}
 .wb-btn.primary:active{background:rgba(255,255,255,.9)}
+
+/* -----------------------------------------------
+   SPECIALIST DESKTOP LAYOUT (min-width: 1024px)
+   Mobile/parent views completely unaffected.
+----------------------------------------------- */
+@media(min-width:1024px){
+  .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:var(--bg)}
+  .spec-dt-sidebar{width:220px;min-width:220px;height:100vh;height:100dvh;background:linear-gradient(180deg,var(--mint-ll) 0%,var(--white) 100%);border-right:1.5px solid var(--mint-l);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;position:relative;z-index:10;box-shadow:2px 0 16px rgba(13,148,136,.06)}
+  .spec-dt-logo{padding:20px 16px 16px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--mint-l);flex-shrink:0;cursor:pointer;transition:background .15s}
+  .spec-dt-logo:hover{background:var(--mint-ll)}
+  .spec-dt-info-card{margin:14px 12px 6px;padding:13px 14px;border-radius:var(--r);background:var(--white);border:1.5px solid var(--mint-l);flex-shrink:0;box-shadow:var(--s0)}
+  .spec-dt-nav{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+  .spec-dt-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .spec-dt-topbar{height:56px;background:rgba(240,253,249,.92);-webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);border-bottom:1px solid rgba(167,243,208,.4);box-shadow:0 1px 0 rgba(255,255,255,.5),0 2px 20px rgba(13,148,136,.06);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;z-index:5}
+  .spec-dt-topbar-title{font-family:'Fraunces',serif;font-size:1.15rem;font-weight:800;color:var(--navy);flex:1}
+  .spec-dt-topbar-btn{background:none;border:none;cursor:pointer;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:background .14s;position:relative;font-family:'Nunito',sans-serif}
+  .spec-dt-topbar-btn:hover{background:var(--mint-ll)}
+  .spec-dt-body{flex:1;display:flex;overflow:hidden}
+  .spec-dt-patient-list-panel{width:260px;min-width:260px;border-right:1.5px solid var(--mint-l);overflow-y:auto;background:var(--white);flex-shrink:0;padding:14px 10px;transition:all .2s ease}
+  .spec-dt-patient-list-item{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:14px;cursor:pointer;transition:background .15s,border-color .15s;border:1.5px solid transparent;margin-bottom:5px}
+  .spec-dt-patient-list-item:hover{background:var(--mint-ll)}
+  .spec-dt-patient-list-item.active{background:var(--teal-ll);border-color:var(--teal)}
+  .spec-dt-detail-panel{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg);transition:opacity .2s ease}
+  .spec-dt-content-panel{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg)}
+  .spec-dt-section-label{font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.08em;padding:4px 4px 10px;border-bottom:1px solid var(--mint-l);margin-bottom:10px}
+  /* Hide standard shell chrome on specialist desktop */
+  .spec-dt-shell~#header,.spec-dt-shell~#bottom-nav{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -3039,6 +3067,11 @@ function renderShell(){
     return shell;
   }
 
+  // Desktop specialist layout — full sidebar+panel shell
+  if(session?.role==='specialist'&&window.innerWidth>=1024){
+    return renderSpecDesktop();
+  }
+
   const shell=el('div',{id:'app-shell'});
   shell.appendChild(renderHeader());
 
@@ -3081,6 +3114,179 @@ function renderShell(){
     const tourEl=renderTour();
     if(tourEl)shell.appendChild(tourEl);
   }
+  return shell;
+}
+
+/* -----------------------------------------------
+   SPECIALIST DESKTOP SHELL (>= 1024px only)
+   Called by renderShell when specialist + desktop.
+   Mobile layout unchanged below 1024px.
+----------------------------------------------- */
+function renderSpecDesktop(){
+  const spec=getMySpecialistRecord();
+  const lsChildren=LS.get('children',[]);
+  const allChildren=[...DB.children];
+  lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
+  const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+  const activePatientCount=sorted.filter(c=>(c.status||'active')==='active').length;
+  const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
+  const isPatientView=S.activeTab==='patients'||S.activeTab==='patient-detail';
+
+  const shell=el('div',{class:'spec-dt-shell'});
+
+  // ── SIDEBAR ──────────────────────────────────────────────────────────────
+  const sidebar=el('div',{class:'spec-dt-sidebar'});
+
+  // Logo
+  const logo=el('div',{class:'spec-dt-logo'});
+  logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
+  logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
+  logo.onclick=()=>{S.activeTab='dashboard';re();};
+  sidebar.appendChild(logo);
+
+  // Specialist info card
+  const infoCard=el('div',{class:'spec-dt-info-card'});
+  const icName=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}});
+  icName.textContent=spec?.name||session?.name||'Specialist';
+  infoCard.appendChild(icName);
+  const icRole=el('div',{style:{fontSize:'.74rem',color:'var(--teal-d)',fontWeight:700,marginBottom:'7px'}});
+  icRole.textContent=session?.profession||spec?.role||'Specialist';
+  infoCard.appendChild(icRole);
+  const icCount=el('div',{style:{display:'flex',alignItems:'center',gap:'5px'}});
+  icCount.appendChild(el('span',{style:{fontSize:'.8rem'}},['👤']));
+  const icCountText=el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}});
+  icCountText.textContent=activePatientCount+' active patient'+(activePatientCount!==1?'s':'');
+  icCount.appendChild(icCountText);
+  infoCard.appendChild(icCount);
+  sidebar.appendChild(infoCard);
+
+  // Nav items
+  const navWrap=el('div',{class:'spec-dt-nav'});
+  const navItems=[
+    {id:'dashboard',label:'Home',icon:'🏠'},
+    {id:'patients',label:'Patients',icon:'👤',badge:sorted.length>0?sorted.length:null},
+    {id:'todo',label:'To-Do',icon:'✅'},
+    {id:'notifications',label:'Notifications',icon:'🔔',badge:unreadNotifs>0?unreadNotifs:null},
+    {id:'credentials',label:'My Folder',icon:'🗂️'},
+    {id:'request',label:'Join Team',icon:'📨'},
+    {id:'settings',label:'Settings',icon:'⚙️'},
+  ];
+  navItems.forEach(item=>{
+    const isActive=item.id==='patients'?isPatientView:(S.activeTab===item.id);
+    const btn=el('button',{class:'nav-btn'+(isActive?' active':'')});
+    btn.appendChild(el('span',{class:'ni'},[item.icon]));
+    btn.appendChild(document.createTextNode(item.label));
+    if(item.badge!=null){
+      const bdg=el('span',{style:{marginLeft:'auto',background:'var(--teal)',color:'#fff',borderRadius:'99px',minWidth:'18px',height:'18px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'.62rem',fontWeight:800,padding:'0 5px'}},
+        [item.badge>99?'99+':String(item.badge)]);
+      btn.appendChild(bdg);
+    }
+    btn.onclick=()=>switchTab(item.id);
+    navWrap.appendChild(btn);
+  });
+  sidebar.appendChild(navWrap);
+  shell.appendChild(sidebar);
+
+  // ── MAIN AREA ────────────────────────────────────────────────────────────
+  const main=el('div',{class:'spec-dt-main'});
+
+  // Top bar
+  const topbar=el('div',{class:'spec-dt-topbar'});
+  const TAB_TITLES={
+    dashboard:'Dashboard',patients:'My Patients',todo:'To-Do',
+    notifications:'Notifications','patient-detail':'Patient Profile',
+    vault:'Clinical Notes',files:'Files',chat:'Chat',calendar:'Calendar',
+    credentials:'My Folder',request:'Join Team',settings:'Settings',
+    homework:'Tasks','session-summaries':'Session Summaries',email:'Messages'
+  };
+  topbar.appendChild(el('div',{class:'spec-dt-topbar-title'},[TAB_TITLES[S.activeTab]||'Huddledin']));
+  const topRight=el('div',{style:{display:'flex',alignItems:'center',gap:'6px'}});
+  const bellBtn=el('button',{class:'spec-dt-topbar-btn',title:'Notifications'},['🔔']);
+  if(unreadNotifs>0){bellBtn.appendChild(el('span',{class:'notif-count'},[unreadNotifs>9?'9+':String(unreadNotifs)]));}
+  bellBtn.onclick=()=>switchTab('notifications');
+  topRight.appendChild(bellBtn);
+  const settBtn=el('button',{class:'spec-dt-topbar-btn',title:'Settings'},['⚙️']);
+  settBtn.onclick=()=>switchTab('settings');
+  topRight.appendChild(settBtn);
+  topbar.appendChild(topRight);
+  main.appendChild(topbar);
+
+  // Content body (below topbar)
+  const body=el('div',{class:'spec-dt-body'});
+
+  if(isPatientView){
+    // ── TWO-PANEL PATIENT VIEW ─────────────────────────────────────────────
+    const listPanel=el('div',{class:'spec-dt-patient-list-panel'});
+    listPanel.appendChild(el('div',{class:'spec-dt-section-label'},['Patients ('+sorted.length+')']));
+
+    if(!sorted.length){
+      const empty=el('div',{style:{color:'var(--slate)',fontSize:'.8rem',textAlign:'center',padding:'20px 8px',fontWeight:600,lineHeight:'1.6'}});
+      empty.textContent='No patients yet. Enter a connection code to get started.';
+      listPanel.appendChild(empty);
+    } else {
+      // Auto-select first patient on initial load
+      if(!S.activeChild&&sorted.length>0){
+        S.activeChild=sorted[0].id;
+        S.activeTab='patient-detail';
+      }
+      sorted.forEach(c=>{
+        const isActive=c.id===S.activeChild;
+        const item=el('div',{class:'spec-dt-patient-list-item'+(isActive?' active':'')});
+        item.appendChild(mkChildAvatar(c,38,'10px'));
+        const info=el('div',{style:{flex:1,minWidth:0}});
+        const nameEl=el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
+        nameEl.textContent=c.name;
+        const metaEl=el('div',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:500,marginTop:'1px'}});
+        metaEl.textContent='Age '+(c.age||'—');
+        info.appendChild(nameEl);
+        info.appendChild(metaEl);
+        item.appendChild(info);
+        item.onclick=()=>{
+          _pushNav();
+          S.activeChild=c.id;
+          S.activeTab='patient-detail';
+          loadChildSpecialists(c.id).catch(()=>{});
+          re();
+        };
+        listPanel.appendChild(item);
+      });
+    }
+    body.appendChild(listPanel);
+
+    // Right: patient detail panel
+    const detailPanel=el('div',{class:'spec-dt-detail-panel'});
+    if(S.activeChild){
+      const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+      if(child){
+        // Hide back button on desktop — navigation is handled by the left panel
+        const detail=renderPatientDashboard();
+        const backBtn=detail.querySelector('button');
+        if(backBtn&&backBtn.textContent.includes('Patients'))backBtn.style.display='none';
+        detailPanel.appendChild(detail);
+      } else {
+        detailPanel.appendChild(el('div',{class:'empty-state'},[
+          el('span',{class:'empty-state-icon'},['👤']),
+          el('div',{class:'empty-state-title'},['Patient not found']),
+        ]));
+      }
+    } else {
+      detailPanel.appendChild(el('div',{class:'empty-state'},[
+        el('span',{class:'empty-state-icon'},['👤']),
+        el('div',{class:'empty-state-title'},['Select a patient']),
+        el('div',{class:'empty-state-body'},['Choose a patient from the list on the left to view their profile.']),
+      ]));
+    }
+    body.appendChild(detailPanel);
+
+  } else {
+    // ── SINGLE CONTENT PANEL ──────────────────────────────────────────────
+    const contentPanel=el('div',{class:'spec-dt-content-panel'});
+    contentPanel.appendChild(renderContent());
+    body.appendChild(contentPanel);
+  }
+
+  main.appendChild(body);
+  shell.appendChild(main);
   return shell;
 }
 
@@ -10759,6 +10965,21 @@ async function _processPendingInvite(){
   localStorage.removeItem('pendingInviteChild');
   localStorage.removeItem('pendingInviteEmail');
 }
+
+// Specialist desktop layout — re-render when crossing 1024px breakpoint
+(()=>{
+  let _specDtW=window.innerWidth>=1024;
+  let _specDtTimer=null;
+  window.addEventListener('resize',()=>{
+    if(session?.role!=='specialist')return;
+    clearTimeout(_specDtTimer);
+    _specDtTimer=setTimeout(()=>{
+      const nowDt=window.innerWidth>=1024;
+      if(nowDt!==_specDtW){_specDtW=nowDt;re();}
+    },80);
+  });
+})();
+
 // Note: re() is called inside the async Supabase session boot above
 </script>
 <script>
