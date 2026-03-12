@@ -6867,6 +6867,11 @@ function renderChat(){
     backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
     titleRow.appendChild(backBtn);
   } else {
+    if(role==='parent'&&S.activeChatChildId){
+      const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},['← Back']);
+      _cbBtn.onclick=()=>{S.activeTab='dashboard';re();};
+      titleRow.appendChild(_cbBtn);
+    }
     titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Messages']));
   }
   hd.appendChild(titleRow);
@@ -8839,7 +8844,7 @@ function renderHomeworkParent(){
   const sec=el('div',{class:'section'});
   // Back button
   const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to '+(child?.name||'Child')]);
+  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},['← Back']);
   backBtn.onclick=()=>{S.activeTab='dashboard';re();};
   backBar.appendChild(backBtn);sec.appendChild(backBar);
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
@@ -9891,7 +9896,7 @@ function renderSessionSummaries(){
   // ── STEP 1: Specialist picker ──
   const selectedSpec=S._summarySpecFilter||null;
   if(!selectedSpec){
-    const backBtn=mkBtn('← '+(child?.name||'Back'),'btn-sm btn-ghost',()=>{switchTab('dashboard');});
+    const backBtn=mkBtn('← Back','btn-sm btn-ghost',()=>{switchTab('dashboard');});
     backBtn.style.marginBottom='16px';
     sec.appendChild(backBtn);
     sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
