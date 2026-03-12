@@ -8835,7 +8835,7 @@ function renderHomeworkParent(){
   // Back button
   const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
   const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to '+(child?.name||'Child')]);
-  backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
+  backBtn.onclick=()=>{S.activeTab='dashboard';re();};
   backBar.appendChild(backBtn);sec.appendChild(backBar);
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
   sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s assigned tasks"]));
