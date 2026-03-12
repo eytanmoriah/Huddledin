@@ -2052,22 +2052,24 @@ async function _loadSessionFromSupabase(s){
         }
       }catch(e){}
     } else if(profile.role==='specialist'){
-      // Load specialist's patients from Supabase (works across devices)
+      // Load specialist's patients via specialist_requests (same source as refreshFromSupabase)
       try{
-        const {data:specRows}=await _supa.from('specialists').select('child_id').eq('id',s.user.id).eq('status','active');
-        if(specRows&&specRows.length>0){
-          const childIds=specRows.map(r=>r.child_id).filter(Boolean);
+        const specId=s.user.id;
+        const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
+        if(reqRows&&reqRows.length>0){
+          const childIds=[...new Set(reqRows.map(r=>r.child_id).filter(Boolean))];
           if(childIds.length>0){
             const {data:children}=await _supa.from('children').select('*').in('id',childIds);
             if(children&&children.length>0){
-              const mapped=children.map(c=>({
+              const mapped=_migrateChildColors(children.map(c=>({
                 id:c.id,name:c.name,dob:c.dob,
                 avatar:c.avatar_emoji||'🌸',
                 color:c.color||null,
                 photo:c.photo_url||null,
+                status:c.status||'active',
                 parentId:c.parent_id||null,
                 householdId:c.household_id||null
-              }));
+              })));
               LS.set('children',mapped);
               if(!S.activeChild)S.activeChild=mapped[0].id;
             }
@@ -2101,6 +2103,7 @@ async function _loadSessionFromSupabase(s){
       if(session){
         S.navLevel=session.role==='parent'?0:1;
         S.activeChild=LS.get('children',[])[0]?.id||null;
+        S.activeTab='dashboard';
         re(); // Render immediately from cache while background refresh runs
       }
       // Seed browser history so back button works inside app
@@ -2115,7 +2118,7 @@ async function _loadSessionFromSupabase(s){
         setTimeout(()=>showHouseholdInviteModal(false),1500);
       }
     }
-    if(event==='SIGNED_OUT'){session=null;re();}
+    if(event==='SIGNED_OUT'){session=null;S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;re();}
   });
   if(session)_seedHistory();
   if(session)_appLoading=true;
@@ -2153,6 +2156,8 @@ async function doLogin(email,password,role,name='',profession=''){
 }
 
 async function doLogout(){
+  // Reset nav state immediately — prevents stale view flashing before login screen appears
+  S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
   session=null;
   Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
@@ -4003,7 +4008,7 @@ function renderDrawer(){
   const signOutItem=el('button',{class:'drawer-item danger'});
   signOutItem.appendChild(el('div',{class:'di-icon'},['👋']));
   signOutItem.appendChild(el('span',{class:'di-label'},['Sign Out']));
-  signOutItem.onclick=()=>{S.isDrawerOpen=false;doLogout();re();};
+  signOutItem.onclick=async()=>{await doLogout();re();};
   scroll.appendChild(signOutItem);
 
   drawer.appendChild(scroll);
