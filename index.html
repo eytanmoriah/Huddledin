@@ -1317,6 +1317,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-db-nrow:last-child{border-bottom:none}
   .spec-dt-db-nrow:hover{background:var(--mint-ll)}
 }
+@keyframes _ldSpin{to{transform:rotate(360deg)}}@keyframes _ldBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}
 </style>
 </head>
 <body>
@@ -1700,7 +1701,7 @@ async function refreshFromSupabase(){
       } else {
         children=await SB.getChildren(session.id);
       }
-      LS.set('children',children);
+      const _lcKids=LS.get('children',[]);const _fsSet=new Set(children.map(c=>c.id));const _pendKids=_lcKids.filter(c=>!_fsSet.has(c.id));LS.set('children',[...children,..._pendKids]);
       // Load specialists by household
       const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
       // Merge local permissions so approvals survive a Supabase sync
@@ -1830,8 +1831,6 @@ async function refreshFromSupabase(){
           if(aptsRes.data&&aptsRes.data.length>0){
             LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
           }
-          // Render now with children + appointments — don't wait for folders/care team
-          re();
           // Step 3: load care team + folders in parallel (non-blocking background)
           Promise.all([
             Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
@@ -2119,9 +2118,10 @@ async function _loadSessionFromSupabase(s){
     if(event==='SIGNED_OUT'){session=null;re();}
   });
   if(session)_seedHistory();
-  re(); // initial render
+  if(session)_appLoading=true;
+  re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(()=>{re();setupHouseholdSync();setupSpecialistSync();});}
+  if(session){refreshFromSupabase().then(()=>{_appLoading=false;re();setupHouseholdSync();setupSpecialistSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -3446,7 +3446,7 @@ function renderSpecDesktop(){
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
         _pushNav();S.activeChild=c.id;S.activeTab='vault';
-        loadChildSpecialists(c.id).catch(()=>{});re();
+        re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});
       };
       plList.appendChild(row);
     });
@@ -3768,7 +3768,7 @@ function renderHeader(){
           if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).catch(()=>{});S.chatsLoaded=false;re();};
+          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).then(()=>re()).catch(()=>{});S.chatsLoaded=false;re();};
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
@@ -9190,7 +9190,7 @@ function renderPatients(){
       card.appendChild(toggle);
       // Consult is triggered from New Message in Chat, not here
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';loadChildSpecialists(c.id).catch(()=>{});re();};
+      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
       stack.appendChild(card);
     });
   };
@@ -11250,6 +11250,28 @@ function renderSettings(){
    ROOT RENDER
 ----------------------------------------------- */
 let _reTimer=null;
+let _appLoading=false;
+function _renderLoadingScreen(){
+  const w=document.createElement('div');
+  w.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#edfaf7 0%,#fff 70%);';
+  const ring=document.createElement('div');
+  ring.style.cssText='width:80px;height:80px;border-radius:50%;border:3px solid #d1fae5;border-top-color:#0d9488;animation:_ldSpin 1s linear infinite;margin-bottom:24px;';
+  const logo=document.createElement('div');
+  logo.style.cssText='font-size:1.8rem;font-weight:900;color:#1e3a5f;letter-spacing:-.02em;margin-bottom:4px;';
+  logo.textContent='Huddledin';
+  const msg=document.createElement('div');
+  msg.id='_ldMsg';
+  msg.style.cssText='font-size:.82rem;color:#0d9488;font-weight:600;min-height:1.4em;transition:opacity .15s;';
+  const dots=document.createElement('div');
+  dots.style.cssText='display:flex;gap:7px;margin-top:18px;';
+  [0,150,300].forEach(d=>{const b=document.createElement('div');b.style.cssText='width:8px;height:8px;border-radius:50%;background:#0d9488;opacity:.6;animation:_ldBounce 1.1s ease-in-out infinite;animation-delay:'+d+'ms;';dots.appendChild(b);});
+  const msgs=['Getting your patients ready…','Loading tasks…','Almost there…'];
+  let _mi=0;msg.textContent=msgs[0];
+  const _it=setInterval(()=>{_mi=(_mi+1)%msgs.length;const el=document.getElementById('_ldMsg');if(el){el.style.opacity='0';setTimeout(()=>{if(document.getElementById('_ldMsg')===el){el.textContent=msgs[_mi];el.style.opacity='1';}},160);}},900);
+  w._cleanup=()=>clearInterval(_it);
+  w.appendChild(ring);w.appendChild(logo);w.appendChild(msg);w.appendChild(dots);
+  return w;
+}
 function re(){
   // Debounce: collapse multiple rapid re() calls into one per animation frame
   if(_reTimer)cancelAnimationFrame(_reTimer);
@@ -11258,6 +11280,7 @@ function re(){
     const root=document.getElementById('root');
     if(!root)return;
     root.innerHTML='';
+    if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
     root.appendChild(session?renderShell():renderAuth());
   });
 }
