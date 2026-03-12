@@ -7842,7 +7842,7 @@ function showSpecTaskModal(existing=null){
     // Task title
     mb.appendChild(el('div',{class:'inp-label'},['Task *']));
     const titleInp=el('input',{class:'inp',placeholder:'e.g. Write progress report for Lily'});
-    if(_pre)titleInp.value=_pre.title||'';
+    if(existing)titleInp.value=existing.title||'';
     mb.appendChild(titleInp);
 
     // Notes
