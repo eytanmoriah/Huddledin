@@ -1757,6 +1757,8 @@ async function refreshFromSupabase(){
         children=await SB.getChildren(session.id);
       }
       const _lcKids=LS.get('children',[]);const _fsSet=new Set(children.map(c=>c.id));const _pendKids=_lcKids.filter(c=>!_fsSet.has(c.id));LS.set('children',[...children,..._pendKids]);
+      // Load co-parents (other household members) for message name resolution
+      if(hid){try{const {data:_cpData}=await _supa.from('profiles').select('id,display_name').eq('household_id',hid).neq('id',session.id).eq('role','parent');DB.coParents=(_cpData||[]).map(p=>({id:p.id,name:p.display_name||'Co-Parent'}));}catch(e){console.error('refresh coParents:',e);}}
       // Load specialists by household
       const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
       // Merge local permissions so approvals survive a Supabase sync
@@ -7222,6 +7224,8 @@ function renderChatThread(activeChat,specId,myId,onBack){
       all[ci].unreadFor=[...(all[ci].unreadFor||[])];
       if(session?.role==='specialist'){
         if(!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
+        // Also mark individual parent UUIDs unread for chats with real IDs
+        all[ci].participants.filter(p=>p!=='parent'&&p!==myId&&!DB.specialists?.find(s=>s.id===p)).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
       } else {
         all[ci].participants.filter(p=>p!=='parent'&&p!==myId).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
       }
@@ -7278,9 +7282,10 @@ function showNewMessageModal(){
       if(!activeChildId){toast('Please open a patient first, then start a new message.','error');close();return;}
       let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(mySpecId)&&c.childId===activeChildId);
       if(!chat){
-        chat={id:'ch_'+Date.now(),type:'direct',participants:['parent',mySpecId],childId:activeChildId,approved:true,messages:[],unreadFor:['parent']};
+        const _hParentIds=[session.id,...(DB.coParents||[]).map(p=>p.id)];
+        chat={id:'ch_'+Date.now(),type:'direct',participants:[..._hParentIds,mySpecId],childId:activeChildId,approved:true,messages:[],unreadFor:[..._hParentIds]};
         try{
-          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:null,participants:chat.participants,approved:true,unread_for:['parent']});
+          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:null,participants:chat.participants,approved:true,unread_for:[..._hParentIds]});
           const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
           await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id});
         }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
@@ -10134,7 +10139,7 @@ function showCreateGroupChatModal(){
     mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
       if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
       const name=ni.value.trim()||'Care Team Group Chat';
-      const participants=[session?.role==='parent'?'parent':session.id,...Array.from(selected)];
+      const participants=[session.id,...(DB.coParents||[]).map(p=>p.id),...Array.from(selected)];
       const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[],unreadFor:participants.filter(p=>p!==session?.id)};
       (async()=>{
         try{
@@ -10287,7 +10292,7 @@ async function processHouseholdInvite(token){
 
   // Reload session with new household_id
   const {data:{session:s}}=await _supa.auth.getSession();
-  if(s)await _loadSessionFromSupabase(s);
+  if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();}
 
   toast('🎉 You are now connected to the shared family account!','success',5000);
   LS.set('householdInviteSent',true);
