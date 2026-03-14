@@ -1794,7 +1794,7 @@ async function refreshFromSupabase(){
       await Promise.allSettled([
         // Appointments
         _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
-          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]}))))
+          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null}))))
           .catch(e=>console.error('refresh appointments:',e)),
         // Homework — legacy simple table (kept for backward compat)
         (hid
@@ -1886,7 +1886,7 @@ async function refreshFromSupabase(){
           if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild)){if(mapped.length>0)S.activeChild=mapped[0].id;}
           // Save appointments immediately — no waiting
           if(aptsRes.data&&aptsRes.data.length>0){
-            LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+            LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
           }
           // Step 3: load care team + folders in parallel (non-blocking background)
           Promise.all([
@@ -1946,7 +1946,11 @@ function _debouncedRefresh(){
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(()=>{
     _refreshTimer=null;
-    refreshFromSupabase().then(()=>re());
+    const _chatsWereLoaded=S.chatsLoaded;
+    refreshFromSupabase().then(()=>{
+      if(_chatsWereLoaded)loadChatsFromSupabase().then(()=>re());
+      else re();
+    });
   },300);
 }
 
@@ -1989,6 +1993,9 @@ function setupSpecialistSync(){
   childIds2.forEach(cid=>{
     _supa.channel('spec_apts:'+cid)
       .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
+      .subscribe();
+    _supa.channel('spec_msgs:'+cid)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},()=>{loadChatsFromSupabase().then(()=>re());})
       .subscribe();
   });
 }
@@ -4344,7 +4351,7 @@ function _markSeen(cid,s,cnt){LS.set('seen_'+cid+'_'+s,String(Date.now()));if(cn
 function _newSince(items,dfn,cid,s){const ts=_seenTs(cid,s);if(!ts)return items.length;return items.filter(x=>{const d=dfn(x);return d&&(new Date(d).getTime()||0)>ts;}).length;}
 function _hwBadge(cid){const cur=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const stored=parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;return Math.max(0,cur-stored);}
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
-function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);return _chatBadge(cid)+_hwBadge(cid)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+_newSince(apts,a=>a.date||a.startDate,cid,'calendar');}
+function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);return _chatBadge(cid)+_hwBadge(cid)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar');}
 function renderGlobalHome(){
   const children=DB.children;
   const allApts=LS.get('appointments',[]);
@@ -4454,8 +4461,10 @@ function renderGlobalHome(){
       circle.appendChild(el('div',{class:'cb-upload-hint'},['+ photo']));
     }
     const _tot=_childTotalBadge(c.id);
-    if(_tot>0)circle.appendChild(el('div',{class:'cb-badge'},[ _tot>9?'9+':String(_tot) ]));
-    bubble.appendChild(circle);
+    const _bwrap=el('div',{style:{position:'relative',display:'inline-flex'}});
+    _bwrap.appendChild(circle);
+    if(_tot>0)_bwrap.appendChild(el('div',{class:'cb-badge'},[ _tot>9?'9+':String(_tot) ]));
+    bubble.appendChild(_bwrap);
     bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
     bubble.onclick=()=>{_pushNav();S.activeChatChildId=c.id;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
