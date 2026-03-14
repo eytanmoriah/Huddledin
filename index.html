@@ -36,6 +36,7 @@
    iOS HIG + Material Design 3 + Bubbly UI
 ---------------------------------------------------------- */
 :root{
+  /* ── Brand palette (kept for full backward compat) ── */
   --teal:#0d9488;--teal-l:#2dd4bf;--teal-d:#0f766e;
   --mint:#a7f3d0;--mint-l:#d1fae5;--mint-ll:#ecfdf5;
   --lav:#c4b5fd;--lav-l:#ede9fe;--lav-d:#7c3aed;
@@ -45,20 +46,70 @@
   --sky:#38bdf8;--sky-l:#e0f2fe;
   --navy:#0f172a;--slate:#64748b;--slate-l:#94a3b8;--slate-ll:#cbd5e1;
   --bg:#f0fdf9;--white:#ffffff;--border:#c7f7e5;
+
+  /* ── Semantic color aliases ── */
+  --color-primary:var(--teal);
+  --color-primary-bg:var(--mint-ll);
+  --color-success:#16a34a;
+  --color-success-bg:#dcfce7;
+  --color-danger:#be123c;
+  --color-danger-bg:var(--rose-l);
+  --color-warning:#92400e;
+  --color-warning-bg:var(--amber-l);
+  --color-info:#0369a1;
+  --color-info-bg:var(--sky-l);
+  --text-primary:var(--navy);
+  --text-secondary:var(--slate);
+  --text-muted:var(--slate-l);
+  --text-inverse:#fff;
+  --surface:var(--white);
+  --surface-raised:#f8fafc;
+  --surface-overlay:rgba(0,0,0,.42);
+
+  /* ── Shadows ── */
   --s0:0 1px 3px rgba(0,0,0,.06);
   --s1:0 4px 16px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.04);
   --s2:0 12px 32px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.06);
   --s3:0 24px 64px rgba(0,0,0,.18),0 8px 24px rgba(0,0,0,.08);
   --s4:0 40px 80px rgba(0,0,0,.22),0 16px 40px rgba(0,0,0,.10);
+  --shadow-teal-sm:0 4px 12px rgba(13,148,136,.18);
+  --shadow-teal-md:0 8px 24px rgba(13,148,136,.24);
+  --shadow-teal-lg:0 12px 32px rgba(13,148,136,.30);
+  --shadow-focus:0 0 0 3px rgba(13,148,136,.18);
+
+  /* ── Border radius ── */
   --r-sm:14px;--r:20px;--r-lg:28px;--r-xl:32px;--r-full:999px;
+  --radius-card:var(--r-lg);
+  --radius-modal:var(--r-xl);
+  --radius-btn:var(--r-full);
+  --radius-input:14px;
+
+  /* ── Spacing scale (8px base) ── */
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;
+  --sp-5:20px;--sp-6:24px;--sp-7:28px;--sp-8:32px;
+  --sp-10:40px;--sp-12:48px;
+
+  /* ── Component tokens ── */
+  --btn-h-sm:38px;--btn-h-md:44px;--btn-h-lg:52px;
+  --card-pad:var(--sp-4);
+  --input-h:48px;
+  --touch-min:44px;
+
+  /* ── Layout ── */
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px);
   --safe-right:env(safe-area-inset-right,0px);
   --header-h:56px;
   --bnav-h:calc(64px + var(--safe-bottom));
+
+  /* ── Motion ── */
   --spring:.38s cubic-bezier(.34,1.56,.64,1);
   --ease-out:.22s cubic-bezier(0,0,.2,1);
+  --dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;
+  --transition-fast:all var(--dur-fast) var(--ease-out);
+  --transition-base:all var(--dur-base) var(--ease-out);
+  --transition-spring:all var(--dur-base) var(--spring);
 }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -4268,12 +4319,61 @@ function renderSearchOverlay(){
 const CHILD_COLORS=['#0d9488','#7c3aed','#f97316','#ec4899','#0369a1','#16a34a'];
 function getChildColor(idx){return CHILD_COLORS[idx%CHILD_COLORS.length];}
 
+/* -----------------------------------------------
+   PARENT ONBOARDING — first login flow
+----------------------------------------------- */
+function _renderParentOnboarding(){
+  const step=S._parentObStep||0;
+  const sec=el('div',{class:'section'});
+  const inner=el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center',paddingTop:'24px',paddingBottom:'24px',maxWidth:'360px',margin:'0 auto'}});
+  if(step===0){
+    inner.appendChild(el('div',{style:{fontSize:'3.5rem',marginBottom:'16px'}},['\uD83E\uDD1D']));
+    inner.appendChild(el('div',{style:{fontSize:'1.5rem',fontWeight:900,color:'var(--navy)',marginBottom:'8px',letterSpacing:'-.02em',fontFamily:"'Nunito',sans-serif"}},['Welcome to Huddledin']));
+    inner.appendChild(el('div',{style:{fontSize:'.88rem',color:'var(--slate)',lineHeight:'1.6',marginBottom:'28px'}},['The care coordination hub for families and their specialists. Everything in one place.']));
+    inner.appendChild(mkBtn('Get Started \u2192','btn-md btn-primary',()=>{S._parentObStep=1;re();}));
+  } else if(step===1){
+    inner.appendChild(el('div',{style:{fontSize:'3.5rem',marginBottom:'16px'}},['\uD83C\uDFE0']));
+    inner.appendChild(el('div',{style:{fontSize:'1.3rem',fontWeight:900,color:'var(--navy)',marginBottom:'14px',fontFamily:"'Nunito',sans-serif"}},['What Huddledin does']));
+    const _feats=[
+      ['\uD83D\uDCAC','Message all specialists \u2014 no more scattered emails'],
+      ['\uD83D\uDCC5','Shared calendar \u2014 everyone sees appointments as you book them'],
+      ['\u2705','Daily task tracking \u2014 specialists assign, you mark done'],
+      ['\uD83D\uDCC1','Document vault \u2014 reports organised by child & therapy type']
+    ];
+    const _fl=el('div',{style:{textAlign:'left',width:'100%',marginBottom:'24px'}});
+    _feats.forEach(([icon,text])=>{
+      const r=el('div',{style:{display:'flex',gap:'10px',alignItems:'flex-start',marginBottom:'12px'}});
+      r.appendChild(el('div',{style:{fontSize:'1.15rem',flexShrink:0,marginTop:'1px'}},[icon]));
+      r.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',lineHeight:'1.5'}},[text]));
+      _fl.appendChild(r);
+    });
+    inner.appendChild(_fl);
+    inner.appendChild(mkBtn('Next \u2192','btn-md btn-primary',()=>{S._parentObStep=2;re();}));
+  } else {
+    inner.appendChild(el('div',{style:{fontSize:'3.5rem',marginBottom:'16px'}},['\uD83C\uDF31']));
+    inner.appendChild(el('div',{style:{fontSize:'1.3rem',fontWeight:900,color:'var(--navy)',marginBottom:'8px',fontFamily:"'Nunito',sans-serif"}},['You\'re all set!']));
+    inner.appendChild(el('div',{style:{fontSize:'.88rem',color:'var(--slate)',lineHeight:'1.6',marginBottom:'24px'}},['Start by adding your child\'s profile. Then invite their specialists to join your care team.']));
+    inner.appendChild(mkBtn('\uFF0B Add My First Child','btn-md btn-primary',()=>{LS.set('parentOnboardingSeen',true);S._parentObStep=0;re();showAddChildModal();}));
+    const _sk=el('button',{style:{background:'none',border:'none',color:'var(--slate)',fontSize:'.82rem',cursor:'pointer',marginTop:'12px',textDecoration:'underline',padding:'4px 8px'}},['Explore first']);
+    _sk.onclick=()=>{LS.set('parentOnboardingSeen',true);S._parentObStep=0;re();};
+    inner.appendChild(_sk);
+  }
+  const _dots=el('div',{style:{display:'flex',gap:'7px',justifyContent:'center',marginTop:'24px'}});
+  [0,1,2].forEach(i=>_dots.appendChild(el('div',{style:{width:'8px',height:'8px',borderRadius:'50%',background:step===i?'var(--teal)':'var(--slate-ll)',transition:'background .2s'}})));
+  inner.appendChild(_dots);
+  sec.appendChild(inner);
+  return sec;
+}
+
 function renderGlobalHome(){
   const children=DB.children;
   const allApts=LS.get('appointments',[]);
   const allHW=DB.homework;
   const hasChildren=children.length>0;
   const sec=el('div',{class:'global-home'});
+
+  // -- Parent onboarding: first-login, no children added yet --
+  if(!LS.get('parentOnboardingSeen',false)&&!hasChildren){return _renderParentOnboarding();}
 
   // -- If no children yet: full welcome zero-state --
   if(!hasChildren){
@@ -4351,6 +4451,47 @@ function renderGlobalHome(){
   tourBtn.onclick=()=>startTour();
   greet.appendChild(tourBtn);
   sec.appendChild(greet);
+
+  // Today section — show today's appointments + due tasks
+  const _tNow=new Date();
+  const _tStr=_tNow.getFullYear()+'-'+String(_tNow.getMonth()+1).padStart(2,'0')+'-'+String(_tNow.getDate()).padStart(2,'0');
+  const _todayApts=allApts.filter(a=>(a.date||'').startsWith(_tStr));
+  const _todayOccs=(DB.homeworkOccurrences||[]).filter(o=>o.date===_tStr&&o.status!=='completed');
+  if(_todayApts.length>0||_todayOccs.length>0){
+    const _tSec=el('div',{style:{marginBottom:'18px'}});
+    const _tHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}});
+    const _dayN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    _tHdr.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},['Today \u00b7 '+_dayN[_tNow.getDay()]]));
+    if(_todayApts.length>0)_tHdr.appendChild(el('div',{style:{background:'var(--amber-l)',color:'#92400e',borderRadius:'99px',fontSize:'.68rem',fontWeight:800,padding:'2px 8px'}},[ _todayApts.length+' apt'+(_todayApts.length!==1?'s':'')]));
+    if(_todayOccs.length>0)_tHdr.appendChild(el('div',{style:{background:'var(--coral-l)',color:'#9a3412',borderRadius:'99px',fontSize:'.68rem',fontWeight:800,padding:'2px 8px'}},[ _todayOccs.length+' task'+(_todayOccs.length!==1?'s':'')]));
+    _tSec.appendChild(_tHdr);
+    const _tItems=el('div',{style:{display:'flex',flexDirection:'column',gap:'7px'}});
+    _todayApts.slice(0,3).forEach(a=>{
+      const _ch=children.find(c=>c.id===a.childId);
+      const _row=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',cursor:'pointer'}});
+      _row.appendChild(el('div',{style:{fontSize:'1.1rem',flexShrink:0}},['\uD83D\uDCC5']));
+      const _inf=el('div',{style:{flex:1,minWidth:0}});
+      _inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.83rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[a.title||a.type||'Appointment']));
+      _inf.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'2px'}},[(_ch?_ch.name.split(' ')[0]+' \u00b7 ':'')+( a.time||'')]));
+      _row.appendChild(_inf);
+      _row.onclick=()=>{_pushNav();S.calendarMode='child';S.activeChild=a.childId;S.activeTab='calendar';re();};
+      _tItems.appendChild(_row);
+    });
+    _todayOccs.slice(0,2).forEach(o=>{
+      const _task=(DB.homework||[]).find(t=>t.id===o.taskId);if(!_task)return;
+      const _ch=children.find(c=>c.id===(_task.childId||o.childId));
+      const _row=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',cursor:'pointer'}});
+      _row.appendChild(el('div',{style:{fontSize:'1.1rem',flexShrink:0}},['\u2705']));
+      const _inf=el('div',{style:{flex:1,minWidth:0}});
+      _inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.83rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[_task.title||'Task']));
+      _inf.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'2px'}},[(_ch?_ch.name.split(' ')[0]+' \u00b7 ':'')+( _task.recurrence||'')]));
+      _row.appendChild(_inf);
+      _row.onclick=()=>{_pushNav();S.activeChild=_task.childId||o.childId;S.activeTab='homework';re();};
+      _tItems.appendChild(_row);
+    });
+    _tSec.appendChild(_tItems);
+    sec.appendChild(_tSec);
+  }
 
   // Child Bubbles
   sec.appendChild(el('div',{class:'child-bubbles-label'},['Your Children']));
@@ -4947,23 +5088,34 @@ function renderParentDashboard(){
   welcome.appendChild(editBtn);
   sec.appendChild(welcome);
 
-  // Big square navigation grid (like file manager)
-  const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
-  [
-    {icon:'📄',label:'Session Summaries',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries'},
-    {icon:'📁',label:'Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-    {icon:'💬',label:'Chat',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
-    {icon:'📅',label:'Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
-    {icon:'📋',label:'Pending Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework'},
+  // Navigation grid — primary actions (3-col) + secondary sections (3-col smaller)
+  const _bubbles=[
+    {icon:'✅',label:'Daily Tasks',color:'#f97316',bg:'#fff7ed',tab:'homework',primary:true},
+    {icon:'💬',label:'Message',color:'#7c3aed',bg:'#f5f3ff',tab:null,primary:true,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
+    {icon:'📅',label:'Appointments',color:'#f59e0b',bg:'#fffbeb',tab:null,primary:true,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
+    {icon:'📝',label:'Session Notes',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries'},
+    {icon:'📁',label:'Files & Reports',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
     {icon:'👥',label:'Care Team',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
-  ].forEach(({icon,label,color,bg,tab,fn})=>{
-    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
-    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
-    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
+  ];
+  const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'12px'}});
+  _bubbles.filter(b=>b.primary).forEach(({icon,label,color,bg,tab,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'16px 10px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',minHeight:'88px',background:bg,border:'2px solid '+color+'44',textAlign:'center'}});
+    sq.appendChild(el('div',{style:{fontSize:'1.8rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.78rem',lineHeight:'1.3'}},[label]));
     sq.onclick=()=>{if(fn)fn();else switchTab(tab);};
     navGrid.appendChild(sq);
   });
   sec.appendChild(navGrid);
+  sec.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px',paddingLeft:'2px'}},['More']));
+  const secGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'22px'}});
+  _bubbles.filter(b=>!b.primary).forEach(({icon,label,color,bg,tab,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'12px 8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'6px',minHeight:'72px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+    sq.appendChild(el('div',{style:{fontSize:'1.4rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:700,color:color,fontSize:'.72rem',lineHeight:'1.3'}},[label]));
+    sq.onclick=()=>{if(fn)fn();else switchTab(tab);};
+    secGrid.appendChild(sq);
+  });
+  sec.appendChild(secGrid);
 
   // Empty state if truly new
   const hasAnyData=childHW.length||childApts.length||childSpecs.length;
@@ -4987,6 +5139,46 @@ function renderParentDashboard(){
 /* -----------------------------------------------
    SPECIALIST DASHBOARD — zero-state aware
 ----------------------------------------------- */
+/* -----------------------------------------------
+   SPECIALIST ONBOARDING — first login flow
+----------------------------------------------- */
+function _renderSpecOnboarding(){
+  const step=S._specObStep||0;
+  const sec=el('div',{class:'section'});
+  const inner=el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center',paddingTop:'24px',paddingBottom:'24px',maxWidth:'360px',margin:'0 auto'}});
+  if(step===0){
+    inner.appendChild(el('div',{style:{fontSize:'3.5rem',marginBottom:'16px'}},['\uD83E\uDE7A']));
+    inner.appendChild(el('div',{style:{fontSize:'1.5rem',fontWeight:900,color:'var(--navy)',marginBottom:'8px',letterSpacing:'-.02em',fontFamily:"'Nunito',sans-serif"}},['Welcome, Specialist!']));
+    inner.appendChild(el('div',{style:{fontSize:'.88rem',color:'var(--slate)',lineHeight:'1.6',marginBottom:'28px'}},['Huddledin connects you with the families you support \u2014 messaging, files, and session notes in one place.']));
+    inner.appendChild(mkBtn('Get Started \u2192','btn-md btn-primary',()=>{S._specObStep=1;re();}));
+  } else {
+    inner.appendChild(el('div',{style:{fontSize:'3.5rem',marginBottom:'16px'}},['\uD83D\uDD17']));
+    inner.appendChild(el('div',{style:{fontSize:'1.3rem',fontWeight:900,color:'var(--navy)',marginBottom:'14px',fontFamily:"'Nunito',sans-serif"}},['Connect to your first patient']));
+    const _steps=[
+      ['1','Ask the family for their Connection Code'],
+      ['2','Tap \"Enter Patient Code\" and type it in'],
+      ['3','You\'re connected \u2014 access granted by the family']
+    ];
+    const _sl=el('div',{style:{textAlign:'left',width:'100%',marginBottom:'24px'}});
+    _steps.forEach(([num,text])=>{
+      const r=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'12px'}});
+      r.appendChild(el('div',{style:{width:'24px',height:'24px',borderRadius:'50%',background:'var(--teal)',color:'#fff',fontWeight:900,fontSize:'.76rem',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontFamily:"'Nunito',sans-serif"}},[num]));
+      r.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',lineHeight:'1.5',paddingTop:'3px'}},[text]));
+      _sl.appendChild(r);
+    });
+    inner.appendChild(_sl);
+    inner.appendChild(mkBtn('\uD83D\uDD17 Enter Patient Code','btn-md btn-primary',()=>{LS.set('specOnboardingSeen',true);S._specObStep=0;re();showEnterCodeModal();}));
+    const _sk=el('button',{style:{background:'none',border:'none',color:'var(--slate)',fontSize:'.82rem',cursor:'pointer',marginTop:'12px',textDecoration:'underline',padding:'4px 8px'}},['Explore first']);
+    _sk.onclick=()=>{LS.set('specOnboardingSeen',true);S._specObStep=0;re();};
+    inner.appendChild(_sk);
+  }
+  const _dots=el('div',{style:{display:'flex',gap:'7px',justifyContent:'center',marginTop:'24px'}});
+  [0,1].forEach(i=>_dots.appendChild(el('div',{style:{width:'8px',height:'8px',borderRadius:'50%',background:step===i?'var(--teal)':'var(--slate-ll)',transition:'background .2s'}})));
+  inner.appendChild(_dots);
+  sec.appendChild(inner);
+  return sec;
+}
+
 function renderSpecDashboard(){
   const specId=session?.specialistId;
   const spec=getMySpecialistRecord();
@@ -5000,6 +5192,8 @@ function renderSpecDashboard(){
   const myApts=DB.appointments.filter(a=>a.specialistId===specId||a.sharedWith?.includes(specId));
   const myNotes=DB.vaultNotes.filter(n=>n.specialistId===specId);
 
+  // Specialist onboarding — first login, no patients yet
+  if(!LS.get('specOnboardingSeen',false)&&myPatients.length===0){return _renderSpecOnboarding();}
   const sec=el('div',{class:'section'});
 
   // Welcome card
@@ -5063,6 +5257,38 @@ function renderSpecDashboard(){
     stats.appendChild(sc);
   });
   sec.appendChild(stats);
+
+  // Daily briefing — today's schedule
+  const _spTNow=new Date();
+  const _spTStr=_spTNow.getFullYear()+'-'+String(_spTNow.getMonth()+1).padStart(2,'0')+'-'+String(_spTNow.getDate()).padStart(2,'0');
+  const _spTodayApts=myApts.filter(a=>(a.date||'').startsWith(_spTStr));
+  const _spPendTasks=(DB.homeworkOccurrences||[]).filter(o=>{
+    if(o.date!==_spTStr||o.status==='completed')return false;
+    const _t=(DB.homework||[]).find(h=>h.id===o.taskId);
+    return _t&&_t.specialistId===specId;
+  });
+  if(_spTodayApts.length>0||_spPendTasks.length>0){
+    const _dayN2=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const _bCard=el('div',{class:'card',style:{marginBottom:'22px',border:'1.5px solid var(--teal)',background:'var(--mint-ll)'}});
+    _bCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal-d)',fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'12px'}},['\uD83D\uDCCB Today \u00b7 '+_dayN2[_spTNow.getDay()]]));
+    if(_spTodayApts.length>0){
+      _bCard.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'6px'}},['Appointments ('+_spTodayApts.length+')']));
+      const _al=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',marginBottom:'10px'}});
+      _spTodayApts.slice(0,3).forEach(a=>{
+        const _pc=myPatients.find(c=>c.id===a.childId);
+        const _ar=el('div',{style:{display:'flex',gap:'8px',alignItems:'center',fontSize:'.8rem',color:'var(--navy)',padding:'4px 0'}});
+        _ar.appendChild(el('div',{style:{fontSize:'1rem',flexShrink:0}},['\uD83D\uDCC5']));
+        _ar.appendChild(el('div',{style:{flex:1}},[(a.title||a.type||'Appointment')+(_pc?' \u00b7 '+_pc.name.split(' ')[0]:'')+(a.time?' \u00b7 '+a.time:'')]));
+        _al.appendChild(_ar);
+      });
+      _bCard.appendChild(_al);
+    }
+    if(_spPendTasks.length>0){
+      _bCard.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'4px'}},['Tasks pending ('+_spPendTasks.length+')']));
+      _bCard.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},['Patients have tasks due today that you assigned.']));
+    }
+    sec.appendChild(_bCard);
+  }
 
   // Promotion block — shown when specialist has at least 1 patient
   if(myPatients.length>=1){
