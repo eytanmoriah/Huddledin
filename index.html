@@ -10267,7 +10267,7 @@ async function renderHouseholdCard(){
   let coParents=[];
   try{
     const {data}=await _supa.from('profiles').select('*').eq('household_id',session.householdId).neq('id',session.id);
-    coParents=data||[];
+    coParents=(data||[]).filter(p=>p.role!=='specialist');
   }catch(e){}
 
   // Load pending invites
@@ -10298,12 +10298,12 @@ async function renderHouseholdCard(){
       const revokeBtn=mkBtn('Remove','btn-sm btn-danger',async()=>{
         if(!confirm('Remove access for '+(cp.display_name||cp.email)+'? They will no longer see this family account.'))return;
         // Give them their own new household
-        await _supa.from('profiles').update({household_id:null,is_primary:true}).eq('id',cp.id);
-        toast('Access removed.','info');
-        re();
-        // Re-render card
-        const newCard=await renderHouseholdCard();
-        card.replaceWith(newCard);
+        try{
+          await _supa.from('profiles').update({household_id:null,is_primary:true}).eq('id',cp.id);
+          toast('Access removed.','info');
+          const newCard=await renderHouseholdCard();
+          card.replaceWith(newCard);
+        }catch(e){toast('Could not remove access. Please try again.','error');console.error(e);}
       });
       row.appendChild(revokeBtn);
     }
