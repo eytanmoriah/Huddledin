@@ -2537,7 +2537,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
       childId=row.child_id;
-      if(!session.householdId&&row.household_id){
+      if(!session.householdId&&row.household_id&&session.role!=='specialist'){
         session.householdId=row.household_id;
         try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
       }
@@ -2798,6 +2798,7 @@ function showEnterCodeModal(){
     mb.appendChild(mkBtn('🔗 Connect Now','btn-lg btn-primary btn-full',async()=>{
       const code=codeInp.value.trim();
       if(code.length!==6){errDiv.textContent='Please enter a 6-character code.';return;}
+      if(!specId){errDiv.textContent='Specialist profile is missing required information — please sign out and sign in again.';return;}
       const result=await redeemConnectionCode(code,specId,spec?.name||session?.name||'Specialist',spec?.role||'Specialist');
       if(result.error){errDiv.textContent=result.error;return;}
       close();
@@ -3639,7 +3640,9 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const hdr=el('div',{class:'spec-dt-db-hdr'});
   const gEl=el('div',{class:'spec-dt-db-greet'}); gEl.textContent=greet+', '+specName.split(' ')[0]+' 👋';
   const dEl=el('div',{class:'spec-dt-db-date'}); dEl.textContent=dateStr;
-  hdr.appendChild(gEl); hdr.appendChild(dEl);
+  const _hdrActs=el('div',{style:{marginTop:'12px',display:'flex',gap:'8px',flexWrap:'wrap'}});
+  _hdrActs.appendChild(mkBtn('🔗 Enter Patient Code','btn-sm btn-primary',()=>showEnterCodeModal()));
+  hdr.appendChild(gEl); hdr.appendChild(dEl); hdr.appendChild(_hdrActs);
   wrap.appendChild(hdr);
 
   // Two-column body
@@ -4462,7 +4465,9 @@ function renderGlobalHome(){
     connInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
       ['Share a Connection Code with a therapist so they can join your care team.']));
     connBanner.appendChild(connInfo);
-    const connBtn=mkBtn('Get Code','btn-sm btn-secondary',()=>{if(children.length>0)showConnectionCodeModal(children[0].id);});
+    const connBtnInvite=mkBtn('📧 Email Invite','btn-sm btn-primary',()=>{S.activeChild=children[0].id;showInviteModal();});
+    const connBtn=mkBtn('🔗 Code','btn-sm btn-secondary',()=>{if(children.length>0)showConnectionCodeModal(children[0].id);});
+    connBanner.appendChild(connBtnInvite);
     connBanner.appendChild(connBtn);
     sec.appendChild(connBanner);
   }
@@ -5024,8 +5029,9 @@ function renderParentDashboard(){
       el('div',{class:'empty-state-title'},["Let's get "+child.name.split(' ')[0]+" set up!"]),
       el('div',{class:'empty-state-body'},['Add specialists to the care team, schedule appointments, and upload files — all in one place.']),
       el('div',{class:'empty-state-actions'},[
-        mkBtn('🔗 Invite Specialist','btn-md btn-primary',()=>showConnectionCodeModal(child.id)),
-        mkBtn('📅 Add Appointment','btn-md btn-secondary',()=>{_pushNav();S.activeTab='calendar';re();})
+        mkBtn('📧 Email Invite','btn-md btn-primary',()=>showInviteModal()),
+        mkBtn('🔗 Generate Code','btn-md btn-secondary',()=>showConnectionCodeModal(child.id)),
+        mkBtn('📅 Add Appointment','btn-md btn-ghost',()=>{_pushNav();S.activeTab='calendar';re();})
       ])
     ]));
     return sec;
@@ -6016,8 +6022,8 @@ function renderTeam(){
       ['Generate a connection code or send an email invitation to bring a therapist onto the care team.']));
     connBanner.appendChild(ci);
     const bannerBtns=el('div',{style:{display:'flex',gap:'8px',flexDirection:'column',alignItems:'flex-end'}});
-    bannerBtns.appendChild(mkBtn('Generate','btn-sm btn-primary',()=>showConnectionCodeModal(child.id)));
-    bannerBtns.appendChild(mkBtn('📧 Email Invite','btn-sm btn-secondary',()=>showInviteModal()));
+    bannerBtns.appendChild(mkBtn('📧 Email Invite','btn-sm btn-primary',()=>showInviteModal()));
+    bannerBtns.appendChild(mkBtn('🔗 Generate Code','btn-sm btn-secondary',()=>showConnectionCodeModal(child.id)));
     connBanner.appendChild(bannerBtns);
     sec.appendChild(connBanner);
   }
@@ -6214,7 +6220,8 @@ function renderTeam(){
       el('div',{class:'empty-state-title'},['No specialists yet']),
       el('div',{class:'empty-state-body'},['Invite a therapist using a Connection Code or email invite. They\'ll join '+(child?.name||'this profile')+'\'s care team.']),
       el('div',{class:'empty-state-actions'},[
-        mkBtn('🔗 Generate Connection Code','btn-md btn-primary',()=>{if(child)showConnectionCodeModal(child.id);}),
+        mkBtn('📧 Email Invite','btn-md btn-primary',()=>showInviteModal()),
+        mkBtn('🔗 Generate Code','btn-md btn-secondary',()=>{if(child)showConnectionCodeModal(child.id);}),
       ])
     ]));
   } else {
@@ -6285,6 +6292,8 @@ async function removeSpecialist(spec){
     catch(e){console.error('removeSpecialist folder_permissions:',e);}
     try{await _supa.from('specialists').delete().eq('id',spec.id);}
     catch(e){console.error('removeSpecialist specialists:',e);}
+    try{await _supa.from('specialist_requests').delete().eq('specialist_id',spec.id);}
+    catch(e){console.error('removeSpecialist specialist_requests:',e);}
   }
 }
 
@@ -6336,20 +6345,7 @@ function showInviteModal(){
     [ni,ei,ri].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
 
-    // Pre-assign permissions
-    mb.appendChild(el('div',{class:'inp-label'},['Pre-assign folder access']));
-    const folderKeys=['speech','ot','pt','general'];
     const prePerms=[];
-    const prows=el('div',{class:'inp-group',style:{marginBottom:'18px'}});
-    folderKeys.forEach(key=>{
-      const folder=DB.folders.find(f=>f.key===key);
-      const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
-      const cb=el('input',{type:'checkbox'});
-      cb.onchange=e=>{if(e.target.checked)prePerms.push(key);else{const i=prePerms.indexOf(key);if(i>-1)prePerms.splice(i,1);}};
-      lbl.appendChild(cb);lbl.appendChild(el('span',{},[folder?.icon+' '+folder?.name]));
-      prows.appendChild(lbl);
-    });
-    mb.appendChild(prows);
 
     // Magic link preview (shown after send)
     const linkArea=el('div',{style:{display:'none'}});
@@ -6359,6 +6355,7 @@ function showInviteModal(){
       ['An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.']));
     mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
       if(!ei.value){toast('⚠️ Email required.','error');return;}
+      if(!S.activeChild){toast('⚠️ Please open a child profile first, then send the invite.','error');return;}
       // Generate magic link token
       const _ta=new Uint8Array(8);crypto.getRandomValues(_ta);
       const token='hd_invite_'+Date.now().toString(36)+'_'+Array.from(_ta).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -6931,6 +6928,11 @@ function renderChat(){
   if(role==='specialist')hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>showNewMessageModal()));
   hd.appendChild(hdRight);
   listWrap.appendChild(hd);
+  const _si=el('input',{class:'inp',placeholder:'🔍 Search conversations…',style:{margin:'0 16px 12px',width:'calc(100% - 32px)',boxSizing:'border-box'}});
+  if(S._chatSearch)_si.value=S._chatSearch;
+  _si.oninput=e=>{S._chatSearch=e.target.value;re();};
+  listWrap.appendChild(_si);
+  if(S._chatSearch){const _q=S._chatSearch.toLowerCase();visChats=visChats.filter(c=>{const _n=(c.name||'').toLowerCase();const _ch=(DB.children.find(x=>x.id===c.childId)?.name||'').toLowerCase();return _n.includes(_q)||_ch.includes(_q);});}
 
   if(!visChats.length){
     const empty=el('div',{style:{padding:'32px 16px',textAlign:'center',color:'var(--slate)'}});
@@ -10456,6 +10458,7 @@ function renderSpecialistSettings(){
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: Specialist / Therapist']));
   ac.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
+  ac.appendChild(mkBtn('Delete Account','btn-md btn-ghost',()=>openConfirm('Delete Account','Permanently delete your account and all your data? This cannot be undone.',true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   sec.appendChild(ac);
 
   return sec;
@@ -11192,8 +11195,9 @@ function renderSettings(){
   ac.appendChild(nameRow);
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
-  const acBtns=d('',[], {display:'flex',gap:'10px'});
+  const acBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
   acBtns.appendChild(mkBtn('Sign Out','btn-md btn-danger',async()=>{await doLogout();re();}));
+  acBtns.appendChild(mkBtn('Delete Account','btn-md btn-ghost',()=>openConfirm('Delete Account','Permanently delete your account and all your data? This cannot be undone.',true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   ac.appendChild(acBtns);sec.appendChild(ac);
 
   // Shared Household (parent only)
