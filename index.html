@@ -1694,14 +1694,14 @@ const SB = {
     if(!fData||!fData.length)return[];
     const folderIds=fData.map(f=>f.id);
     const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type').eq('child_id',childId);
-    return fData.map(f=>({
+    return Promise.all(fData.map(async f=>({
       id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
-      files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
+      files:await Promise.all((fiData||[]).filter(fi=>fi.category===f.key).map(async fi=>({
         id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
         sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
-        url:fi.storage_path?_supa.storage.from('huddledin-files').getPublicUrl(fi.storage_path).data.publicUrl:null
-      }))
-    }));
+        url:fi.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(fi.storage_path,900)).data?.signedUrl||null:null
+      })))
+    })));
   },
   async addFile(file){
     const payload={child_id:file.childId,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
@@ -1721,8 +1721,8 @@ const SB = {
     const path=`${storagePath}/${Date.now()}_${file.name}`;
     const {error}=await _supa.storage.from('huddledin-files').upload(path,file,{contentType:file.type,upsert:false});
     if(error)throw error;
-    const {data}=_supa.storage.from('huddledin-files').getPublicUrl(path);
-    return {path,url:data.publicUrl};
+    const {data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(path,900);
+    return {path,url:signedData?.signedUrl||null};
   },
   async acceptInvite(token){
     const {data}=await _supa.from('invites').select('*').eq('token',token).eq('accepted',false).single();
@@ -1869,7 +1869,7 @@ async function refreshFromSupabase(){
     } else if(session.role==='specialist'){
       const specId=session.specialistId||session.id;
       // Step 1: get child IDs from specialist_requests
-      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
+      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['approved']);
       const childIds=[...new Set((reqRows||[]).map(r=>r.child_id).filter(Boolean))];
       if(childIds.length>0){
         // Step 2: fetch children + appointments IN PARALLEL (biggest speedup)
@@ -2110,7 +2110,7 @@ async function _loadSessionFromSupabase(s){
       // Load specialist's patients via specialist_requests (same source as refreshFromSupabase)
       try{
         const specId=s.user.id;
-        const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['pending','approved']);
+        const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['approved']);
         if(reqRows&&reqRows.length>0){
           const childIds=[...new Set(reqRows.map(r=>r.child_id).filter(Boolean))];
           if(childIds.length>0){
@@ -7511,7 +7511,7 @@ function renderVault(){
       const today=new Date().toISOString().split('T')[0];
       const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:today,title:today,content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
       try{
-        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:null,title:nn.title,content:'',is_draft:true,locked:false,published:false,last_saved:new Date().toISOString()});
+        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:DB.children.find(c=>c.id===nn.childId)?.householdId||null,title:nn.title,content:'',is_draft:true,locked:false,published:false,last_saved:new Date().toISOString()});
       }catch(e){console.error('create vault note:',e);}
       const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
       S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=false;re();
