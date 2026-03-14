@@ -836,6 +836,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   padding:1px 7px;white-space:nowrap;
 }
 .child-bubble.selected .cb-tasks{background:var(--mint-l);color:var(--teal)}
+.cb-circle{position:relative}
+.cb-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;padding:0 4px;box-sizing:border-box;box-shadow:0 0 0 2px #fff;animation:badgePop .2s cubic-bezier(.34,1.56,.64,1) forwards;pointer-events:none;z-index:2}
+@keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}
+.sq-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;padding:0 4px;box-sizing:border-box;box-shadow:0 0 0 2px #fff;animation:badgePop .2s cubic-bezier(.34,1.56,.64,1) forwards;pointer-events:none;z-index:2}
 
 /* Add-child bubble */
 .child-bubble-add{
@@ -2753,7 +2757,7 @@ function showConnectionCodeModal(childId){
         const resp=await fetch('/api/send-invite',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({to,childName:child?.name,connectionCode:code,fromName:session?.displayName||session?.email||'A parent'})
+          body:JSON.stringify({to,childName:child?.name||'your patient',connectionCode:code,inviteLink:window.location.origin+(window.location.pathname.replace(/\/$/,'')||'/')+'?code='+code,fromName:session?.name||session?.email||'A parent'})
         });
         if(resp.ok){toast('✅ Code sent to '+to);}
         else{const err=await resp.json().catch(()=>({}));toast('❌ '+(err.error||'Could not send email.'),'error');}
@@ -3560,7 +3564,7 @@ function _renderSpecDtPatientDetail(child,specId){
   const pi=el('div',{class:'spec-dt-det-pi'});
   const pname=el('div',{class:'spec-dt-det-name'}); pname.textContent=child.name;
   const pmeta=el('div',{class:'spec-dt-det-meta'});
-  const ageSp=el('span'); ageSp.textContent='Age '+(child.age||'—');
+  const ageSp=el('span'); ageSp.textContent='Age '+(calcAge(child.dob)||'—');
   pmeta.appendChild(ageSp);
   if(child.dob){const dobSp=el('span');dobSp.textContent='· DOB '+child.dob;pmeta.appendChild(dobSp);}
   pi.appendChild(pname); pi.appendChild(pmeta);
@@ -4322,6 +4326,23 @@ function renderSearchOverlay(){
 const CHILD_COLORS=['#0d9488','#7c3aed','#f97316','#ec4899','#0369a1','#16a34a'];
 function getChildColor(idx){return CHILD_COLORS[idx%CHILD_COLORS.length];}
 
+/* ── Age helper ── */
+function calcAge(dob){
+  if(!dob)return '';
+  const b=new Date(dob),n=new Date();
+  let y=n.getFullYear()-b.getFullYear(),m=n.getMonth()-b.getMonth();
+  if(n.getDate()<b.getDate())m--;
+  if(m<0){y--;m+=12;}
+  if(y<1)return m+' month'+(m!==1?'s':'');
+  return y+' year'+(y!==1?'s':'')+(m>0?' '+m+' month'+(m!==1?'s':''):'');
+}
+/* ── Notification badge helpers ── */
+function _seenTs(cid,s){return parseInt(LS.get('seen_'+cid+'_'+s,'0'),10)||0;}
+function _markSeen(cid,s,cnt){LS.set('seen_'+cid+'_'+s,String(Date.now()));if(cnt!=null)LS.set('seen_'+cid+'_'+s+'_cnt',String(cnt));}
+function _newSince(items,dfn,cid,s){const ts=_seenTs(cid,s);if(!ts)return items.length;return items.filter(x=>{const d=dfn(x);return d&&(new Date(d).getTime()||0)>ts;}).length;}
+function _hwBadge(cid){const cur=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const stored=parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;return Math.max(0,cur-stored);}
+function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
+function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);return _chatBadge(cid)+_hwBadge(cid)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+_newSince(apts,a=>a.date||a.startDate,cid,'calendar');}
 function renderGlobalHome(){
   const children=DB.children;
   const allApts=LS.get('appointments',[]);
@@ -4430,11 +4451,10 @@ function renderGlobalHome(){
       circle.textContent=c.avatar;
       circle.appendChild(el('div',{class:'cb-upload-hint'},['+ photo']));
     }
+    const _tot=_childTotalBadge(c.id);
+    if(_tot>0)circle.appendChild(el('div',{class:'cb-badge'},[ _tot>9?'9+':String(_tot) ]));
     bubble.appendChild(circle);
     bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
-    if(childHW.length>0){
-      bubble.appendChild(el('div',{class:'cb-tasks'},[childHW.length+' task'+(childHW.length!==1?'s':'')]));
-    }
     bubble.onclick=()=>{_pushNav();S.activeChatChildId=c.id;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
     row.appendChild(bubble);
@@ -4995,7 +5015,7 @@ function renderParentDashboard(){
   const wc2=el('div',{class:'ff',style:{fontSize:'1.45rem',fontWeight:'800',color:'#fff',marginBottom:'5px'}},
     [child.name]);
   const wc3=el('div',{style:{color:'rgba(255,255,255,.8)',fontSize:'.84rem',fontWeight:'500'}},
-    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]);
+    ['Age '+(calcAge(child.dob)||'—')+' · DOB '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   welcome.style.position='relative';
   const editBtn=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'rgba(255,255,255,.2)',border:'none',borderRadius:'50%',width:'34px',height:'34px',fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}},['✏️']);
@@ -5005,18 +5025,30 @@ function renderParentDashboard(){
 
   // Big square navigation grid (like file manager)
   const navGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  const _nb={};
+  {const _cid=child.id,_notes=(DB.vaultNotes||[]).filter(n=>n.childId===_cid),_fls=(DB.folders||[]).filter(f=>f.childId===_cid).flatMap(f=>f.files||[]),_apts=(DB.appointments||[]).filter(a=>a.childId===_cid);
+  _nb['session-summaries']=_newSince(_notes,n=>n.date,_cid,'session-summaries');
+  _nb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
+  _nb['chat']=_chatBadge(_cid);
+  _nb['calendar']=_newSince(_apts,a=>a.date||a.startDate,_cid,'calendar');
+  _nb['homework']=_hwBadge(_cid);_nb['team']=0;}
   [
-    {icon:'📄',label:'Progress Notes',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries'},
-    {icon:'📁',label:'Shared Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-    {icon:'💬',label:'Message Therapist',color:'#7c3aed',bg:'#f5f3ff',tab:null,fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
-    {icon:'📅',label:'Schedule',color:'#f59e0b',bg:'#fffbeb',tab:null,fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
-    {icon:'📋',label:'Today\'s Homework',color:'#f97316',bg:'#fff7ed',tab:'homework'},
-    {icon:'👥',label:'Care Team',color:'#ec4899',bg:'#fdf2f8',tab:'team'}
-  ].forEach(({icon,label,color,bg,tab,fn})=>{
-    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center'}});
+    {icon:'📄',label:'Progress Notes',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries',sect:'session-summaries'},
+    {icon:'📁',label:'Shared Files',color:'#0ea5e9',bg:'#f0f9ff',tab:'files',sect:'files'},
+    {icon:'💬',label:'Message Therapist',color:'#7c3aed',bg:'#f5f3ff',tab:null,sect:'chat',fn:()=>{S.activeChatChildId=child.id;S.activeChatId=null;switchTab('chat');}},
+    {icon:'📅',label:'Schedule',color:'#f59e0b',bg:'#fffbeb',tab:null,sect:'calendar',fn:()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();}},
+    {icon:'📋',label:'Today\'s Homework',color:'#f97316',bg:'#fff7ed',tab:'homework',sect:'homework'},
+    {icon:'👥',label:'Care Team',color:'#ec4899',bg:'#fdf2f8',tab:'team',sect:'team'}
+  ].forEach(({icon,label,color,bg,tab,sect,fn})=>{
+    const sq=el('div',{class:'card hov',style:{cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center',position:'relative'}});
+    const _bc=_nb[sect]||0;
+    if(_bc>0)sq.appendChild(el('div',{class:'sq-badge'},[ _bc>9?'9+':String(_bc) ]));
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem',lineHeight:'1.3'}},[label]));
-    sq.onclick=()=>{if(fn)fn();else switchTab(tab);};
+    sq.onclick=()=>{
+      if(sect)_markSeen(child.id,sect,sect==='homework'?(DB.homework||[]).filter(h=>h.childId===child.id&&!h.completed).length:undefined);
+      if(fn)fn();else switchTab(tab);
+    };
     navGrid.appendChild(sq);
   });
   sec.appendChild(navGrid);
@@ -9231,7 +9263,7 @@ function renderPatients(){
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
       if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
       info.appendChild(nameRow);
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+c.age+' · DOB '+c.dob]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+(calcAge(c.dob)||'—')+' · DOB '+(c.dob||'—')]));
       card.appendChild(info);
       // Status toggle
       const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
@@ -9315,12 +9347,18 @@ function renderPatientDashboard(){
   const hInfo=el('div',{style:{flex:1}});
   hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
   hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
-    ['Age '+(child.age||'—')+' · DOB '+(child.dob||'—')]));
+    ['Age '+(calcAge(child.dob)||'—')+' · DOB '+(child.dob||'—')]));
   hdrCard.appendChild(hInfo);
   sec.appendChild(hdrCard);
 
   // 2×2 action grid
   const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  const _snb={};
+  {const _cid=child.id,_notes=(DB.vaultNotes||[]).filter(n=>n.childId===_cid&&n.specialistId===specId),_fls=(DB.folders||[]).filter(f=>f.childId===_cid).flatMap(f=>f.files||[]);
+  _snb['vault']=_newSince(_notes,n=>n.date,_cid,'vault');
+  _snb['homework']=_hwBadge(_cid);
+  _snb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
+  _snb['chat']=_chatBadge(_cid);}
   [
     {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
     {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework'},
@@ -9331,11 +9369,16 @@ function renderPatientDashboard(){
       cursor:'pointer',padding:'20px 16px',display:'flex',
       flexDirection:'column',alignItems:'center',justifyContent:'center',
       gap:'10px',minHeight:'100px',background:bg,
-      border:'1.5px solid '+color+'33',textAlign:'center'
+      border:'1.5px solid '+color+'33',textAlign:'center',position:'relative'
     }});
+    const _bc=_snb[tab]||0;
+    if(_bc>0)sq.appendChild(el('div',{class:'sq-badge'},[ _bc>9?'9+':String(_bc) ]));
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
-    sq.onclick=()=>{if(tab==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;}S.activeTab=tab;re();};
+    sq.onclick=()=>{
+      _markSeen(child.id,tab,tab==='homework'?(DB.homework||[]).filter(h=>h.childId===child.id&&!h.completed).length:undefined);
+      if(tab==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;}S.activeTab=tab;re();
+    };
     grid.appendChild(sq);
   });
   sec.appendChild(grid);
