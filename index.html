@@ -11291,6 +11291,10 @@ function renderSettings(){
   pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
   pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
     ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
+  const _pvLinks=el('div',{style:{display:'flex',gap:'10px',marginTop:'14px',flexWrap:'wrap'}});
+  _pvLinks.appendChild(mkBtn('📄 Privacy Policy','btn-sm btn-secondary',()=>{S.settingsPage='privacy';re();}));
+  _pvLinks.appendChild(mkBtn('📋 Terms of Service','btn-sm btn-ghost',()=>showTermsOfService()));
+  pv.appendChild(_pvLinks);
   sec.appendChild(pv);
 
   // Onboarding & Demo
