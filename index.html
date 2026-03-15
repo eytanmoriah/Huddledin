@@ -6183,7 +6183,7 @@ function renderTeam(){
           const specB=DB.specialists.find(s=>s.id===targetSpecId)||{name:targetName};
           const parentId=session.role==='parent'?(session.householdId||session.id):null;
           const participants=isInclusive
-            ?[specId,targetSpecId,'parent']
+            ?[specId,targetSpecId,session.id,...(DB.coParents||[]).map(p=>p.id)]
             :[specId,targetSpecId];
           const chatName=specA.name.split(' ')[0]+' + '+specB.name.split(' ')[0]+' Consult'+(isInclusive?' (+ Parent)':'');
           try{
@@ -7421,13 +7421,12 @@ function showConsultModal(childId){
       sendBtn.disabled=true;sendBtn.textContent='Sending…';
       try{
         // Check for duplicate based on exact participant combination
-        const _newParticipants=state.inclusive?[mySpecId,state.targetId,'parent']:[mySpecId,state.targetId];
-        const _sortedNew=[..._newParticipants].sort().join(',');
         try{
-          // 1. Check approved chats — same child + type + exact participants
+          // 1. Check approved chats — same child + type + both specialist IDs present
+          // Semantic check handles both legacy ('parent' string) and new (UUID) participants
           const {data:_existingChats}=await _supa.from('chats')
             .select('id,participants').eq('child_id',cid).eq('type','specialist-consult');
-          const _chatDupe=_existingChats?.find(c=>[...(c.participants||[])].sort().join(',')===_sortedNew);
+          const _chatDupe=_existingChats?.find(c=>{const p=c.participants||[];return p.includes(mySpecId)&&p.includes(state.targetId);});
           if(_chatDupe){
             sendBtn.disabled=false;sendBtn.textContent='📤 Send Consultation Request';
             toast('A conversation with these exact participants already exists.','error',4000);
