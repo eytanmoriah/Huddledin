@@ -2139,10 +2139,10 @@ async function _loadSessionFromSupabase(s){
       ||s.user.user_metadata?.name
       ||s.user.email.split('@')[0];
     try{
-      await _supa.from('profiles').insert({
-        id:s.user.id,email:s.user.email,
-        role:_fallbackRole,display_name:_fallbackName
-      });
+      const _autoCreateData={id:s.user.id,email:s.user.email,role:_fallbackRole,display_name:_fallbackName};
+      console.log('\uD83D\uDCDD Writing to profiles (auto-create INSERT):', JSON.stringify(_autoCreateData));
+      console.log('\uD83D\uDD0D Auto-create triggered by: user_metadata.role='+s.user.user_metadata?.role+' pending_role='+new URLSearchParams(window.location.search).get('pending_role')+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
+      await _supa.from('profiles').insert(_autoCreateData);
       const{data:p2}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
       if(p2)profile=p2;
     }catch(e){console.error('profile auto-create error:',e);}
@@ -2231,12 +2231,10 @@ async function _loadSessionFromSupabase(s){
       if(pendingRole){
         // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
         try{
-          await _supa.from('profiles').upsert({
-            id:s2.user.id,
-            email:s2.user.email,
-            role:pendingRole,
-            display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
-          },{onConflict:'id'});
+          const _oauthUpsertData={id:s2.user.id,email:s2.user.email,role:pendingRole,display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]};
+          console.log('\uD83D\uDCDD Writing to profiles (onAuthStateChange Google UPSERT):', JSON.stringify(_oauthUpsertData));
+          console.log('\uD83D\uDD0D pendingRole source: localStorage='+localStorage.getItem('pendingGoogleRole')+' url='+new URLSearchParams(window.location.search).get('pending_role')+' user_metadata='+s2.user.user_metadata?.role+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
+          await _supa.from('profiles').upsert(_oauthUpsertData,{onConflict:'id'});
         }catch(e){console.error('Google OAuth profile upsert error:',e);}
       }
       await _loadSessionFromSupabase(s2);
@@ -2292,7 +2290,12 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id'});}catch(e){console.error('profile upsert error:',e);}}
+    if(data.user){
+      const _signupUpsertData={id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null};
+      console.log('\uD83D\uDCDD Writing to profiles (doLogin signup UPSERT):', JSON.stringify(_signupUpsertData));
+      console.log('\uD83D\uDD0D Signup role source: passed role param='+role+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
+      try{await _supa.from('profiles').upsert(_signupUpsertData,{onConflict:'id'});}catch(e){console.error('profile upsert error:',e);}
+    }
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -2636,7 +2639,10 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       childId=row.child_id;
       if(!session.householdId&&row.household_id&&session.role!=='specialist'){
         session.householdId=row.household_id;
+        console.log('\uD83D\uDCDD Writing to profiles (redeemConnectionCode household UPDATE):', JSON.stringify({household_id:row.household_id,userId:session.id,session_role:session.role}));
         try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
+      } else if(session.role==='specialist'){
+        console.log('\uD83D\uDEAB redeemConnectionCode: SKIPPED profiles update (user is specialist) household_id='+row.household_id);
       }
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
@@ -10538,6 +10544,7 @@ async function processHouseholdInvite(token){
 
   // Link this user to the household
   try{
+    console.log('\uD83D\uDCDD Writing to profiles (processHouseholdInvite household UPDATE):', JSON.stringify({household_id:data.household_id,is_primary:false,userId:session.id,session_role:session.role}));
     await _supa.from('profiles').update({
       household_id:data.household_id,
       is_primary:false
@@ -11750,6 +11757,8 @@ initData();
   const childId=params.get('child');
   const inviteEmail=params.get('email');
   if(token){
+    console.log('\uD83D\uDD17 Invite detected: '+token);
+    console.log('\uD83D\uDC64 Current user at invite detection:', JSON.stringify(session ? {id:session.id,email:session.email,role:session.role} : null));
     // Store token so we can use it after login/signup
     localStorage.setItem('pendingInviteToken', token);
     if(childId) localStorage.setItem('pendingInviteChild', childId);
@@ -11783,10 +11792,13 @@ async function _processPendingInvite(){
   // Guards against session.role being wrong (e.g. set to 'parent' by auto-create race during signup).
   // If profile.role === 'specialist': ONLY write specialist_requests, NEVER touch profiles table.
   // If profile.role === 'parent':    co-parent invite flow, household linking is fine.
+  console.log('\uD83D\uDD17 _processPendingInvite: token='+token+' childId='+childId);
+  console.log('\uD83D\uDC64 Current user:', JSON.stringify(session ? {id:session.id,email:session.email,role:session.role,householdId:session.householdId} : null));
   let _verifiedRole=session?.role||null;
   if(session&&session.id!=='demo'){
     try{
-      const{data:_pr}=await _supa.from('profiles').select('role').eq('id',session.id).single();
+      const{data:_pr}=await _supa.from('profiles').select('*').eq('id',session.id).single();
+      console.log('\uD83D\uDCCB Current profile from DB:', JSON.stringify(_pr));
       if(_pr?.role){
         _verifiedRole=_pr.role;
         if(_verifiedRole!==session.role){
