@@ -2727,6 +2727,10 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
       try{
+        // Use specialist's real profile display_name + profession — not values from the connection code
+        let _specRealName=specialistName;
+        let _specRealRole=role||'Specialist';
+        try{const{data:_sPro}=await _supa.from('profiles').select('display_name,profession').eq('id',specialistId).single();if(_sPro?.display_name)_specRealName=_sPro.display_name;if(_sPro?.profession)_specRealRole=_sPro.profession;}catch(e){}
         // Only skip if there's already a pending row — approved rows don't block new requests
         // Check for an active (pending/approved) row first — skip if found
         const {data:_activeReq}=await _supa.from('specialist_requests')
@@ -2738,7 +2742,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
           if(_removedReq){
             // Reconnection — restore existing row to pending, preserving full history
             await _supa.from('specialist_requests').update({
-              status:'pending',specialist_name:specialistName,role,requested_at:new Date().toISOString()
+              status:'pending',specialist_name:_specRealName,role:_specRealRole,requested_at:new Date().toISOString()
             }).eq('id',_removedReq.id);
             // Clear removed-popup flag and inactive state so child returns to active list
             localStorage.removeItem('hd9_rm_popup_'+childId);
@@ -2748,7 +2752,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
             let _hhid=row.household_id||null;
             if(!_hhid&&childId){try{const {data:_ch}=await _supa.from('children').select('household_id').eq('id',childId).single();if(_ch?.household_id)_hhid=_ch.household_id;}catch(e){}}
             await _supa.from('specialist_requests').insert({
-              specialist_id:specialistId,specialist_name:specialistName,role,
+              specialist_id:specialistId,specialist_name:_specRealName,role:_specRealRole,
               child_id:childId,parent_id:parentId,household_id:_hhid,
               status:'pending',request_type:'join',requested_at:new Date().toISOString()
             });
@@ -6265,9 +6269,10 @@ function showAccessRequest(folder){
 // Called both on initial render and when async fetch patches the container directly.
 function buildTeamList(child){
   const frag=el('div');
+  // Show ALL household specialists regardless of which child — child name shown on card
   const specialists=session?.role==='specialist'
     ? getChildTeam(child?.id)
-    : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
+    : DB.specialists;
   const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
   const _childInvites=child?(DB.pendingInvites||[]).filter(inv=>inv.child_id===child.id):[];
   if(!specialists.length&&!pendingReqsForChild.length&&!_childInvites.length){
@@ -6291,10 +6296,11 @@ function buildTeamList(child){
       }
       card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
       const info=d('',[], {flex:1});
+      const _sCardChild=DB.children.find(c=>c.id===s.childId||c.id===s.child_id);
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')+(_sCardChild?' · '+_sCardChild.name+'\'s team':'')]));
       const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
-      const childFoldersForSpec=DB.folders.filter(f=>f.childId===child?.id);
+      const childFoldersForSpec=DB.folders.filter(f=>f.childId===s.childId||f.childId===s.child_id);
       perms.forEach(key=>{
         const f=childFoldersForSpec.find(f=>f.key===key);
         if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
@@ -6319,9 +6325,10 @@ function buildTeamList(child){
       icard.appendChild(ipb);
       icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
       const iinfo=d('',[],{flex:1});
-      iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.specialist_name||inv.email]));
-      iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')+(inv.email?' · '+inv.email:'')]));
-      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Waiting for response…']));
+      // Show email as primary identifier — specialist_name was typed by parent and may be wrong
+      iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.email||inv.specialist_name]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Invited — awaiting response']));
       icard.appendChild(iinfo);
       if(child){
         const iacts=d('',[],{display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
@@ -6416,10 +6423,13 @@ function renderTeam(){
         const _approvedRows=_rows.filter(r=>r.status==='approved');
         const prevSpecs=JSON.stringify(DB.specialists);
         if(_approvedRows.length){
-          const _specSeen=new Set();
-          const _newSpecs=_approvedRows
-            .filter(r=>{if(_specSeen.has(r.specialist_id))return false;_specSeen.add(r.specialist_id);return true;})
-            .map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
+          // Dedup by specialist_id, preferring the row that matches S.activeChild
+          const _specMap=new Map();
+          _approvedRows.forEach(r=>{
+            if(!_specMap.has(r.specialist_id)||r.child_id===S.activeChild)
+              _specMap.set(r.specialist_id,r);
+          });
+          const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
           const _newIds=new Set(_newSpecs.map(s=>s.id));
           DB.specialists=[..._newSpecs,...(DB.specialists||[]).filter(s=>!_newIds.has(s.id))];
           console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists');
@@ -12176,14 +12186,18 @@ async function _processPendingInvite(){
       // Also write an approved specialist_requests row so this specialist appears
       // in getChildTeam() for other specialists (loadChildSpecialists uses this table)
       try{
+        // Use specialist's real profile display_name + profession — not values typed by parent in invite
+        let _specRealName=session.displayName||session.name||session.email;
+        let _specRealRole=data.specialist_role||'Specialist';
+        try{const{data:_sPro}=await _supa.from('profiles').select('display_name,profession').eq('id',session.id).single();if(_sPro?.display_name)_specRealName=_sPro.display_name;if(_sPro?.profession)_specRealRole=_sPro.profession;}catch(e){}
         const {data:_invReq}=await _supa.from('specialist_requests')
           .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).maybeSingle();
         if(!_invReq){
           // Fresh connection — insert new approved row
           await _supa.from('specialist_requests').insert({
             specialist_id:session.id,
-            specialist_name:session.displayName||session.name||session.email,
-            role:data.specialist_role||'Specialist',
+            specialist_name:_specRealName,
+            role:_specRealRole,
             child_id:data.child_id,
             parent_id:data.parent_id,
             household_id:data.household_id||null,
@@ -12195,8 +12209,8 @@ async function _processPendingInvite(){
           // Reconnection via invite — reactivate existing row instead of inserting duplicate
           await _supa.from('specialist_requests').update({
             status:'approved',
-            specialist_name:session.displayName||session.name||session.email,
-            role:data.specialist_role||'Specialist',
+            specialist_name:_specRealName,
+            role:_specRealRole,
             requested_at:new Date().toISOString()
           }).eq('id',_invReq.id);
           // Clear removed-popup flag and inactive state so child returns to active list
