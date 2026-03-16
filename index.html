@@ -1674,14 +1674,20 @@ const SB = {
     await _supa.from('children').delete().eq('id',id);
   },
   async getSpecialists(parentId){
-    const {data}=await _supa.from('specialists').select('*').eq('parent_id',parentId);
-    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    // Query specialist_requests filtered to active statuses — prevents removed specialists from reappearing
+    const {data:reqs}=await _supa.from('specialist_requests')
+      .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('parent_id',parentId);
+    const _seen=new Set();const specs=[];
+    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
     await _loadSpecPermissions(specs);
     return specs;
   },
   async getSpecialistsByHousehold(householdId){
-    const {data}=await _supa.from('specialists').select('*').eq('household_id',householdId);
-    const specs=(data||[]).map(s=>({id:s.id,name:s.name,role:s.role,email:s.email,avatar:'🩺',permissions:{},status:s.status,credentials:[],inviteToken:s.invite_token,childId:s.child_id}));
+    // Query specialist_requests by household_id — co-parents see identical specialist list
+    const {data:reqs}=await _supa.from('specialist_requests')
+      .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId);
+    const _seen=new Set();const specs=[];
+    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -2714,6 +2720,8 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
             await _supa.from('specialist_requests').update({
               status:'pending',specialist_name:specialistName,role,requested_at:new Date().toISOString()
             }).eq('id',_removedReq.id);
+            // Clear removed-popup flag so it doesn't reappear after reconnection
+            localStorage.removeItem('hd9_rm_popup_'+childId);
           } else {
             // Fresh connection — resolve household_id then insert new row
             let _hhid=row.household_id||null;
@@ -2723,6 +2731,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
               child_id:childId,parent_id:parentId,household_id:_hhid,
               status:'pending',request_type:'join',requested_at:new Date().toISOString()
             });
+            localStorage.removeItem('hd9_rm_popup_'+childId);
           }
         }
       }catch(e){console.error('specialist_requests insert error:',e);return{error:'Connection failed. Please try again.'};}
@@ -4350,6 +4359,20 @@ function switchTab(id){
       _markSeen(S.activeChild,id);
     if(id==='homework')
       _markSeen(S.activeChild,'homework',(DB.homework||[]).filter(h=>h.childId===S.activeChild&&!h.completed).length);
+    if(id==='chat'){
+      // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
+      const _chats=DB.chats||[];
+      const _cid=S.activeChild;
+      const _uid=session?.id;
+      if(_uid&&_uid!=='demo'){
+        _chats.filter(c=>(c.childId===_cid||c.child_id===_cid)&&(c.unreadFor||[]).includes(_uid)).forEach(c=>{
+          c.unreadFor=(c.unreadFor||[]).filter(u=>u!==_uid);
+          // Background Supabase update — clear unreadFor for this user
+          (async()=>{try{await _supa.from('chats').update({unread_for:c.unreadFor}).eq('id',c.id);}catch(e){console.error('clear unreadFor:',e);}})();
+        });
+        LS.set('chats',_chats);
+      }
+    }
   }
   re();
   // Refresh folders+files from Supabase when opening File Manager
@@ -11904,10 +11927,10 @@ initData();
 // Show once-per-session popup when a specialist's connection is removed by the parent.
 // Gives specialist the choice to move the patient to their inactive/past patients section.
 function _showRemovedConnectionPopup(child){
-  const _key='_rm_notified_'+child.id;
-  if(sessionStorage.getItem(_key))return; // already shown this session
-  sessionStorage.setItem(_key,'1');
-  openModal('Connection Removed',mb=>{
+  const _key='hd9_rm_popup_'+child.id;
+  if(localStorage.getItem(_key))return; // already shown — persists across sessions until reconnected
+  localStorage.setItem(_key,'1');
+  openModal('Connection Removed',(mb,close)=>{
     const msgEl=el('p',{style:{color:'var(--slate)',lineHeight:'1.6',marginBottom:'20px'}});
     msgEl.textContent='Your connection to "'+child.name+'" has been removed by the family. Would you like to move them to inactive patients?';
     mb.appendChild(msgEl);
@@ -11919,10 +11942,10 @@ function _showRemovedConnectionPopup(child){
       const lsc=LS.get('children',[]);
       LS.set('children',lsc.filter(ch=>ch.id!==child.id));
       if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
-      re();
+      close();re();
       toast(child.name+' moved to inactive patients.','info');
     }));
-    btns.appendChild(mkBtn('Keep Active','btn-md btn-ghost',()=>{re();}));
+    btns.appendChild(mkBtn('Keep Active','btn-md btn-ghost',()=>{close();}));
     mb.appendChild(btns);
   });
 }
@@ -12005,6 +12028,8 @@ async function _processPendingInvite(){
             role:data.specialist_role||'Specialist',
             requested_at:new Date().toISOString()
           }).eq('id',_invReq.id);
+          // Clear removed-popup flag so modal doesn't reappear after reconnection
+          if(data.child_id)localStorage.removeItem('hd9_rm_popup_'+data.child_id);
           // Restore specialist to non-consultation chat participants for this child
           try{
             const{data:_rChats}=await _supa.from('chats').select('id,participants,type,name').eq('child_id',data.child_id);
