@@ -6787,11 +6787,10 @@ function showInviteModal(){
       DB.specialists=specs;
       // Save invite to Supabase so specialist can accept it
       if(session&&session.id!=='demo'){
-        const expires=new Date();expires.setDate(expires.getDate()+7);
+        const expires=new Date();expires.setDate(expires.getDate()+30);
         _supa.from('invites').insert({
           token,
           parent_id:session.id,
-          household_id:session.householdId||null,
           child_id:S.activeChild,
           email:ei.value,
           specialist_email:ei.value,
@@ -6799,7 +6798,7 @@ function showInviteModal(){
           specialist_role:ri.value||'Specialist',
           expires_at:expires.toISOString(),
           accepted:false
-        }).then(({error})=>{if(error)console.error('Invite save error:',error.code);});
+        }).then(({error})=>{if(error)console.error('Invite save error:',error.code,error);});
       }
       // Add simulated email to inbox
       const emails=DB.emailInbox;
