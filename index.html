@@ -6398,10 +6398,10 @@ function renderTeam(){
         // Four-query fetch: approved/pending by parent_id, approved/pending by household_id,
         // removed by household_id (for Past Specialists), and pending invites not yet accepted
         const [_r1,_r2,_r3,_invRes]=await Promise.all([
-          _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',_parentId),
-          _hhId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',_hhId):Promise.resolve({data:[]}),
-          _hhId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').eq('status','removed').eq('household_id',_hhId):Promise.resolve({data:[]}),
-          _supa.from('invites').select('id,email,specialist_name,specialist_role,child_id,accepted,accepted_by,expires_at,token').eq('accepted',false).eq('parent_id',_parentId).gt('expires_at',new Date().toISOString())
+          _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',_parentId).eq('child_id',S.activeChild),
+          _hhId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',_hhId).eq('child_id',S.activeChild):Promise.resolve({data:[]}),
+          _hhId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').eq('status','removed').eq('household_id',_hhId).eq('child_id',S.activeChild):Promise.resolve({data:[]}),
+          _supa.from('invites').select('id,email,specialist_name,specialist_role,child_id,accepted,accepted_by,expires_at,token').eq('accepted',false).eq('parent_id',_parentId).eq('child_id',S.activeChild).gt('expires_at',new Date().toISOString())
         ]);
         const _allRows=[...(_r1.data||[]),...(_r2.data||[])];
         const _seenKeys=new Set();
@@ -9672,14 +9672,16 @@ function renderPatients(){
 
   const doFilter=q=>{
     stack.innerHTML='';
+    const _rmInactSet=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
     const filtered=sorted.filter(c=>{
       const matchName=c.name.toLowerCase().includes(q.toLowerCase());
       const connSt=c.connectionStatus||'approved';
       const childSt=c.status||'active';
       let matchStatus=false;
       if(S.patientStatusFilter==='all') matchStatus=true;
-      else if(S.patientStatusFilter==='active') matchStatus=connSt!=='removed'&&childSt==='active';
-      else if(S.patientStatusFilter==='inactive') matchStatus=connSt!=='removed'&&childSt==='inactive';
+      // Removed patients stay in active list unless specialist toggled them inactive
+      else if(S.patientStatusFilter==='active') matchStatus=(connSt!=='removed'&&childSt==='active')||(connSt==='removed'&&!_rmInactSet.has(c.id));
+      else if(S.patientStatusFilter==='inactive') matchStatus=(connSt!=='removed'&&childSt==='inactive')||(connSt==='removed'&&_rmInactSet.has(c.id));
       return matchName&&matchStatus;
     });
     if(!filtered.length){
@@ -9687,7 +9689,6 @@ function renderPatients(){
       stack.appendChild(el('div',{class:'empty-inline'},[msg]));
       return;
     }
-    const _rmInactSet=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
     filtered.forEach(c=>{
       const isInactive=(c.status||'active')==='inactive';
       const connStatus=c.connectionStatus||'approved';
@@ -12115,14 +12116,8 @@ function _showRemovedConnectionPopup(child){
     mb.appendChild(msgEl);
     const btns=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap'}});
     btns.appendChild(mkBtn('Move to Inactive','btn-md btn-primary',()=>{
-      const pastPts=LS.get('pastPatients',[]);
-      if(!pastPts.find(p=>p.id===child.id))pastPts.push({id:child.id,name:child.name,dob:child.dob});
-      LS.set('pastPatients',pastPts);
-      const lsc=LS.get('children',[]);
-      LS.set('children',lsc.filter(ch=>ch.id!==child.id));
-      // Persist "inactive" state so child stays hidden after refreshFromSupabase() re-fetches the row
+      // Only add to hd9_inactive_children — do NOT remove from children array (stays in list with toggle)
       try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.add(child.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
-      if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
       close();re();
       toast(child.name+' moved to inactive patients.','info');
     }));
