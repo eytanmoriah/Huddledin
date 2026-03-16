@@ -6293,21 +6293,42 @@ function renderTeam(){
   if(child&&session?.id!=='demo'&&_supa){
     (async()=>{
       try{
-        const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
-        console.log('[renderTeam] querying with householdId:',session.householdId,'parentId:',session.id,'childIds:',_childIds);
-        let _allReqs=[];
-        const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        // Two-query merge: parent_id + household_id, covering approved and pending
-        const [_tR1,_tR2]=await Promise.all([
-          _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',session.id),
-          session.householdId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',session.householdId):Promise.resolve({data:[]})
+        const _parentId=session.id;
+        const _hhId=session.householdId;
+        console.log('[renderTeam] querying with householdId:',_hhId,'parentId:',_parentId);
+        // Two-query merge: parent_id + household_id to avoid .or() type-casting issues
+        const [_r1,_r2]=await Promise.all([
+          _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',_parentId),
+          _hhId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',_hhId):Promise.resolve({data:[]})
         ]);
-        _dedup(_tR1.data);_dedup(_tR2.data);
-        const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
-        const prev=JSON.stringify(DB.specialistRequests);
+        const _allRows=[...(_r1.data||[]),...(_r2.data||[])];
+        const _seenKeys=new Set();
+        const _rows=_allRows.filter(r=>{
+          const key=r.specialist_id+r.child_id;
+          if(_seenKeys.has(key))return false;
+          _seenKeys.add(key);
+          return true;
+        });
+        console.log('[renderTeam] rows after merge:',_rows.length,_rows);
+        // Populate DB.specialistRequests for pending approval cards
+        const mapped=_rows.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
+        const prevReqs=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
         console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows',mapped);
-        if(JSON.stringify(mapped)!==prev)re();
+        // Update DB.specialists from approved rows so the active team list at line ~6471 renders correctly
+        const _approvedRows=_rows.filter(r=>r.status==='approved');
+        const prevSpecs=JSON.stringify(DB.specialists);
+        if(_approvedRows.length){
+          const _specSeen=new Set();
+          const _newSpecs=_approvedRows
+            .filter(r=>{if(_specSeen.has(r.specialist_id))return false;_specSeen.add(r.specialist_id);return true;})
+            .map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
+          // Merge: new approved specialists take precedence, keep any others not in this list
+          const _newIds=new Set(_newSpecs.map(s=>s.id));
+          DB.specialists=[..._newSpecs,...(DB.specialists||[]).filter(s=>!_newIds.has(s.id))];
+          console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists');
+        }
+        if(JSON.stringify(DB.specialistRequests)!==prevReqs||JSON.stringify(DB.specialists)!==prevSpecs)re();
       }catch(e){console.error('[renderTeam] specialist_requests fetch error:',e);}
     })();
   }
