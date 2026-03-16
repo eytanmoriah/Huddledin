@@ -1960,6 +1960,7 @@ async function refreshFromSupabase(){
 
 // Debounced refresh — collapses burst real-time events into one refresh
 let _refreshTimer=null;
+let _seenTimestamps={};
 function _debouncedRefresh(){
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(()=>{
