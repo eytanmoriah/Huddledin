@@ -3029,56 +3029,9 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
 /* -----------------------------------------------
    AUTH SCREEN
 ----------------------------------------------- */
-function showPrivacyPolicy(){
-  openModal('🔒 Privacy Policy',(mb)=>{
-    mb.style.maxHeight='70vh';mb.style.overflowY='auto';
-    const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-    const sections=[
-      ['1. Introduction',"Huddledin operates the collaborative care platform at huddledin.com. We protect the privacy of all users with particular care for sensitive health data about children."],
-      ['2. Who We Are',"Huddledin is operated from Israel. Contact us at admin@huddledin.com."],
-      ['3. Information We Collect',"We collect: account details (name, email, password), child profile data (name, date of birth, photo, therapy goals), health and therapy data (session notes, reports, appointments, progress), messages between parents and specialists, payment details (when introduced), and technical usage data."],
-      ['4. How We Use Your Information',"We use data to provide and improve the platform, enable secure communication, send invitations, process payments, and comply with legal obligations. We never sell your data or use it for advertising."],
-      ["5. Children Privacy","Children do not create their own accounts. All child data is managed by a parent or guardian. Parents control specialist access and may delete a child profile at any time. We do not collect data directly from children under 13."],
-      ['6. How We Share Your Information',"We share data only with: specialists you invite, trusted service providers (Supabase, Vercel, Resend, Sentry, Plausible), and where required by law. We never sell your data."],
-      ['7. Data Security',"All data is encrypted in transit (HTTPS) and at rest. Row Level Security controls access. Contact admin@huddledin.com immediately if you believe your account is compromised."],
-      ['8. Your Rights',"You may have rights to access, correct, delete or export your data. EU users have GDPR rights. Israeli users have rights under Israeli Privacy Protection Law. US users may have HIPAA rights. Email admin@huddledin.com to exercise any right."],
-      ['9. Data Retention',"Data is kept while your account is active. Child profiles are deleted immediately when removed by a parent. You may request full deletion at any time."],
-      ['10. Contact Us',"For any privacy questions: admin@huddledin.com | huddledin.com"],
-    ];
-    sections.forEach(s=>{
-      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
-      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
-    });
-    mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
-  },540);
-}
 
-function showTermsOfService(){
-  openModal('📋 Terms of Service',(mb)=>{
-    mb.style.maxHeight='70vh';mb.style.overflowY='auto';
-    const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-    const sections=[
-      ['1. Acceptance of Terms',"By accessing or using Huddledin, you agree to be bound by these Terms of Service. If you do not agree, please do not use the platform."],
-      ['2. Description of Service',"Huddledin is a collaborative care coordination platform designed to help parents and specialist professionals work together."],
-      ['3. User Accounts',"You must provide accurate information when creating an account. You are responsible for maintaining your password confidentiality and all activity under your account."],
-      ['4. Parent Responsibilities',"Parents must ensure all information about their child is accurate, manage specialist access permissions appropriately, and ensure their use complies with applicable laws."],
-      ['5. Specialist Responsibilities',"Specialists must maintain professional standards in all communications, use the platform for legitimate professional purposes only, and comply with all applicable regulations."],
-      ['6. Prohibited Uses',"You may not use the platform for unlawful purposes, share false health information, attempt to access another account, harass any person, reverse-engineer the platform, or use it for commercial advertising."],
-      ['7. Health Information Disclaimer',"Huddledin is a coordination tool, not a medical device. Information shared does not constitute medical advice. Always consult qualified healthcare professionals for medical decisions."],
-      ['8. Data and Privacy',"Your use is governed by our Privacy Policy, which is incorporated into these Terms by reference."],
-      ['9. Intellectual Property',"The Huddledin platform, design, features and code are owned by Huddledin and protected by law. You may not copy or distribute any part without written consent."],
-      ['10. Termination',"We may suspend accounts that violate these Terms. You may terminate your account at any time by contacting admin@huddledin.com."],
-      ['11. Limitation of Liability',"Huddledin is provided as-is without warranties. To the maximum extent permitted by law, we are not liable for indirect or consequential damages."],
-      ['12. Governing Law',"These Terms are governed by the laws of the State of Israel. Disputes are subject to the exclusive jurisdiction of Israeli courts."],
-      ['13. Contact',"For questions about these Terms: admin@huddledin.com | huddledin.com"],
-    ];
-    sections.forEach(s=>{
-      mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.88rem',margin:'14px 0 6px'}},[s[0]]));
-      mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',lineHeight:'1.7',margin:'0 0 8px'}},[s[1]]));
-    });
-    mb.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate-l)',marginTop:'16px',fontStyle:'italic'}},['Last updated: '+today]));
-  },540);
-}
+
+
 
 
 function renderAuth(){
@@ -3228,25 +3181,16 @@ function renderAuth(){
   const authFooter=el('div',{style:{textAlign:'center',marginTop:'18px',padding:'0 8px'}});
   authFooter.appendChild(el('p',{style:{fontSize:'.72rem',color:'var(--slate-l)',lineHeight:'1.7'}}, [
     'By using Huddledin you agree to our ',
-    el('span',{class:'auth-link',style:{fontSize:'.72rem'},onclick:()=>showPrivacyPolicy()},['Privacy Policy']),
+    el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline'}},['Privacy Policy']),
     ' and ',
-    el('span',{class:'auth-link',style:{fontSize:'.72rem'},onclick:()=>showTermsOfService()},['Terms of Service']),
+    el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline'}},['Terms of Service']),
     '.'
   ]));
+  authFooter.appendChild(el('div',{style:{marginTop:'8px'}}, [
+    el('a',{href:'https://www.huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'none',opacity:.8}},['Contact Us'])
+  ]));
   card.appendChild(authFooter);
-
-  // Legal links footer
-  const _legalFooter=el('div',{style:{textAlign:'center',marginTop:'20px',paddingBottom:'24px'}});
-  const _legalSep=el('span',{style:{color:'var(--slate-l)',margin:'0 8px',fontSize:'.72rem'}},[' | ']);
-  const _legalSep2=el('span',{style:{color:'var(--slate-l)',margin:'0 8px',fontSize:'.72rem'}},[' | ']);
-  const _lStyle={color:'var(--slate)',fontSize:'.72rem',fontWeight:500,textDecoration:'none',opacity:.75};
-  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Privacy Policy']));
-  _legalFooter.appendChild(_legalSep);
-  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Terms of Service']));
-  _legalFooter.appendChild(_legalSep2);
-  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Contact Us']));
   root.appendChild(card);
-  root.appendChild(_legalFooter);
   return root;
 }
 
