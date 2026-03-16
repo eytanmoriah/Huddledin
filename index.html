@@ -2602,14 +2602,16 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
   // Try Supabase
   if(session&&session.id!=='demo'){
     let row=null;
-    try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){}
+    console.log('\uD83D\uDD0D Looking up code:',code.toUpperCase());
+    try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){if(e?.code!=='PGRST116')console.error('Code lookup error:',e);}
     if(!row){
       // Also try case-insensitive search as fallback
-      try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){}
+      try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){if(e?.code!=='PGRST116')console.error('Code lookup fallback error:',e);}
     }
     if(row){
+      console.log('\u2705 Code found for child:',row.child_id);
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
-      try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){}
+      try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){console.error('Code mark-used error:',e);}
       childId=row.child_id;
       if(!session.householdId&&row.household_id&&session.role!=='specialist'){
         session.householdId=row.household_id;
@@ -2642,8 +2644,10 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
             });
           }
         }
-      }catch(e){console.log('specialist_requests insert error:',e);}
+      }catch(e){console.error('specialist_requests insert error:',e);return{error:'Connection failed. Please try again.'};}
+      console.log('\u2705 Connection approved for child:',childId);
       // Update specialist profile in specialists table (single row per specialist — profile info only)
+      // NEVER write household_id or role to profiles table — specialist profile protection
       try{
         await _supa.from('specialists').upsert({
           id:specialistId,
@@ -2656,12 +2660,13 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
           status:'pending',
           invite_token:code
         },{onConflict:'id'});
-      }catch(e){console.log('specialists upsert error:',e);}
+      }catch(e){console.error('specialists upsert error:',e);}
       let child={name:'your patient'};
       try{const r=await _supa.from('children').select('*').eq('id',childId).single();if(r.data)child=r.data;}catch(e){}
       return{ok:true,childId,child:{name:child.name,avatar:child.avatar_emoji||'🧒'}};
     }
-    return{error:'Invalid or expired code. Please check with the family for a new one.'};
+    console.log('\u274C Code not found or already used:',code.toUpperCase());
+    return{error:'Code not found. Please check and try again.'};
   }
   // Fallback: localStorage
   const codes=DB.connectionCodes||[];
@@ -11765,16 +11770,22 @@ async function _processPendingInvite(){
     } else {
       // Mark accepted
       await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
-      // Add child to specialist's accessible children
-      await _supa.from('specialists').upsert({
-        id:session.id,
-        parent_id:data.parent_id,
-        child_id:data.child_id,
-        email:session.email,
-        name:session.name,
-        role:data.specialist_role||'Specialist',
-        status:'active'
-      }).then(({error:e})=>{if(e)console.error('Specialists upsert error:',e.code);});
+      // Add to specialists table — ONLY for specialist users (NEVER for co-parents accepting this URL by mistake)
+      // NEVER write household_id or role to profiles table during specialist invite flow
+      if(session.role==='specialist'){
+        try{
+          await _supa.from('specialists').upsert({
+            id:session.id,
+            parent_id:data.parent_id,
+            child_id:data.child_id,
+            email:session.email,
+            name:session.name,
+            role:data.specialist_role||'Specialist',
+            status:'active'
+          },{onConflict:'id'});
+          console.log('\u2705 Specialist record updated for invite acceptance');
+        }catch(e){console.error('Specialists upsert error:',e);}
+      }
       // Also write an approved specialist_requests row so this specialist appears
       // in getChildTeam() for other specialists (loadChildSpecialists uses this table)
       try{
@@ -11839,10 +11850,18 @@ async function _processPendingInvite(){
     const storedChild=localStorage.getItem('pendingInviteChild');
     if(storedChild){
       S.activeChild=storedChild;
-      // Load children from Supabase to make sure we have this child
+      // Load the specific child by ID — specialists don't use SB.getChildren (parent-only function)
       if(session&&session.id!=='demo'){
-        let children=[];try{children=await SB.getChildren(session.id);}catch(e){}
-        if(children.length>0){LS.set('children',children);}
+        try{
+          const {data:_fc}=await _supa.from('children').select('*').eq('id',storedChild).single();
+          if(_fc){
+            const _kids=LS.get('children',[]);
+            if(!_kids.find(c=>c.id===_fc.id)){
+              _kids.push({id:_fc.id,name:_fc.name,dob:_fc.dob,avatar:_fc.avatar_emoji||'🌸',color:_fc.color||null,photo:_fc.photo_url||null});
+              LS.set('children',_kids);
+            }
+          }
+        }catch(e){console.error('fallback child load:',e);}
       }
       toast('🎉 Welcome to the care team!','success',5000);
       re();
