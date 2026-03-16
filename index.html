@@ -1868,6 +1868,14 @@ async function refreshFromSupabase(){
           }catch(e){console.error('refresh parent vaultNotes:',e);}
         })()
       ]);
+      // Load past specialists (removed connections) — shown in parent's Team section
+      try{
+        const _psHid=session.householdId;
+        const{data:_psRows}=await(_psHid
+          ?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('household_id',_psHid).eq('status','removed')
+          :_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('parent_id',session.id).eq('status','removed'));
+        LS.set('pastSpecialists',(_psRows||[]).map(r=>({specialistId:r.specialist_id,name:r.specialist_name||'Unknown',role:r.role||'Specialist',childId:r.child_id,connectedAt:r.requested_at})));
+      }catch(e){console.error('load past specialists:',e);}
     } else if(session.role==='specialist'){
       const specId=session.specialistId||session.id;
       // Step 1: get child IDs from specialist_requests
@@ -1936,6 +1944,16 @@ async function refreshFromSupabase(){
           .then(({data:hwt})=>{console.log('[Huddledin] specialist homework_tasks loaded:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
           .catch(e=>console.error('refresh specialist homework_tasks:',e))
       ]);
+      // Load past patients (removed connections) — read-only archive access per RLS
+      try{
+        const{data:_removedReqs}=await _supa.from('specialist_requests').select('child_id,requested_at').eq('specialist_id',specId).eq('status','removed');
+        if(_removedReqs?.length){
+          const _removedIds=[...new Set(_removedReqs.map(r=>r.child_id).filter(Boolean))];
+          const{data:_pastCh}=await _supa.from('children').select('id,name,dob').in('id',_removedIds);
+          LS.set('pastPatients',(_pastCh||[]).map(c=>({id:c.id,name:c.name,dob:c.dob})));
+          console.log('✅ Past patients loaded:',(_pastCh||[]).length,'records');
+        }else{LS.set('pastPatients',[]);}
+      }catch(e){console.error('load past patients:',e);}
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
@@ -1983,6 +2001,9 @@ function setupSpecialistSync(){
   const childIds=(LS.get('children',[])||[]).map(c=>c.id);
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // specialist_requests changes — fires when parent removes specialist (status→'removed')
+    // Triggers immediate cache refresh so removed specialist loses access without page reload
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
@@ -2294,7 +2315,8 @@ let S={
   _hwSpecTab:'active',    // specialist homework: 'active'|'archive'
   _hwParentTab:'active',  // parent homework: 'active'|'archive'
   _hwExpandedId:null,     // parent: expanded task card id
-  _hwTaskView:null        // specialist: task id for detail view
+  _hwTaskView:null,       // specialist: task id for detail view
+  pastPatientMode:false  // specialist: true when viewing a removed patient's read-only archive
 };
 
 /* -----------------------------------------------
@@ -2592,23 +2614,28 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       // Save specialist request to Supabase so parent sees it cross-device
       try{
         // Only skip if there's already a pending row — approved rows don't block new requests
-        const {data:existingReq}=await _supa.from('specialist_requests')
-          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).eq('status','pending').maybeSingle();
-        if(!existingReq){
-          // Resolve household_id — may not be on code row if parent hadn't set it yet
-          let _hhid=row.household_id||null;
-          if(!_hhid&&childId){try{const {data:_ch}=await _supa.from('children').select('household_id').eq('id',childId).single();if(_ch?.household_id)_hhid=_ch.household_id;}catch(e){}}
-          await _supa.from('specialist_requests').insert({
-            specialist_id:specialistId,
-            specialist_name:specialistName,
-            role,
-            child_id:childId,
-            parent_id:parentId,
-            household_id:_hhid,
-            status:'pending',
-            request_type:'join',
-            requested_at:new Date().toISOString()
-          });
+        // Check for an active (pending/approved) row first — skip if found
+        const {data:_activeReq}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).in('status',['pending','approved']).maybeSingle();
+        if(!_activeReq){
+          // Check for a removed row — reactivate it rather than inserting a duplicate
+          const {data:_removedReq}=await _supa.from('specialist_requests')
+            .select('id').eq('specialist_id',specialistId).eq('child_id',childId).eq('status','removed').maybeSingle();
+          if(_removedReq){
+            // Reconnection — restore existing row to pending, preserving full history
+            await _supa.from('specialist_requests').update({
+              status:'pending',specialist_name:specialistName,role,requested_at:new Date().toISOString()
+            }).eq('id',_removedReq.id);
+          } else {
+            // Fresh connection — resolve household_id then insert new row
+            let _hhid=row.household_id||null;
+            if(!_hhid&&childId){try{const {data:_ch}=await _supa.from('children').select('household_id').eq('id',childId).single();if(_ch?.household_id)_hhid=_ch.household_id;}catch(e){}}
+            await _supa.from('specialist_requests').insert({
+              specialist_id:specialistId,specialist_name:specialistName,role,
+              child_id:childId,parent_id:parentId,household_id:_hhid,
+              status:'pending',request_type:'join',requested_at:new Date().toISOString()
+            });
+          }
         }
       }catch(e){console.log('specialist_requests insert error:',e);}
       // Update specialist profile in specialists table (single row per specialist — profile info only)
@@ -2711,8 +2738,18 @@ async function approveSpecialistRequest(requestId,selectedFolders){
     SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(e=>console.error('addFolder:',e));
   }
   // Persist all manually selected folder permissions too
-  if(_supa&&req.specialistId&&selectedFolders.length)
-    await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key}).catch(e=>console.error('upsert perm:',e))));
+  if(_supa&&req.specialistId&&selectedFolders.length){
+    try{
+      await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key})));
+      selectedFolders.forEach(key=>{
+        const _f=DB.folders.find(f=>f.key===key&&f.childId===req.childId);
+        console.log('✅ Folder access granted:',(_f?.name||key),'to',req.specialistName);
+      });
+    }catch(e){
+      console.error('❌ Failed to grant folder permissions:',e);
+      toast('❌ Could not save folder permissions: '+(e.message||e),'error');
+    }
+  }
   const child=DB.children.find(c=>c.id===req.childId);
   // Notify the specialist they've been approved (not the parent themselves)
   await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
@@ -2767,7 +2804,10 @@ async function approveFolderRequest(req){
   if(ri>-1){reqs[ri].status='approved';DB.specialistRequests=reqs;}
   // Persist to Supabase
   if(_supa&&req.specialistId){
-    try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:req.requestedFolder});}catch(e){console.error('approveFolderRequest perm:',e);}
+    try{
+      await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:req.requestedFolder});
+      console.log('✅ Folder access granted:',req.requestedFolder,'to',req.specialistName);
+    }catch(e){console.error('❌ Failed to grant folder access:',e);toast('❌ Could not grant access: '+(e.message||e),'error');}
     try{await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);}catch(e){console.error('approveFolderRequest req:',e);}
   }
   const folder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===req.childId);
@@ -6319,7 +6359,7 @@ function renderTeam(){
         acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
         // Consult is specialist-initiated — no button for parents
         acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
-          `Remove ${s.name} from ${child.name}'s care team?`,true,()=>removeSpecialist(s))));
+          `Remove ${s.name}? They will lose access to ${child.name}'s data immediately.`,true,()=>removeSpecialist(s))));
         card.appendChild(acts);
       }
       sec.appendChild(card);
@@ -6341,28 +6381,91 @@ function renderTeam(){
       sec.appendChild(ac);
     });
   }
+
+  // ── Past Specialists — status='removed' connections ──────────────────────────
+  const _pastSpecs=(LS.get('pastSpecialists',[])||[]).filter(ps=>ps.childId===S.activeChild);
+  if(_pastSpecs.length&&child){
+    const _psHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
+    const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Specialists ('+_pastSpecs.length+')']);
+    const _psChev=el('span',{style:{color:'var(--slate)',fontSize:'.85rem'}},['▶']);
+    _psHdr.appendChild(_psTitle);_psHdr.appendChild(_psChev);
+    const _psList=el('div',{style:{display:'none'}});
+    let _psOpen=false;
+    _psHdr.onclick=()=>{_psOpen=!_psOpen;_psList.style.display=_psOpen?'block':'none';_psChev.textContent=_psOpen?'▼':'▶';};
+    _pastSpecs.forEach(ps=>{
+      const pc=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'13px',marginBottom:'10px',opacity:'.7',border:'1.5px dashed var(--slate-l)',background:'#f8fafc'}});
+      pc.appendChild(mkAvatar('🩺',40,'#e2e8f0'));
+      const pi=el('div',{style:{flex:1}});
+      pi.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',fontSize:'.88rem'}},[ps.name]));
+      pi.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)'}},[ps.role+(ps.connectedAt?' · Connected '+new Date(ps.connectedAt).toLocaleDateString():'')]));
+      pc.appendChild(pi);
+      pc.appendChild(badge('Past','slate'));
+      _psList.appendChild(pc);
+    });
+    sec.appendChild(_psHdr);
+    sec.appendChild(_psList);
+  }
+
   return sec;
 }
 
 async function removeSpecialist(spec){
   const child=DB.children.find(c=>c.id===S.activeChild);
-  // Create legacy archive entry
+  // Persist removal to Supabase FIRST — all or nothing before updating local cache
+  if(session&&session.id!=='demo'){
+    let _removeErr=null;
+    // Step 1: Set specialist_requests status='removed' — DO NOT delete (preserves history)
+    try{
+      const{error:e}=await _supa.from('specialist_requests')
+        .update({status:'removed'})
+        .eq('specialist_id',spec.id)
+        .eq('child_id',S.activeChild);
+      if(e)throw e;
+    }catch(e){_removeErr=e;console.error('removeSpecialist specialist_requests:',e);}
+    // Step 2: Delete folder_permissions for this specialist + this child ONLY
+    try{
+      const{error:e}=await _supa.from('folder_permissions')
+        .delete()
+        .eq('specialist_id',spec.id)
+        .eq('child_id',S.activeChild);
+      if(e)throw e;
+    }catch(e){_removeErr=_removeErr||e;console.error('removeSpecialist folder_permissions:',e);}
+    // If either critical step failed — abort entirely, do NOT partially remove
+    if(_removeErr){toast('❌ Could not remove specialist. Please try again.','error');return;}
+    // Step 3: Remove from NON-consultation chats scoped to this specific child only
+    // If the specialist treats other children, they stay in those chats
+    try{
+      const{data:_chats}=await _supa.from('chats').select('id,participants,type,name,child_id').eq('child_id',S.activeChild);
+      const _nonConsult=(_chats||[]).filter(c=>
+        c.type!=='specialist-consult'&&
+        !(c.name||'').toLowerCase().includes('consult')&&
+        (c.participants||[]).includes(spec.id)
+      );
+      if(_nonConsult.length){
+        await Promise.all(_nonConsult.map(c=>
+          _supa.from('chats').update({participants:(c.participants||[]).filter(p=>p!==spec.id)}).eq('id',c.id)
+        ));
+      }
+    }catch(e){console.error('removeSpecialist chats:',e);}
+    // Step 4: Only delete the specialists record if no approved connections remain
+    // (specialist may still treat other children in the same household)
+    try{
+      const{data:_remaining}=await _supa.from('specialist_requests')
+        .select('id').eq('specialist_id',spec.id).eq('status','approved');
+      if(!_remaining||_remaining.length===0){
+        await _supa.from('specialists').delete().eq('id',spec.id);
+      }
+    }catch(e){console.error('removeSpecialist specialists:',e);}
+    console.log('✅ Specialist removed successfully');
+  }
+  // Archive notes locally — vault_notes are retained server-side for compliance
   const archive=DB.legacyArchive;
   const specNotes=DB.vaultNotes.filter(n=>n.specialistId===spec.id&&n.childId===S.activeChild);
   archive.push({specialistId:spec.id,specialistName:spec.name,childId:S.activeChild,childName:child?.name,archivedAt:new Date().toISOString().split('T')[0],notes:specNotes});
   DB.legacyArchive=archive;
-  // Remove from local cache entirely
+  // Update local cache ONLY after Supabase confirmed success above
   DB.specialists=DB.specialists.filter(s=>s.id!==spec.id);
   re();toast('✅ '+spec.name+' removed. Their notes are in the Legacy Archive.');
-  // Sync removal to Supabase
-  if(session&&session.id!=='demo'){
-    try{await _supa.from('folder_permissions').delete().eq('specialist_id',spec.id).eq('child_id',S.activeChild);}
-    catch(e){console.error('removeSpecialist folder_permissions:',e);}
-    try{await _supa.from('specialists').delete().eq('id',spec.id);}
-    catch(e){console.error('removeSpecialist specialists:',e);}
-    try{await _supa.from('specialist_requests').delete().eq('specialist_id',spec.id);}
-    catch(e){console.error('removeSpecialist specialist_requests:',e);}
-  }
 }
 
 function showPermModal(spec){
@@ -6387,6 +6490,7 @@ function showPermModal(spec){
     mb.appendChild(rows);
     const saveBtn=mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
       saveBtn.disabled=true;saveBtn.innerHTML='Saving…';
+      const _origPerms=[...(spec.permissions[S.activeChild]||[])];
       const specs=DB.specialists,i=specs.findIndex(s=>s.id===spec.id);
       if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
       // Sync to Supabase so specialist's device picks it up
@@ -6398,6 +6502,10 @@ function showPermModal(spec){
           if(upErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+upErr.message,'error');return;}
         }
       }
+      // Log what changed for audit trail
+      const _fldMap=Object.fromEntries(childFolders.map(f=>[f.key||f.id,f.name]));
+      curPerms.filter(k=>!_origPerms.includes(k)).forEach(k=>console.log('✅ Folder access granted:',(_fldMap[k]||k),'to',spec.name));
+      _origPerms.filter(k=>!curPerms.includes(k)).forEach(k=>console.log('✅ Folder access revoked:',(_fldMap[k]||k),'from',spec.name));
       close();re();toast('✅ Permissions updated for '+spec.name+'!');
     });
     mb.appendChild(saveBtn);
@@ -6443,6 +6551,7 @@ function showInviteModal(){
         _supa.from('invites').insert({
           token,
           parent_id:session.id,
+          household_id:session.householdId||null,
           child_id:S.activeChild,
           email:ei.value,
           specialist_email:ei.value,
@@ -9331,13 +9440,41 @@ function renderPatients(){
       card.appendChild(toggle);
       // Consult is triggered from New Message in Chat, not here
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
+      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=false;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
       stack.appendChild(card);
     });
   };
   doFilter('');
   si.oninput=e=>doFilter(e.target.value);
   sec.appendChild(stack);
+
+  // ── Past Patients — removed connections, read-only archive ─────────────────
+  const _pastPts=LS.get('pastPatients',[]);
+  if(_pastPts.length){
+    const _pastHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
+    const _pastTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Patients ('+_pastPts.length+')']);
+    const _pastChev=el('span',{style:{color:'var(--slate)',fontSize:'.85rem',transition:'transform .2s'}},['▶']);
+    _pastHdr.appendChild(_pastTitle);_pastHdr.appendChild(_pastChev);
+    const _pastList=el('div',{style:{display:'none'}});
+    let _pastOpen=false;
+    _pastHdr.onclick=()=>{_pastOpen=!_pastOpen;_pastList.style.display=_pastOpen?'block':'none';_pastChev.textContent=_pastOpen?'▼':'▶';};
+    _pastPts.forEach(c=>{
+      const pc=el('div',{class:'card click',style:{display:'flex',alignItems:'center',gap:'14px',opacity:'.65',border:'1.5px dashed var(--slate-l)',marginBottom:'8px',background:'#f8fafc'}});
+      const av=el('div',{style:{width:'44px',height:'44px',borderRadius:'50%',background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']);
+      pc.appendChild(av);
+      const pi=el('div',{style:{flex:1}});
+      pi.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',fontSize:'.88rem'}},[c.name]));
+      pi.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)'}},['DOB '+(c.dob||'—')]));
+      pc.appendChild(pi);
+      pc.appendChild(badge('Past','slate'));
+      pc.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',marginLeft:'4px'}},['›']));
+      pc.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=true;S.activeTab='patient-detail';re();};
+      _pastList.appendChild(pc);
+    });
+    sec.appendChild(_pastHdr);
+    sec.appendChild(_pastList);
+  }
+
   return sec;
 }
 
@@ -9365,11 +9502,65 @@ function mkSpecBackBar(childName){
 /* -----------------------------------------------
    PATIENT DASHBOARD (Specialist → patient detail)
 ----------------------------------------------- */
+function renderPastPatientView(child,specId){
+  const sec=el('div',{class:'section'});
+  // Back button
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{S.pastPatientMode=false;S.activeChild=null;S.activeTab='patients';re();});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+  // Read-only banner
+  const banner=el('div',{style:{background:'#fef3c7',border:'1.5px solid #fbbf24',borderRadius:'14px',padding:'14px 16px',marginBottom:'20px',display:'flex',alignItems:'flex-start',gap:'10px'}});
+  banner.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},['🔒']));
+  const bInfo=el('div',{style:{flex:1}});
+  bInfo.appendChild(el('div',{style:{fontWeight:800,color:'#92400e',fontSize:'.9rem',marginBottom:'4px'}},['Patient relationship ended']));
+  bInfo.appendChild(el('div',{style:{fontSize:'.82rem',color:'#92400e',lineHeight:'1.6'}},['This patient relationship has ended. You can view your records only.']));
+  banner.appendChild(bInfo);
+  sec.appendChild(banner);
+  // Patient header — name and DOB only (limited data available for past patients)
+  const hdrCard=el('div',{class:'card',style:{background:'linear-gradient(135deg,#f1f5f9,#f8fafc)',border:'1.5px solid #e2e8f0',display:'flex',alignItems:'center',gap:'16px',marginBottom:'24px',opacity:'.85'}});
+  const av=el('div',{style:{width:'52px',height:'52px',borderRadius:'50%',background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem',flexShrink:0}},['👤']);
+  hdrCard.appendChild(av);
+  const hInfo=el('div',{style:{flex:1}});
+  hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1rem'}},[child.name]));
+  hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},['DOB '+(child.dob||'—')]));
+  hdrCard.appendChild(hInfo);
+  sec.appendChild(hdrCard);
+  // Own vault notes — read-only
+  const myNotes=(DB.vaultNotes||[]).filter(n=>n.childId===child.id&&n.specialistId===specId);
+  const notesHdr=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem',marginBottom:'10px'}},['📋 My Clinical Notes']);
+  sec.appendChild(notesHdr);
+  if(!myNotes.length){
+    sec.appendChild(el('div',{class:'empty-inline'},['No notes recorded for this patient.']));
+  }else{
+    myNotes.forEach(n=>{
+      const nc=el('div',{class:'card',style:{marginBottom:'10px',background:'#fafbfc',border:'1.5px solid #e2e8f0'}});
+      nc.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem',marginBottom:'5px'}},[n.title||n.date||'Note']));
+      if(n.summary)nc.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.5'}},[n.summary]));
+      sec.appendChild(nc);
+    });
+  }
+  // Own tasks — read-only
+  const myTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===child.id&&t.specialistId===specId&&t.status!=='deleted');
+  if(myTasks.length){
+    sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem',margin:'20px 0 10px'}},['📋 My Tasks']));
+    myTasks.forEach(t=>{
+      const tc=el('div',{class:'card',style:{marginBottom:'8px',background:'#fafbfc',border:'1.5px solid #e2e8f0'}});
+      tc.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[t.title]));
+      if(t.description)tc.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'4px',lineHeight:'1.5'}},[t.description]));
+      sec.appendChild(tc);
+    });
+  }
+  return sec;
+}
+
 function renderPatientDashboard(){
   const specId=session?.specialistId;
   const child=DB.children.find(c=>c.id===S.activeChild)
-    ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+    ||(LS.get('children',[])).find(c=>c.id===S.activeChild)
+    ||(S.pastPatientMode?LS.get('pastPatients',[]).find(c=>c.id===S.activeChild):null);
   if(!child){S.activeTab='patients';re();return el('div');}
+  // Read-only mode for past (removed) patients
+  if(S.pastPatientMode){return renderPastPatientView(child,specId);}
 
   const patientApts=DB.appointments.filter(a=>
     a.childId===child.id&&(a.specialistId===specId||a.sharedWith?.includes(specId))
@@ -11582,12 +11773,13 @@ async function _processPendingInvite(){
       // Also write an approved specialist_requests row so this specialist appears
       // in getChildTeam() for other specialists (loadChildSpecialists uses this table)
       try{
-        const {data:existsReq}=await _supa.from('specialist_requests')
-          .select('id').eq('specialist_id',session.id).eq('child_id',data.child_id).maybeSingle();
-        if(!existsReq){
+        const {data:_invReq}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).maybeSingle();
+        if(!_invReq){
+          // Fresh connection — insert new approved row
           await _supa.from('specialist_requests').insert({
             specialist_id:session.id,
-            specialist_name:session.name||session.email,
+            specialist_name:session.displayName||session.name||session.email,
             role:data.specialist_role||'Specialist',
             child_id:data.child_id,
             parent_id:data.parent_id,
@@ -11596,6 +11788,29 @@ async function _processPendingInvite(){
             request_type:'join',
             requested_at:new Date().toISOString()
           });
+        } else if(_invReq.status==='removed'){
+          // Reconnection via invite — reactivate existing row instead of inserting duplicate
+          await _supa.from('specialist_requests').update({
+            status:'approved',
+            specialist_name:session.displayName||session.name||session.email,
+            role:data.specialist_role||'Specialist',
+            requested_at:new Date().toISOString()
+          }).eq('id',_invReq.id);
+          // Restore specialist to non-consultation chat participants for this child
+          try{
+            const{data:_rChats}=await _supa.from('chats').select('id,participants,type,name').eq('child_id',data.child_id);
+            const _rToAdd=(_rChats||[]).filter(c=>
+              c.type!=='specialist-consult'&&
+              !(c.name||'').toLowerCase().includes('consult')&&
+              !(c.participants||[]).includes(session.id)
+            );
+            if(_rToAdd.length){
+              await Promise.all(_rToAdd.map(c=>
+                _supa.from('chats').update({participants:[...(c.participants||[]),session.id]}).eq('id',c.id)
+              ));
+            }
+            console.log('\u2705 Specialist reconnected via invite, chat access restored');
+          }catch(e){console.error('reconnect chat restore:',e);}
         }
       }catch(e){console.error('invite specialist_requests insert:',e);}
       // Load the child into local state
