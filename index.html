@@ -2228,6 +2228,7 @@ async function doLogout(){
   S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
   session=null;
+  _seenTimestamps={};
   Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
   ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
 }
@@ -11630,6 +11631,4 @@ async function _processPendingInvite(){
         .catch(err=>console.log('SW registration failed:', err));
     });
   }
-</script>
-</body>
-</html>
+</sc
