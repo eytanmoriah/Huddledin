@@ -1681,11 +1681,13 @@ const SB = {
       householdId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId):Promise.resolve({data:[]})
     ]);
     const _all=[...(_qP.data||[]),...(_qH.data||[])];
-    // Deduplicate by specialist_id+child_id pair
+    // Deduplicate by specialist_id+child_id pair — keep one entry PER SPECIALIST PER CHILD
+    // DO NOT deduplicate by specialist_id alone: a specialist may treat multiple children,
+    // and renderTeam filters by s.childId===child.id so each child needs its own entry
     const reqs=_all.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
-    const _seen=new Set();const specs=[];
     // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
-    for(const r of reqs){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
+    // Set both childId and child_id so filter works regardless of which field is checked
+    const specs=reqs.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -1693,9 +1695,9 @@ const SB = {
     // Query specialist_requests by household_id — co-parents see identical specialist list
     const {data:reqs}=await _supa.from('specialist_requests')
       .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId);
-    const _seen=new Set();const specs=[];
-    // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
-    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
+    // Keep one entry per specialist per child — same fix as getSpecialists
+    const _deduped=(reqs||[]).filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
+    const specs=_deduped.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -2043,6 +2045,8 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    // Fires when specialist accepts an invite — refreshes team list so "Invited" card becomes "Connected"
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
@@ -6296,10 +6300,13 @@ function renderTeam(){
         const _parentId=session.id;
         const _hhId=session.householdId;
         console.log('[renderTeam] querying with householdId:',_hhId,'parentId:',_parentId);
-        // Two-query merge: parent_id + household_id to avoid .or() type-casting issues
-        const [_r1,_r2]=await Promise.all([
+        // Four-query fetch: approved/pending by parent_id, approved/pending by household_id,
+        // removed by household_id (for Past Specialists), and pending invites not yet accepted
+        const [_r1,_r2,_r3,_invRes]=await Promise.all([
           _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',_parentId),
-          _hhId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',_hhId):Promise.resolve({data:[]})
+          _hhId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',_hhId):Promise.resolve({data:[]}),
+          _hhId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').eq('status','removed').eq('household_id',_hhId):Promise.resolve({data:[]}),
+          _supa.from('invites').select('id,email,specialist_name,specialist_role,child_id,accepted,accepted_by,expires_at,token').eq('accepted',false).eq('parent_id',_parentId).gt('expires_at',new Date().toISOString())
         ]);
         const _allRows=[...(_r1.data||[]),...(_r2.data||[])];
         const _seenKeys=new Set();
@@ -6315,7 +6322,7 @@ function renderTeam(){
         const prevReqs=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
         console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows',mapped);
-        // Update DB.specialists from approved rows so the active team list at line ~6471 renders correctly
+        // Update DB.specialists from approved rows so the active team list renders correctly
         const _approvedRows=_rows.filter(r=>r.status==='approved');
         const prevSpecs=JSON.stringify(DB.specialists);
         if(_approvedRows.length){
@@ -6323,13 +6330,24 @@ function renderTeam(){
           const _newSpecs=_approvedRows
             .filter(r=>{if(_specSeen.has(r.specialist_id))return false;_specSeen.add(r.specialist_id);return true;})
             .map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
-          // Merge: new approved specialists take precedence, keep any others not in this list
           const _newIds=new Set(_newSpecs.map(s=>s.id));
           DB.specialists=[..._newSpecs,...(DB.specialists||[]).filter(s=>!_newIds.has(s.id))];
           console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists');
         }
-        if(JSON.stringify(DB.specialistRequests)!==prevReqs||JSON.stringify(DB.specialists)!==prevSpecs)re();
-      }catch(e){console.error('[renderTeam] specialist_requests fetch error:',e);}
+        // Store removed specialists for Past Specialists section
+        const prevRemoved=JSON.stringify(DB.removedSpecialists);
+        DB.removedSpecialists=(_r3.data||[]);
+        // Store pending invites so team list shows "Invited" cards immediately
+        const prevInvites=JSON.stringify(DB.pendingInvites);
+        DB.pendingInvites=(_invRes.data||[]);
+        console.log('[renderTeam] pending invites:',DB.pendingInvites.length,DB.pendingInvites);
+        if(
+          JSON.stringify(DB.specialistRequests)!==prevReqs||
+          JSON.stringify(DB.specialists)!==prevSpecs||
+          JSON.stringify(DB.removedSpecialists)!==prevRemoved||
+          JSON.stringify(DB.pendingInvites)!==prevInvites
+        )re();
+      }catch(e){console.error('[renderTeam] fetch error:',e);}
     })();
   }
   if(child){
@@ -6494,7 +6512,8 @@ function renderTeam(){
     : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
 
   const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
-  if(!specialists.length&&!pendingReqsForChild.length){
+  const _childInvites=child?(DB.pendingInvites||[]).filter(inv=>inv.child_id===child.id):[];
+  if(!specialists.length&&!pendingReqsForChild.length&&!_childInvites.length){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['👥']),
       el('div',{class:'empty-state-title'},['No specialists yet']),
@@ -6536,6 +6555,38 @@ function renderTeam(){
       }
       sec.appendChild(card);
     });
+    // ── Invited specialists — invite sent, not yet accepted ────────────────────
+    _childInvites.forEach(inv=>{
+      const icard=el('div',{class:'card ghost-card',style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
+      const ipb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+      ipb.appendChild(badge('📧 Invited','amber'));
+      icard.appendChild(ipb);
+      icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
+      const iinfo=d('',[],{flex:1});
+      iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.specialist_name||inv.email]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')+(inv.email?' · '+inv.email:'')]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Waiting for response…']));
+      icard.appendChild(iinfo);
+      if(child){
+        const iacts=d('',[],{display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
+        iacts.appendChild(mkBtn('Cancel Invite','btn-sm btn-danger',()=>openConfirm('Cancel Invite',
+          `Cancel invite to ${inv.specialist_name||inv.email}? They won\'t be able to join ${child.name}\'s team with this link.`,
+          true,
+          async()=>{
+            if(session&&session.id!=='demo'){
+              try{
+                const{error}=await _supa.from('invites').delete().eq('id',inv.id);
+                if(error)throw error;
+              }catch(e){console.error('cancel invite:',e);toast('❌ Could not cancel invite.','error');return;}
+            }
+            DB.pendingInvites=(DB.pendingInvites||[]).filter(i=>i.id!==inv.id);
+            re();toast('✅ Invite cancelled.');
+          }
+        )));
+        icard.appendChild(iacts);
+      }
+      sec.appendChild(icard);
+    });
   }
 
   // Legacy Archive
@@ -6555,16 +6606,23 @@ function renderTeam(){
   }
 
   // ── Past Specialists — status='removed' connections ──────────────────────────
-  const _pastSpecs=(LS.get('pastSpecialists',[])||[]).filter(ps=>ps.childId===S.activeChild);
-  if(_pastSpecs.length&&child){
+  // Merge DB.removedSpecialists (from live fetch) with legacy pastSpecialists from LS
+  const _removedFromDB=(DB.removedSpecialists||[]).filter(r=>r.child_id===S.activeChild);
+  const _removedIds=new Set(_removedFromDB.map(r=>r.specialist_id));
+  const _legacyPast=(LS.get('pastSpecialists',[])||[]).filter(ps=>ps.childId===S.activeChild&&!_removedIds.has(ps.id));
+  const _allPastSpecs=[
+    ..._removedFromDB.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,childId:r.child_id})),
+    ..._legacyPast
+  ];
+  if(_allPastSpecs.length&&child){
     const _psHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
-    const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Specialists ('+_pastSpecs.length+')']);
+    const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Specialists ('+_allPastSpecs.length+')']);
     const _psChev=el('span',{style:{color:'var(--slate)',fontSize:'.85rem'}},['▶']);
     _psHdr.appendChild(_psTitle);_psHdr.appendChild(_psChev);
     const _psList=el('div',{style:{display:'none'}});
     let _psOpen=false;
     _psHdr.onclick=()=>{_psOpen=!_psOpen;_psList.style.display=_psOpen?'block':'none';_psChev.textContent=_psOpen?'▼':'▶';};
-    _pastSpecs.forEach(ps=>{
+    _allPastSpecs.forEach(ps=>{
       const pc=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'13px',marginBottom:'10px',opacity:'.7',border:'1.5px dashed var(--slate-l)',background:'#f8fafc'}});
       pc.appendChild(mkAvatar('🩺',40,'#e2e8f0'));
       const pi=el('div',{style:{flex:1}});
