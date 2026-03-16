@@ -6259,6 +6259,92 @@ function showAccessRequest(folder){
 /* -----------------------------------------------
    CARE TEAM
 ----------------------------------------------- */
+// Pure function — builds the active team list DOM from current DB.* caches.
+// Called both on initial render and when async fetch patches the container directly.
+function buildTeamList(child){
+  const frag=el('div');
+  const specialists=session?.role==='specialist'
+    ? getChildTeam(child?.id)
+    : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
+  const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
+  const _childInvites=child?(DB.pendingInvites||[]).filter(inv=>inv.child_id===child.id):[];
+  if(!specialists.length&&!pendingReqsForChild.length&&!_childInvites.length){
+    frag.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['👥']),
+      el('div',{class:'empty-state-title'},['No specialists yet']),
+      el('div',{class:'empty-state-body'},['Invite a therapist using a Connection Code or email invite. They\'ll join '+(child?.name||'this profile')+'\'s care team.']),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('📧 Email Invite','btn-md btn-primary',()=>showInviteModal()),
+        mkBtn('🔗 Generate Code','btn-md btn-secondary',()=>{if(child)showConnectionCodeModal(child.id);}),
+      ])
+    ]));
+  } else {
+    specialists.forEach(s=>{
+      const isPending=s.status==='pending';
+      const perms=child?(s.permissions[child.id]||[]):[];
+      const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
+      if(isPending){
+        const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+        pb.appendChild(badge('⏳ Pending','amber'));card.appendChild(pb);
+      }
+      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
+      const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
+      const childFoldersForSpec=DB.folders.filter(f=>f.childId===child?.id);
+      perms.forEach(key=>{
+        const f=childFoldersForSpec.find(f=>f.key===key);
+        if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
+      });
+      if(!pr.children.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+      info.appendChild(pr);
+      card.appendChild(info);
+      if(!isPending&&child){
+        const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
+        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
+        acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
+          `Remove ${s.name}? They will lose access to ${child.name}'s data immediately.`,true,()=>removeSpecialist(s))));
+        card.appendChild(acts);
+      }
+      frag.appendChild(card);
+    });
+    // ── Invited specialists — invite sent, not yet accepted ────────────────────
+    _childInvites.forEach(inv=>{
+      const icard=el('div',{class:'card ghost-card',style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
+      const ipb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+      ipb.appendChild(badge('📧 Invited','amber'));
+      icard.appendChild(ipb);
+      icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
+      const iinfo=d('',[],{flex:1});
+      iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.specialist_name||inv.email]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')+(inv.email?' · '+inv.email:'')]));
+      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Waiting for response…']));
+      icard.appendChild(iinfo);
+      if(child){
+        const iacts=d('',[],{display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
+        iacts.appendChild(mkBtn('Cancel Invite','btn-sm btn-danger',()=>openConfirm('Cancel Invite',
+          `Cancel invite to ${inv.specialist_name||inv.email}? They won\'t be able to join ${child.name}\'s team with this link.`,
+          true,
+          async()=>{
+            if(session&&session.id!=='demo'){
+              try{
+                const{error}=await _supa.from('invites').delete().eq('id',inv.id);
+                if(error)throw error;
+              }catch(e){console.error('cancel invite:',e);toast('❌ Could not cancel invite.','error');return;}
+            }
+            DB.pendingInvites=(DB.pendingInvites||[]).filter(i=>i.id!==inv.id);
+            re();toast('✅ Invite cancelled.');
+          }
+        )));
+        icard.appendChild(iacts);
+      }
+      frag.appendChild(icard);
+    });
+  }
+  return frag;
+}
+
 function renderTeam(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
@@ -6341,12 +6427,14 @@ function renderTeam(){
         const prevInvites=JSON.stringify(DB.pendingInvites);
         DB.pendingInvites=(_invRes.data||[]);
         console.log('[renderTeam] pending invites:',DB.pendingInvites.length,DB.pendingInvites);
-        if(
-          JSON.stringify(DB.specialistRequests)!==prevReqs||
-          JSON.stringify(DB.specialists)!==prevSpecs||
-          JSON.stringify(DB.removedSpecialists)!==prevRemoved||
-          JSON.stringify(DB.pendingInvites)!==prevInvites
-        )re();
+        // Patch team list DOM directly — never call re() here.
+        // re() would re-render renderTeam → fire another async fetch → infinite loop.
+        const _tc=document.getElementById('team-list-container');
+        if(_tc){
+          _tc.innerHTML='';
+          _tc.appendChild(buildTeamList(child));
+          console.log('[renderTeam] patched team list directly, no re()');
+        }
       }catch(e){console.error('[renderTeam] fetch error:',e);}
     })();
   }
@@ -6506,88 +6594,10 @@ function renderTeam(){
     }
   }
 
-  // Existing team members — use getChildTeam() which works for both parent and specialist
-  const specialists=session?.role==='specialist'
-    ? getChildTeam(child?.id)
-    : DB.specialists.filter(s=>child?(s.permissions[child.id]?.length>0||s.status==='pending'||s.childId===child.id||s.child_id===child.id):true);
-
-  const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
-  const _childInvites=child?(DB.pendingInvites||[]).filter(inv=>inv.child_id===child.id):[];
-  if(!specialists.length&&!pendingReqsForChild.length&&!_childInvites.length){
-    sec.appendChild(el('div',{class:'empty-state'},[
-      el('span',{class:'empty-state-icon'},['👥']),
-      el('div',{class:'empty-state-title'},['No specialists yet']),
-      el('div',{class:'empty-state-body'},['Invite a therapist using a Connection Code or email invite. They\'ll join '+(child?.name||'this profile')+'\'s care team.']),
-      el('div',{class:'empty-state-actions'},[
-        mkBtn('📧 Email Invite','btn-md btn-primary',()=>showInviteModal()),
-        mkBtn('🔗 Generate Code','btn-md btn-secondary',()=>{if(child)showConnectionCodeModal(child.id);}),
-      ])
-    ]));
-  } else {
-    specialists.forEach(s=>{
-      const isPending=s.status==='pending';
-      const perms=child?(s.permissions[child.id]||[]):[];
-      const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
-      if(isPending){
-        const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
-        pb.appendChild(badge('⏳ Pending','amber'));card.appendChild(pb);
-      }
-      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
-      const info=d('',[], {flex:1});
-      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'7px'}},[s.role+(s.email?' · '+s.email:'')]));
-      const pr=d('',[], {display:'flex',gap:'6px',flexWrap:'wrap'});
-      const childFoldersForSpec=DB.folders.filter(f=>f.childId===child?.id);
-      perms.forEach(key=>{
-        const f=childFoldersForSpec.find(f=>f.key===key);
-        if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
-      });
-      if(!pr.children.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
-      info.appendChild(pr);
-      card.appendChild(info);
-      if(!isPending&&child){
-        const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
-        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
-        // Consult is specialist-initiated — no button for parents
-        acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
-          `Remove ${s.name}? They will lose access to ${child.name}'s data immediately.`,true,()=>removeSpecialist(s))));
-        card.appendChild(acts);
-      }
-      sec.appendChild(card);
-    });
-    // ── Invited specialists — invite sent, not yet accepted ────────────────────
-    _childInvites.forEach(inv=>{
-      const icard=el('div',{class:'card ghost-card',style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
-      const ipb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
-      ipb.appendChild(badge('📧 Invited','amber'));
-      icard.appendChild(ipb);
-      icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
-      const iinfo=d('',[],{flex:1});
-      iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.specialist_name||inv.email]));
-      iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')+(inv.email?' · '+inv.email:'')]));
-      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Waiting for response…']));
-      icard.appendChild(iinfo);
-      if(child){
-        const iacts=d('',[],{display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
-        iacts.appendChild(mkBtn('Cancel Invite','btn-sm btn-danger',()=>openConfirm('Cancel Invite',
-          `Cancel invite to ${inv.specialist_name||inv.email}? They won\'t be able to join ${child.name}\'s team with this link.`,
-          true,
-          async()=>{
-            if(session&&session.id!=='demo'){
-              try{
-                const{error}=await _supa.from('invites').delete().eq('id',inv.id);
-                if(error)throw error;
-              }catch(e){console.error('cancel invite:',e);toast('❌ Could not cancel invite.','error');return;}
-            }
-            DB.pendingInvites=(DB.pendingInvites||[]).filter(i=>i.id!==inv.id);
-            re();toast('✅ Invite cancelled.');
-          }
-        )));
-        icard.appendChild(iacts);
-      }
-      sec.appendChild(icard);
-    });
-  }
+  // Active team members — stable container, patched by async fetch without re()
+  const _teamContainer=el('div',{id:'team-list-container'});
+  _teamContainer.appendChild(buildTeamList(child));
+  sec.appendChild(_teamContainer);
 
   // Legacy Archive
   const archive=DB.legacyArchive;
