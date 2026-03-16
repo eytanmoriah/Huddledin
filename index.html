@@ -1589,8 +1589,9 @@ async function loadChildSpecialists(childId){
     const specs=reqs.map(r=>{
       const prof=(profiles||[]).find(p=>p.id===r.specialist_id);
       const name=prof?.display_name||r.specialist_name||'Specialist';
+      // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
       return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
-        avatar:'🩺',status:r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
+        avatar:'🩺',status:r.status==='approved'?'active':r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
     });
     // Also pick up any specialists in the specialists table for this child
     // who may have joined via email invite (no specialist_requests row)
@@ -1678,7 +1679,8 @@ const SB = {
     const {data:reqs}=await _supa.from('specialist_requests')
       .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('parent_id',parentId);
     const _seen=new Set();const specs=[];
-    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
+    // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
+    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -1687,7 +1689,8 @@ const SB = {
     const {data:reqs}=await _supa.from('specialist_requests')
       .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId);
     const _seen=new Set();const specs=[];
-    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
+    // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
+    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -1918,9 +1921,6 @@ async function refreshFromSupabase(){
         ]);
         const children=childrenRes.data||[];
         if(children.length>0){
-          // Track previously-removed children so we only show the popup for newly-removed ones
-          const _prevChildren=LS.get('children',[]);
-          const _prevRemovedIds=new Set(_prevChildren.filter(c=>c.connectionStatus==='removed').map(c=>c.id));
           const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved'})));
           LS.set('children',mapped);
           // Active child must be an approved patient — don't auto-navigate into pending/removed
@@ -1941,8 +1941,9 @@ async function refreshFromSupabase(){
             });
           }
           setupSpecialistSync();
-          // Show popup for any newly-removed connections (fires after re() paints the screen)
-          const _newlyRemoved=mapped.filter(c=>c.connectionStatus==='removed'&&!_prevRemovedIds.has(c.id));
+          // Show popup only for newly-removed connections where popup hasn't been shown yet.
+          // Uses localStorage key as the gate — survives logout/login, cleared on reconnection.
+          const _newlyRemoved=mapped.filter(c=>c.connectionStatus==='removed'&&!localStorage.getItem('hd9_rm_popup_'+c.id));
           if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
         }
       } else {
@@ -11927,6 +11928,10 @@ initData();
 // Show once-per-session popup when a specialist's connection is removed by the parent.
 // Gives specialist the choice to move the patient to their inactive/past patients section.
 function _showRemovedConnectionPopup(child){
+  // Guard: only show for genuinely removed connections
+  if(child.connectionStatus!=='removed')return;
+  // Guard: skip if specialist is mid-invite-acceptance (will reconnect momentarily)
+  if(localStorage.getItem('pendingInviteToken'))return;
   const _key='hd9_rm_popup_'+child.id;
   if(localStorage.getItem(_key))return; // already shown — persists across sessions until reconnected
   localStorage.setItem(_key,'1');
