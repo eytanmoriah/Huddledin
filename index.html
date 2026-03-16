@@ -1675,14 +1675,17 @@ const SB = {
     await _supa.from('children').delete().eq('id',id);
   },
   async getSpecialists(parentId,householdId){
-    // Query using OR across parent_id and household_id — catches invite rows created via either path
-    // (older rows may only have parent_id; household-invite rows may only have household_id)
-    let _q=_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']);
-    _q=householdId?_q.or('parent_id.eq.'+parentId+',household_id.eq.'+householdId):_q.eq('parent_id',parentId);
-    const {data:reqs}=await _q;
+    // Two separate queries to avoid .or() type-casting issues with UUID columns
+    const [_qP,_qH]=await Promise.all([
+      _supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('parent_id',parentId),
+      householdId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId):Promise.resolve({data:[]})
+    ]);
+    const _all=[...(_qP.data||[]),...(_qH.data||[])];
+    // Deduplicate by specialist_id+child_id pair
+    const reqs=_all.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
     const _seen=new Set();const specs=[];
     // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
-    for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
+    for(const r of reqs){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -6294,13 +6297,12 @@ function renderTeam(){
         console.log('[renderTeam] querying with householdId:',session.householdId,'parentId:',session.id,'childIds:',_childIds);
         let _allReqs=[];
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        // Parallel: all 3 request sources simultaneously; r4 full-table fallback removed
-        const [_tR1,_tR2,_tR3]=await Promise.all([
-          session.householdId?_supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',session.householdId):Promise.resolve({data:[]}),
-          _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id),
-          _childIds.length?_supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+        // Two-query merge: parent_id + household_id, covering approved and pending
+        const [_tR1,_tR2]=await Promise.all([
+          _supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('parent_id',session.id),
+          session.householdId?_supa.from('specialist_requests').select('*').in('status',['approved','pending']).eq('household_id',session.householdId):Promise.resolve({data:[]})
         ]);
-        _dedup(_tR1.data);_dedup(_tR2.data);_dedup(_tR3.data);
+        _dedup(_tR1.data);_dedup(_tR2.data);
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prev=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
@@ -7188,6 +7190,9 @@ function renderChat(){
   const specId=session?.specialistId;
   const myId=session?.id||'';
   const isMobile=window.innerWidth<768;
+  // Lock banner for removed specialist
+  const _chatChild=role==='specialist'?(DB.children.find(c=>c.id===S.activeChatChildId||c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChatChildId||c.id===S.activeChild)):null;
+  const _chatLocked=role==='specialist'&&(_chatChild?.connectionStatus||'approved')==='removed';
 
   // Filter visible chats
   let visChats=allChats.filter(c=>{
@@ -7217,6 +7222,17 @@ function renderChat(){
   const _chatBkChild=DB.children.find(c=>c.id===S.activeChatChildId);
   const _chatBkBar=mkSpecBackBar(_chatBkChild?.name);
   if(_chatBkBar){_chatBkBar.style.paddingLeft='16px';_chatBkBar.style.paddingRight='16px';_chatBkBar.style.paddingTop='12px';sec.appendChild(_chatBkBar);}
+
+  if(_chatLocked&&!S.activeChatId){
+    const sec=el('div',{class:'section'});
+    const _cBar=mkSpecBackBar(_chatChild?.name);if(_cBar)sec.appendChild(_cBar);
+    const _chatLockBanner=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'16px',marginBottom:'16px',textAlign:'center',color:'#475569'}});
+    _chatLockBanner.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['🔒']));
+    _chatLockBanner.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',marginBottom:'4px'}},['Not connected — messaging unavailable']));
+    _chatLockBanner.appendChild(el('div',{style:{fontSize:'.8rem'}},['You can view past conversation history below.']));
+    sec.appendChild(_chatLockBanner);
+    return sec;
+  }
 
   // -- MOBILE: full-screen thread view --
   if(isMobile&&S.activeChatId){
@@ -7810,6 +7826,7 @@ function renderVault(){
     el('h2',{class:'page-title'},['Clinical Notes']),
     el('p',{class:'page-sub'},['🔒 Private notes — publish summaries to share with parents · '+child?.avatar+' '+child?.name])
   ]));
+  const _vaultRemoved=(child?.connectionStatus||'approved')==='removed';
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn('✏️ New Note','btn-md btn-primary',async()=>{
       const today=new Date().toISOString().split('T')[0];
@@ -7822,6 +7839,7 @@ function renderVault(){
     })
   ]));
   sec.appendChild(hd);
+  if(_vaultRemoved){const _vLock=el('div',{style:{background:'#fef3c7',border:'1.5px solid #f59e0b',borderRadius:'var(--r-lg)',padding:'10px 14px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px',color:'#92400e'}});_vLock.appendChild(el('span',{style:{fontSize:'1rem'}},['🔌']));_vLock.appendChild(el('div',{style:{fontSize:'.8rem',fontWeight:600}},['Not connected — notes are yours only · publishing disabled']));sec.appendChild(_vLock);}
 
   if(!myNotes.length){
     sec.appendChild(el('div',{class:'empty-state'},[
@@ -9461,8 +9479,10 @@ function renderHomeworkSpec(){
     el('h2',{class:'page-title'},['Homework & Tasks']),
     el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s tasks"])
   ]));
-  hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Add Task','btn-md btn-primary',()=>showAddHomeworkTaskModal(null))]));
+  const _hwRemoved=(child?.connectionStatus||'approved')==='removed';
+  if(!_hwRemoved)hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('➕ Add Task','btn-md btn-primary',()=>showAddHomeworkTaskModal(null))]));
   sec.appendChild(hd);
+  if(_hwRemoved){const _hwLock=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px',color:'#475569'}});_hwLock.appendChild(el('span',{style:{fontSize:'1.1rem'}},['🔒']));_hwLock.appendChild(el('div',{style:{fontSize:'.83rem',fontWeight:600}},['Not connected — cannot add new tasks']));sec.appendChild(_hwLock);}
   // Tabs
   const tab=S._hwSpecTab||'active';
   const activeTasks=allTasks.filter(t=>t.status==='active');
@@ -9557,6 +9577,7 @@ function renderPatients(){
       stack.appendChild(el('div',{class:'empty-inline'},[msg]));
       return;
     }
+    const _rmInactSet=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
     filtered.forEach(c=>{
       const isInactive=(c.status||'active')==='inactive';
       const connStatus=c.connectionStatus||'approved';
@@ -9565,8 +9586,8 @@ function renderPatients(){
       const card=el('div',{class:'card click',style:{
         display:'flex',alignItems:'center',gap:'15px',
         border:S.activeChild===c.id?'2.5px solid var(--teal)':isPending?'2px solid #f59e0b':isRemoved?'2px dashed var(--slate-l)':'2px solid var(--mint-l)',
-        filter:isInactive||isRemoved?'grayscale(.5)':'none',
-        opacity:isInactive||isRemoved?'0.75':'1',
+        filter:isInactive?'grayscale(.5)':'none',
+        opacity:isInactive?'0.75':'1',
         background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
       }});
       card.appendChild(mkChildAvatar(c,52,'15px'));
@@ -9584,19 +9605,26 @@ function renderPatients(){
       }
       card.appendChild(info);
       if(isRemoved){
-        // Removed: show "Move to Inactive" button instead of toggle
-        const moveBtn=mkBtn('Move to Inactive','btn-sm btn-ghost',e=>{
+        // Removed: Active/Inactive toggle — ON = visible in main list, OFF = moved to past patients
+        const _isMovedInact=_rmInactSet.has(c.id);
+        const toggle=el('div',{class:'toggle'+(_isMovedInact?'':' on'),style:{flexShrink:0},title:_isMovedInact?'Move back to active':'Move to inactive'});
+        toggle.onclick=e=>{
           e.stopPropagation();
-          const pastPts=LS.get('pastPatients',[]);
-          if(!pastPts.find(p=>p.id===c.id))pastPts.push({id:c.id,name:c.name,dob:c.dob});
-          LS.set('pastPatients',pastPts);
-          const lsc=LS.get('children',[]);
-          LS.set('children',lsc.filter(ch=>ch.id!==c.id));
-          if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
+          if(_isMovedInact){
+            // Restore to active list
+            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+            LS.set('pastPatients',(LS.get('pastPatients',[])||[]).filter(p=>p.id!==c.id));
+          }else{
+            // Move to inactive
+            const pastPts=LS.get('pastPatients',[]);
+            if(!pastPts.find(p=>p.id===c.id))pastPts.push({id:c.id,name:c.name,dob:c.dob});
+            LS.set('pastPatients',pastPts);
+            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+            if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
+          }
           re();
-        });
-        moveBtn.style.cssText='flex-shrink:0;font-size:.7rem;padding:4px 8px';
-        card.appendChild(moveBtn);
+        };
+        card.appendChild(toggle);
       } else if(!isPending){
         // Active/inactive toggle — only for approved connections
         const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
@@ -9749,8 +9777,10 @@ function renderPatientDashboard(){
     ||(LS.get('children',[])).find(c=>c.id===S.activeChild)
     ||(S.pastPatientMode?LS.get('pastPatients',[]).find(c=>c.id===S.activeChild):null);
   if(!child){S.activeTab='patients';re();return el('div');}
-  // Read-only mode for past (removed) patients
-  if(S.pastPatientMode){return renderPastPatientView(child,specId);}
+  // pastPatientMode only applies to truly inactive patients — removed (not connected) get full view
+  const _dashConnStatus=child.connectionStatus||'approved';
+  const _dashIsRemoved=_dashConnStatus==='removed';
+  if(S.pastPatientMode&&!_dashIsRemoved){return renderPastPatientView(child,specId);}
 
   const patientApts=DB.appointments.filter(a=>
     a.childId===child.id&&(a.specialistId===specId||a.sharedWith?.includes(specId))
@@ -9775,31 +9805,53 @@ function renderPatientDashboard(){
   hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
   hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
     ['Age '+(calcAge(child.dob)||'—')+' · DOB '+(child.dob||'—')]));
+  if(_dashIsRemoved)hInfo.appendChild(el('div',{style:{display:'inline-flex',alignItems:'center',gap:'5px',background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700,marginTop:'4px'}},['Not connected']));
   hdrCard.appendChild(hInfo);
   sec.appendChild(hdrCard);
 
-  // 2×2 action grid
-  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  // Not connected banner
+  if(_dashIsRemoved){
+    const ncBanner=el('div',{style:{background:'#fef3c7',border:'1.5px solid #f59e0b',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}});
+    ncBanner.appendChild(el('span',{style:{fontSize:'1.2rem',flexShrink:0}},['🔌']));
+    const ncTxt=el('div');
+    ncTxt.appendChild(el('div',{style:{fontWeight:800,color:'#92400e',fontSize:'.88rem',marginBottom:'2px'}},['Not connected — view history and add your own notes and files']));
+    ncBanner.appendChild(ncTxt);
+    sec.appendChild(ncBanner);
+  }
+
+  // Action grid — 6 tiles for removed patients (3 cols), 4 tiles for active (2 cols)
+  const _dashBubbles=_dashIsRemoved?[
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault',locked:false},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files',locked:false},
+    {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework',locked:true},
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat',locked:true},
+    {icon:'📅',label:'Appointments',  color:'#f59e0b',bg:'#fffbeb',tab:'calendar',locked:true},
+    {icon:'💬',label:'Messages',      color:'#6366f1',bg:'#eef2ff',tab:'chat',locked:true}
+  ]:[
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault',locked:false},
+    {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework',locked:false},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files',locked:false},
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat',locked:false}
+  ];
+  const _dashCols=_dashIsRemoved?3:2;
+  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat('+_dashCols+',1fr)',gap:'12px',marginBottom:'22px'}});
   const _snb={};
   {const _cid=child.id,_notes=(DB.vaultNotes||[]).filter(n=>n.childId===_cid&&n.specialistId===specId),_fls=(DB.folders||[]).filter(f=>f.childId===_cid).flatMap(f=>f.files||[]);
   _snb['vault']=_newSince(_notes,n=>n.date,_cid,'vault');
   _snb['homework']=_hwBadge(_cid);
   _snb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
   _snb['chat']=_chatBadge(_cid);}
-  [
-    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault'},
-    {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework'},
-    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files'},
-    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat'}
-  ].forEach(({icon,label,color,bg,tab})=>{
+  _dashBubbles.forEach(({icon,label,color,bg,tab,locked})=>{
     const sq=el('div',{class:'card hov',style:{
       cursor:'pointer',padding:'20px 16px',display:'flex',
       flexDirection:'column',alignItems:'center',justifyContent:'center',
       gap:'10px',minHeight:'100px',background:bg,
-      border:'1.5px solid '+color+'33',textAlign:'center',position:'relative'
+      border:'1.5px solid '+color+'33',textAlign:'center',position:'relative',
+      opacity:locked?'0.75':'1'
     }});
     const _bc=_snb[tab]||0;
     if(_bc>0)sq.appendChild(el('div',{class:'sq-badge'},[ _bc>9?'9+':String(_bc) ]));
+    if(locked)sq.appendChild(el('div',{style:{position:'absolute',top:'6px',right:'8px',fontSize:'.75rem',color:'#94a3b8'}},['🔒']));
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
     sq.onclick=()=>{
