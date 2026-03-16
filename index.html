@@ -2009,7 +2009,7 @@ async function loadChatsFromSupabase(){
       const sid=session.specialistId||session.id;
       q=q.contains('participants',JSON.stringify([sid]));
     } else if(hid){
-      q=q.eq('household_id',hid);
+      q=q.or(`household_id.eq.${hid},participants.cs.${JSON.stringify([session.id])}`);
     } else {
       q=q.eq('child_id',S.activeChild);
     }
@@ -2087,8 +2087,12 @@ async function _loadSessionFromSupabase(s){
       ? profile.display_name.split(' ')[0]
       : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'').split(' ')[0]
       || s.user.email.split('@')[0];
+    const _fullDisplayName=profile.display_name&&!profile.display_name.includes('@')
+      ? profile.display_name
+      : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'')
+      || s.user.email.split('@')[0];
     session={id:s.user.id,email:s.user.email,role:profile.role,
-      name:_displayName,specialistId:profile.id,isNew:false,
+      name:_displayName,displayName:_fullDisplayName,specialistId:profile.id,isNew:false,
       householdId:profile.household_id,isPrimary:profile.is_primary!==false,
       googleCalendarEnabled:profile.google_calendar_enabled||false};
     if(profile.role==='parent'){
@@ -2682,6 +2686,23 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   const child=DB.children.find(c=>c.id===req.childId);
   // Notify the specialist they've been approved (not the parent themselves)
   await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
+  // Add specialist to all existing non-consultation household chats so they see history
+  const _approveHhId=child?.household_id||session.householdId;
+  if(_supa&&_approveHhId&&req.specialistId&&session.id!=='demo'){
+    try{
+      const {data:_hhChats}=await _supa.from('chats').select('id,participants')
+        .eq('household_id',_approveHhId)
+        .neq('type','specialist-consult');
+      if(_hhChats?.length){
+        const _toAdd=_hhChats.filter(c=>!(c.participants||[]).includes(req.specialistId));
+        if(_toAdd.length){
+          await Promise.all(_toAdd.map(c=>
+            _supa.from('chats').update({participants:[...(c.participants||[]),req.specialistId]}).eq('id',c.id)
+          ));
+        }
+      }
+    }catch(e){console.error('add specialist to existing chats:',e);}
+  }
   re();
   toast('Access granted to '+req.specialistName+'!');
 }
@@ -4162,6 +4183,13 @@ function switchTab(id){
   S.activeTab=id;
   if(session?.role==='parent' && id!=='home') S.navLevel=1;
   S.isDrawerOpen=false;
+  // Mark section as seen immediately so badge clears on this render
+  if(S.activeChild){
+    if(['session-summaries','files','calendar','vault'].includes(id))
+      _markSeen(S.activeChild,id);
+    if(id==='homework')
+      _markSeen(S.activeChild,'homework',(DB.homework||[]).filter(h=>h.childId===S.activeChild&&!h.completed).length);
+  }
   re();
   // Refresh folders+files from Supabase when opening File Manager
   if(id==='files'&&session?.id!=='demo'){
@@ -5008,7 +5036,7 @@ function renderParentDashboard(){
   _nb['session-summaries']=_newSince(_notes,n=>n.date,_cid,'session-summaries');
   _nb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
   _nb['chat']=_chatBadge(_cid);
-  _nb['calendar']=_newSince(_apts,a=>a.date||a.startDate,_cid,'calendar');
+  _nb['calendar']=_newSince(_apts,a=>a.createdAt||a.date||a.startDate,_cid,'calendar');
   _nb['homework']=_hwBadge(_cid);_nb['team']=0;}
   [
     {icon:'📄',label:'Progress Notes',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries',sect:'session-summaries'},
@@ -6876,10 +6904,10 @@ function renderChat(){
   // Filter visible chats
   let visChats=allChats.filter(c=>{
     if(role==='parent'){
-      // Include all chats parent is in, PLUS private specialist consults (shown as locked for transparency)
-      if(c.participants.includes('parent')||c.participants.includes(myId))return true;
-      if(c.type==='specialist-consult'&&!c.participants.includes('parent'))return true; // private consult — show locked
-      return false;
+      // Show all household chats (query already scoped to household_id).
+      // Non-consult chats: always visible to household members.
+      // specialist-consult chats: shown locked if parent not in participants (handled at render).
+      return true;
     }
     if(!specId)return false;
     return c.participants.includes(specId);
@@ -6959,7 +6987,7 @@ function renderChat(){
     const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const isGroup=chat.type==='group';
     const isConsult=chat.type==='specialist-consult';
-    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?otherSpec?.name||'Specialist':session?.name?.includes('parent')?'Parent Chat':otherSpec?.name||'Chat'));
+    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family'));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -7045,16 +7073,17 @@ function _resolveSenderName(msg, activeChat){
   // 1. Prefer stored senderName
   if(msg.senderName)return msg.senderName;
   // 2. Is it the current user?
-  if(msg.sender===session?.id)return session.name||'You';
+  if(msg.sender===session?.id)return session.displayName||session.name||'You';
   // 3. Look up in child team (specialists)
   const spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===msg.sender);
   if(spec)return spec.name;
-  // 4. 'parent' string (legacy) or co-parent UUID
-  if(msg.sender==='parent')return 'Parent';
+  // 4. 'parent' string (legacy)
+  if(msg.sender==='parent')return 'Family';
   // 5. Check co-parents in household
   const hp=(DB.coParents||[]).find(p=>p.id===msg.sender);
-  if(hp)return hp.name||'Parent';
-  return 'Parent';
+  if(hp)return hp.name||'Family';
+  // 6. Unknown sender — use 'Family' rather than a role string
+  return 'Family';
 }
 
 function renderChatThread(activeChat,specId,myId,onBack){
@@ -7064,9 +7093,17 @@ function renderChatThread(activeChat,specId,myId,onBack){
   const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
   const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
   const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
-  const chatName=activeChat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Parent'));
+  const chatName=activeChat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family'));
   const participantNames=isGroup
-    ?activeChat.participants.map(p=>p==='parent'?'Family':getChildTeam(activeChat.childId).find(s=>s.id===p)?.name?.split(' ')[0]||'Member').join(', ')
+    ?activeChat.participants.map(p=>{
+      if(p===session?.id)return session.displayName||session.name||'You';
+      if(p==='parent')return 'Family';
+      const _sp=getChildTeam(activeChat.childId).find(s=>s.id===p);
+      if(_sp)return _sp.name?.split(' ')[0]||'Member';
+      const _cp=(DB.coParents||[]).find(c=>c.id===p);
+      if(_cp)return _cp.name?.split(' ')[0]||'Family';
+      return 'Member';
+    }).join(', ')
     :null;
 
   // Mobile: fixed panel between header and bottom nav
@@ -7194,13 +7231,12 @@ function renderChatThread(activeChat,specId,myId,onBack){
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci>-1){
       const senderKey=myId||'unknown';
-      const senderName=session?.name||'';const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
+      const senderName=session?.displayName||session?.name||'';const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
       all[ci].messages.push(newMsg);
       // Mark others as unread
       all[ci].unreadFor=[...(all[ci].unreadFor||[])];
       if(session?.role==='specialist'){
-        if(!all[ci].unreadFor.includes('parent'))all[ci].unreadFor.push('parent');
-        // Also mark individual parent UUIDs unread for chats with real IDs
+        // Mark all household parent UUIDs as unread (real UUIDs only, no legacy 'parent' string)
         all[ci].participants.filter(p=>p!=='parent'&&p!==myId&&!DB.specialists?.find(s=>s.id===p)).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
       } else {
         all[ci].participants.filter(p=>p!=='parent'&&p!==myId).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
@@ -10268,6 +10304,22 @@ async function processHouseholdInvite(token){
   // Reload session with new household_id
   const {data:{session:s}}=await _supa.auth.getSession();
   if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();}
+  // Add co-parent to all existing non-consultation household chats so they see history
+  if(_supa&&data.household_id&&session?.id&&session.id!=='demo'){
+    try{
+      const {data:_cpHhChats}=await _supa.from('chats').select('id,participants')
+        .eq('household_id',data.household_id)
+        .neq('type','specialist-consult');
+      if(_cpHhChats?.length){
+        const _cpToAdd=_cpHhChats.filter(c=>!(c.participants||[]).includes(session.id));
+        if(_cpToAdd.length){
+          await Promise.all(_cpToAdd.map(c=>
+            _supa.from('chats').update({participants:[...(c.participants||[]),session.id]}).eq('id',c.id)
+          ));
+        }
+      }
+    }catch(e){console.error('add co-parent to existing chats:',e);}
+  }
 
   toast('🎉 You are now connected to the shared family account!','success',5000);
   LS.set('householdInviteSent',true);
