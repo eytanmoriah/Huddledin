@@ -2111,9 +2111,30 @@ async function _loadSessionFromSupabase(s){
   // or the ?pending_role= URL param (set by Google OAuth redirectTo). This ensures new users are
   // never stuck on the login screen due to a missing or slow DB trigger.
   if(!profile){
-    const _fallbackRole=s.user.user_metadata?.role
+    // Resolve fallback role — priority: user_metadata > pending_role URL > pending invite > default parent
+    // CRITICAL: pendingInviteToken is ONLY set by specialist invite links (co-parents use pendingHouseholdToken)
+    // so if a pending invite token is present, this new user must be a specialist — never default to 'parent'.
+    let _fallbackRole=s.user.user_metadata?.role
       ||new URLSearchParams(window.location.search).get('pending_role')
-      ||'parent';
+      ||null;
+    if(!_fallbackRole){
+      const _pit=localStorage.getItem('pendingInviteToken');
+      if(_pit){
+        // Look up invite to get the specialist_role the parent assigned (e.g. 'Therapist', 'Pediatrician')
+        try{
+          const{data:_inv}=await _supa.from('invites').select('specialist_role').eq('token',_pit).maybeSingle();
+          // specialist_role column holds the specialty label; the auth role is always 'specialist'
+          _fallbackRole='specialist';
+          console.log('\u2705 Profile auto-create: pending invite detected \u2192 role=specialist',_inv?.specialist_role?'('+_inv.specialist_role+')':'');
+        }catch(e){
+          // Invite lookup failed — still safer to default to specialist than parent for this path
+          _fallbackRole='specialist';
+          console.warn('profile auto-create: invite lookup failed, defaulting to specialist',e);
+        }
+      } else {
+        _fallbackRole='parent';
+      }
+    }
     const _fallbackName=s.user.user_metadata?.full_name
       ||s.user.user_metadata?.name
       ||s.user.email.split('@')[0];
@@ -11758,6 +11779,23 @@ async function _processPendingInvite(){
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
   if(!token)return;
+  // Re-read profile from DB — authoritative role check before ANY writes.
+  // Guards against session.role being wrong (e.g. set to 'parent' by auto-create race during signup).
+  // If profile.role === 'specialist': ONLY write specialist_requests, NEVER touch profiles table.
+  // If profile.role === 'parent':    co-parent invite flow, household linking is fine.
+  let _verifiedRole=session?.role||null;
+  if(session&&session.id!=='demo'){
+    try{
+      const{data:_pr}=await _supa.from('profiles').select('role').eq('id',session.id).single();
+      if(_pr?.role){
+        _verifiedRole=_pr.role;
+        if(_verifiedRole!==session.role){
+          console.warn('\u26A0\uFE0F _processPendingInvite: session.role='+session.role+' but profiles.role='+_verifiedRole+' \u2014 using DB value');
+          session.role=_verifiedRole; // correct the in-memory session so re() renders right view
+        }
+      }
+    }catch(e){console.error('invite profile role check:',e);}
+  }
   // Try Supabase first
   let data=null,fetchErr=null;
   try{
