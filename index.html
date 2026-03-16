@@ -1956,7 +1956,13 @@ async function refreshFromSupabase(){
           // hd9_status_{id} tracks last known status per child — updated AFTER computing _newlyRemoved.
           const _newlyRemoved=_mappedVisible.filter(c=>{
             const _prevStatus=localStorage.getItem('hd9_status_'+c.id);
-            return c.connectionStatus==='removed'&&_prevStatus==='approved'&&!localStorage.getItem('hd9_rm_popup_'+c.id);
+            const _popupShown=localStorage.getItem('hd9_rm_popup_'+c.id);
+            if(_popupShown)return false;
+            if(c.connectionStatus!=='removed')return false;
+            if(_prevStatus==='approved')return true;
+            // Fresh login — no previous status stored, but connection is removed → show popup
+            if(_prevStatus===null)return true;
+            return false;
           });
           if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
           // Update tracked status after popup decision — next refresh compares against this value
@@ -6411,16 +6417,16 @@ function renderTeam(){
           _seenKeys.add(key);
           return true;
         });
-        console.log('[renderTeam] before dedup:',_allRows.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
-        console.log('[renderTeam] after dedup:',_rows.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
-        console.log('[renderTeam] rows after merge:',_rows.length,_rows);
+        // Safety filter — belt-and-suspenders: queries already filter by child_id but ensure it here too
+        const filtered=_rows.filter(r=>r.child_id===S.activeChild);
+        console.log('[renderTeam] after dedup+filter:',filtered.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
         // Populate DB.specialistRequests for pending approval cards
-        const mapped=_rows.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
+        const mapped=filtered.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prevReqs=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
-        console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows',mapped);
-        // Update DB.specialists from approved rows so the active team list renders correctly
-        const _approvedRows=_rows.filter(r=>r.status==='approved');
+        console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows for child',S.activeChild);
+        // Update DB.specialists from approved rows — use filtered so only active child's specialists are set
+        const _approvedRows=filtered.filter(r=>r.status==='approved');
         const prevSpecs=JSON.stringify(DB.specialists);
         if(_approvedRows.length){
           // Dedup by specialist_id, preferring the row that matches S.activeChild
@@ -9679,9 +9685,9 @@ function renderPatients(){
       const childSt=c.status||'active';
       let matchStatus=false;
       if(S.patientStatusFilter==='all') matchStatus=true;
-      // Removed patients stay in active list unless specialist toggled them inactive
-      else if(S.patientStatusFilter==='active') matchStatus=(connSt!=='removed'&&childSt==='active')||(connSt==='removed'&&!_rmInactSet.has(c.id));
-      else if(S.patientStatusFilter==='inactive') matchStatus=(connSt!=='removed'&&childSt==='inactive')||(connSt==='removed'&&_rmInactSet.has(c.id));
+      // All patients use hd9_inactive_children toggle — removed and approved share same filter logic
+      else if(S.patientStatusFilter==='active') matchStatus=!_rmInactSet.has(c.id);
+      else if(S.patientStatusFilter==='inactive') matchStatus=_rmInactSet.has(c.id);
       return matchName&&matchStatus;
     });
     if(!filtered.length){
@@ -9715,8 +9721,8 @@ function renderPatients(){
         info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+(calcAge(c.dob)||'—')+' · DOB '+(c.dob||'—')]));
       }
       card.appendChild(info);
-      if(isRemoved){
-        // Removed: Active/Inactive toggle — ON = visible in main list, OFF = moved to past patients
+      if(!isPending){
+        // Unified Active/Inactive toggle — same behavior for all patients (approved and removed)
         const _isMovedInact=_rmInactSet.has(c.id);
         const toggle=el('div',{class:'toggle'+(_isMovedInact?'':' on'),style:{flexShrink:0},title:_isMovedInact?'Move back to active':'Move to inactive'});
         toggle.onclick=e=>{
@@ -9733,25 +9739,6 @@ function renderPatients(){
             try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
             if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
           }
-          re();
-        };
-        card.appendChild(toggle);
-      } else if(!isPending){
-        // Active/inactive toggle — only for approved connections
-        const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
-        toggle.onclick=e=>{
-          e.stopPropagation();
-          const children=DB.children;
-          const idx=children.findIndex(ch=>ch.id===c.id);
-          if(idx>-1){
-            children[idx].status=(children[idx].status||'active')==='active'?'inactive':'active';
-            DB.children=children;
-          } else {
-            const lsc=LS.get('children',[]);
-            const li=lsc.findIndex(ch=>ch.id===c.id);
-            if(li>-1){lsc[li].status=(lsc[li].status||'active')==='active'?'inactive':'active';LS.set('children',lsc);}
-          }
-          S.patientStatusFilter='all';
           re();
         };
         card.appendChild(toggle);
@@ -12116,8 +12103,13 @@ function _showRemovedConnectionPopup(child){
     mb.appendChild(msgEl);
     const btns=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap'}});
     btns.appendChild(mkBtn('Move to Inactive','btn-md btn-primary',()=>{
-      // Only add to hd9_inactive_children — do NOT remove from children array (stays in list with toggle)
-      try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.add(child.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
+      // Add to hd9_inactive_children
+      try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(child.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e){}
+      // Add to pastPatients for legacy archive
+      const _pp=LS.get('pastPatients',[]);
+      if(!_pp.find(p=>p.id===child.id)){_pp.push({id:child.id,name:child.name,dob:child.dob});LS.set('pastPatients',_pp);}
+      // Clear active child if this patient was open
+      if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
       close();re();
       toast(child.name+' moved to inactive patients.','info');
     }));
