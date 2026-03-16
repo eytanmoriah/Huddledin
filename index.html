@@ -1906,6 +1906,10 @@ async function refreshFromSupabase(){
           });
           setupSpecialistSync();
         }
+      } else {
+        // No approved connections — evict any stale children from a previous session
+        LS.set('children',[]);
+        S.activeChild=null;
       }
       // Load specialist secondary data in parallel
       await Promise.allSettled([
