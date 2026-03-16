@@ -6404,6 +6404,8 @@ function renderTeam(){
           _seenKeys.add(key);
           return true;
         });
+        console.log('[renderTeam] before dedup:',_allRows.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
+        console.log('[renderTeam] after dedup:',_rows.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
         console.log('[renderTeam] rows after merge:',_rows.length,_rows);
         // Populate DB.specialistRequests for pending approval cards
         const mapped=_rows.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
