@@ -3136,9 +3136,9 @@ function renderAuth(){
       const _tcCb=el('input',{type:'checkbox',id:'auth-terms',style:{marginTop:'2px',flexShrink:0,width:'16px',height:'16px',cursor:'pointer',accentColor:'var(--teal)'}});
       const _tcLbl=el('label',{'for':'auth-terms',style:{fontSize:'.8rem',color:'var(--navy)',lineHeight:'1.5',cursor:'pointer'}});
       _tcLbl.appendChild(document.createTextNode('I agree to the '));
-      _tcLbl.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Terms of Service']));
+      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Terms of Service']));
       _tcLbl.appendChild(document.createTextNode(' and '));
-      _tcLbl.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Privacy Policy']));
+      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Privacy Policy']));
       _tcRow.appendChild(_tcCb);_tcRow.appendChild(_tcLbl);ig.appendChild(_tcRow);
     }
 
@@ -3234,7 +3234,19 @@ function renderAuth(){
     '.'
   ]));
   card.appendChild(authFooter);
+
+  // Legal links footer
+  const _legalFooter=el('div',{style:{textAlign:'center',marginTop:'20px',paddingBottom:'24px'}});
+  const _legalSep=el('span',{style:{color:'var(--slate-l)',margin:'0 8px',fontSize:'.72rem'}},[' | ']);
+  const _legalSep2=el('span',{style:{color:'var(--slate-l)',margin:'0 8px',fontSize:'.72rem'}},[' | ']);
+  const _lStyle={color:'var(--slate)',fontSize:'.72rem',fontWeight:500,textDecoration:'none',opacity:.75};
+  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Privacy Policy']));
+  _legalFooter.appendChild(_legalSep);
+  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Terms of Service']));
+  _legalFooter.appendChild(_legalSep2);
+  _legalFooter.appendChild(el('a',{href:'https://www.huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:_lStyle},['Contact Us']));
   root.appendChild(card);
+  root.appendChild(_legalFooter);
   return root;
 }
 
@@ -10531,9 +10543,9 @@ function renderSpecialistSettings(){
   const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
   _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
   const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=444cbe81-74f2-4f1c-b012-77862021ee99',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Cookie Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Cookie Policy']));
   _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Contact Us']));
   _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
 
@@ -11387,9 +11399,9 @@ function renderSettings(){
   const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
   _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
   const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
-  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=444cbe81-74f2-4f1c-b012-77862021ee99',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Cookie Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Cookie Policy']));
   _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Contact Us']));
   _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
 
