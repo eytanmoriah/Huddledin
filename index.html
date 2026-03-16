@@ -2223,19 +2223,36 @@ async function _loadSessionFromSupabase(s){
     if(event==='SIGNED_IN'&&s2&&!session){
       // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
       // Resolve pending role: localStorage first, then URL ?pending_role= param (survives localStorage loss)
-      const pendingRole=localStorage.getItem('pendingGoogleRole')
+      const _pendingRoleRaw=localStorage.getItem('pendingGoogleRole');
+      const pendingRole=_pendingRoleRaw
         ||new URLSearchParams(window.location.search).get('pending_role')
         ||s2.user.user_metadata?.role
         ||null;
       localStorage.removeItem('pendingGoogleRole');
       if(pendingRole){
-        // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
+        // CRITICAL: check existing profile FIRST — never overwrite a specialist's role.
+        // A specialist accepting an invite via Google OAuth may trigger this handler with
+        // pendingRole='parent' (default fallback in doGoogleSignIn). Without this guard,
+        // their profile role would be reset to 'parent', corrupting their account.
+        let _existingRole=null;
+        let _existingHouseholdId=null;
         try{
-          const _oauthUpsertData={id:s2.user.id,email:s2.user.email,role:pendingRole,display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]};
-          console.log('\uD83D\uDCDD Writing to profiles (onAuthStateChange Google UPSERT):', JSON.stringify(_oauthUpsertData));
-          console.log('\uD83D\uDD0D pendingRole source: localStorage='+localStorage.getItem('pendingGoogleRole')+' url='+new URLSearchParams(window.location.search).get('pending_role')+' user_metadata='+s2.user.user_metadata?.role+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
-          await _supa.from('profiles').upsert(_oauthUpsertData,{onConflict:'id'});
-        }catch(e){console.error('Google OAuth profile upsert error:',e);}
+          const{data:_ep}=await _supa.from('profiles').select('role,household_id').eq('id',s2.user.id).maybeSingle();
+          _existingRole=_ep?.role||null;
+          _existingHouseholdId=_ep?.household_id||null;
+        }catch(e){console.error('onAuthStateChange existing profile check:',e);}
+        if(_existingRole==='specialist'){
+          // Specialist already has a profile — never touch role or household_id
+          console.log('\uD83D\uDD10 onAuthStateChange: existing role=specialist \u2014 will not overwrite with pendingRole='+pendingRole+'. Profile left unchanged.');
+        } else {
+          // New user or existing parent — safe to upsert role
+          try{
+            const _oauthUpsertData={id:s2.user.id,email:s2.user.email,role:pendingRole,display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]};
+            console.log('\uD83D\uDCDD Writing to profiles (onAuthStateChange UPSERT):', JSON.stringify(_oauthUpsertData));
+            console.log('\uD83D\uDD0D pendingRole source: localStorage='+_pendingRoleRaw+' url='+new URLSearchParams(window.location.search).get('pending_role')+' user_metadata='+s2.user.user_metadata?.role+' existingRole='+_existingRole+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
+            await _supa.from('profiles').upsert(_oauthUpsertData,{onConflict:'id'});
+          }catch(e){console.error('Google OAuth profile upsert error:',e);}
+        }
       }
       await _loadSessionFromSupabase(s2);
       if(session){
