@@ -1866,6 +1866,18 @@ async function refreshFromSupabase(){
               LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||''})));
             }
           }catch(e){console.error('refresh parent vaultNotes:',e);}
+        })(),
+        // Seen timestamps — loaded in same batch so badges are accurate on first render
+        (async()=>{
+          try{
+            const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',session.id);
+            if(error)throw error;
+            (rows||[]).forEach(r=>{
+              _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
+              if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
+            });
+            console.log('\u2705 Seen timestamps loaded:',(rows||[]).length,'rows');
+          }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
         })()
       ]);
       // Load past specialists (removed connections) — shown in parent's Team section
@@ -1879,35 +1891,56 @@ async function refreshFromSupabase(){
     } else if(session.role==='specialist'){
       const specId=session.specialistId||session.id;
       // Step 1: get child IDs from specialist_requests
-      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id').eq('specialist_id',specId).in('status',['approved']);
-      const childIds=[...new Set((reqRows||[]).map(r=>r.child_id).filter(Boolean))];
+      // Load ALL connection states — approved (full access), pending (locked), removed (disconnected)
+      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id,status').eq('specialist_id',specId).in('status',['approved','pending','removed']);
+      // Build connection status map — prefer highest-priority status when duplicate rows exist
+      const _connStatusMap={};
+      (reqRows||[]).forEach(r=>{
+        if(!r.child_id)return;
+        const cur=_connStatusMap[r.child_id];
+        if(!cur||(cur==='removed'&&r.status!=='removed')||(cur==='pending'&&r.status==='approved')){
+          _connStatusMap[r.child_id]=r.status;
+        }
+      });
+      const childIds=[...new Set(Object.keys(_connStatusMap))];
+      const approvedIds=childIds.filter(id=>_connStatusMap[id]==='approved');
       if(childIds.length>0){
-        // Step 2: fetch children + appointments IN PARALLEL (biggest speedup)
+        // Fetch children + appointments (appointments only for approved connections)
         const [childrenRes,aptsRes]=await Promise.all([
           _supa.from('children').select('*').in('id',childIds),
-          _supa.from('appointments').select('*').in('child_id',childIds).order('date')
+          approvedIds.length?_supa.from('appointments').select('*').in('child_id',approvedIds).order('date'):Promise.resolve({data:[]})
         ]);
         const children=childrenRes.data||[];
         if(children.length>0){
-          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
+          // Track previously-removed children so we only show the popup for newly-removed ones
+          const _prevChildren=LS.get('children',[]);
+          const _prevRemovedIds=new Set(_prevChildren.filter(c=>c.connectionStatus==='removed').map(c=>c.id));
+          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved'})));
           LS.set('children',mapped);
-          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild)){if(mapped.length>0)S.activeChild=mapped[0].id;}
-          // Save appointments immediately — no waiting
+          // Active child must be an approved patient — don't auto-navigate into pending/removed
+          const approvedMapped=mapped.filter(c=>c.connectionStatus==='approved');
+          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
+          // Appointments for approved children only
           if(aptsRes.data&&aptsRes.data.length>0){
             LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
           }
-          // Step 3: load care team + folders in parallel (non-blocking background)
-          Promise.all([
-            Promise.all(mapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
-            Promise.all(mapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
-          ]).then(([,folderResults2])=>{
-            const allFolders=folderResults2.flat();
-            if(allFolders.length>0)LS.set('folders',allFolders);
-          });
+          // Care team + folders: approved children only (pending/removed see no shared content)
+          if(approvedMapped.length>0){
+            Promise.all([
+              Promise.all(approvedMapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
+              Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
+            ]).then(([,folderResults2])=>{
+              const allFolders=folderResults2.flat();
+              if(allFolders.length>0)LS.set('folders',allFolders);
+            });
+          }
           setupSpecialistSync();
+          // Show popup for any newly-removed connections (fires after re() paints the screen)
+          const _newlyRemoved=mapped.filter(c=>c.connectionStatus==='removed'&&!_prevRemovedIds.has(c.id));
+          if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
         }
       } else {
-        // No approved connections — evict any stale children from a previous session
+        // No connections of any kind — evict stale children from previous session
         LS.set('children',[]);
         S.activeChild=null;
       }
@@ -1946,18 +1979,22 @@ async function refreshFromSupabase(){
         // Homework Tasks — specialist loads their own created tasks (was missing, causing tasks to vanish on reload)
         _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           .then(({data:hwt})=>{console.log('[Huddledin] specialist homework_tasks loaded:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
-          .catch(e=>console.error('refresh specialist homework_tasks:',e))
+          .catch(e=>console.error('refresh specialist homework_tasks:',e)),
+        // Seen timestamps — loaded in same batch so badges are accurate on first render
+        (async()=>{
+          try{
+            const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',specId);
+            if(error)throw error;
+            (rows||[]).forEach(r=>{
+              _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
+              if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
+            });
+            console.log('\u2705 Seen timestamps loaded:',(rows||[]).length,'rows');
+          }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
+        })()
       ]);
-      // Load past patients (removed connections) — read-only archive access per RLS
-      try{
-        const{data:_removedReqs}=await _supa.from('specialist_requests').select('child_id,requested_at').eq('specialist_id',specId).eq('status','removed');
-        if(_removedReqs?.length){
-          const _removedIds=[...new Set(_removedReqs.map(r=>r.child_id).filter(Boolean))];
-          const{data:_pastCh}=await _supa.from('children').select('id,name,dob').in('id',_removedIds);
-          LS.set('pastPatients',(_pastCh||[]).map(c=>({id:c.id,name:c.name,dob:c.dob})));
-          console.log('✅ Past patients loaded:',(_pastCh||[]).length,'records');
-        }else{LS.set('pastPatients',[]);}
-      }catch(e){console.error('load past patients:',e);}
+      // Removed connections now loaded in main children list (connectionStatus='removed').
+      // pastPatients LS key is managed locally — set when specialist clicks "Move to Inactive".
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
@@ -4465,10 +4502,32 @@ function calcAge(dob){
   return y+' year'+(y!==1?'s':'')+(m>0?' '+m+' month'+(m!==1?'s':''):'');
 }
 /* ── Notification badge helpers ── */
-function _seenTs(cid,s){return parseInt(LS.get('seen_'+cid+'_'+s,'0'),10)||0;}
-function _markSeen(cid,s,cnt){LS.set('seen_'+cid+'_'+s,String(Date.now()));if(cnt!=null)LS.set('seen_'+cid+'_'+s+'_cnt',String(cnt));}
+// _sbSection: internal section names → Supabase seen_timestamps.section column values
+function _sbSection(s){if(s==='session-summaries'||s==='vault')return'notes';if(s==='homework')return'tasks';return s;}
+// _seenTs: check _seenTimestamps first (Supabase-backed), fall back to localStorage
+function _seenTs(cid,s){
+  const k=cid+'_'+_sbSection(s);
+  if(_seenTimestamps[k])return new Date(_seenTimestamps[k]).getTime()||0;
+  return parseInt(LS.get('seen_'+cid+'_'+s,'0'),10)||0;
+}
+// _markSeen: update memory immediately (badge clears instantly), persist to LS + Supabase in background
+function _markSeen(cid,s,cnt){
+  const sbSec=_sbSection(s);
+  const k=cid+'_'+sbSec;
+  const now=new Date().toISOString();
+  _seenTimestamps[k]=now;
+  LS.set('seen_'+cid+'_'+s,String(Date.now()));
+  if(cnt!=null){LS.set('seen_'+cid+'_'+s+'_cnt',String(cnt));_seenTimestamps[k+'_cnt']=cnt;}
+  console.log('\u2705 Badge cleared:',s,'for',cid);
+  if(session&&session.id!=='demo'){
+    (async()=>{try{
+      const{error}=await _supa.from('seen_timestamps').upsert({user_id:session.id,child_id:cid,section:sbSec,seen_at:now},{onConflict:'user_id,child_id,section'});
+      if(error)throw error;
+    }catch(err){console.error('\u274C Failed to save seen timestamp:',err);}})();
+  }
+}
 function _newSince(items,dfn,cid,s){const ts=_seenTs(cid,s);if(!ts)return items.length;return items.filter(x=>{const d=dfn(x);return d&&(new Date(d).getTime()||0)>ts;}).length;}
-function _hwBadge(cid){const cur=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const stored=parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;return Math.max(0,cur-stored);}
+function _hwBadge(cid){const cur=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const k=cid+'_tasks_cnt';const stored=_seenTimestamps[k]!=null?_seenTimestamps[k]:parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;return Math.max(0,cur-stored);}
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
 function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);return _chatBadge(cid)+_hwBadge(cid)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar');}
 function renderGlobalHome(){
@@ -9437,9 +9496,9 @@ function renderPatients(){
   const allChildren=[...DB.children];
   lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
   const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
-  // Count badges — derived from full unfiltered list so they always reflect totals
-  const _aC=sorted.filter(c=>(c.status||'active')==='active').length;
-  const _iC=sorted.filter(c=>c.status==='inactive').length;
+  // Count badges — approved+pending in "active", inactive in "inactive", removed only in "all"
+  const _aC=sorted.filter(c=>{const cs=c.connectionStatus||'approved';return(c.status||'active')==='active'&&cs!=='removed';}).length;
+  const _iC=sorted.filter(c=>(c.status||'active')==='inactive'&&(c.connectionStatus||'approved')!=='removed').length;
   Object.entries({active:_aC,inactive:_iC,all:sorted.length}).forEach(([f,n])=>{
     const _badge=el('span',{class:'patient-count-badge'},[String(n)]);
     filterBtns[f].appendChild(_badge);
@@ -9449,8 +9508,12 @@ function renderPatients(){
     stack.innerHTML='';
     const filtered=sorted.filter(c=>{
       const matchName=c.name.toLowerCase().includes(q.toLowerCase());
-      const cs=c.status||'active';
-      const matchStatus=S.patientStatusFilter==='all'||(S.patientStatusFilter===cs);
+      const connSt=c.connectionStatus||'approved';
+      const childSt=c.status||'active';
+      let matchStatus=false;
+      if(S.patientStatusFilter==='all') matchStatus=true;
+      else if(S.patientStatusFilter==='active') matchStatus=connSt!=='removed'&&childSt==='active';
+      else if(S.patientStatusFilter==='inactive') matchStatus=connSt!=='removed'&&childSt==='inactive';
       return matchName&&matchStatus;
     });
     if(!filtered.length){
@@ -9460,41 +9523,78 @@ function renderPatients(){
     }
     filtered.forEach(c=>{
       const isInactive=(c.status||'active')==='inactive';
+      const connStatus=c.connectionStatus||'approved';
+      const isPending=connStatus==='pending';
+      const isRemoved=connStatus==='removed';
       const card=el('div',{class:'card click',style:{
         display:'flex',alignItems:'center',gap:'15px',
-        border:S.activeChild===c.id?'2.5px solid var(--teal)':'2px solid var(--mint-l)',
-        filter:isInactive?'grayscale(1)':'none',
-        opacity:isInactive?'0.7':'1'
+        border:S.activeChild===c.id?'2.5px solid var(--teal)':isPending?'2px solid #f59e0b':isRemoved?'2px dashed var(--slate-l)':'2px solid var(--mint-l)',
+        filter:isInactive||isRemoved?'grayscale(.5)':'none',
+        opacity:isInactive||isRemoved?'0.75':'1',
+        background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
       }});
       card.appendChild(mkChildAvatar(c,52,'15px'));
       const info=d('',[], {flex:1});
-      const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}});
+      const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
-      if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
+      if(isPending) nameRow.appendChild(el('span',{style:{background:'#f59e0b',color:'#fff',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pending approval']));
+      else if(isRemoved) nameRow.appendChild(el('span',{style:{background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Not connected']));
+      else if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
       info.appendChild(nameRow);
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+(calcAge(c.dob)||'—')+' · DOB '+(c.dob||'—')]));
+      if(isPending){
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#b45309',fontStyle:'italic',marginBottom:'4px'}},['Waiting for parent approval']));
+      } else {
+        info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+(calcAge(c.dob)||'—')+' · DOB '+(c.dob||'—')]));
+      }
       card.appendChild(info);
-      // Status toggle
-      const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
-      toggle.onclick=e=>{
-        e.stopPropagation();
-        const children=DB.children;
-        const idx=children.findIndex(ch=>ch.id===c.id);
-        if(idx>-1){
-          children[idx].status=(children[idx].status||'active')==='active'?'inactive':'active';
-          DB.children=children;
-        } else {
+      if(isRemoved){
+        // Removed: show "Move to Inactive" button instead of toggle
+        const moveBtn=mkBtn('Move to Inactive','btn-sm btn-ghost',e=>{
+          e.stopPropagation();
+          const pastPts=LS.get('pastPatients',[]);
+          if(!pastPts.find(p=>p.id===c.id))pastPts.push({id:c.id,name:c.name,dob:c.dob});
+          LS.set('pastPatients',pastPts);
           const lsc=LS.get('children',[]);
-          const li=lsc.findIndex(ch=>ch.id===c.id);
-          if(li>-1){lsc[li].status=(lsc[li].status||'active')==='active'?'inactive':'active';LS.set('children',lsc);}
-        }
-        S.patientStatusFilter='all';
-        re();
-      };
-      card.appendChild(toggle);
-      // Consult is triggered from New Message in Chat, not here
+          LS.set('children',lsc.filter(ch=>ch.id!==c.id));
+          if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
+          re();
+        });
+        moveBtn.style.cssText='flex-shrink:0;font-size:.7rem;padding:4px 8px';
+        card.appendChild(moveBtn);
+      } else if(!isPending){
+        // Active/inactive toggle — only for approved connections
+        const toggle=el('div',{class:'toggle'+(isInactive?'':' on'),style:{flexShrink:0}});
+        toggle.onclick=e=>{
+          e.stopPropagation();
+          const children=DB.children;
+          const idx=children.findIndex(ch=>ch.id===c.id);
+          if(idx>-1){
+            children[idx].status=(children[idx].status||'active')==='active'?'inactive':'active';
+            DB.children=children;
+          } else {
+            const lsc=LS.get('children',[]);
+            const li=lsc.findIndex(ch=>ch.id===c.id);
+            if(li>-1){lsc[li].status=(lsc[li].status||'active')==='active'?'inactive':'active';LS.set('children',lsc);}
+          }
+          S.patientStatusFilter='all';
+          re();
+        };
+        card.appendChild(toggle);
+      }
       card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=false;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
+      if(isPending){
+        card.onclick=()=>{
+          openModal('Pending Approval',mb=>{
+            const msgEl=el('p',{style:{color:'var(--slate)',textAlign:'center',lineHeight:'1.6',marginBottom:'8px'}});
+            msgEl.textContent='Waiting for parent approval before you can access '+c.name+'\'s information. You\'ll get full access automatically once the parent approves your request.';
+            mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'2rem',marginBottom:'12px'}},['⏳']));
+            mb.appendChild(el('p',{style:{fontWeight:800,color:'var(--navy)',textAlign:'center',marginBottom:'8px'}},[c.name]));
+            mb.appendChild(msgEl);
+          });
+        };
+      } else {
+        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
+      }
       stack.appendChild(card);
     });
   };
@@ -11801,6 +11901,32 @@ initData();
   }
 })();
 
+// Show once-per-session popup when a specialist's connection is removed by the parent.
+// Gives specialist the choice to move the patient to their inactive/past patients section.
+function _showRemovedConnectionPopup(child){
+  const _key='_rm_notified_'+child.id;
+  if(sessionStorage.getItem(_key))return; // already shown this session
+  sessionStorage.setItem(_key,'1');
+  openModal('Connection Removed',mb=>{
+    const msgEl=el('p',{style:{color:'var(--slate)',lineHeight:'1.6',marginBottom:'20px'}});
+    msgEl.textContent='Your connection to "'+child.name+'" has been removed by the family. Would you like to move them to inactive patients?';
+    mb.appendChild(msgEl);
+    const btns=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap'}});
+    btns.appendChild(mkBtn('Move to Inactive','btn-md btn-primary',()=>{
+      const pastPts=LS.get('pastPatients',[]);
+      if(!pastPts.find(p=>p.id===child.id))pastPts.push({id:child.id,name:child.name,dob:child.dob});
+      LS.set('pastPatients',pastPts);
+      const lsc=LS.get('children',[]);
+      LS.set('children',lsc.filter(ch=>ch.id!==child.id));
+      if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
+      re();
+      toast(child.name+' moved to inactive patients.','info');
+    }));
+    btns.appendChild(mkBtn('Keep Active','btn-md btn-ghost',()=>{re();}));
+    mb.appendChild(btns);
+  });
+}
+
 async function _processPendingInvite(){
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
@@ -11896,20 +12022,10 @@ async function _processPendingInvite(){
           }catch(e){console.error('reconnect chat restore:',e);}
         }
       }catch(e){console.error('invite specialist_requests insert:',e);}
-      // Load the child into local state
-      if(data.child_id){
-        let child=null;
-        try{const cr=await _supa.from('children').select('*').eq('id',data.child_id).single();child=cr.data;}catch(e){}
-        if(child){
-          const children=LS.get('children',[]);
-          if(!children.find(c=>c.id===child.id)){
-            children.push({id:child.id,name:child.name,dob:child.dob,avatar:child.avatar_emoji||'🌸',color:child.color||null,photo:child.photo_url||null});
-            LS.set('children',children);
-          }
-          S.activeChild=child.id;
-        }
-      }
       toast('🎉 Welcome! You have joined the care team!','success',5000);
+      // Full refresh to load child into patient list with correct connectionStatus
+      await refreshFromSupabase();
+      if(data.child_id)S.activeChild=data.child_id;
       re();
     }
   } else {
