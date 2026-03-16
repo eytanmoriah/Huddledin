@@ -1674,10 +1674,12 @@ const SB = {
     ]);
     await _supa.from('children').delete().eq('id',id);
   },
-  async getSpecialists(parentId){
-    // Query specialist_requests filtered to active statuses — prevents removed specialists from reappearing
-    const {data:reqs}=await _supa.from('specialist_requests')
-      .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('parent_id',parentId);
+  async getSpecialists(parentId,householdId){
+    // Query using OR across parent_id and household_id — catches invite rows created via either path
+    // (older rows may only have parent_id; household-invite rows may only have household_id)
+    let _q=_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']);
+    _q=householdId?_q.or('parent_id.eq.'+parentId+',household_id.eq.'+householdId):_q.eq('parent_id',parentId);
+    const {data:reqs}=await _q;
     const _seen=new Set();const specs=[];
     // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
     for(const r of (reqs||[])){if(!_seen.has(r.specialist_id)){_seen.add(r.specialist_id);specs.push({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id});}}
@@ -1768,8 +1770,8 @@ async function refreshFromSupabase(){
       const _lcKids=LS.get('children',[]);const _fsSet=new Set(children.map(c=>c.id));const _pendKids=_lcKids.filter(c=>!_fsSet.has(c.id));LS.set('children',[...children,..._pendKids]);
       // Load co-parents (other household members) for message name resolution
       if(hid){try{const {data:_cpData}=await _supa.from('profiles').select('id,display_name').eq('household_id',hid).neq('id',session.id).eq('role','parent');DB.coParents=(_cpData||[]).map(p=>({id:p.id,name:p.display_name||'Co-Parent'}));}catch(e){console.error('refresh coParents:',e);}}
-      // Load specialists by household
-      const specs=hid ? await SB.getSpecialistsByHousehold(hid) : await SB.getSpecialists(session.id);
+      // Load specialists — always pass both parentId and householdId to catch rows from either invite path
+      const specs=await SB.getSpecialists(session.id,hid||null);
       // Merge local permissions so approvals survive a Supabase sync
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
@@ -1922,10 +1924,13 @@ async function refreshFromSupabase(){
         const children=childrenRes.data||[];
         if(children.length>0){
           const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved'})));
-          LS.set('children',mapped);
+          // Filter removed+inactive children so "Move to Inactive" persists across refreshes
+          const _inactiveIds=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
+          const _mappedVisible=mapped.filter(c=>!(c.connectionStatus==='removed'&&_inactiveIds.has(c.id)));
+          LS.set('children',_mappedVisible);
           // Active child must be an approved patient — don't auto-navigate into pending/removed
-          const approvedMapped=mapped.filter(c=>c.connectionStatus==='approved');
-          if(!S.activeChild||!mapped.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
+          const approvedMapped=_mappedVisible.filter(c=>c.connectionStatus==='approved');
+          if(!S.activeChild||!_mappedVisible.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
           // Appointments for approved children only
           if(aptsRes.data&&aptsRes.data.length>0){
             LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
@@ -1941,10 +1946,15 @@ async function refreshFromSupabase(){
             });
           }
           setupSpecialistSync();
-          // Show popup only for newly-removed connections where popup hasn't been shown yet.
-          // Uses localStorage key as the gate — survives logout/login, cleared on reconnection.
-          const _newlyRemoved=mapped.filter(c=>c.connectionStatus==='removed'&&!localStorage.getItem('hd9_rm_popup_'+c.id));
+          // Show popup ONLY when status transitions 'approved'→'removed', not on fresh login or reconnect.
+          // hd9_status_{id} tracks last known status per child — updated AFTER computing _newlyRemoved.
+          const _newlyRemoved=_mappedVisible.filter(c=>{
+            const _prevStatus=localStorage.getItem('hd9_status_'+c.id);
+            return c.connectionStatus==='removed'&&_prevStatus==='approved'&&!localStorage.getItem('hd9_rm_popup_'+c.id);
+          });
           if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
+          // Update tracked status after popup decision — next refresh compares against this value
+          mapped.forEach(c=>localStorage.setItem('hd9_status_'+c.id,c.connectionStatus));
         }
       } else {
         // No connections of any kind — evict stale children from previous session
@@ -2721,8 +2731,9 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
             await _supa.from('specialist_requests').update({
               status:'pending',specialist_name:specialistName,role,requested_at:new Date().toISOString()
             }).eq('id',_removedReq.id);
-            // Clear removed-popup flag so it doesn't reappear after reconnection
+            // Clear removed-popup flag and inactive state so child returns to active list
             localStorage.removeItem('hd9_rm_popup_'+childId);
+            try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.delete(childId);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
           } else {
             // Fresh connection — resolve household_id then insert new row
             let _hhid=row.household_id||null;
@@ -2733,6 +2744,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
               status:'pending',request_type:'join',requested_at:new Date().toISOString()
             });
             localStorage.removeItem('hd9_rm_popup_'+childId);
+            try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.delete(childId);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
           }
         }
       }catch(e){console.error('specialist_requests insert error:',e);return{error:'Connection failed. Please try again.'};}
@@ -11946,6 +11958,8 @@ function _showRemovedConnectionPopup(child){
       LS.set('pastPatients',pastPts);
       const lsc=LS.get('children',[]);
       LS.set('children',lsc.filter(ch=>ch.id!==child.id));
+      // Persist "inactive" state so child stays hidden after refreshFromSupabase() re-fetches the row
+      try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.add(child.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
       if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
       close();re();
       toast(child.name+' moved to inactive patients.','info');
@@ -12033,8 +12047,11 @@ async function _processPendingInvite(){
             role:data.specialist_role||'Specialist',
             requested_at:new Date().toISOString()
           }).eq('id',_invReq.id);
-          // Clear removed-popup flag so modal doesn't reappear after reconnection
-          if(data.child_id)localStorage.removeItem('hd9_rm_popup_'+data.child_id);
+          // Clear removed-popup flag and inactive state so child returns to active list
+          if(data.child_id){
+            localStorage.removeItem('hd9_rm_popup_'+data.child_id);
+            try{const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_inact.delete(data.child_id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));}catch(e){}
+          }
           // Restore specialist to non-consultation chat participants for this child
           try{
             const{data:_rChats}=await _supa.from('chats').select('id,participants,type,name').eq('child_id',data.child_id);
