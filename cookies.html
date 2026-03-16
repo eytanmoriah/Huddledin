@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cookie Policy — Huddledin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #2BBFB3;
+      --navy: #1a2e44;
+      --mint-l: #e0f7f5;
+    }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafb;
+      color: var(--navy);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e8edf2;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: var(--teal);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--navy);
+      text-decoration: none;
+    }
+    .page-label {
+      margin-left: auto;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--teal);
+      background: var(--mint-l);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+    iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+      display: block;
+      min-height: calc(100vh - 115px);
+    }
+    footer {
+      background: #fff;
+      border-top: 1px solid #e8edf2;
+      padding: 14px 24px;
+      text-align: center;
+      font-size: .78rem;
+      color: #7a8fa6;
+      flex-shrink: 0;
+    }
+    footer a {
+      color: var(--teal);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">🤝</div>
+    <a class="brand" href="https://huddledin.com">Huddledin</a>
+    <span class="page-label">Cookie Policy</span>
+  </header>
+  <main>
+    <iframe
+      src="https://app.termly.io/policy-viewer/policy.html?policyUUID=444cbe81-74f2-4f1c-b012-77862021ee99"
+      title="Cookie Policy"
+      loading="eager"
+    ></iframe>
+  </main>
+  <footer>
+    <a href="https://huddledin.com">← Back to Huddledin</a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    <a href="/privacy.html">Privacy Policy</a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    <a href="/terms.html">Terms of Service</a>
+  </footer>
+</body>
+</html>
