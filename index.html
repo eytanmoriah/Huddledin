@@ -3131,6 +3131,16 @@ function renderAuth(){
     const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
     const pi=el('input',{class:'inp',placeholder:'Password',type:'password'});pi.id='auth-pass';
     ig.appendChild(ei);ig.appendChild(pi);
+    if(mode==='signup'){
+      const _tcRow=el('div',{style:{display:'flex',alignItems:'flex-start',gap:'10px',margin:'12px 0 4px',padding:'12px',background:'var(--mint-ll)',borderRadius:'12px',border:'1.5px solid var(--mint-l)'}});
+      const _tcCb=el('input',{type:'checkbox',id:'auth-terms',style:{marginTop:'2px',flexShrink:0,width:'16px',height:'16px',cursor:'pointer',accentColor:'var(--teal)'}});
+      const _tcLbl=el('label',{'for':'auth-terms',style:{fontSize:'.8rem',color:'var(--navy)',lineHeight:'1.5',cursor:'pointer'}});
+      _tcLbl.appendChild(document.createTextNode('I agree to the '));
+      _tcLbl.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Terms of Service']));
+      _tcLbl.appendChild(document.createTextNode(' and '));
+      _tcLbl.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Privacy Policy']));
+      _tcRow.appendChild(_tcCb);_tcRow.appendChild(_tcLbl);ig.appendChild(_tcRow);
+    }
 
     const sb=mkBtn(mode==='signin'?'Sign In ✨':'Create Account 🎉','btn-lg btn-primary btn-full',async()=>{
       const email=ei.value.trim(),pass=pi.value.trim();
@@ -3139,6 +3149,7 @@ function renderAuth(){
       errBox.innerHTML='';
       if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
       if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},['Please enter your profession.']));return;}
+      if(mode==='signup'){const _tc=formArea.querySelector('#auth-terms');if(!_tc||!_tc.checked){errBox.appendChild(el('div',{class:'auth-error'},['Please agree to the Terms of Service and Privacy Policy to continue.']));return;}}
       sb.disabled=true;sb.textContent='Signing in…';
       const res=await doLogin(email,pass,selRole,name,profession);
       sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
@@ -10517,6 +10528,13 @@ function renderSpecialistSettings(){
   ac.appendChild(mkBtn('Delete Account','btn-md btn-ghost',()=>openConfirm('Delete Account','Permanently delete your account and all your data? This cannot be undone.',true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   sec.appendChild(ac);
 
+  const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
+  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
+  const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
+  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
+  _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
+
   return sec;
 }
 
@@ -11291,10 +11309,6 @@ function renderSettings(){
   pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
   pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
     ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
-  const _pvLinks=el('div',{style:{display:'flex',gap:'10px',marginTop:'14px',flexWrap:'wrap'}});
-  _pvLinks.appendChild(mkBtn('📄 Privacy Policy','btn-sm btn-secondary',()=>{S.settingsPage='privacy';re();}));
-  _pvLinks.appendChild(mkBtn('📋 Terms of Service','btn-sm btn-ghost',()=>showTermsOfService()));
-  pv.appendChild(_pvLinks);
   sec.appendChild(pv);
 
   // Onboarding & Demo
@@ -11367,6 +11381,13 @@ function renderSettings(){
     }));
   }
   sec.appendChild(gcCard);
+
+  const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
+  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
+  const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
+  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=b3c200a1-e7ca-44f9-a466-a4eceece37b2',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Privacy Policy']));
+  _legalLinks.appendChild(el('a',{href:'https://app.termly.io/policy-viewer/policy.html?policyUUID=0e0f3e7a-a979-4c2a-94a9-3010aecdcc45',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none'}},['Terms of Service']));
+  _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
 
   return sec;
 }
