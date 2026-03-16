@@ -1780,6 +1780,7 @@ async function refreshFromSupabase(){
       // Merge local permissions so approvals survive a Supabase sync
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+      console.log('📝 DB.specialists set:',(specs||[]).length,'items from refreshFromSupabase');
       LS.set('specialists',specs||[]);
       // Load folders for all children in parallel
       try{
@@ -2243,6 +2244,7 @@ async function _loadSessionFromSupabase(s){
         if(specs&&specs.length>0){
           const localSpecs2=DB.specialists||[];
           specs.forEach(s=>{const local=localSpecs2.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+          console.log('📝 DB.specialists set:',specs.length,'items from refreshFromSupabase (specialist branch)');
           LS.set('specialists',specs);
         }
       }catch(e){}
@@ -6769,7 +6771,7 @@ function showInviteModal(){
 
     mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.8rem',marginBottom:'16px',lineHeight:'1.6',fontWeight:500}},
       ['An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.']));
-    mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',async()=>{
       if(!ei.value){toast('⚠️ Email required.','error');return;}
       if(!S.activeChild){toast('⚠️ Please open a child profile first, then send the invite.','error');return;}
       // Generate magic link token
@@ -6778,17 +6780,11 @@ function showInviteModal(){
       const child=DB.children.find(c=>c.id===S.activeChild);
       const baseUrl=window.location.origin+window.location.pathname.replace(/\/$/,'');
       const magicLink=`${baseUrl}?invite=${token}&child=${S.activeChild}&email=${encodeURIComponent(ei.value)}`;
-      // Save pending specialist locally
-      const specs=DB.specialists;
-      const invitePermsObj={};
-      DB.children.forEach(ch=>{invitePermsObj[ch.id]=ch.id===S.activeChild?prePerms:[];});
-      const localSpecId='s_'+Date.now();
-      specs.push({id:localSpecId,name:ni.value||ei.value.split('@')[0],surname:ni.value.split(' ').pop()||'',role:ri.value||'Specialist',email:ei.value,avatar:'🧑‍⚕️',permissions:invitePermsObj,status:'pending',credentials:[],inviteToken:token});
-      DB.specialists=specs;
-      // Save invite to Supabase so specialist can accept it
+      // Save invite to Supabase — pending state shown via DB.pendingInvites (no fake local specialist)
+      // Removed: fake local specialist push that was causing DB.specialists to flicker 3→2
       if(session&&session.id!=='demo'){
         const expires=new Date();expires.setDate(expires.getDate()+30);
-        _supa.from('invites').insert({
+        const _invObj={
           token,
           parent_id:session.id,
           child_id:S.activeChild,
@@ -6798,7 +6794,21 @@ function showInviteModal(){
           specialist_role:ri.value||'Specialist',
           expires_at:expires.toISOString(),
           accepted:false
-        }).then(({error})=>{if(error)console.error('Invite save error:',error.code,error);});
+        };
+        console.log('📧 Sending invite:',_invObj);
+        try{
+          const{data:_invData,error}=await _supa.from('invites').insert(_invObj).select().single();
+          if(error)throw error;
+          console.log('✅ Invite saved:',_invData);
+          // Optimistically add to DB.pendingInvites so "Invited" card appears immediately
+          const _newInv=_invData||{..._invObj,id:'local_inv_'+Date.now()};
+          DB.pendingInvites=[...(DB.pendingInvites||[]),_newInv];
+          const _tc=document.getElementById('team-list-container');
+          if(_tc){_tc.innerHTML='';_tc.appendChild(buildTeamList(child));}
+        }catch(e){
+          console.error('❌ Invite insert failed:',e);
+          toast('❌ Failed to send invite — please try again','error');
+        }
       }
       // Add simulated email to inbox
       const emails=DB.emailInbox;
