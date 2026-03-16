@@ -2081,6 +2081,25 @@ async function _loadSessionFromSupabase(s){
     const {data,error}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
     if(!error)profile=data;
   }catch(e){console.error('_loadSessionFromSupabase profile fetch:',e);}
+  // If no profile row exists, auto-create using user_metadata.role (set by email signUp options.data)
+  // or the ?pending_role= URL param (set by Google OAuth redirectTo). This ensures new users are
+  // never stuck on the login screen due to a missing or slow DB trigger.
+  if(!profile){
+    const _fallbackRole=s.user.user_metadata?.role
+      ||new URLSearchParams(window.location.search).get('pending_role')
+      ||'parent';
+    const _fallbackName=s.user.user_metadata?.full_name
+      ||s.user.user_metadata?.name
+      ||s.user.email.split('@')[0];
+    try{
+      await _supa.from('profiles').insert({
+        id:s.user.id,email:s.user.email,
+        role:_fallbackRole,display_name:_fallbackName
+      });
+      const{data:p2}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
+      if(p2)profile=p2;
+    }catch(e){console.error('profile auto-create error:',e);}
+  }
   if(profile){
     // Use display_name → Google full_name → email prefix
     const _displayName=profile.display_name&&!profile.display_name.includes('@')
@@ -2156,16 +2175,22 @@ async function _loadSessionFromSupabase(s){
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
       // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
-      const pendingRole=localStorage.getItem('pendingGoogleRole');
+      // Resolve pending role: localStorage first, then URL ?pending_role= param (survives localStorage loss)
+      const pendingRole=localStorage.getItem('pendingGoogleRole')
+        ||new URLSearchParams(window.location.search).get('pending_role')
+        ||s2.user.user_metadata?.role
+        ||null;
+      localStorage.removeItem('pendingGoogleRole');
       if(pendingRole){
-        localStorage.removeItem('pendingGoogleRole');
         // Upsert profile with correct role so _loadSessionFromSupabase reads it correctly
-        await _supa.from('profiles').upsert({
-          id:s2.user.id,
-          email:s2.user.email,
-          role:pendingRole,
-          display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
-        },{onConflict:'id'});
+        try{
+          await _supa.from('profiles').upsert({
+            id:s2.user.id,
+            email:s2.user.email,
+            role:pendingRole,
+            display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]
+          },{onConflict:'id'});
+        }catch(e){console.error('Google OAuth profile upsert error:',e);}
       }
       await _loadSessionFromSupabase(s2);
       if(session){
@@ -2197,8 +2222,12 @@ async function _loadSessionFromSupabase(s){
 
 async function doGoogleSignIn(role){
   // Store selected role so we can apply it after OAuth redirect
-  if(role) localStorage.setItem('pendingGoogleRole', role);
-  await _supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}});
+  // Default to 'parent' if not specified — never store empty/undefined
+  const _r=role||'parent';
+  localStorage.setItem('pendingGoogleRole',_r);
+  // Also encode in redirectTo URL as fallback if localStorage is cleared mid-redirect
+  const _redirectTo=window.location.origin+'?pending_role='+encodeURIComponent(_r);
+  await _supa.auth.signInWithOAuth({provider:'google',options:{redirectTo:_redirectTo}});
 }
 
 // doLogin is async now — wraps Supabase email auth, falls back to demo mode
@@ -2216,7 +2245,7 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id',ignoreDuplicates:true});}catch(e){}}
+    if(data.user){try{await _supa.from('profiles').upsert({id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null},{onConflict:'id'});}catch(e){console.error('profile upsert error:',e);}}
   } else if(error){return{error:error.message};}
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
@@ -11631,4 +11660,6 @@ async function _processPendingInvite(){
         .catch(err=>console.log('SW registration failed:', err));
     });
   }
-</sc
+</script>
+</body>
+</html>
