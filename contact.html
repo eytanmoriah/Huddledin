@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us — Huddledin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #2BBFB3;
+      --teal-d: #22a89d;
+      --navy: #1a2e44;
+      --slate: #4a6080;
+      --mint-ll: #f0fcfb;
+      --mint-l: #e0f7f5;
+      --border: #e8edf2;
+    }
+    html, body {
+      min-height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafb;
+      color: var(--navy);
+    }
+    body { display: flex; flex-direction: column; }
+
+    /* ── Header ── */
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--teal);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .brand {
+      font-size: 1.1rem; font-weight: 700;
+      color: var(--navy); text-decoration: none;
+    }
+    .page-label {
+      margin-left: auto;
+      font-size: .8rem; font-weight: 600;
+      color: var(--teal); background: var(--mint-l);
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      display: flex; justify-content: center;
+      padding: 40px 16px 60px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 16px rgba(0,0,0,.06);
+      padding: 40px 36px;
+      width: 100%; max-width: 540px;
+    }
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+      main { padding: 24px 12px 48px; }
+    }
+
+    h1 {
+      font-size: 1.7rem; font-weight: 800;
+      color: var(--navy); margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: .9rem; color: var(--slate);
+      line-height: 1.6; margin-bottom: 28px;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: .8rem; font-weight: 700;
+      color: var(--navy); margin-bottom: 6px;
+      letter-spacing: .02em; text-transform: uppercase;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      color: var(--navy);
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color .15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(43,191,179,.12);
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234a6080' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+    textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      background: var(--teal);
+      color: #fff;
+      font-size: 1rem; font-weight: 700;
+      font-family: inherit;
+      border: none; border-radius: 12px;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      margin-top: 6px;
+    }
+    .btn-submit:hover { background: var(--teal-d); }
+    .btn-submit:active { transform: scale(.98); }
+
+    /* ── Thank you state ── */
+    #thank-you {
+      display: none;
+      text-align: center;
+      padding: 20px 0 8px;
+    }
+    #thank-you .ty-icon {
+      font-size: 2.8rem; margin-bottom: 12px;
+    }
+    #thank-you h2 {
+      font-size: 1.3rem; font-weight: 800;
+      color: var(--navy); margin-bottom: 8px;
+    }
+    #thank-you p {
+      font-size: .9rem; color: var(--slate); line-height: 1.6;
+    }
+
+    /* ── Contact info ── */
+    .contact-info {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .contact-info p {
+      font-size: .84rem; color: var(--slate);
+      margin-bottom: 8px; line-height: 1.6;
+    }
+    .contact-info strong { color: var(--navy); }
+    .contact-info a {
+      color: var(--teal); text-decoration: none; font-weight: 600;
+    }
+    .contact-info a:hover { text-decoration: underline; }
+
+    /* ── Footer ── */
+    footer {
+      background: #fff;
+      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      text-align: center;
+      font-size: .78rem; color: #7a8fa6;
+    }
+    footer a {
+      color: var(--teal); text-decoration: none; font-weight: 600;
+    }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">🤝</div>
+    <a class="brand" href="https://huddledin.com">Huddledin</a>
+    <span class="page-label">Contact Us</span>
+  </header>
+
+  <main>
+    <div class="card">
+      <div id="form-section">
+        <h1>Get in Touch</h1>
+        <p class="subtitle">Have a question, privacy request, or need support? We'd love to hear from you.</p>
+
+        <form id="contact-form" novalidate>
+          <div class="field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Your name" required autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <div class="field">
+            <label for="subject">Subject</label>
+            <select id="subject" name="subject" required>
+              <option value="" disabled selected>Select a subject…</option>
+              <option value="General Question">General Question</option>
+              <option value="Privacy Request">Privacy Request</option>
+              <option value="Technical Support">Technical Support</option>
+              <option value="Billing">Billing</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="message">Message</label>
+            <textarea id="message" name="message" placeholder="How can we help?" required></textarea>
+          </div>
+          <button type="submit" class="btn-submit">Send Message</button>
+        </form>
+
+        <div class="contact-info">
+          <p><strong>General support:</strong> <a href="mailto:support@huddledin.com">support@huddledin.com</a></p>
+          <p><strong>Privacy requests:</strong> <a href="mailto:privacy@huddledin.com">privacy@huddledin.com</a></p>
+        </div>
+      </div>
+
+      <div id="thank-you">
+        <div class="ty-icon">✅</div>
+        <h2>Message sent!</h2>
+        <p>Thanks! We'll get back to you within 24 hours.</p>
+        <div class="contact-info" style="text-align:left;">
+          <p><strong>General support:</strong> <a href="mailto:support@huddledin.com">support@huddledin.com</a></p>
+          <p><strong>Privacy requests:</strong> <a href="mailto:privacy@huddledin.com">privacy@huddledin.com</a></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <a href="https://huddledin.com">← Back to Huddledin</a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    <a href="/privacy.html">Privacy Policy</a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    <a href="/terms.html">Terms of Service</a>
+  </footer>
+
+  <script>
+    document.getElementById('contact-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name    = document.getElementById('name').value.trim();
+      var email   = document.getElementById('email').value.trim();
+      var subject = document.getElementById('subject').value;
+      var message = document.getElementById('message').value.trim();
+
+      if (!name || !email || !subject || !message) return;
+
+      var body = 'Name: ' + name + '\nEmail: ' + email + '\n\n' + message;
+      var mailto = 'mailto:support@huddledin.com'
+        + '?subject=' + encodeURIComponent('[Huddledin] ' + subject)
+        + '&body='    + encodeURIComponent(body);
+
+      window.location.href = mailto;
+
+      document.getElementById('form-section').style.display = 'none';
+      document.getElementById('thank-you').style.display = 'block';
+    });
+  </script>
+</body>
+</html>
