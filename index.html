@@ -2437,14 +2437,14 @@ async function doLogin(email,password,role,name='',profession=''){
     const res=await _supa.auth.signUp({email,password,options:{data:{role,display_name:name||email.split('@')[0],profession}}});
     if(res.error)return{error:res.error.message};
     data=res.data;
-    // Client-side profile bootstrap — handles case where DB trigger is absent
-    if(data.user){
-      const _signupUpsertData={id:data.user.id,email,role,display_name:name||email.split('@')[0],profession:profession||null,full_name:data.user.user_metadata?.full_name||null};
-      console.log('\uD83D\uDCDD Writing to profiles (doLogin signup UPSERT):', JSON.stringify(_signupUpsertData));
-      console.log('\uD83D\uDD0D Signup role source: passed role param='+role+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
-      try{await _supa.from('profiles').upsert(_signupUpsertData,{onConflict:'id'});}catch(e){console.error('profile upsert error:',e);}
+    // Block unverified users before any profile write or session load
+    if(data.user&&!_isEmailVerified(data.user)){
+      showVerificationPendingScreen(email);
+      return{ok:true,isNew:true};
     }
+    // Email confirmation disabled (dev/testing) — fall through to load session below
   } else if(error){return{error:error.message};}
+  // Profile bootstrap runs inside _loadSessionFromSupabase — not duplicated here
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
   return{ok:true,isNew:false};
