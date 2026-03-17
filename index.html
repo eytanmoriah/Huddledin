@@ -6315,10 +6315,10 @@ function showAccessRequest(folder){
 // Called both on initial render and when async fetch patches the container directly.
 function buildTeamList(child){
   const frag=el('div');
-  // Show ALL household specialists regardless of which child — child name shown on card
+  // Filter specialists by active child — only show this child's approved team members
   const specialists=session?.role==='specialist'
     ? getChildTeam(child?.id)
-    : DB.specialists;
+    : (DB.specialists||[]).filter(s=>(s.childId||s.child_id)===child?.id);
   const pendingReqsForChild=child?(DB.specialistRequests||[]).filter(r=>r.childId===child.id&&r.status==='pending'):[];
   const _childInvites=child?(DB.pendingInvites||[]).filter(inv=>inv.child_id===child.id):[];
   if(!specialists.length&&!pendingReqsForChild.length&&!_childInvites.length){
@@ -6679,11 +6679,18 @@ function renderTeam(){
   // Merge DB.removedSpecialists (from live fetch) with legacy pastSpecialists from LS
   const _removedFromDB=(DB.removedSpecialists||[]).filter(r=>r.child_id===S.activeChild);
   const _removedIds=new Set(_removedFromDB.map(r=>r.specialist_id));
-  const _legacyPast=(LS.get('pastSpecialists',[])||[]).filter(ps=>ps.childId===S.activeChild&&!_removedIds.has(ps.id));
-  const _allPastSpecs=[
-    ..._removedFromDB.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,childId:r.child_id})),
-    ..._legacyPast
+  const _legacyPast=(LS.get('pastSpecialists',[])||[]).filter(ps=>ps.childId===S.activeChild&&!_removedIds.has(ps.specialistId));
+  const _allPastSpecsRaw=[
+    ..._removedFromDB.map(r=>({specialistId:r.specialist_id,name:r.specialist_name,role:r.role,childId:r.child_id})),
+    ..._legacyPast.map(ps=>({specialistId:ps.specialistId||ps.id,name:ps.name,role:ps.role,childId:ps.childId,connectedAt:ps.connectedAt}))
   ];
+  const _psDedupSet=new Set();
+  const _allPastSpecs=_allPastSpecsRaw.filter(ps=>{
+    const k=(ps.specialistId||'?')+ps.childId;
+    if(_psDedupSet.has(k))return false;
+    _psDedupSet.add(k);
+    return true;
+  });
   if(_allPastSpecs.length&&child){
     const _psHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
     const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Specialists ('+_allPastSpecs.length+')']);
@@ -6693,13 +6700,18 @@ function renderTeam(){
     let _psOpen=false;
     _psHdr.onclick=()=>{_psOpen=!_psOpen;_psList.style.display=_psOpen?'block':'none';_psChev.textContent=_psOpen?'▼':'▶';};
     _allPastSpecs.forEach(ps=>{
-      const pc=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'13px',marginBottom:'10px',opacity:'.7',border:'1.5px dashed var(--slate-l)',background:'#f8fafc'}});
+      const pc=el('div',{class:'card',style:{display:'flex',alignItems:'center',gap:'13px',marginBottom:'10px',opacity:'.7',border:'1.5px dashed var(--slate-l)',background:'#f8fafc',flexWrap:'wrap'}});
       pc.appendChild(mkAvatar('🩺',40,'#e2e8f0'));
       const pi=el('div',{style:{flex:1}});
       pi.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',fontSize:'.88rem'}},[ps.name]));
       pi.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)'}},[ps.role+(ps.connectedAt?' · Connected '+new Date(ps.connectedAt).toLocaleDateString():'')]));
       pc.appendChild(pi);
       pc.appendChild(badge('Past','slate'));
+      if(ps.specialistId&&session?.id!=='demo'){
+        const rBtn=mkBtn('Reconnect','btn-sm btn-primary',()=>reconnectSpecialist(ps));
+        rBtn.style.marginLeft='auto';
+        pc.appendChild(rBtn);
+      }
       _psList.appendChild(pc);
     });
     sec.appendChild(_psHdr);
@@ -6766,6 +6778,54 @@ async function removeSpecialist(spec){
   // Update local cache ONLY after Supabase confirmed success above
   DB.specialists=DB.specialists.filter(s=>s.id!==spec.id);
   re();toast('✅ '+spec.name+' removed. Their notes are in the Legacy Archive.');
+}
+
+async function reconnectSpecialist(ps){
+  const child=DB.children.find(c=>c.id===S.activeChild)||DB.children.find(c=>c.id===ps.childId);
+  if(!child||!ps.specialistId||session.id==='demo')return;
+  const _specId=ps.specialistId;
+  const _childId=child.id;
+  // Step 1: Update specialist_requests status back to 'approved'
+  try{
+    const{error:e}=await _supa.from('specialist_requests')
+      .update({status:'approved'})
+      .eq('specialist_id',_specId)
+      .eq('child_id',_childId)
+      .eq('status','removed');
+    if(e)throw e;
+  }catch(e){console.error('reconnectSpecialist sr:',e);toast('❌ Could not reconnect. Please try again.','error');return;}
+  // Step 2: Send notification to specialist
+  try{
+    await _supa.from('notifications').insert({
+      user_id:_specId,
+      type:'reconnected',
+      message:child.name+' family has reconnected you to their care team',
+      child_id:_childId,
+      read:false
+    });
+  }catch(e){console.error('reconnectSpecialist notification:',e);}
+  // Step 3: Add specialist back to non-consultation chats for this child's household
+  const _hhId=child.householdId||child.household_id||session.householdId;
+  if(_hhId){
+    try{
+      const{data:_chats}=await _supa.from('chats').select('id,participants')
+        .eq('household_id',_hhId)
+        .neq('type','specialist-consult');
+      if(_chats?.length){
+        const _toAdd=_chats.filter(c=>!(c.participants||[]).includes(_specId));
+        if(_toAdd.length){
+          await Promise.all(_toAdd.map(c=>
+            _supa.from('chats').update({participants:[...(c.participants||[]),_specId]}).eq('id',c.id)
+          ));
+        }
+      }
+    }catch(e){console.error('reconnectSpecialist chats:',e);}
+  }
+  // Step 4: Remove from local removed cache so card moves to active team immediately
+  DB.removedSpecialists=(DB.removedSpecialists||[]).filter(r=>!(r.specialist_id===_specId&&r.child_id===_childId));
+  console.log('✅ Specialist reconnected successfully');
+  toast('✅ '+ps.name+' has been reconnected to '+child.name+'\'s care team');
+  re();
 }
 
 function showPermModal(spec){
