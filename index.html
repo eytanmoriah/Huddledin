@@ -6453,8 +6453,8 @@ function renderTeam(){
           });
           const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
           const _newIds=new Set(_newSpecs.map(s=>s.id));
-          DB.specialists=[..._newSpecs,...(DB.specialists||[]).filter(s=>!_newIds.has(s.id))];
-          console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists');
+          DB.specialists=_newSpecs; // Replace (not merge) — clears stale specialists from previous child
+          console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists for child',S.activeChild);
         }
         // Store removed specialists for Past Specialists section
         const prevRemoved=JSON.stringify(DB.removedSpecialists);
@@ -7355,15 +7355,12 @@ function renderChat(){
   const _chatBkBar=mkSpecBackBar(_chatBkChild?.name);
   if(_chatBkBar){_chatBkBar.style.paddingLeft='16px';_chatBkBar.style.paddingRight='16px';_chatBkBar.style.paddingTop='12px';sec.appendChild(_chatBkBar);}
 
-  if(_chatLocked&&!S.activeChatId){
-    const sec=el('div',{class:'section'});
-    const _cBar=mkSpecBackBar(_chatChild?.name);if(_cBar)sec.appendChild(_cBar);
-    const _chatLockBanner=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'16px',marginBottom:'16px',textAlign:'center',color:'#475569'}});
-    _chatLockBanner.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['🔒']));
-    _chatLockBanner.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',marginBottom:'4px'}},['Not connected — messaging unavailable']));
-    _chatLockBanner.appendChild(el('div',{style:{fontSize:'.8rem'}},['You can view past conversation history below.']));
+  if(_chatLocked){
+    // Show read-only notice at top — do NOT return early, let history render below
+    const _chatLockBanner=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'12px',textAlign:'center',color:'#475569'}});
+    _chatLockBanner.appendChild(el('div',{style:{fontSize:'1.5rem',marginBottom:'4px'}},['🔒']));
+    _chatLockBanner.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',marginBottom:'2px'}},['Not connected — messages are read only']));
     sec.appendChild(_chatLockBanner);
-    return sec;
   }
 
   // -- MOBILE: full-screen thread view --
@@ -7371,7 +7368,7 @@ function renderChat(){
     const activeChat=allChats.find(c=>c.id===S.activeChatId);
     if(activeChat){
       markChatRead(S.activeChatId);
-      sec.appendChild(renderChatThread(activeChat,specId,myId,()=>{S.activeChatId=null;re();}));
+      sec.appendChild(renderChatThread(activeChat,specId,myId,()=>{S.activeChatId=null;re();},_chatLocked));
       return sec;
     }
   }
@@ -7493,7 +7490,7 @@ function renderChat(){
   const activeChat=allChats.find(c=>c.id===S.activeChatId);
   const win=el('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}});
   if(activeChat){
-    win.appendChild(renderChatThread(activeChat,specId,myId,null));
+    win.appendChild(renderChatThread(activeChat,specId,myId,null,_chatLocked));
   } else {
     win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600,flexDirection:'column',gap:'12px'}},[
       el('span',{style:{fontSize:'2.5rem'}},['💬']),
@@ -7522,7 +7519,7 @@ function _resolveSenderName(msg, activeChat){
   return 'Family';
 }
 
-function renderChatThread(activeChat,specId,myId,onBack){
+function renderChatThread(activeChat,specId,myId,onBack,locked){
   const isConsult=activeChat.type==='specialist-consult';
   const isGroup=activeChat.type==='group';
   const isMobile=window.innerWidth<768;
@@ -7656,7 +7653,8 @@ function renderChatThread(activeChat,specId,myId,onBack){
     });
   }
 
-  // -- Input row (sticky bottom) --
+  // -- Input row (sticky bottom) — hidden for locked/disconnected specialists
+  if(locked)return wrap;
   const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
   const mi=el('input',{class:'inp',placeholder:'Message...',style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
@@ -9684,9 +9682,10 @@ function renderPatients(){
   const allChildren=[...DB.children];
   lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
   const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
-  // Count badges — approved+pending in "active", inactive in "inactive", removed only in "all"
-  const _aC=sorted.filter(c=>{const cs=c.connectionStatus||'approved';return(c.status||'active')==='active'&&cs!=='removed';}).length;
-  const _iC=sorted.filter(c=>(c.status||'active')==='inactive'&&(c.connectionStatus||'approved')!=='removed').length;
+  // Count badges — use hd9_inactive_children (same source as toggle) so counts match the lists
+  const _rmInactBadge=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
+  const _aC=sorted.filter(c=>!_rmInactBadge.has(c.id)&&(c.connectionStatus||'approved')!=='removed').length;
+  const _iC=sorted.filter(c=>_rmInactBadge.has(c.id)).length;
   Object.entries({active:_aC,inactive:_iC,all:sorted.length}).forEach(([f,n])=>{
     const _badge=el('span',{class:'patient-count-badge'},[String(n)]);
     filterBtns[f].appendChild(_badge);
@@ -9712,7 +9711,7 @@ function renderPatients(){
       return;
     }
     filtered.forEach(c=>{
-      const isInactive=(c.status||'active')==='inactive';
+      const isInactive=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
       const connStatus=c.connectionStatus||'approved';
       const isPending=connStatus==='pending';
       const isRemoved=connStatus==='removed';
