@@ -3536,7 +3536,7 @@ async function _checkSubscription(){
       return;
     }
     S.subscription={status:'expired',exempt:false};
-  }catch(e){console.error('_checkSubscription:',e);}
+  }catch(e){console.error('_checkSubscription:',e);}finally{re();}
 }
 
 function _handlePlanSelect(plan){
