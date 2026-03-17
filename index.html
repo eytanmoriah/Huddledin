@@ -2424,27 +2424,38 @@ async function doGoogleSignIn(role){
 }
 
 // doLogin is async now — wraps Supabase email auth, falls back to demo mode
-async function doLogin(email,password,role,name='',profession=''){
+async function doLogin(email,password,role,name='',profession='',mode='signin'){
   if(password==='demo'&&email==='demo@huddledin.com'){
     session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true};
     _seedHistory();
     return{ok:true,isNew:true};
   }
-  // Try sign-in first
-  let {data,error}=await _supa.auth.signInWithPassword({email,password});
-  if(error&&error.message.includes('Invalid')){
-    // Account doesn't exist — sign up
+  if(mode==='signup'){
+    // Explicit signup — never try signInWithPassword first
     const res=await _supa.auth.signUp({email,password,options:{data:{role,display_name:name||email.split('@')[0],profession}}});
     if(res.error)return{error:res.error.message};
-    data=res.data;
-    // Block unverified users before any profile write or session load
-    if(data.user&&!data.user.email_confirmed_at){
-      showVerificationPendingScreen(data.user.email);
+    // Detect email already registered: Supabase returns empty identities[] for duplicate emails
+    if(res.data.user&&res.data.user.identities&&res.data.user.identities.length===0){
+      return{error:'An account already exists with this email. Please sign in instead.'};
+    }
+    if(res.data.user&&!res.data.user.email_confirmed_at){
+      showVerificationPendingScreen(res.data.user.email);
       return{ok:true,isNew:true};
     }
-    // Email confirmation disabled (dev/testing) — fall through to load session below
-  } else if(error){return{error:error.message};}
-  // Profile bootstrap runs inside _loadSessionFromSupabase — not duplicated here
+    // Email confirmation disabled in Supabase project (dev/testing) — load session directly
+    const d=res.data;
+    await _loadSessionFromSupabase(d.session||{user:d.user});
+    if(!session)session={id:d.user.id,email,role,name:name||email.split('@')[0],specialistId:d.user.id,isNew:true};
+    return{ok:true,isNew:true};
+  }
+  // mode === 'signin' — never auto-create an account on login failure
+  const{data,error}=await _supa.auth.signInWithPassword({email,password});
+  if(error)return{error:'Invalid email or password'};
+  // Guard: unverified user signs in (edge case — email confirm was on, then turned off)
+  if(data.user&&!data.user.email_confirmed_at){
+    showVerificationPendingScreen(data.user.email);
+    return{ok:true,isNew:false};
+  }
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
   return{ok:true,isNew:false};
@@ -3395,8 +3406,8 @@ function renderAuth(){
       if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
       if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},['Please enter your profession.']));return;}
       if(mode==='signup'){const _tc=formArea.querySelector('#auth-terms');if(!_tc||!_tc.checked){errBox.appendChild(el('div',{class:'auth-error'},['Please agree to the Terms of Service and Privacy Policy to continue.']));return;}}
-      sb.disabled=true;sb.textContent='Signing in…';
-      const res=await doLogin(email,pass,selRole,name,profession);
+      sb.disabled=true;sb.textContent=mode==='signin'?'Signing in…':'Creating account…';
+      const res=await doLogin(email,pass,selRole,name,profession,mode);
       sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
       track(mode==='signin'?'Login':'Signup',{role:selRole});
