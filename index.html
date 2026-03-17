@@ -3550,22 +3550,25 @@ function renderTrialBanner(){
   const d=sub.daysRemaining||0;
   const urgent=d<=3;
   const banner=el('div',{id:'trial-banner',style:{
-    background:urgent?'#fef3c7':'#ecfdf5',
-    borderBottom:urgent?'1.5px solid #f59e0b':'1.5px solid var(--mint)',
-    padding:'9px 16px',display:'flex',alignItems:'center',
+    background:urgent?'#dc2626':'#0d9488',
+    padding:'8px 16px',display:'flex',alignItems:'center',
     justifyContent:'space-between',gap:'10px',
-    fontSize:'.82rem',fontWeight:600,
-    color:urgent?'#92400e':'var(--teal-d)',flexShrink:0
+    fontSize:'.85rem',fontWeight:600,color:'white',
+    flexShrink:0,boxSizing:'border-box',maxHeight:'44px'
   }});
-  const left=el('span');
-  left.textContent=(urgent?'\u26A0\uFE0F ':'\u23F3 ')+(urgent?'Only ':'')+d+' day'+(d===1?'':'s')+' left in your free trial';
-  const right=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',flexShrink:0}});
-  const upg=el('span',{style:{cursor:'pointer',textDecoration:'underline',fontWeight:700}},['Upgrade now \u2192']);
-  upg.onclick=()=>{S._showPaywall=true;re();};
-  const x=el('span',{style:{cursor:'pointer',opacity:'.55',fontSize:'1rem',lineHeight:1,marginLeft:'4px'}},['✕']);
+  const left=el('span',{style:{display:'flex',alignItems:'center',gap:'4px',flexWrap:'wrap'}});
+  const txt=document.createTextNode(
+    urgent
+      ?'\u26A0\uFE0F '+d+' day'+(d===1?'':'s')+' left \u2014 '
+      :'\uD83D\uDD50 '+d+' day'+(d===1?'':'s')+' left in your free trial \u00B7 '
+  );
+  const upgLink=el('span',{style:{cursor:'pointer',textDecoration:'underline',fontWeight:700}},
+    [urgent?'Upgrade now to keep access \u2192':'Upgrade now \u2192']);
+  upgLink.onclick=()=>{S._showPaywall=true;re();};
+  left.appendChild(txt);left.appendChild(upgLink);
+  const x=el('span',{style:{cursor:'pointer',opacity:'.7',fontSize:'1rem',lineHeight:1,flexShrink:0}},['✕']);
   x.onclick=()=>{S._trialBannerDismissed=true;re();};
-  right.appendChild(upg);right.appendChild(x);
-  banner.appendChild(left);banner.appendChild(right);
+  banner.appendChild(left);banner.appendChild(x);
   return banner;
 }
 
