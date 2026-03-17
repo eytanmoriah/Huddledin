@@ -3680,7 +3680,15 @@ function renderShell(){
   const shell=el('div',{id:'app-shell'});
   shell.appendChild(renderHeader());
   // Trial banner — parents only, dismissible per session
-  if(session?.role==='parent'){const _tb=renderTrialBanner();if(_tb)shell.appendChild(_tb);}
+  // marginTop pushes banner below the position:fixed header; body padding-top zeroed when banner present
+  let _trialBanner=null;
+  if(session?.role==='parent'){
+    _trialBanner=renderTrialBanner();
+    if(_trialBanner){
+      _trialBanner.style.marginTop='calc(var(--header-h) + var(--safe-top))';
+      shell.appendChild(_trialBanner);
+    }
+  }
 
   // Drawer backdrop
   if(S.isDrawerOpen){
@@ -3690,7 +3698,7 @@ function renderShell(){
   }
   shell.appendChild(renderDrawer());
 
-  const body=el('div',{id:'body'});
+  const body=el('div',{id:'body',style:_trialBanner?{paddingTop:'0'}:{}});
 
   if(session?.role==='parent'){
     if(S.navLevel===0){
