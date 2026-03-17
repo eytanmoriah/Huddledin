@@ -2397,6 +2397,7 @@ function showVerificationPendingScreen(email){
       // Process pending invite if any
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
+      await _checkSubscription();
       re();
       setupHouseholdSync();setupSpecialistSync();
       // Show household invite modal for parents
@@ -2410,7 +2411,7 @@ function showVerificationPendingScreen(email){
   if(session)_appLoading=true;
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(()=>{_appLoading=false;re();setupHouseholdSync();setupSpecialistSync();});}
+  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();re();setupHouseholdSync();setupSpecialistSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -2511,7 +2512,10 @@ let S={
   _hwParentTab:'active',  // parent homework: 'active'|'archive'
   _hwExpandedId:null,     // parent: expanded task card id
   _hwTaskView:null,       // specialist: task id for detail view
-  pastPatientMode:false  // specialist: true when viewing a removed patient's read-only archive
+  pastPatientMode:false,  // specialist: true when viewing a removed patient's read-only archive
+  subscription:null,      // {status:'trial'|'active'|'expired', daysRemaining, exempt, ...}
+  _showPaywall:false,     // force paywall open (e.g. user clicks "Upgrade now")
+  _trialBannerDismissed:false  // session-scoped dismiss of trial banner
 };
 
 /* -----------------------------------------------
@@ -3423,6 +3427,8 @@ function renderAuth(){
         const myPatients=DB.children;
         S.activeChild=myPatients[0]?.id||null;
       }
+      // Check subscription status for parents before rendering app
+      await _checkSubscription();
       // Schedule guided tour for new users (or returning users who haven't dismissed it)
       if(res.isNew){
         LS.set('tourNeedsShow',true);
@@ -3498,9 +3504,162 @@ function renderAuth(){
 }
 
 /* -----------------------------------------------
+   SUBSCRIPTION
+----------------------------------------------- */
+async function _checkSubscription(){
+  if(!session||session.role!=='parent'||session.id==='demo')return;
+  try{
+    const{data:sub}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).maybeSingle();
+    if(!sub){
+      // No row — start 14-day trial
+      const _now=new Date();
+      const _end=new Date(_now.getTime()+14*24*60*60*1000);
+      try{
+        await _supa.from('subscriptions').insert({
+          user_id:session.id,status:'trial',
+          trial_started_at:_now.toISOString(),
+          trial_ends_at:_end.toISOString(),
+          plan:'family',billing_cycle:'monthly'
+        });
+      }catch(e){console.error('create trial:',e);}
+      S.subscription={status:'trial',daysRemaining:14,exempt:false};
+      return;
+    }
+    if(sub.exempt){S.subscription={status:'active',exempt:true};return;}
+    if(sub.status==='active'){
+      S.subscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};
+      return;
+    }
+    if(sub.status==='trial'){
+      const _days=Math.ceil((new Date(sub.trial_ends_at)-new Date())/(1000*60*60*24));
+      S.subscription=_days>0?{status:'trial',daysRemaining:_days,exempt:false}:{status:'expired',exempt:false};
+      return;
+    }
+    S.subscription={status:'expired',exempt:false};
+  }catch(e){console.error('_checkSubscription:',e);}
+}
+
+function _handlePlanSelect(plan){
+  localStorage.setItem('hd_pending_plan',plan);
+  toast('\uD83D\uDCB3 Payment coming soon \u2014 we\'ll notify you when ready!');
+}
+
+function renderTrialBanner(){
+  const sub=S.subscription;
+  if(!sub||sub.status!=='trial'||sub.exempt||S._trialBannerDismissed)return null;
+  const d=sub.daysRemaining||0;
+  const urgent=d<=3;
+  const banner=el('div',{style:{
+    background:urgent?'#fef3c7':'#ecfdf5',
+    borderBottom:urgent?'1.5px solid #f59e0b':'1.5px solid var(--mint)',
+    padding:'9px 16px',display:'flex',alignItems:'center',
+    justifyContent:'space-between',gap:'10px',
+    fontSize:'.82rem',fontWeight:600,
+    color:urgent?'#92400e':'var(--teal-d)',flexShrink:0
+  }});
+  const left=el('span');
+  left.textContent=(urgent?'\u26A0\uFE0F ':'\u23F3 ')+(urgent?'Only ':'')+d+' day'+(d===1?'':'s')+' left in your free trial';
+  const right=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',flexShrink:0}});
+  const upg=el('span',{style:{cursor:'pointer',textDecoration:'underline',fontWeight:700}},['Upgrade now \u2192']);
+  upg.onclick=()=>{S._showPaywall=true;re();};
+  const x=el('span',{style:{cursor:'pointer',opacity:'.55',fontSize:'1rem',lineHeight:1,marginLeft:'4px'}},['✕']);
+  x.onclick=()=>{S._trialBannerDismissed=true;re();};
+  right.appendChild(upg);right.appendChild(x);
+  banner.appendChild(left);banner.appendChild(right);
+  return banner;
+}
+
+function renderPaywall(){
+  const pw=el('div',{style:{
+    display:'flex',flexDirection:'column',alignItems:'center',
+    minHeight:'100vh',padding:'44px 20px 60px',
+    background:'var(--snow)',overflowY:'auto'
+  }});
+  // Header
+  pw.appendChild(el('div',{style:{fontSize:'2.4rem',marginBottom:'10px'}},['🤝']));
+  pw.appendChild(el('h1',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.6rem',textAlign:'center',marginBottom:'8px'}},['Your free trial has ended']));
+  pw.appendChild(el('p',{style:{color:'var(--slate)',textAlign:'center',marginBottom:'30px',lineHeight:'1.6',maxWidth:'340px',fontSize:'.92rem'}},['Choose a plan to continue coordinating your child\'s care.']));
+
+  // Billing toggle
+  let _billing='yearly';
+  const toggleWrap=el('div',{style:{display:'flex',background:'#e2e8f0',borderRadius:'99px',padding:'3px',marginBottom:'28px',gap:'2px'}});
+  const mBtn=el('button',{class:'btn',style:{borderRadius:'99px',padding:'7px 20px',fontSize:'.84rem',fontWeight:600,background:'transparent',color:'var(--slate)',border:'none'}},['Monthly']);
+  const yBtn=el('button',{class:'btn',style:{borderRadius:'99px',padding:'7px 20px',fontSize:'.84rem',fontWeight:700,background:'white',color:'var(--navy)',border:'none',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}},['Yearly \u2014 Save 28%']);
+  const mPriceEl=el('div',{style:{fontSize:'2.2rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},['$7']);
+  const yPriceEl=el('div',{style:{fontSize:'2.2rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},['$5']);
+  const mSubEl=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'18px',lineHeight:'1.5'}},['/ month\nBilled monthly']);
+  const ySubEl=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'18px',lineHeight:'1.5'}},['/ month\nBilled annually ($60/year)']);
+
+  const setToggle=b=>{
+    _billing=b;
+    mBtn.style.background=b==='monthly'?'white':'transparent';
+    mBtn.style.color=b==='monthly'?'var(--navy)':'var(--slate)';
+    mBtn.style.boxShadow=b==='monthly'?'0 1px 3px rgba(0,0,0,.12)':'none';
+    mBtn.style.fontWeight=b==='monthly'?'700':'600';
+    yBtn.style.background=b==='yearly'?'white':'transparent';
+    yBtn.style.color=b==='yearly'?'var(--navy)':'var(--slate)';
+    yBtn.style.boxShadow=b==='yearly'?'0 1px 3px rgba(0,0,0,.12)':'none';
+    yBtn.style.fontWeight=b==='yearly'?'700':'600';
+  };
+  mBtn.onclick=()=>setToggle('monthly');
+  yBtn.onclick=()=>setToggle('yearly');
+  toggleWrap.appendChild(mBtn);toggleWrap.appendChild(yBtn);
+  pw.appendChild(toggleWrap);
+
+  // Price cards
+  const cards=el('div',{style:{display:'flex',gap:'14px',width:'100%',maxWidth:'480px',marginBottom:'28px',flexWrap:'wrap',justifyContent:'center'}});
+
+  const mCard=el('div',{class:'card',style:{flex:'1 1 170px',textAlign:'center',padding:'22px 16px',minWidth:'150px'}});
+  mCard.appendChild(mPriceEl);
+  mCard.appendChild(mSubEl);
+  const mGetBtn=mkBtn('Get Started','btn-md btn-slate btn-full',()=>_handlePlanSelect('monthly'));
+  mCard.appendChild(mGetBtn);
+
+  const yCard=el('div',{class:'card',style:{flex:'1 1 170px',textAlign:'center',padding:'22px 16px',minWidth:'150px',border:'2.5px solid var(--teal)',position:'relative'}});
+  const yBadge=el('div',{style:{position:'absolute',top:'-12px',left:'50%',transform:'translateX(-50%)',background:'var(--teal)',color:'white',fontSize:'.68rem',fontWeight:800,padding:'2px 12px',borderRadius:'99px',whiteSpace:'nowrap',letterSpacing:'.04em'}},['BEST VALUE']);
+  yCard.appendChild(yBadge);
+  yCard.appendChild(yPriceEl);
+  yCard.appendChild(ySubEl);
+  const yGetBtn=mkBtn('Get Started \u2014 Best Value','btn-md btn-primary btn-full',()=>_handlePlanSelect('yearly'));
+  yCard.appendChild(yGetBtn);
+
+  cards.appendChild(mCard);cards.appendChild(yCard);
+  pw.appendChild(cards);
+
+  // Feature list
+  const features=['Unlimited specialists','Unlimited children','Secure file sharing','Appointment tracking','Progress notes','Care team messaging'];
+  const fl=el('div',{style:{maxWidth:'300px',width:'100%',marginBottom:'26px'}});
+  features.forEach(f=>{
+    const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'5px 0',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}});
+    row.appendChild(el('span',{style:{color:'var(--teal)',fontWeight:800,flexShrink:0}},['✅']));
+    row.appendChild(el('span',{},[f]));
+    fl.appendChild(row);
+  });
+  pw.appendChild(fl);
+
+  // Fine print
+  const fp=el('p',{style:{fontSize:'.75rem',color:'var(--slate-l)',textAlign:'center',marginBottom:'20px',lineHeight:'1.6',maxWidth:'320px'}});
+  fp.appendChild(document.createTextNode('Cancel anytime. Questions? '));
+  fp.appendChild(el('a',{href:'mailto:support@huddledin.com',style:{color:'var(--slate-l)'}},['support@huddledin.com']));
+  pw.appendChild(fp);
+
+  // Sign out
+  const soBtn=mkBtn('Sign out','btn-sm btn-ghost',async()=>{await doLogout();re();});
+  pw.appendChild(soBtn);
+
+  return pw;
+}
+
+/* -----------------------------------------------
    APP SHELL
 ----------------------------------------------- */
 function renderShell(){
+  // Paywall — blocks entire app for expired parent subscriptions
+  // Specialists are always exempt (skip check entirely)
+  if(session?.role==='parent'&&(S.subscription?.status==='expired'||S._showPaywall)){
+    return renderPaywall();
+  }
+
   // Full-screen calendar overlay (always on top)
   if(S.calFullscreen){
     const shell=el('div',{id:'app-shell'});
@@ -3517,6 +3676,8 @@ function renderShell(){
 
   const shell=el('div',{id:'app-shell'});
   shell.appendChild(renderHeader());
+  // Trial banner — parents only, dismissible per session
+  if(session?.role==='parent'){const _tb=renderTrialBanner();if(_tb)shell.appendChild(_tb);}
 
   // Drawer backdrop
   if(S.isDrawerOpen){
