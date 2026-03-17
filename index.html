@@ -2438,8 +2438,8 @@ async function doLogin(email,password,role,name='',profession=''){
     if(res.error)return{error:res.error.message};
     data=res.data;
     // Block unverified users before any profile write or session load
-    if(data.user&&!_isEmailVerified(data.user)){
-      showVerificationPendingScreen(email);
+    if(data.user&&!data.user.email_confirmed_at){
+      showVerificationPendingScreen(data.user.email);
       return{ok:true,isNew:true};
     }
     // Email confirmation disabled (dev/testing) — fall through to load session below
