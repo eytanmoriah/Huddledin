@@ -2118,7 +2118,7 @@ async function loadChatsFromSupabase(){
     const chatsWithMessages=(chatRows||[]).map(ch=>{
       const msgs=_msgsByChatId[ch.id]||[];
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,
-        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0]}))};
+        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at}))};
     });
     LS.set('chats',chatsWithMessages);
   }catch(e){console.error('loadChatsFromSupabase:',e);}
@@ -7428,10 +7428,10 @@ function renderChat(){
     visChats=visChats.filter(c=>c.childId===S.activeChatChildId);
   }
 
-  // Sort: chats with most recent message first
+  // Sort: chats with most recent message first — use ISO timestamp not UUID
   visChats=[...visChats].sort((a,b)=>{
-    const aLast=a.messages[a.messages.length-1]?.id||a.id;
-    const bLast=b.messages[b.messages.length-1]?.id||b.id;
+    const aLast=a.messages[a.messages.length-1]?.ts||'';
+    const bLast=b.messages[b.messages.length-1]?.ts||'';
     return bLast>aLast?1:-1;
   });
 
@@ -10970,9 +10970,16 @@ async function renderHouseholdCard(){
   // Load co-parents
   let coParents=[];
   try{
-    const {data}=await _supa.from('profiles').select('*').eq('household_id',session.householdId).neq('id',session.id);
-    coParents=(data||[]).filter(p=>p.role!=='specialist');
-  }catch(e){}
+    if(session.householdId){
+      const {data,error}=await _supa.from('profiles').select('id,display_name,email,role').eq('household_id',session.householdId).neq('id',session.id);
+      if(error)throw error;
+      coParents=(data||[]).filter(p=>p.role!=='specialist');
+    }
+    // Fall back to DB.coParents (loaded during refreshFromSupabase) if live query returns empty
+    if(!coParents.length&&DB.coParents?.length){
+      coParents=DB.coParents.map(cp=>({id:cp.id,display_name:cp.name||cp.display_name,email:cp.email||'',role:'parent'}));
+    }
+  }catch(e){console.error('load co-parents:',e);}
 
   // Load pending invites
   let pending=[];
