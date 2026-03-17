@@ -1930,9 +1930,9 @@ async function refreshFromSupabase(){
         const children=childrenRes.data||[];
         if(children.length>0){
           const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved'})));
-          // Filter removed+inactive children so "Move to Inactive" persists across refreshes
-          const _inactiveIds=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
-          const _mappedVisible=mapped.filter(c=>!(c.connectionStatus==='removed'&&_inactiveIds.has(c.id)));
+          // Keep ALL patients in LS.children — hd9_inactive_children controls tab visibility, not cache membership
+          // This ensures removed+inactive patients remain openable from their profile view
+          const _mappedVisible=mapped;
           LS.set('children',_mappedVisible);
           // Active child must be an approved patient — don't auto-navigate into pending/removed
           const approvedMapped=_mappedVisible.filter(c=>c.connectionStatus==='approved');
@@ -2022,8 +2022,8 @@ async function refreshFromSupabase(){
           }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
         })()
       ]);
-      // Removed connections now loaded in main children list (connectionStatus='removed').
-      // pastPatients LS key is managed locally — set when specialist clicks "Move to Inactive".
+      // Removed connections loaded in main children list (connectionStatus='removed').
+      // hd9_inactive_children controls which tab removed patients appear in.
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
 }
@@ -2283,10 +2283,26 @@ async function _loadSessionFromSupabase(s){
   }
 }
 
+// One-time migration: move pastPatients entries into hd9_inactive_children and clear pastPatients.
+// Runs once per device. Subsequent runs are skipped via hd9_past_migrated flag.
+function _migratePastPatients(){
+  if(localStorage.getItem('hd9_past_migrated'))return;
+  try{
+    const _pp=LS.get('pastPatients',[]);
+    if(_pp&&_pp.length>0){
+      const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
+      _pp.forEach(p=>{if(p&&p.id)_inact.add(p.id);});
+      localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));
+      console.log('\u2705 Migrated pastPatients \u2192 hd9_inactive_children:',_pp.length,'entries');
+    }
+    localStorage.setItem('hd9_past_migrated','1');
+  }catch(e){console.error('\u274C _migratePastPatients:',e);}
+}
+
 // Boot: restore Supabase session and wire auth listener
 (async()=>{
   const {data:{session:s}}=await _supa.auth.getSession();
-  if(s){await _loadSessionFromSupabase(s);}
+  if(s){await _loadSessionFromSupabase(s);_migratePastPatients();}
   // Handle Google OAuth redirect back
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
@@ -2323,7 +2339,7 @@ async function _loadSessionFromSupabase(s){
           }catch(e){console.error('Google OAuth profile upsert error:',e);}
         }
       }
-      await _loadSessionFromSupabase(s2);
+      await _loadSessionFromSupabase(s2);_migratePastPatients();
       if(session){
         S.navLevel=session.role==='parent'?0:1;
         S.activeChild=LS.get('children',[])[0]?.id||null;
@@ -8155,7 +8171,7 @@ function renderVault(){
             S.vaultHasUnsaved=true;
           };
           ab.appendChild(sta);
-          if(!note.locked&&!note.published){
+          if(!note.locked&&!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn('📤 Publish Summary to Parent','btn-md btn-primary',()=>{
               if(!(S.vaultSummary||note.summary||'').trim()){toast('Write a summary before publishing','error');return;}
               openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
@@ -9730,12 +9746,8 @@ function renderPatients(){
           if(_isMovedInact){
             // Restore to active list
             try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
-            LS.set('pastPatients',(LS.get('pastPatients',[])||[]).filter(p=>p.id!==c.id));
           }else{
             // Move to inactive
-            const pastPts=LS.get('pastPatients',[]);
-            if(!pastPts.find(p=>p.id===c.id))pastPts.push({id:c.id,name:c.name,dob:c.dob});
-            LS.set('pastPatients',pastPts);
             try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
             if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
           }
@@ -9763,33 +9775,6 @@ function renderPatients(){
   doFilter('');
   si.oninput=e=>doFilter(e.target.value);
   sec.appendChild(stack);
-
-  // ── Past Patients — removed connections, read-only archive ─────────────────
-  const _pastPts=LS.get('pastPatients',[]);
-  if(_pastPts.length){
-    const _pastHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
-    const _pastTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Patients ('+_pastPts.length+')']);
-    const _pastChev=el('span',{style:{color:'var(--slate)',fontSize:'.85rem',transition:'transform .2s'}},['▶']);
-    _pastHdr.appendChild(_pastTitle);_pastHdr.appendChild(_pastChev);
-    const _pastList=el('div',{style:{display:'none'}});
-    let _pastOpen=false;
-    _pastHdr.onclick=()=>{_pastOpen=!_pastOpen;_pastList.style.display=_pastOpen?'block':'none';_pastChev.textContent=_pastOpen?'▼':'▶';};
-    _pastPts.forEach(c=>{
-      const pc=el('div',{class:'card click',style:{display:'flex',alignItems:'center',gap:'14px',opacity:'.65',border:'1.5px dashed var(--slate-l)',marginBottom:'8px',background:'#f8fafc'}});
-      const av=el('div',{style:{width:'44px',height:'44px',borderRadius:'50%',background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',flexShrink:0}},['👤']);
-      pc.appendChild(av);
-      const pi=el('div',{style:{flex:1}});
-      pi.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',fontSize:'.88rem'}},[c.name]));
-      pi.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)'}},['DOB '+(c.dob||'—')]));
-      pc.appendChild(pi);
-      pc.appendChild(badge('Past','slate'));
-      pc.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',marginLeft:'4px'}},['›']));
-      pc.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=true;S.activeTab='patient-detail';re();};
-      _pastList.appendChild(pc);
-    });
-    sec.appendChild(_pastHdr);
-    sec.appendChild(_pastList);
-  }
 
   return sec;
 }
@@ -9873,7 +9858,7 @@ function renderPatientDashboard(){
   const specId=session?.specialistId;
   const child=DB.children.find(c=>c.id===S.activeChild)
     ||(LS.get('children',[])).find(c=>c.id===S.activeChild)
-    ||(S.pastPatientMode?LS.get('pastPatients',[]).find(c=>c.id===S.activeChild):null);
+    ||(S.pastPatientMode?(LS.get('children',[])).find(c=>c.id===S.activeChild):null);
   if(!child){S.activeTab='patients';re();return el('div');}
   // pastPatientMode only applies to truly inactive patients — removed (not connected) get full view
   const _dashConnStatus=child.connectionStatus||'approved';
@@ -12097,23 +12082,18 @@ function _showRemovedConnectionPopup(child){
   const _key='hd9_rm_popup_'+child.id;
   if(localStorage.getItem(_key))return; // already shown — persists across sessions until reconnected
   localStorage.setItem(_key,'1');
-  openModal('Connection Removed',(mb,close)=>{
+  openModal('Family Disconnected',(mb,close)=>{
     const msgEl=el('p',{style:{color:'var(--slate)',lineHeight:'1.6',marginBottom:'20px'}});
-    msgEl.textContent='Your connection to "'+child.name+'" has been removed by the family. Would you like to move them to inactive patients?';
+    msgEl.textContent='This family has disconnected you from '+child.name+'. You can still view your own notes and files. Would you like to move them to your Inactive list?';
     mb.appendChild(msgEl);
     const btns=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap'}});
-    btns.appendChild(mkBtn('Move to Inactive','btn-md btn-primary',()=>{
-      // Add to hd9_inactive_children
+    btns.appendChild(mkBtn('Yes, move to Inactive','btn-md btn-primary',()=>{
+      // Add to hd9_inactive_children — child stays in LS.children so profile remains accessible
       try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(child.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e){}
-      // Add to pastPatients for legacy archive
-      const _pp=LS.get('pastPatients',[]);
-      if(!_pp.find(p=>p.id===child.id)){_pp.push({id:child.id,name:child.name,dob:child.dob});LS.set('pastPatients',_pp);}
-      // Clear active child if this patient was open
-      if(S.activeChild===child.id){S.activeChild=null;S.activeTab='patients';}
       close();re();
-      toast(child.name+' moved to inactive patients.','info');
+      toast(child.name+' moved to Inactive.','info');
     }));
-    btns.appendChild(mkBtn('Keep Active','btn-md btn-ghost',()=>{close();}));
+    btns.appendChild(mkBtn('No, keep in Active','btn-md btn-ghost',()=>{close();}));
     mb.appendChild(btns);
   });
 }
