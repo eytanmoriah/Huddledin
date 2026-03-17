@@ -2299,13 +2299,59 @@ function _migratePastPatients(){
   }catch(e){console.error('\u274C _migratePastPatients:',e);}
 }
 
+// ── Email verification helpers ───────────────────────────────────────────────
+// Google OAuth users are pre-verified — skip email confirmation check for them
+function _isEmailVerified(user){
+  if(!user)return false;
+  const p=user.app_metadata?.provider||'';
+  const ps=user.app_metadata?.providers||[];
+  if(p==='google'||ps.includes('google'))return true;
+  return !!user.email_confirmed_at;
+}
+
+function showVerificationPendingScreen(email){
+  const root=document.getElementById('root');
+  if(!root)return;
+  root.innerHTML='';
+  const wrap=el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',padding:'32px 20px',background:'var(--snow)'}});
+  const card=el('div',{class:'card',style:{maxWidth:'420px',width:'100%',textAlign:'center',padding:'36px 28px'}});
+  card.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📧']));
+  card.appendChild(el('h2',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'8px',fontSize:'1.4rem'}},['Check your email']));
+  card.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'6px',lineHeight:'1.6',fontSize:'.9rem'}},['We sent a confirmation link to:']));
+  card.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',marginBottom:'16px',fontSize:'.95rem'}},[email||'your email address']));
+  card.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'24px',lineHeight:'1.6',fontSize:'.88rem'}},['Please click the link in the email to activate your account. Check your spam folder if you don\'t see it.']));
+  const resendBtn=mkBtn('Resend confirmation email','btn-lg btn-primary btn-full',async()=>{
+    resendBtn.disabled=true;resendBtn.textContent='Sending\u2026';
+    try{
+      const{error}=await _supa.auth.resend({type:'signup',email:email||''});
+      if(error)throw error;
+      toast('\u2705 Confirmation email sent!');
+    }catch(e){console.error('resend:',e);toast('\u274C Could not resend. Please try again.','error');}
+    resendBtn.disabled=false;resendBtn.textContent='Resend confirmation email';
+  });
+  card.appendChild(resendBtn);
+  const outBtn=mkBtn('Sign out','btn-lg btn-ghost btn-full',async()=>{await _supa.auth.signOut();session=null;re();});
+  outBtn.style.marginTop='10px';
+  card.appendChild(outBtn);
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+}
+
 // Boot: restore Supabase session and wire auth listener
 (async()=>{
   const {data:{session:s}}=await _supa.auth.getSession();
-  if(s){await _loadSessionFromSupabase(s);_migratePastPatients();}
+  if(s){
+    if(!_isEmailVerified(s.user)){
+      re();showVerificationPendingScreen(s.user?.email);
+    }else{
+      await _loadSessionFromSupabase(s);_migratePastPatients();
+    }
+  }
   // Handle Google OAuth redirect back
   _supa.auth.onAuthStateChange(async(event,s2)=>{
     if(event==='SIGNED_IN'&&s2&&!session){
+      // Block unverified email users — Google OAuth is exempt (pre-verified by Google)
+      if(!_isEmailVerified(s2.user)){showVerificationPendingScreen(s2.user?.email);return;}
       // Apply pending Google role if set — must happen BEFORE _loadSessionFromSupabase
       // Resolve pending role: localStorage first, then URL ?pending_role= param (survives localStorage loss)
       const _pendingRoleRaw=localStorage.getItem('pendingGoogleRole');
