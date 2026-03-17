@@ -2410,7 +2410,14 @@ async function doLogout(){
   await _supa.auth.signOut();
   session=null;
   _seenTimestamps={};
-  Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+  // Clear session cache only — preserve cross-session state (popup flags, inactive list, migration flag)
+  const _keepPfx=['hd9_rm_popup_','hd9_status_','hd9_inactive_'];
+  const _keepExact=['hd9_inactive_children','hd9_past_migrated'];
+  Object.keys(localStorage).filter(k=>{
+    if(_keepExact.includes(k))return false;
+    if(_keepPfx.some(p=>k.startsWith(p)))return false;
+    return k.startsWith('hd9_');
+  }).forEach(k=>localStorage.removeItem(k));
   ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
 }
 
@@ -3513,7 +3520,8 @@ function renderSpecDesktop(){
   const all=[...DB.children];
   lsKids.forEach(lc=>{if(!all.find(c=>c.id===lc.id))all.push(lc);});
   const sorted=[...all].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
-  const activeCount=sorted.filter(c=>(c.status||'active')==='active').length;
+  const _rmInactSet=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
+  const activeCount=sorted.filter(c=>!(((c.status||'active')==='inactive')||_rmInactSet.has(c.id))).length;
   const unreadN=DB.notifications.filter(n=>!n.read).length;
   const specId=session?.specialistId;
   const specName=spec?.name||session?.name||'Specialist';
@@ -3680,8 +3688,8 @@ function renderSpecDesktop(){
     plList.innerHTML='';
     const shown=sorted.filter(c=>{
       const nm=c.name.toLowerCase().includes(q.toLowerCase());
-      const st=c.status||'active';
-      const sf=S._dtPF==='all'||S._dtPF===st;
+      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
+      const sf=S._dtPF==='all'||(S._dtPF==='inactive'?isInact:!isInact);
       return nm&&sf;
     });
     if(!shown.length){
@@ -3719,6 +3727,22 @@ function renderSpecDesktop(){
       }
       if(lastAct){const la=el('div',{class:'spec-dt-pl-act'});la.textContent=lastAct;rr.appendChild(la);}
       row.appendChild(rr);
+      const _dtIsPending=(c.connectionStatus||'approved')==='pending';
+      if(!_dtIsPending){
+        const _dtIsInact=_rmInactSet.has(c.id);
+        const dtToggle=el('div',{class:'toggle'+(_dtIsInact?'':' on'),style:{flexShrink:0,marginLeft:'4px'},title:_dtIsInact?'Move back to active':'Move to inactive'});
+        dtToggle.onclick=e=>{
+          e.stopPropagation();
+          if(_dtIsInact){
+            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+          }else{
+            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+            if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
+          }
+          re();
+        };
+        row.appendChild(dtToggle);
+      }
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
         _pushNav();S.activeChild=c.id;S.activeTab='vault';
@@ -7044,9 +7068,10 @@ function renderCalendar(){
       el('h2',{class:'page-title'},['Calendar']),
       el('p',{class:'page-sub'},[`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
     ]));
+    const _calRemoved=(child?.connectionStatus||'approved')==='removed';
     hd.appendChild(el('div',{class:'sec-hd-right'},[
       mkBtn('📅 Sync Google','btn-sm btn-ghost',()=>showGoogleSyncModal()),
-      mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())
+      ...(_calRemoved?[]:[mkBtn('➕ Add Event','btn-sm btn-primary',()=>showAddEventModal())])
     ]));
     sec.appendChild(hd);
   }
@@ -9901,21 +9926,19 @@ function renderPatientDashboard(){
     sec.appendChild(ncBanner);
   }
 
-  // Action grid — 6 tiles for removed patients (3 cols), 4 tiles for active (2 cols)
+  // Action grid — 4 tiles (2 cols) for all patients
   const _dashBubbles=_dashIsRemoved?[
     {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault',locked:false},
     {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files',locked:false},
     {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework',locked:true},
-    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat',locked:true},
-    {icon:'📅',label:'Appointments',  color:'#f59e0b',bg:'#fffbeb',tab:'calendar',locked:true},
-    {icon:'💬',label:'Messages',      color:'#6366f1',bg:'#eef2ff',tab:'chat',locked:true}
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat',locked:true}
   ]:[
     {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',tab:'vault',locked:false},
     {icon:'📋',label:'Tasks',         color:'#f97316',bg:'#fff7ed',tab:'homework',locked:false},
     {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',tab:'files',locked:false},
     {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',tab:'chat',locked:false}
   ];
-  const _dashCols=_dashIsRemoved?3:2;
+  const _dashCols=2;
   const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat('+_dashCols+',1fr)',gap:'12px',marginBottom:'22px'}});
   const _snb={};
   {const _cid=child.id,_notes=(DB.vaultNotes||[]).filter(n=>n.childId===_cid&&n.specialistId===specId),_fls=(DB.folders||[]).filter(f=>f.childId===_cid).flatMap(f=>f.files||[]);
