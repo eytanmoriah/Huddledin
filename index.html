@@ -3549,7 +3549,7 @@ function renderTrialBanner(){
   if(!sub||sub.status!=='trial'||sub.exempt||S._trialBannerDismissed)return null;
   const d=sub.daysRemaining||0;
   const urgent=d<=3;
-  const banner=el('div',{style:{
+  const banner=el('div',{id:'trial-banner',style:{
     background:urgent?'#fef3c7':'#ecfdf5',
     borderBottom:urgent?'1.5px solid #f59e0b':'1.5px solid var(--mint)',
     padding:'9px 16px',display:'flex',alignItems:'center',
