@@ -6739,7 +6739,7 @@ function renderTeam(){
         const _allRows=[...(_r1.data||[]),...(_r2.data||[])];
         const _seenKeys=new Set();
         const _rows=_allRows.filter(r=>{
-          const key=r.specialist_id+r.child_id;
+          const key=r.specialist_id+r.child_id+(r.request_type||'join');
           if(_seenKeys.has(key))return false;
           _seenKeys.add(key);
           return true;
