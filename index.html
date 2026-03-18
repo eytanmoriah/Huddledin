@@ -2080,6 +2080,8 @@ function setupSpecialistSync(){
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // homework_tasks status changes — fires when parent archives a task so specialist's Active list updates in real-time
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'homework_tasks',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     .subscribe();
   // Subscribe to appointment updates for each patient child
   // (catches rsvp updates and new appointments from parents)
@@ -3272,7 +3274,7 @@ function pushNotif(type,msg,childId,linkTab=null){
 }
 
 /* Push a notification to the OTHER party (not the current user) */
-async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
+async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targetUserId=null){
   if(session?.id==='demo')return;
   if(!linkTab){
     const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
@@ -3320,14 +3322,14 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
         }
       }
     } else {
-      // Parent: notify all active specialists for this child
-      const team=getChildTeam(childId).filter(s=>s.status==='active');
-      for(const s of team){
+      // Parent: notify only the target specialist if specified, otherwise all active specialists for this child
+      const _recipientIds=targetUserId?[targetUserId]:getChildTeam(childId).filter(s=>s.status==='active').map(s=>s.id);
+      for(const uid of _recipientIds){
         try{
-          const {data:_dup2}=await _supa.from('notifications').select('id').eq('user_id',s.id).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
+          const {data:_dup2}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
           if(_dup2&&_dup2.length>0)continue;
           await _supa.from('notifications').insert({
-            id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
+            id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
             household_id:hid,child_id:childId||null,
             type,message:msg,read:false,link_tab:linkTab,
             link_data:linkData?JSON.stringify(linkData):null
@@ -9243,7 +9245,7 @@ function showCheckOffModal(occ,task,childColor){
         const i=all.findIndex(o=>o.id===occ.id);
         if(i>-1){all[i].status='completed';DB.homeworkOccurrences=all;}
         const child=DB.children.find(c=>c.id===S.activeChild);
-        await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework');
+        await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
         close();re();toast('✅ Marked as done!');
       }catch(e){console.error('check off:',e);toast('Could not save. Please try again.','error');saveBtn.disabled=false;saveBtn.textContent='✅ Mark as Done';}
     });
@@ -9882,7 +9884,7 @@ function renderHomeworkParent(){
             const all=DB.homeworkOccurrences||[];
             all.forEach(o=>{if(unackedIds.includes(o.id))o.acknowledgedByParent=true;});
             DB.homeworkOccurrences=all;
-            await notifyOtherParty('homework','✓ Parent accepted: "'+task.title.slice(0,42)+'"',S.activeChild,'homework');
+            await notifyOtherParty('homework','✓ Parent accepted: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
             toast('Task accepted!');re();
           }catch(e){console.error('ack task:',e);toast('Could not acknowledge.','error');}
         });
