@@ -2951,7 +2951,8 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   const existing=DB.folders.filter(f=>f.childId===req.childId);
   if(!existing.some(f=>f.key===folderKey)){
     const newF={id:'f_'+req.childId+'_'+folderKey+'_'+Date.now(),name:folderName,icon:folderIcon,key:folderKey,childId:req.childId};
-    SB.addFolder(newF).then(()=>{const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}).catch(e=>console.error('addFolder:',e));
+    try{await SB.addFolder(newF);const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}catch(e){console.error('addFolder:',e);}
+    if(_supa&&req.specialistId)try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:folderKey});}catch(fe){console.error('upsert folder_permissions:',fe);}
   }
   // Persist all manually selected folder permissions too
   if(_supa&&req.specialistId&&selectedFolders.length){
@@ -3307,6 +3308,8 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
         }
         for(const uid of householdUserIds){
           try{
+            const {data:_dup1}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
+            if(_dup1&&_dup1.length>0)continue;
             await _supa.from('notifications').insert({
               id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
               household_id:hid,child_id:childId||null,
@@ -3321,6 +3324,8 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null){
       const team=getChildTeam(childId).filter(s=>s.status==='active');
       for(const s of team){
         try{
+          const {data:_dup2}=await _supa.from('notifications').select('id').eq('user_id',s.id).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
+          if(_dup2&&_dup2.length>0)continue;
           await _supa.from('notifications').insert({
             id:'n_op_'+Date.now()+'_'+s.id,user_id:s.id,
             household_id:hid,child_id:childId||null,
@@ -4695,7 +4700,7 @@ function renderBottomNav(){
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
   const myId=session?.id||'';
   const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).reduce((s,c)=>s+(c.unreadCount||1),0);
-  const totalBadge=unreadNotifs; // badge shows unread notifications only
+  const totalBadge=session?.role==='specialist'?unreadNotifs+unreadChats:unreadNotifs;
 
   const nav=el('nav',{id:'bottom-nav'});
   const inner=el('div',{class:'bnav-inner'});
@@ -5995,13 +6000,18 @@ function renderFiles(){
   const myPerms=LS.get('my_perms',{});
   const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
   const canAccess=key=>isParent||perms.includes(key);
-  const folders=DB.folders.filter(f=>f.childId===S.activeChild);
+  const _dbFolders=DB.folders.filter(f=>f.childId===S.activeChild);
+  const _fsQuery=(S._fileSearch||'').toLowerCase().trim();
+  const folders=_fsQuery?_dbFolders.filter(f=>{
+    if((f.name||'').toLowerCase().includes(_fsQuery))return true;
+    return(f.files||[]).some(fi=>(fi.name||'').toLowerCase().includes(_fsQuery));
+  }).map(f=>({...f,files:(f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_fsQuery)||(f.name||'').toLowerCase().includes(_fsQuery))})):_dbFolders;
   const child=DB.children.find(c=>c.id===S.activeChild);
   const childColor=child?.color||'var(--teal)';
 
   // If a folder is open, show file grid view instead
   if(S.activeFolderId){
-    const folder=folders.find(f=>f.id===S.activeFolderId);
+    const folder=_dbFolders.find(f=>f.id===S.activeFolderId);
     if(folder)return renderFolderGrid(folder,isParent,childColor);
     S.activeFolderId=null; // folder not found, reset
   }
@@ -6034,14 +6044,16 @@ function renderFiles(){
   }
 
   if(folders.length===0){
+    if(_dbFolders.length>0){const _fsInpE=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInpE.value=S._fileSearch;_fsInpE.oninput=e=>{S._fileSearch=e.target.value;re();};sec.appendChild(_fsInpE);}
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📁']),
-      el('div',{class:'empty-state-title'},['Setting up folders…']),
-      el('div',{class:'empty-state-body'},['Your folders are being created. Pull down to refresh.'])
+      el('div',{class:'empty-state-title'},[_fsQuery?'No matching files':'Setting up folders…']),
+      el('div',{class:'empty-state-body'},[_fsQuery?'Try a different search term':'Your folders are being created. Pull down to refresh.'])
     ]));
     return sec;
   }
 
+  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInp.value=S._fileSearch;_fsInp.oninput=e=>{S._fileSearch=e.target.value;re();};sec.appendChild(_fsInp);
   const grid=el('div',{class:'g-folder'});
   folders.forEach(folder=>{
     const acc=canAccess(folder.key);
@@ -7330,7 +7342,7 @@ function renderCalendar(){
     S._calRefreshing=true;
     (async()=>{
       try{
-        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).order('date');
+        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).eq('specialist_id',session.id).order('date');
         if(apts&&apts.length>0){
           LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
           S._calRefreshing=false;re();
@@ -7342,7 +7354,7 @@ function renderCalendar(){
     ?(S.calendarMode==='joint'
       ?_allApts
       :_allApts.filter(a=>a.childId===S.activeChild))
-    :_allApts.filter(a=>_myPatientIds.includes(a.childId));
+    :_allApts.filter(a=>_myPatientIds.includes(a.childId)&&a.specialistId===session.id);
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
@@ -7414,7 +7426,7 @@ function renderCalendar(){
       const dotColor=(isParent&&S.calendarMode==='joint')
         ?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)')
         :(TC[a.type]||'var(--teal)');
-      const dot=el('div',{class:'cal-dot',style:{background:dotColor}},[aptDisplayTitle(a).split(' ')[0]]);
+      const dot=el('div',{class:'cal-dot',style:{background:dotColor}},[]);
       cell.appendChild(dot);
     });
     cg.appendChild(cell);
@@ -7715,7 +7727,7 @@ function renderChat(){
   listWrap.appendChild(hd);
   const _si=el('input',{class:'inp',placeholder:'🔍 Search conversations…',style:{margin:'0 16px 12px',width:'calc(100% - 32px)',boxSizing:'border-box'}});
   if(S._chatSearch)_si.value=S._chatSearch;
-  _si.oninput=e=>{S._chatSearch=e.target.value;re();};
+  _si.oninput=e=>{S._chatSearch=e.target.value;const _q=(e.target.value||'').toLowerCase();Array.from(listWrap.querySelectorAll('[data-chatname]')).forEach(item=>{const _n=(item.dataset.chatname||'').toLowerCase();const _c=(item.dataset.childname||'').toLowerCase();item.style.display=(!_q||_n.includes(_q)||_c.includes(_q))?'':'none';});};
   listWrap.appendChild(_si);
   if(S._chatSearch){const _q=S._chatSearch.toLowerCase();visChats=visChats.filter(c=>{const _n=(c.name||'').toLowerCase();const _ch=(DB.children.find(x=>x.id===c.childId)?.name||'').toLowerCase();return _n.includes(_q)||_ch.includes(_q);});}
 
@@ -7734,7 +7746,7 @@ function renderChat(){
     const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const isGroup=chat.type==='group';
     const isConsult=chat.type==='specialist-consult';
-    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family'));
+    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist'):(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Family')));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -7745,7 +7757,7 @@ function renderChat(){
     const todayStr=new Date().toISOString().split('T')[0];
     const timeLabel=lastMsgDate?(lastMsgDate===todayStr?lastMsg.time:new Date(lastMsgDate+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
 
-    const item=el('div',{class:'chat-list-item'+(isActive?' active':'')});
+    const item=el('div',{'data-chatname':(chatName||'').toLowerCase(),'data-childname':(childName||'').toLowerCase(),class:'chat-list-item'+(isActive?' active':'')});
     item.style.borderLeft=S.activeChatChildId?'none':`4px solid ${childColor}`;
     if(isUnread)item.style.background='#f0fdf4';
 
@@ -7756,9 +7768,11 @@ function renderChat(){
 
     // Body
     const body=el('div',{class:'chat-list-body'});
-    const nameRow=el('div',{style:{display:'flex',alignItems:'baseline',gap:'4px'}});
-    nameRow.appendChild(el('span',{class:'chat-list-name',style:{fontWeight:isUnread?900:700}},[chatName]));
-    if(childName&&!S.activeChatChildId)nameRow.appendChild(el('span',{style:{fontSize:'.68rem',color:childColor,fontWeight:700}},[' · '+childName]));
+    const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',justifyContent:'space-between'}});
+    const _nrLeft=el('div',{style:{display:'flex',alignItems:'baseline',gap:'4px',minWidth:0,flex:1,overflow:'hidden'}});
+    _nrLeft.appendChild(el('span',{class:'chat-list-name',style:{fontWeight:isUnread?900:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
+    if(childName&&!S.activeChatChildId)_nrLeft.appendChild(el('span',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,flexShrink:0}},[' · '+childName]));
+    nameRow.appendChild(_nrLeft);
     body.appendChild(nameRow);
     const previewText=lastMsg?(lastMsg.sender===myId?'You: ':'')+((lastMsg.text||'').slice(0,36)+((lastMsg.text?.length||0)>36?'...':'')):'Tap to open';
     body.appendChild(el('div',{class:'chat-list-preview',style:{fontWeight:isUnread?700:400,color:isUnread?'var(--navy)':'var(--slate-l)'}},[previewText]));
@@ -7900,7 +7914,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   av.appendChild(el('span',{},[isGroup?'\u{1F465}':isConsult?'\u{1F517}':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'\u{1F4AC}')]));
   threadHd.appendChild(av);
   const ti=el('div',{style:{flex:1,minWidth:0}});
-  ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName]));
+  ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName+(!isGroup&&!isConsult&&otherSpec?.role?' · '+otherSpec.role:'')]));
   ti.appendChild(el('div',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
     [isGroup?'\u{1F465} '+participantNames:isConsult?'\u{1F517} Specialist consult':'\u{1F512} Secure chat']));
   threadHd.appendChild(ti);
@@ -9171,11 +9185,7 @@ function isScheduledDay(task,dateStr){
 function showCheckOffModal(occ,task,childColor){
   const _tdt=new Date();const _today=_tdt.getFullYear()+'-'+String(_tdt.getMonth()+1).padStart(2,'0')+'-'+String(_tdt.getDate()).padStart(2,'0');
   const _oDate=(occ.date||occ.scheduled_date||'T').split('T')[0];
-  if(_oDate!==_today){
-    if(_oDate>_today){toast("This task isn't due yet. You can only complete today's tasks.",'error',4000);}
-    else{toast('This task day has passed and can no longer be completed.','error',4000);}
-    return;
-  }
+  if(_oDate>_today){toast("This task isn't due yet.",'error',3000);return;}
   openModal('Mark as Done',(mb,close)=>{
     mb.appendChild(el('div',{style:{fontWeight:700,fontSize:'.95rem',color:'var(--navy)',marginBottom:'3px'}},[task.title]));
     const _occSlot=occ.timeOfDay||occ.time_of_day||null;
@@ -9776,10 +9786,7 @@ function renderHomeworkParent(){
     const db=_hwDiffBadge(task.difficulty);if(db)titleRow.appendChild(db);
     titleWrap.appendChild(titleRow);
     const _subRow=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginTop:'2px',flexWrap:'wrap'}});
-    _subRow.appendChild(el('span',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600}},[_hwRecLabel(task)+' · by '+task.specialistName]));
-    const _specData=(DB.specialists||[]).find(s=>s.id===task.specialistId);
-    const _prof=_specData?.role;
-    if(_prof&&_prof!=='Specialist')_subRow.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:'var(--teal)',background:'var(--mint-ll)',borderRadius:'99px',padding:'2px 7px',flexShrink:0}},[_prof]));
+    const _specData=(DB.specialists||[]).find(s=>s.id===task.specialistId);const _prof=_specData?.role;const _hwAsgn=task.specialistName+(_prof&&_prof!=='Specialist'?' · '+_prof:'');_subRow.appendChild(el('span',{style:{fontSize:'.71rem',color:'var(--slate)',fontWeight:600}},[_hwRecLabel(task)+' · by '+_hwAsgn]));
     titleWrap.appendChild(_subRow);
     hdr.appendChild(titleWrap);
     const arrowBtn=el('button',{style:{fontSize:'.78rem',color:'var(--slate-l)',flexShrink:0,background:'none',border:'none',cursor:'pointer',minWidth:'44px',minHeight:'44px',display:'flex',alignItems:'center',justifyContent:'center'}},[isExpanded?'▲':'▼']);
