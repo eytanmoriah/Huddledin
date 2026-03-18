@@ -6553,7 +6553,7 @@ function showAccessRequest(folder){
           const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
           if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
           await _supa.from('specialist_requests').insert({id:newReq.id,parent_id:childRow.parent_id,household_id:childRow.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'});
-          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'files');
+          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId});
           close();
           toast('✅ Access request sent to parent!');
         }catch(e){
