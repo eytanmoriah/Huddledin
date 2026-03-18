@@ -6002,10 +6002,7 @@ function renderFiles(){
   const canAccess=key=>isParent||perms.includes(key);
   const _dbFolders=DB.folders.filter(f=>f.childId===S.activeChild);
   const _fsQuery=(S._fileSearch||'').toLowerCase().trim();
-  const folders=_fsQuery?_dbFolders.filter(f=>{
-    if((f.name||'').toLowerCase().includes(_fsQuery))return true;
-    return(f.files||[]).some(fi=>(fi.name||'').toLowerCase().includes(_fsQuery));
-  }).map(f=>({...f,files:(f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_fsQuery)||(f.name||'').toLowerCase().includes(_fsQuery))})):_dbFolders;
+  const folders=_fsQuery?_dbFolders.filter(f=>(f.name||'').toLowerCase().includes(_fsQuery)):_dbFolders;
   const child=DB.children.find(c=>c.id===S.activeChild);
   const childColor=child?.color||'var(--teal)';
 
@@ -6044,7 +6041,7 @@ function renderFiles(){
   }
 
   if(folders.length===0){
-    if(_dbFolders.length>0){const _fsInpE=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInpE.value=S._fileSearch;_fsInpE.oninput=e=>{S._fileSearch=e.target.value;re();};sec.appendChild(_fsInpE);}
+    if(_dbFolders.length>0){const _fsInpE=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInpE.value=S._fileSearch;if(S._focusFile){requestAnimationFrame(()=>{_fsInpE.focus();const _l=_fsInpE.value.length;_fsInpE.setSelectionRange(_l,_l);S._focusFile=false;});}_fsInpE.oninput=e=>{S._fileSearch=e.target.value;clearTimeout(window._fsTimer);window._fsTimer=setTimeout(()=>{S._focusFile=true;re();},300);};sec.appendChild(_fsInpE);}
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📁']),
       el('div',{class:'empty-state-title'},[_fsQuery?'No matching files':'Setting up folders…']),
@@ -6053,7 +6050,32 @@ function renderFiles(){
     return sec;
   }
 
-  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInp.value=S._fileSearch;_fsInp.oninput=e=>{S._fileSearch=e.target.value;re();};sec.appendChild(_fsInp);
+  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInp.value=S._fileSearch;if(S._focusFile){requestAnimationFrame(()=>{_fsInp.focus();const _l=_fsInp.value.length;_fsInp.setSelectionRange(_l,_l);S._focusFile=false;});}_fsInp.oninput=e=>{S._fileSearch=e.target.value;clearTimeout(window._fsTimer);window._fsTimer=setTimeout(()=>{S._focusFile=true;re();},300);};sec.appendChild(_fsInp);
+  if(_fsQuery){
+    const _flatFiles=[];
+    _dbFolders.forEach(f=>{
+      if(!(f.name||'').toLowerCase().includes(_fsQuery)){
+        (f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_fsQuery)).forEach(fi=>{
+          _flatFiles.push({file:fi,folderName:f.name,folderId:f.id});
+        });
+      }
+    });
+    if(_flatFiles.length>0){
+      const _fmSec=el('div',{style:{marginBottom:'16px'}});
+      _fmSec.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},['Files matching "'+_fsQuery+'"']));
+      _flatFiles.forEach(({file,folderName,folderId})=>{
+        const _th=getFileThumb(file);const _icon=_th.icon||(_th.type==='img'?'🖼':_th.type==='pdf'?'📄':'📎');
+        const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#fff',borderRadius:'10px',border:'1.5px solid var(--mint-l)',marginBottom:'6px',cursor:'pointer'}});
+        row.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},[_icon]));
+        const _fInfo=el('div',{style:{flex:1,minWidth:0}});
+        _fInfo.appendChild(el('div',{style:{fontWeight:600,fontSize:'.84rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[file.name||'Untitled']));
+        _fInfo.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)'}},['→ in '+folderName]));
+        row.appendChild(_fInfo);row.onclick=()=>{S.activeFolderId=folderId;S._fileSearch='';re();};
+        _fmSec.appendChild(row);
+      });
+      sec.appendChild(_fmSec);
+    }
+  }
   const grid=el('div',{class:'g-folder'});
   folders.forEach(folder=>{
     const acc=canAccess(folder.key);
