@@ -6545,14 +6545,24 @@ function showAccessRequest(folder){
       const reqs=DB.specialistRequests||[];
       const alreadyPending=reqs.some(r=>r.specialistId===specId&&r.childId===childId&&r.requestedFolder===folder.key&&r.status==='pending');
       if(alreadyPending){toast('⚠️ You already have a pending request for this folder.','info');close();return;}
-      const newReq={id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedFolderName:folder.name,requestType:'folder',requestedAt:new Date().toISOString(),status:'pending'};
+      const _reqAt=new Date().toISOString();
+      const newReq={id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedFolderName:folder.name,requestType:'folder',requestedAt:_reqAt,status:'pending'};
       reqs.push(newReq);
       DB.specialistRequests=reqs;
       if(session&&session.id!=='demo'){
         try{
           const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
           if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
-          await _supa.from('specialist_requests').insert({id:newReq.id,parent_id:childRow.parent_id,household_id:childRow.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'});
+          const {data:_srData,error:_srErr}=await _supa.from('specialist_requests').insert({
+            parent_id:childRow.parent_id,household_id:childRow.household_id||null,
+            specialist_id:specId,specialist_name:specName,role:specRole,
+            child_id:childId,requested_folder:folder.key,requested_folder_name:folder.name,
+            request_type:'folder',requested_at:_reqAt,status:'pending'
+          }).select('id').single();
+          if(_srErr)throw _srErr;
+          // Replace temp id in local cache with DB-generated UUID
+          const _ri=reqs.findIndex(r=>r.id===newReq.id);
+          if(_ri>-1&&_srData?.id){reqs[_ri]=Object.assign({},reqs[_ri],{id:_srData.id});DB.specialistRequests=reqs;}
           await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId,specialist_id:specId,folder_key:folder.key});
           close();
           toast('✅ Access request sent to parent!');
