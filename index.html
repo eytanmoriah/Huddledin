@@ -6553,7 +6553,7 @@ function showAccessRequest(folder){
           const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
           if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
           await _supa.from('specialist_requests').insert({id:newReq.id,parent_id:childRow.parent_id,household_id:childRow.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'});
-          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId});
+          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId,specialist_id:specId,folder_key:folder.key});
           close();
           toast('✅ Access request sent to parent!');
         }catch(e){
@@ -6664,6 +6664,32 @@ function buildTeamList(child){
 function renderTeam(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
+  // Helper — builds folder access request cards into a container.
+  // Called on initial render AND after the async fetch so the banner appears even for new requests.
+  function _buildFolderReqsSection(container,reqs){
+    container.innerHTML='';
+    const _fReqs=(reqs||[]).filter(r=>r.requestType==='folder'&&r.status==='pending'&&r.childId===S.activeChild);
+    if(_fReqs.length===0)return;
+    container.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
+    _fReqs.forEach(req=>{
+      const reqFolder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===S.activeChild);
+      const reqCard=el('div',{class:'spec-request-card'});
+      const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
+      topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
+      const info=el('div',{style:{flex:1}});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
+      info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+new Date(req.requestedAt).toLocaleDateString()]));
+      topRow.appendChild(info);
+      reqCard.appendChild(topRow);
+      reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},['Requesting access to: '+(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)]));
+      const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
+      btnRow.appendChild(mkBtn('✅ Grant Access','btn-sm btn-primary',()=>approveFolderRequest(req)));
+      btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+      reqCard.appendChild(btnRow);
+      container.appendChild(reqCard);
+    });
+    container.appendChild(el('div',{class:'sep'}));
+  }
   const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
   rightEl.appendChild(mkBtn('🔗','btn-sm btn-primary',()=>{
     if(!child){toast('Select a child first.','error');return;}
@@ -6756,6 +6782,9 @@ function renderTeam(){
           _tc.appendChild(buildTeamList(child));
           console.log('[renderTeam] patched team list directly, no re()');
         }
+        // Also patch folder request section with freshly fetched data
+        const _frDiv=document.getElementById('team-folder-reqs');
+        if(_frDiv)_buildFolderReqsSection(_frDiv,mapped);
       }catch(e){console.error('[renderTeam] fetch error:',e);}
     })();
   }
@@ -6776,29 +6805,10 @@ function renderTeam(){
     const folderReqs=allPending.filter(r=>r.requestType==='folder');
     const consultReqs=allPending.filter(r=>r.requestType==='consult');
 
-    // -- Folder access requests (specialist already on team, wants a specific folder) --
-    if(folderReqs.length>0){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
-      folderReqs.forEach(req=>{
-        const reqFolder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===child.id);
-        const reqCard=el('div',{class:'spec-request-card'});
-        const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
-        topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
-        const info=el('div',{style:{flex:1}});
-        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+new Date(req.requestedAt).toLocaleDateString()]));
-        topRow.appendChild(info);
-        reqCard.appendChild(topRow);
-        reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},
-          ['Requesting access to: '+(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)]));
-        const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-        btnRow.appendChild(mkBtn('✅ Grant Access','btn-sm btn-primary',()=>approveFolderRequest(req)));
-        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
-        reqCard.appendChild(btnRow);
-        sec.appendChild(reqCard);
-      });
-      sec.appendChild(el('div',{class:'sep'}));
-    }
+    // -- Folder access requests — stable container, also patched after async fetch --
+    const _frContainer=el('div',{id:'team-folder-reqs'});
+    _buildFolderReqsSection(_frContainer,DB.specialistRequests||[]);
+    sec.appendChild(_frContainer);
 
     // -- Consultation requests (specialist-to-specialist, parent approves) --
     if(consultReqs.length>0){
