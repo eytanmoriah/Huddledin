@@ -1948,7 +1948,7 @@ async function refreshFromSupabase(){
               Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
             ]).then(([,folderResults2])=>{
               const allFolders=folderResults2.flat();
-              if(allFolders.length>0)LS.set('folders',allFolders);
+              if(allFolders.length>0){LS.set('folders',allFolders);if(S.activeTab==='files')re();}
             });
           }
           setupSpecialistSync();
@@ -6528,7 +6528,17 @@ function showFilePermModal(file,folder){
       rows.appendChild(lbl);
     });
     mb.appendChild(rows);
-    mb.appendChild(mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',()=>{close();toast('✅ Permissions updated!');re();}));
+    const _sfBtn=mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
+      _sfBtn.disabled=true;_sfBtn.textContent='Saving…';
+      if(_supa&&session?.id!=='demo'){
+        const _fo=DB.folders.find(f=>f.id===folder.id);
+        const _fi2=_fo?.files.find(x=>x.id===file.id);
+        const {error:_fErr}=await _supa.from('files').update({shared_with:_fi2?.sharedWith||[]}).eq('id',file.id);
+        if(_fErr){_sfBtn.disabled=false;_sfBtn.textContent='✅ Save Permissions';toast('❌ Could not save: '+_fErr.message,'error');return;}
+      }
+      close();toast('✅ Permissions updated!');re();
+    });
+    mb.appendChild(_sfBtn);
   },500);
 }
 
@@ -6627,7 +6637,16 @@ function buildTeamList(child){
       card.appendChild(info);
       if(!isPending&&child){
         const acts=d('',[], {display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
-        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',()=>showPermModal(s)));
+        acts.appendChild(mkBtn('⚙️ Permissions','btn-sm btn-slate',async()=>{
+          if(_supa&&s.id&&child?.id){
+            try{
+              const {data:_fp}=await _supa.from('folder_permissions').select('folder_key').eq('specialist_id',String(s.id)).eq('child_id',child.id);
+              s.permissions=s.permissions||{};
+              s.permissions[child.id]=(_fp||[]).map(p=>p.folder_key);
+            }catch(e){console.error('fetch perms for modal:',e);}
+          }
+          showPermModal(s);
+        }));
         acts.appendChild(mkBtn('Remove','btn-sm btn-danger',()=>openConfirm('Remove Specialist',
           `Remove ${s.name}? They will lose access to ${child.name}'s data immediately.`,true,()=>removeSpecialist(s))));
         card.appendChild(acts);
@@ -7136,10 +7155,10 @@ function showPermModal(spec){
       if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
       // Sync to Supabase so specialist's device picks it up
       if(_supa&&spec.id&&S.activeChild){
-        const {error:delErr}=await _supa.from('folder_permissions').delete().eq('specialist_id',spec.id).eq('child_id',S.activeChild);
+        const {error:delErr}=await _supa.from('folder_permissions').delete().eq('specialist_id',String(spec.id)).eq('child_id',S.activeChild);
         if(delErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+delErr.message,'error');return;}
         for(const key of curPerms){
-          const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:spec.id,child_id:S.activeChild,folder_key:key});
+          const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:String(spec.id),child_id:S.activeChild,folder_key:key});
           if(upErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+upErr.message,'error');return;}
         }
       }
