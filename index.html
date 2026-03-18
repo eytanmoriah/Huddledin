@@ -1925,7 +1925,7 @@ async function refreshFromSupabase(){
         // Fetch children + appointments (appointments only for approved connections)
         const [childrenRes,aptsRes]=await Promise.all([
           _supa.from('children').select('*').in('id',childIds),
-          approvedIds.length?_supa.from('appointments').select('*').in('child_id',approvedIds).order('date'):Promise.resolve({data:[]})
+          approvedIds.length?_supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date'):Promise.resolve({data:[]})
         ]);
         const children=childrenRes.data||[];
         if(children.length>0){
@@ -4663,8 +4663,7 @@ function switchTab(id){
   if(S.activeChild){
     if(['session-summaries','files','calendar','vault'].includes(id))
       _markSeen(S.activeChild,id);
-    if(id==='homework')
-      _markSeen(S.activeChild,'homework',(DB.homework||[]).filter(h=>h.childId===S.activeChild&&!h.completed).length);
+    if(id==='homework'){_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{_supa.from('notifications').update({read:true}).eq('id',id).catch(()=>{});});}}}
     if(id==='chat'){
       // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
       const _chats=DB.chats||[];
@@ -4856,9 +4855,9 @@ function _markSeen(cid,s,cnt){
   }
 }
 function _newSince(items,dfn,cid,s){const ts=_seenTs(cid,s);if(!ts)return items.length;return items.filter(x=>{const d=dfn(x);return d&&(new Date(d).getTime()||0)>ts;}).length;}
-function _hwBadge(cid){const cur=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const k=cid+'_tasks_cnt';const stored=_seenTimestamps[k]!=null?_seenTimestamps[k]:parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;return Math.max(0,cur-stored);}
+function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const newTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===cid&&t.status==='active'&&!(t.endDate&&t.endDate<today4)&&t.createdAt&&_seenTs(cid,'tasks')&&new Date(t.createdAt).getTime()>_seenTs(cid,'tasks')).length;const legacyUnread=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const notifCount=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;const k=cid+'_tasks_cnt';const stored=_seenTimestamps[k]!=null?_seenTimestamps[k]:parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;const legacyBadge=Math.max(0,legacyUnread-stored);return Math.max(notifCount,newTasks,legacyBadge);}
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
-function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);return _chatBadge(cid)+_hwBadge(cid)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar');}
+function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);const calNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&(n.type==='appointment'||n.linkTab==='calendar')).length;const hwNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return _chatBadge(cid)+Math.max(_hwBadge(cid),hwNotifs)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+Math.max(_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar'),calNotifs);}
 function renderGlobalHome(){
   const children=DB.children;
   const allApts=LS.get('appointments',[]);
@@ -7364,7 +7363,7 @@ function renderCalendar(){
     S._calRefreshing=true;
     (async()=>{
       try{
-        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).eq('specialist_id',session.id).order('date');
+        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date');
         if(apts&&apts.length>0){
           LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
           S._calRefreshing=false;re();
@@ -7376,7 +7375,7 @@ function renderCalendar(){
     ?(S.calendarMode==='joint'
       ?_allApts
       :_allApts.filter(a=>a.childId===S.activeChild))
-    :_allApts.filter(a=>_myPatientIds.includes(a.childId)&&a.specialistId===session.id);
+    :_allApts.filter(a=>_myPatientIds.includes(a.childId)&&(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id))));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const sec=el('div',{class:'section'});
@@ -9239,6 +9238,7 @@ function showCheckOffModal(occ,task,childColor){
         }
         await _supa.from('homework_occurrences').update({status:'completed'}).eq('id',occ.id);
         await _supa.from('homework_completions').insert({occurrence_id:occ.id,task_id:task.id,child_id:occ.childId||S.activeChild,completed_by:session.id,note:noteInp.value.trim()||null,photo_url:photoUrl,completed_at:new Date().toISOString()});
+        if(task.recurrence==='once'){try{await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id);const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}}catch(ae){console.error('archive task:',ae);}}
         const all=DB.homeworkOccurrences||[];
         const i=all.findIndex(o=>o.id===occ.id);
         if(i>-1){all[i].status='completed';DB.homeworkOccurrences=all;}
@@ -9734,8 +9734,9 @@ function renderHomeworkParent(){
   sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s assigned tasks"]));
   // Tabs
   const tab=S._hwParentTab||'active';
-  const activeTasks=allTasks.filter(t=>t.status==='active');
-  const archiveTasks=allTasks.filter(t=>t.status==='archived'||t.isPaused);
+  const _today3=new Date().toISOString().split('T')[0];
+  const activeTasks=allTasks.filter(t=>t.status==='active'&&!(t.endDate&&t.endDate<_today3));
+  const archiveTasks=allTasks.filter(t=>t.status==='archived'||t.isPaused||(t.status==='active'&&t.endDate&&t.endDate<_today3));
   const tabBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
   ['active','archive'].forEach(f=>{
     const cnt=f==='active'?activeTasks.length:archiveTasks.length;
