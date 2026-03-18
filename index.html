@@ -2927,7 +2927,7 @@ async function approveSpecialistRequest(requestId,selectedFolders){
       // Mark the request as approved — skip for synthetic rows (no real DB row to update)
       if(!req._synthetic)await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
     }
-  }catch(e){}
+  }catch(e){console.error('approve specialist request:',e);}
   // Auto-create folder + grant permission for specialist's profession
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
   const folderKey=prof?prof.key:'spec_'+req.specialistId;
@@ -2954,8 +2954,9 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   if(!existing.some(f=>f.key===folderKey)){
     const newF={id:'f_'+req.childId+'_'+folderKey+'_'+Date.now(),name:folderName,icon:folderIcon,key:folderKey,childId:req.childId};
     try{await SB.addFolder(newF);const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}catch(e){console.error('addFolder:',e);}
-    if(_supa&&req.specialistId)try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:folderKey});}catch(fe){console.error('upsert folder_permissions:',fe);}
   }
+  // Always grant folder permission for the specialist's auto-folder, even if it already existed (covers re-approvals)
+  if(_supa&&req.specialistId)try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:folderKey});}catch(fe){console.error('upsert folder_permissions:',fe);}
   // Persist all manually selected folder permissions too
   if(_supa&&req.specialistId&&selectedFolders.length){
     try{
@@ -6535,7 +6536,7 @@ function showAccessRequest(folder){
   openModal('🔒 Request Access',(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
       [`You don't have access to the ${folder.name} folder. Send a request to the parent?`]));
-    mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',()=>{
+    mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',async()=>{
       const specId=session?.specialistId||null;
       const specName=session?.name||'Specialist';
       const specRole=DB.specialists.find(s=>s.id===specId)?.role||'Specialist';
@@ -6547,17 +6548,23 @@ function showAccessRequest(folder){
       const newReq={id:'req_'+Date.now(),specialistId:specId,specialistName:specName,role:specRole,childId,requestedFolder:folder.key,requestedFolderName:folder.name,requestType:'folder',requestedAt:new Date().toISOString(),status:'pending'};
       reqs.push(newReq);
       DB.specialistRequests=reqs;
-      // Save to Supabase so parent on any device sees it
       if(session&&session.id!=='demo'){
-        _supa.from('children').select('parent_id,household_id').eq('id',childId).single().then(({data})=>{
-          if(data?.parent_id){
-            _supa.from('specialist_requests').insert({id:newReq.id,parent_id:data.parent_id,household_id:data.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'}).catch(()=>{});
-          }
-        }).catch(()=>{});
+        try{
+          const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
+          if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
+          await _supa.from('specialist_requests').insert({id:newReq.id,parent_id:childRow.parent_id,household_id:childRow.household_id||null,specialist_id:specId,specialist_name:specName,role:specRole,child_id:childId,requested_folder:folder.key,request_type:'folder',status:'pending'});
+          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'files');
+          close();
+          toast('✅ Access request sent to parent!');
+        }catch(e){
+          console.error('folder access request:',e);
+          const _ri=reqs.findIndex(r=>r.id===newReq.id);if(_ri>-1)reqs.splice(_ri,1);DB.specialistRequests=reqs;
+          toast('❌ Could not send request. Please try again.','error',4000);
+        }
+      } else {
+        close();
+        toast('✅ Access request sent!');
       }
-      pushNotif('invite',`${specName} is requesting access to the ${folder.name} folder.`,childId);
-      close();
-      toast('✅ Access request sent to parent!');
     }));
   },400);
 }
