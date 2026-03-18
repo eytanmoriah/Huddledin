@@ -6002,8 +6002,6 @@ function renderFiles(){
   const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
   const canAccess=key=>isParent||perms.includes(key);
   const _dbFolders=DB.folders.filter(f=>f.childId===S.activeChild);
-  const _fsQuery=(S._fileSearch||'').toLowerCase().trim();
-  const folders=_fsQuery?_dbFolders.filter(f=>(f.name||'').toLowerCase().includes(_fsQuery)):_dbFolders;
   const child=DB.children.find(c=>c.id===S.activeChild);
   const childColor=child?.color||'var(--teal)';
 
@@ -6041,29 +6039,33 @@ function renderFiles(){
     sec.appendChild(hd);
   }
 
-  if(folders.length===0){
-    if(_dbFolders.length>0){const _fsInpE=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInpE.value=S._fileSearch;if(S._focusFile){requestAnimationFrame(()=>{_fsInpE.focus();const _l=_fsInpE.value.length;_fsInpE.setSelectionRange(_l,_l);S._focusFile=false;});}_fsInpE.oninput=e=>{S._fileSearch=e.target.value;clearTimeout(window._fsTimer);window._fsTimer=setTimeout(()=>{S._focusFile=true;re();},300);};sec.appendChild(_fsInpE);}
-    sec.appendChild(el('div',{class:'empty-state'},[
-      el('span',{class:'empty-state-icon'},['📁']),
-      el('div',{class:'empty-state-title'},[_fsQuery?'No matching files':'Setting up folders…']),
-      el('div',{class:'empty-state-body'},[_fsQuery?'Try a different search term':'Your folders are being created. Pull down to refresh.'])
-    ]));
-    return sec;
-  }
-
-  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});if(S._fileSearch)_fsInp.value=S._fileSearch;if(S._focusFile){requestAnimationFrame(()=>{_fsInp.focus();const _l=_fsInp.value.length;_fsInp.setSelectionRange(_l,_l);S._focusFile=false;});}_fsInp.oninput=e=>{S._fileSearch=e.target.value;clearTimeout(window._fsTimer);window._fsTimer=setTimeout(()=>{S._focusFile=true;re();},300);};sec.appendChild(_fsInp);
-  if(_fsQuery){
+  // Single stable search input — not recreated on filter updates
+  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});
+  _fsInp.value=S._fileSearch||'';
+  if(_dbFolders.length>0)sec.appendChild(_fsInp);
+  // Results wrapper — only this is rebuilt on each search keystroke; input stays untouched above
+  const _fsRes=el('div');
+  sec.appendChild(_fsRes);
+  function _doFsFilter(q){
+    const _q=(q||'').toLowerCase().trim();
+    _fsRes.innerHTML='';
+    if(_dbFolders.length===0){
+      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},['Setting up folders…']),el('div',{class:'empty-state-body'},['Your folders are being created. Pull down to refresh.'])]));
+      return;
+    }
+    const _mFolders=_q?_dbFolders.filter(f=>(f.name||'').toLowerCase().includes(_q)):_dbFolders;
+    // Calculate flat file matches — files whose names match even when their folder name doesn't
     const _flatFiles=[];
-    _dbFolders.forEach(f=>{
-      if(!(f.name||'').toLowerCase().includes(_fsQuery)){
-        (f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_fsQuery)).forEach(fi=>{
-          _flatFiles.push({file:fi,folderName:f.name,folderId:f.id});
-        });
-      }
-    });
+    if(_q){_dbFolders.forEach(f=>{if(!(f.name||'').toLowerCase().includes(_q)){(f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_q)).forEach(fi=>{_flatFiles.push({file:fi,folderName:f.name,folderId:f.id});});}});}
+    // No matches at all
+    if(_mFolders.length===0&&_flatFiles.length===0){
+      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},['No matching files']),el('div',{class:'empty-state-body'},['Try a different search term'])]));
+      return;
+    }
+    // Flat file results
     if(_flatFiles.length>0){
       const _fmSec=el('div',{style:{marginBottom:'16px'}});
-      _fmSec.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},['Files matching "'+_fsQuery+'"']));
+      _fmSec.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},['Files matching "'+_q+'"']));
       _flatFiles.forEach(({file,folderName,folderId})=>{
         const _th=getFileThumb(file);const _icon=_th.icon||(_th.type==='img'?'🖼':_th.type==='pdf'?'📄':'📎');
         const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#fff',borderRadius:'10px',border:'1.5px solid var(--mint-l)',marginBottom:'6px',cursor:'pointer'}});
@@ -6074,111 +6076,99 @@ function renderFiles(){
         row.appendChild(_fInfo);row.onclick=()=>{S.activeFolderId=folderId;S._fileSearch='';re();};
         _fmSec.appendChild(row);
       });
-      sec.appendChild(_fmSec);
+      _fsRes.appendChild(_fmSec);
+    }
+    // Folder grid
+    if(_mFolders.length>0){
+      const grid=el('div',{class:'g-folder'});
+      _mFolders.forEach(folder=>{
+        const acc=canAccess(folder.key);
+        const bgColors={speech:'#ecfdf5',ot:'#fff7ed',pt:'#f5f3ff',general:'#f1f5f9',meds:'#fffbeb',school:'#fdf4ff'};
+        const iconBg=bgColors[folder.key]||'#ecfdf5';
+        if(!acc){
+          const wrap=el('div',{class:'folder-card'});
+          const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg,opacity:.5}},['🔒']);
+          wrap.appendChild(iw);
+          wrap.appendChild(el('div',{class:'folder-name',style:{opacity:.5}},[folder.name]));
+          wrap.appendChild(el('div',{class:'folder-count'},['No access']));
+          wrap.appendChild(el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},['Locked']));
+          wrap.onclick=()=>showAccessRequest(folder);
+          grid.appendChild(wrap);
+        } else {
+          const wrap=el('div',{class:'folder-card'});
+          const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg}},[folder.icon]);
+          wrap.appendChild(iw);
+          wrap.appendChild(el('div',{class:'folder-name'},[folder.name]));
+          wrap.appendChild(el('div',{class:'folder-count'},[folder.files.length+' file'+(folder.files.length!==1?'s':'')]));
+          let pressTimer=null;
+          let moved=false;
+          const showLongPressMenu=(e)=>{
+            e.preventDefault();
+            document.querySelectorAll('.long-press-menu').forEach(m=>m.remove());
+            const menu=el('div',{class:'long-press-menu'});
+            const rect=wrap.getBoundingClientRect();
+            const x=Math.min(rect.left,window.innerWidth-200);
+            const y=rect.bottom+8>window.innerHeight-150?rect.top-150:rect.bottom+8;
+            menu.style.cssText='left:'+x+'px;top:'+y+'px';
+            const isCustomFolder=folder.key&&folder.key.startsWith('custom_');
+            const actions=[
+              {icon:'📂',label:'Open Folder',fn:()=>showFolderModal(folder,isParent)},
+              ...(isParent?[{icon:'📤',label:'Upload File',fn:()=>{document.getElementById('fileInput')?.click();}}]:[]),
+              {icon:'ℹ️',label:folder.files.length+' file'+(folder.files.length!==1?'s':''),fn:null},
+              ...(isParent&&isCustomFolder?[{icon:'🗑️',label:'Delete Folder',danger:true,fn:()=>{
+                openConfirm('Delete "'+folder.name+'"?','This will permanently delete the folder and all its files. This cannot be undone.',true,async()=>{
+                  try{
+                    await SB.deleteFolder(folder.id);
+                    const fls=DB.folders.filter(f=>f.id!==folder.id);
+                    DB.folders=fls;
+                    re();toast('🗑️ Folder deleted.');
+                  }catch(e){toast('❌ Could not delete folder: '+e.message,'error');}
+                });
+              }}]:[]),
+            ];
+            actions.forEach(a=>{
+              const item=el('div',{class:'long-press-item'+(a.danger?' danger':'')},['  ',a.icon,' ',a.label]);
+              if(a.fn)item.onclick=()=>{menu.remove();a.fn();};
+              else{item.style.opacity='.5';item.style.cursor='default';}
+              menu.appendChild(item);
+            });
+            document.body.appendChild(menu);
+            setTimeout(()=>{
+              const close=(ev)=>{if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('pointerdown',close);}};
+              document.addEventListener('pointerdown',close);
+            },50);
+          };
+          let longPressFired=false;
+          wrap.addEventListener('pointerdown',(e)=>{
+            moved=false;
+            longPressFired=false;
+            pressTimer=setTimeout(()=>{
+              if(!moved){
+                longPressFired=true;
+                wrap.style.transform='scale(0.9)';
+                setTimeout(()=>{wrap.style.transform='';},200);
+                showLongPressMenu(e);
+              }
+            },500);
+          });
+          wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
+          wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
+          wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
+          wrap.onclick=()=>{
+            if(longPressFired||document.querySelector('.long-press-menu'))return;
+            showFolderModal(folder,isParent);
+          };
+          wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
+          grid.appendChild(wrap);
+        }
+      });
+      _fsRes.appendChild(grid);
+      _fsRes.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
     }
   }
-  const grid=el('div',{class:'g-folder'});
-  folders.forEach(folder=>{
-    const acc=canAccess(folder.key);
-    const bgColors={speech:'#ecfdf5',ot:'#fff7ed',pt:'#f5f3ff',general:'#f1f5f9',meds:'#fffbeb',school:'#fdf4ff'};
-    const iconBg=bgColors[folder.key]||'#ecfdf5';
-    
-    if(!acc){
-      // Locked folder
-      const wrap=el('div',{class:'folder-card'});
-      const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg,opacity:.5}},['🔒']);
-      wrap.appendChild(iw);
-      wrap.appendChild(el('div',{class:'folder-name',style:{opacity:.5}},[folder.name]));
-      wrap.appendChild(el('div',{class:'folder-count'},['No access']));
-      wrap.appendChild(el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},['Locked']));
-      wrap.onclick=()=>showAccessRequest(folder);
-      grid.appendChild(wrap);
-    } else {
-      const wrap=el('div',{class:'folder-card'});
-      const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg}},[folder.icon]);
-      wrap.appendChild(iw);
-      wrap.appendChild(el('div',{class:'folder-name'},[folder.name]));
-      wrap.appendChild(el('div',{class:'folder-count'},[`${folder.files.length} file${folder.files.length!==1?'s':''}`]));
-      
-      // -- LONG-PRESS gesture for action menu --
-      // Tap = open folder, Long-press = context menu
-      let pressTimer=null;
-      let moved=false;
-      
-      const showLongPressMenu=(e)=>{
-        e.preventDefault();
-        // Remove any existing menu
-        document.querySelectorAll('.long-press-menu').forEach(m=>m.remove());
-        
-        const menu=el('div',{class:'long-press-menu'});
-        // Position near touch/click
-        const rect=wrap.getBoundingClientRect();
-        const x=Math.min(rect.left,window.innerWidth-200);
-        const y=rect.bottom+8>window.innerHeight-150?rect.top-150:rect.bottom+8;
-        menu.style.cssText=`left:${x}px;top:${y}px`;
-        
-        const isCustomFolder=folder.key&&folder.key.startsWith('custom_');
-        const actions=[
-          {icon:'📂',label:'Open Folder',fn:()=>showFolderModal(folder,isParent)},
-          ...(isParent?[{icon:'📤',label:'Upload File',fn:()=>{document.getElementById('fileInput')?.click();}}]:[]),
-          {icon:'ℹ️',label:`${folder.files.length} file${folder.files.length!==1?'s':''}`,fn:null},
-          ...(isParent&&isCustomFolder?[{icon:'🗑️',label:'Delete Folder',danger:true,fn:()=>{
-            openConfirm('Delete "'+folder.name+'"?','This will permanently delete the folder and all its files. This cannot be undone.',true,async()=>{
-              try{
-                await SB.deleteFolder(folder.id);
-                const fls=DB.folders.filter(f=>f.id!==folder.id);
-                DB.folders=fls;
-                re();toast('🗑️ Folder deleted.');
-              }catch(e){toast('❌ Could not delete folder: '+e.message,'error');}
-            });
-          }}]:[]),
-        ];
-        actions.forEach(a=>{
-          const item=el('div',{class:'long-press-item'+(a.danger?' danger':'')},['  ',a.icon,' ',a.label]);
-          if(a.fn)item.onclick=()=>{menu.remove();a.fn();};
-          else{item.style.opacity='.5';item.style.cursor='default';}
-          menu.appendChild(item);
-        });
-        
-        document.body.appendChild(menu);
-        // Auto-close on outside tap
-        setTimeout(()=>{
-          const close=(ev)=>{if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('pointerdown',close);}};
-          document.addEventListener('pointerdown',close);
-        },50);
-      };
-      
-      // Touch events for long press
-      let longPressFired=false;
-      wrap.addEventListener('pointerdown',(e)=>{
-        moved=false;
-        longPressFired=false;
-        pressTimer=setTimeout(()=>{
-          if(!moved){
-            longPressFired=true;
-            // Haptic-feel: trigger spring animation on folder card
-            wrap.style.transform='scale(0.9)';
-            setTimeout(()=>{wrap.style.transform='';},200);
-            showLongPressMenu(e);
-          }
-        },500);
-      });
-      wrap.addEventListener('pointermove',()=>{moved=true;clearTimeout(pressTimer);});
-      wrap.addEventListener('pointerup',()=>clearTimeout(pressTimer));
-      wrap.addEventListener('pointerleave',()=>clearTimeout(pressTimer));
-      // Single tap = open folder (touch-action:manipulation removes 300ms delay)
-      wrap.onclick=()=>{
-        if(longPressFired||document.querySelector('.long-press-menu'))return;
-        showFolderModal(folder,isParent);
-      };
-      // Context menu (right-click on desktop = long-press equivalent)
-      wrap.oncontextmenu=(e)=>{e.preventDefault();showLongPressMenu(e);};
-      
-      grid.appendChild(wrap);
-    }
-  });
-  sec.appendChild(grid);
-  sec.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
+  _doFsFilter(S._fileSearch);
+  // Input handler — updates results in place, no re() → no screen jump
+  _fsInp.oninput=e=>{const _q=e.target.value;S._fileSearch=_q;clearTimeout(window._fsTimer);window._fsTimer=setTimeout(()=>{_doFsFilter(_q);},250);};
 
   // Task 4 — Specialist Vault folders (hard-locked personal storage per specialist)
   if(S.activeChild){
@@ -7945,7 +7935,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
 
   // -- Messages (scrollable, flex:1) --
   const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
-  const msgs=activeChat.messages||[];
+  const msgs=(activeChat.messages||[]).slice().sort((a,b)=>{const ta=a.createdAt||a.date||'';const tb=b.createdAt||b.date||'';return ta<tb?-1:ta>tb?1:0;});
   msgs.forEach((m,mi)=>{
     const isMe=m.sender===myId;
     const senderName=_resolveSenderName(m,activeChat);
@@ -7994,7 +7984,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       if(msg.sender_id===session?.id)return;
       const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
       if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
-        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0]});
+        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at});
         const uid=session?.id||'';
         all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
         if(!all2[ci2].unreadFor.includes(uid))all2[ci2].unreadFor.push(uid);
@@ -8013,10 +8003,12 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   sb2.innerHTML='&#10148;';
   sb2.onclick=async()=>{
     const txt=mi.value.trim();if(!txt)return;
+    sb2.disabled=true;
+    try{
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci>-1){
       const senderKey=myId||'unknown';
-      const senderName=session?.displayName||session?.name||'';const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:new Date().toISOString().split('T')[0]};
+      const senderName=session?.displayName||session?.name||'';const _now=new Date().toISOString();const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:_now.split('T')[0],createdAt:_now};
       all[ci].messages.push(newMsg);
       // Mark others as unread
       all[ci].unreadFor=[...(all[ci].unreadFor||[])];
@@ -8044,6 +8036,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     }
     S.chatMsg='';re();
     requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+    }finally{sb2.disabled=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
   inputRow.appendChild(mi);inputRow.appendChild(sb2);
