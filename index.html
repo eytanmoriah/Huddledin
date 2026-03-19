@@ -6563,12 +6563,12 @@ function showAccessRequest(folder){
         try{
           const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
           if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
-          const {data:_srData,error:_srErr}=await _supa.from('specialist_requests').insert({
+          const {data:_srData,error:_srErr}=await _supa.from('specialist_requests').upsert({
             parent_id:childRow.parent_id,household_id:childRow.household_id||null,
             specialist_id:specId,specialist_name:specName,role:specRole,
             child_id:childId,requested_folder:folder.key,requested_folder_name:folder.name,
             request_type:'folder',requested_at:_reqAt,status:'pending'
-          }).select('id').single();
+          },{onConflict:'specialist_id,child_id,request_type'}).select('id').single();
           if(_srErr)throw _srErr;
           // Replace temp id in local cache with DB-generated UUID
           const _ri=reqs.findIndex(r=>r.id===newReq.id);
