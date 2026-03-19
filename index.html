@@ -6083,7 +6083,6 @@ function renderFiles(){
     if(_mFolders.length>0){
       const grid=el('div',{class:'g-folder'});
       _mFolders.forEach(folder=>{
-        if(session?.role==='specialist')console.log('[canAccess] specId:',session?.specialistId||session?.id,'folderKey:',folder.key,'my_perms:',JSON.stringify(myPerms),'folder.files.length:',folder.files?.length);
         const acc=canAccess(folder.key);
         const bgColors={speech:'#ecfdf5',ot:'#fff7ed',pt:'#f5f3ff',general:'#f1f5f9',meds:'#fffbeb',school:'#fdf4ff'};
         const iconBg=bgColors[folder.key]||'#ecfdf5';
