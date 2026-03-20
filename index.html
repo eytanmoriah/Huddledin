@@ -12602,6 +12602,21 @@ async function _processPendingInvite(){
           }catch(e){console.error('reconnect chat restore:',e);}
         }
       }catch(e){console.error('invite specialist_requests insert:',e);}
+      // Auto-create folder + grant folder_permissions — identical logic to Flow 1 (manual approval)
+      try{
+        const _invProf=PROFESSIONS.find(p=>p.label===_specRealRole);
+        const _invFolderKey=_invProf?_invProf.key:'spec_'+session.id;
+        const _invFolderName=_invProf?(_invProf.label+' - '+_specRealName):(_specRealRole?_specRealRole+' - '+_specRealName:_specRealName+"'s Folder");
+        const _invFolderIcon=_invProf?_invProf.icon:'📁';
+        if(_invProf){const{error:_invFpErr1}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invProf.key,granted_at:new Date().toISOString()});if(_invFpErr1)console.error('❌ upsert folder_permissions (invite prof):',_invFpErr1);}
+        const _invExisting=DB.folders.filter(f=>f.childId===data.child_id);
+        if(!_invExisting.some(f=>f.key===_invFolderKey)){
+          const _invNewF={name:_invFolderName,icon:_invFolderIcon,key:_invFolderKey,childId:data.child_id};
+          try{await SB.addFolder(_invNewF);const _fls=DB.folders;_fls.push({..._invNewF,files:[]});DB.folders=_fls;}catch(_fe){console.error('❌ addFolder (invite):',_fe);}
+        }
+        const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
+        if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
+      }catch(_invFolderErr){console.error('❌ invite auto-folder creation:',_invFolderErr);}
       toast('🎉 Welcome! You have joined the care team!','success',5000);
       // Full refresh to load child into patient list with correct connectionStatus
       await refreshFromSupabase();
