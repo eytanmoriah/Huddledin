@@ -1729,7 +1729,8 @@ const SB = {
   async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
   async deleteFolder(folderId){await _supa.from('folders').delete().eq('id',folderId);},
   async addFolder(folder){
-    const {data,error}=await _supa.from('folders').insert({id:folder.id,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
+    const folderId=folder.id||('f_'+folder.childId+'_'+folder.key+'_'+Date.now());
+    const {data,error}=await _supa.from('folders').insert({id:folderId,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
     if(error)throw error;
     return data;
   },
