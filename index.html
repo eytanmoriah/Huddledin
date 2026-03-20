@@ -12604,10 +12604,8 @@ async function _processPendingInvite(){
             console.log('\u2705 Specialist reconnected via invite, chat access restored');
           }catch(e){console.error('reconnect chat restore:',e);}
         }
-      }catch(e){console.error('invite specialist_requests insert:',e);}
-      // Auto-create folder + grant folder_permissions — identical logic to Flow 1 (manual approval)
-      console.log('🗂️ folder creation block reached, childId:', data.child_id, 'specialistId:', session.id);
-      try{
+        // Auto-create folder + grant folder_permissions — identical logic to Flow 1 (manual approval)
+        console.log('🗂️ folder creation block reached, childId:', data.child_id, 'specialistId:', session.id);
         const _invProf=PROFESSIONS.find(p=>p.label===_specRealRole);
         const _invFolderKey=_invProf?_invProf.key:'spec_'+session.id;
         const _invFolderName=_invProf?(_invProf.label+' - '+_specRealName):(_specRealRole?_specRealRole+' - '+_specRealName:_specRealName+"'s Folder");
@@ -12620,7 +12618,7 @@ async function _processPendingInvite(){
         }
         const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
         if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
-      }catch(_invFolderErr){console.error('❌ invite auto-folder creation:',_invFolderErr);}
+      }catch(e){console.error('invite specialist_requests insert:',e);}
       toast('🎉 Welcome! You have joined the care team!','success',5000);
       // Full refresh to load child into patient list with correct connectionStatus
       await refreshFromSupabase();
