@@ -327,7 +327,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* -- CHAT BUBBLES -- */
 .bubble-me{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;border-radius:22px 22px 6px 22px;padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:0 2px 10px rgba(13,148,136,.25)}
-.bubble-them{background:var(--white);color:var(--navy);border-radius:22px 22px 22px 6px;border:1.5px solid var(--mint-l);padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:var(--s0)}
+.bubble-them{background:#fff;color:var(--navy);border-radius:22px 22px 22px 6px;border:1.5px solid #e2e8f0;padding:12px 16px;max-width:80%;font-size:.9rem;line-height:1.55;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .bubble-time{font-size:.64rem;opacity:.55;margin-top:4px;text-align:right}
 .bubble-tick{font-size:.64rem;color:rgba(255,255,255,.6);margin-left:3px}
 .bubble-tick.read{color:#a7f3d0}
@@ -2056,7 +2056,7 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},()=>{_debouncedRefresh();})
     .subscribe();
 }
 
@@ -2119,7 +2119,7 @@ async function loadChatsFromSupabase(){
     (_allMsgs||[]).forEach(m=>{if(!_msgsByChatId[m.chat_id])_msgsByChatId[m.chat_id]=[];_msgsByChatId[m.chat_id].push(m);});
     const chatsWithMessages=(chatRows||[]).map(ch=>{
       const msgs=_msgsByChatId[ch.id]||[];
-      return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,
+      return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,unreadFor:ch.unread_for||[],unreadCount:ch.unread_count||0,
         messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at}))};
     });
     LS.set('chats',chatsWithMessages);
@@ -2402,6 +2402,8 @@ function showVerificationPendingScreen(email){
       await _checkSubscription();
       re();
       setupHouseholdSync();setupSpecialistSync();
+      // Background full-data refresh ensures specialist dashboard populates on first login
+      refreshFromSupabase().then(()=>re()).catch(()=>{});
       // Show household invite modal for parents
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1500);
@@ -2947,7 +2949,7 @@ async function approveSpecialistRequest(requestId,selectedFolders){
     }
     // Persist profession permission to folder_permissions table
     if(_supa&&req.specialistId)
-      try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:prof.key});}catch(e){console.error('upsert folder_permissions:',e);}
+      {const{error:_fpErr1}=await _supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:prof.key,granted_at:new Date().toISOString()});if(_fpErr1)console.error('❌ upsert folder_permissions (prof):',_fpErr1);}
   }
   // Create folder if it doesn't exist yet — always runs regardless of prof match
   const existing=DB.folders.filter(f=>f.childId===req.childId);
@@ -2956,11 +2958,11 @@ async function approveSpecialistRequest(requestId,selectedFolders){
     try{await SB.addFolder(newF);const fls=DB.folders;fls.push({...newF,files:[]});DB.folders=fls;re();}catch(e){console.error('addFolder:',e);}
   }
   // Always grant folder permission for the specialist's auto-folder, even if it already existed (covers re-approvals)
-  if(_supa&&req.specialistId)try{await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:folderKey});}catch(fe){console.error('upsert folder_permissions:',fe);}
+  if(_supa&&req.specialistId){const{error:_fpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:folderKey,granted_at:new Date().toISOString()});if(_fpErr2)console.error('❌ upsert folder_permissions (auto):',_fpErr2);}
   // Persist all manually selected folder permissions too
   if(_supa&&req.specialistId&&selectedFolders.length){
     try{
-      await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:key})));
+      await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:key,granted_at:new Date().toISOString()}).then(({error:_e})=>{if(_e)console.error('❌ upsert folder_permissions (selected):',_e);})));
       selectedFolders.forEach(key=>{
         const _f=DB.folders.find(f=>f.key===key&&f.childId===req.childId);
         console.log('✅ Folder access granted:',(_f?.name||key),'to',req.specialistName);
@@ -3025,7 +3027,7 @@ async function approveFolderRequest(req){
   // Persist to Supabase
   if(_supa&&req.specialistId){
     try{
-      await _supa.from('folder_permissions').upsert({specialist_id:req.specialistId,child_id:req.childId,folder_key:req.requestedFolder});
+      const{error:_fpErr3}=await _supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:req.requestedFolder,granted_at:new Date().toISOString()});if(_fpErr3)throw _fpErr3;
       console.log('✅ Folder access granted:',req.requestedFolder,'to',req.specialistName);
     }catch(e){console.error('❌ Failed to grant folder access:',e);toast('❌ Could not grant access: '+(e.message||e),'error');}
     try{await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);}catch(e){console.error('approveFolderRequest req:',e);}
@@ -3450,6 +3452,8 @@ function renderAuth(){
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
       setupHouseholdSync();setupSpecialistSync();
+      // Background full-data refresh ensures specialist dashboard populates on first login
+      refreshFromSupabase().then(()=>re()).catch(()=>{});
       // Show household invite modal for parents (if not dismissed/skipped)
       if(session?.role==='parent'&&shouldShowHouseholdModal()){
         setTimeout(()=>showHouseholdInviteModal(false),1200);
@@ -4679,6 +4683,9 @@ function switchTab(id){
           (async()=>{try{await _supa.from('chats').update({unread_for:c.unreadFor}).eq('id',c.id);}catch(e){console.error('clear unreadFor:',e);}})();
         });
         LS.set('chats',_chats);
+        // Mark chat-type notifications as read so bell badge clears when user opens chat
+        const _chatNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===_cid&&(n.type==='chat'||n.type==='message')).map(n=>n.id);
+        if(_chatNotifIds.length){const _ns=DB.notifications;_chatNotifIds.forEach(_nid=>{const _ni=_ns.findIndex(n=>n.id===_nid);if(_ni>-1)_ns[_ni].read=true;});DB.notifications=_ns;_chatNotifIds.forEach(_nid=>{_supa.from('notifications').update({read:true}).eq('id',_nid).catch(()=>{});});}
       }
     }
   }
@@ -7159,7 +7166,7 @@ function showPermModal(spec){
         const {error:delErr}=await _supa.from('folder_permissions').delete().eq('specialist_id',String(spec.id)).eq('child_id',S.activeChild);
         if(delErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+delErr.message,'error');return;}
         for(const key of curPerms){
-          const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:String(spec.id),child_id:S.activeChild,folder_key:key});
+          const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:String(spec.id),child_id:S.activeChild,folder_key:key,granted_at:new Date().toISOString()});
           if(upErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+upErr.message,'error');return;}
         }
       }
@@ -7907,6 +7914,9 @@ function _resolveSenderName(msg, activeChat){
   return 'Family';
 }
 
+// Deterministic per-sender color — same participant always gets same color in a conversation
+const _BUBBLE_NAME_COLORS=['#e11d48','#7c3aed','#0369a1','#b45309','#047857','#be185d','#c2410c'];
+function _senderColor(uid){if(!uid)return _BUBBLE_NAME_COLORS[0];let h=0;for(let i=0;i<uid.length;i++){h=((h*31)+uid.charCodeAt(i))>>>0;}return _BUBBLE_NAME_COLORS[h%_BUBBLE_NAME_COLORS.length];}
 function renderChatThread(activeChat,specId,myId,onBack,locked){
   const isConsult=activeChat.type==='specialist-consult';
   const isGroup=activeChat.type==='group';
@@ -7999,7 +8009,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
     // Always show sender name for non-me bubbles (important in groups)
     if(!isMe){
-      bub.appendChild(el('div',{class:'bubble-name',style:{color:childColor}},[senderName]));
+      bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(m.sender)}},[senderName]));
     }
     bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[m.text]));
     // Time row
