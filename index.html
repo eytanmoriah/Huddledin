@@ -2895,6 +2895,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
 
 async function approveSpecialistRequest(requestId,selectedFolders){
   const requests=DB.specialistRequests||[];
+  console.log('🔍 approveSpecialistRequest fired for child:', requests.find(r=>r.id===requestId)?.childId, 'specialist:', requests.find(r=>r.id===requestId)?.specialistId);
   const reqIdx=requests.findIndex(r=>r.id===requestId);
   if(reqIdx===-1)return;
   const req=requests[reqIdx];
@@ -2931,6 +2932,7 @@ async function approveSpecialistRequest(requestId,selectedFolders){
     }
   }catch(e){console.error('approve specialist request:',e);}
   // Auto-create folder + grant permission for specialist's profession
+  console.log('🗂️ folder creation block reached, childId:', req.childId, 'specialistId:', req.specialistId);
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
   const folderKey=prof?prof.key:'spec_'+req.specialistId;
   const folderName=prof
@@ -12499,6 +12501,7 @@ function _showRemovedConnectionPopup(child){
 }
 
 async function _processPendingInvite(){
+  console.log('🔍 _processPendingInvite fired for child:', localStorage.getItem('pendingInviteChild'), 'specialist:', session?.id);
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
   if(!token)return;
@@ -12603,6 +12606,7 @@ async function _processPendingInvite(){
         }
       }catch(e){console.error('invite specialist_requests insert:',e);}
       // Auto-create folder + grant folder_permissions — identical logic to Flow 1 (manual approval)
+      console.log('🗂️ folder creation block reached, childId:', data.child_id, 'specialistId:', session.id);
       try{
         const _invProf=PROFESSIONS.find(p=>p.label===_specRealRole);
         const _invFolderKey=_invProf?_invProf.key:'spec_'+session.id;
