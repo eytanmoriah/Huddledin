@@ -6160,7 +6160,7 @@ function renderFiles(){
         }
       });
       _fsRes.appendChild(grid);
-      _fsRes.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
+      if(isParent)_fsRes.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
     }
   }
   _doFsFilter(S._fileSearch);
@@ -7690,6 +7690,20 @@ function markChatRead(chatId){
   }
 }
 
+function markChatUnread(chatId){
+  const myId=session?.id||'';
+  if(!myId||myId==='demo')return;
+  const all=DB.chats;
+  const ci=all.findIndex(c=>c.id===chatId);
+  if(ci>-1&&!(all[ci].unreadFor||[]).includes(myId)){
+    all[ci].unreadFor=[...(all[ci].unreadFor||[]),myId];
+    all[ci].unreadCount=Math.max(1,(all[ci].unreadCount||0)+1);
+    DB.chats=all;
+    _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(e=>console.error('mark unread:',e));
+  }
+  re();
+}
+
 function renderChat(){
   if(!S.chatsLoaded){
     S.chatsLoaded=true;
@@ -7856,6 +7870,35 @@ function renderChat(){
         markChatRead(chat.id);
         if(!isMobile){re();}else{re();}
       };
+    }
+    // Long-press to toggle read/unread
+    if(!isPrivateConsult){
+      let _lpT=null,_lpM=false,_lpF=false;
+      const _origCk=item.onclick;
+      item.onclick=(e)=>{if(_lpF||document.querySelector('.long-press-menu'))return;if(_origCk)_origCk.call(item,e);};
+      item.addEventListener('pointerdown',(e)=>{
+        _lpM=false;_lpF=false;
+        _lpT=setTimeout(()=>{
+          if(!_lpM){
+            _lpF=true;
+            item.style.transform='scale(0.97)';
+            setTimeout(()=>{item.style.transform='';},180);
+            document.querySelectorAll('.long-press-menu').forEach(m=>m.remove());
+            const menu=el('div',{class:'long-press-menu'});
+            const rect=item.getBoundingClientRect();
+            const mx=Math.min(rect.left+8,window.innerWidth-220);
+            const my=rect.bottom+8>window.innerHeight-120?rect.top-80:rect.bottom+8;
+            menu.style.cssText='left:'+mx+'px;top:'+my+'px';
+            const actions=[isUnread?{icon:'✅',label:'Mark as Read',fn:()=>{markChatRead(chat.id);re();}}:{icon:'🔵',label:'Mark as Unread',fn:()=>{markChatUnread(chat.id);}}];
+            actions.forEach(a=>{const mi=el('div',{class:'long-press-item'},[a.icon+' '+a.label]);mi.onclick=()=>{menu.remove();a.fn();};menu.appendChild(mi);});
+            document.body.appendChild(menu);
+            setTimeout(()=>{const cls=(ev)=>{if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('pointerdown',cls);}};document.addEventListener('pointerdown',cls);},50);
+          }
+        },500);
+      });
+      item.addEventListener('pointermove',()=>{_lpM=true;clearTimeout(_lpT);});
+      item.addEventListener('pointerup',()=>clearTimeout(_lpT));
+      item.addEventListener('pointerleave',()=>clearTimeout(_lpT));
     }
     listWrap.appendChild(item);
   });
@@ -8760,9 +8803,16 @@ function _renderSpecTaskCard(task,container,specId,children){
   card.appendChild(info);
 
   if(!task.completed){
-    const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showSpecTaskModal(task));
-    editBtn.style.flexShrink='0';
-    card.appendChild(editBtn);
+    const _isMobileTask=window.innerWidth<768;
+    if(_isMobileTask){
+      card.style.cursor='pointer';
+      card.onclick=(e)=>{if(e.target.closest('.chk'))return;showSpecTaskModal(task);};
+      card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800,flexShrink:0,alignSelf:'center'}},['›']));
+    }else{
+      const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showSpecTaskModal(task));
+      editBtn.style.flexShrink='0';
+      card.appendChild(editBtn);
+    }
   }
 
   container.appendChild(card);
@@ -9606,13 +9656,14 @@ function showAddHomeworkTaskModal(existing,prefill){
     daysSection.appendChild(dayRow);
     [['once','Once'],['daily','Daily'],['every_other_day','Every other day'],['specific_days','Specific days']].forEach(([val,label])=>{
       const b=el('button',{class:selRec===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[label]);
-      b.onclick=()=>{selRec=val;Object.entries(recBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});daysSection.style.display=val==='specific_days'?'block':'none';};
+      b.onclick=()=>{selRec=val;Object.entries(recBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});daysSection.style.display=val==='specific_days'?'block':'none';durWrap.style.display=val==='once'?'none':'block';};
       recBtns[val]=b;recRow.appendChild(b);
     });
     ig.appendChild(recRow);ig.appendChild(daysSection);
 
-    // Duration pills
-    ig.appendChild(el('div',{class:'inp-label'},['Duration']));
+    // Duration pills — hidden for once-off tasks (no recurrence period needed)
+    const durWrap=el('div',{style:{display:selRec==='once'?'none':'block'}});
+    durWrap.appendChild(el('div',{class:'inp-label'},['Duration']));
     let selDur=_pre?.durationType||_pre?.duration_type||'open_ended';
     const durRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const durBtns={};
@@ -9625,7 +9676,7 @@ function showAddHomeworkTaskModal(existing,prefill){
       b.onclick=()=>{selDur=val;Object.entries(durBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary':'btn btn-sm btn-ghost';});endDateSection.style.display=val==='end_date'?'block':'none';};
       durBtns[val]=b;durRow.appendChild(b);
     });
-    ig.appendChild(durRow);ig.appendChild(endDateSection);
+    durWrap.appendChild(durRow);durWrap.appendChild(endDateSection);ig.appendChild(durWrap);
 
     // Time of day pills
     ig.appendChild(el('div',{class:'inp-label'},['Time of day (select all that apply)']));
@@ -9669,7 +9720,7 @@ function showAddHomeworkTaskModal(existing,prefill){
       const title=titleInp.value.trim();
       if(!title){toast('⚠️ Task title is required.','error');return;}
       if(selRec==='specific_days'&&selDays.size===0){toast('⚠️ Select at least one day.','error');return;}
-      if(selDur==='end_date'&&!endDateInp.value){toast('⚠️ Select an end date.','error');return;}
+      if(selRec!=='once'&&selDur==='end_date'&&!endDateInp.value){toast('⚠️ Select an end date.','error');return;}
       if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
       saveBtn.disabled=true;saveBtn.textContent='Saving…';
       const specId=session?.specialistId||session?.id;
@@ -10107,7 +10158,7 @@ function renderPatients(){
         opacity:isInactive?'0.75':'1',
         background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
       }});
-      card.appendChild(mkChildAvatar(c,52,'15px'));
+      const _avWrap=el('div',{style:{position:'relative',flexShrink:0}});_avWrap.appendChild(mkChildAvatar(c,52,'15px'));const _ptBadge=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;if(_ptBadge>0)_avWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',right:'-4px'}},[_ptBadge>99?'99+':String(_ptBadge)]));card.appendChild(_avWrap);
       const info=d('',[], {flex:1});
       const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
