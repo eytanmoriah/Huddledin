@@ -159,37 +159,25 @@
       letter-spacing: .3px;
     }
 
-    /* ─── Cards ───────────────────────────────────────────── */
+    /* ─── Card section ────────────────────────────────────── */
     .cards-section {
-      padding: 24px 24px 56px;
-      max-width: 880px;
+      padding: 24px 24px 0;
+      max-width: 520px;
       margin: 0 auto;
       width: 100%;
     }
 
-    .cards-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      align-items: start;
-    }
-
     .card {
       background: var(--white);
-      border: 2px solid var(--border);
+      border: 2px solid var(--teal);
       border-radius: 22px;
-      padding: 32px 28px;
-      position: relative;
+      padding: 36px 32px;
+      box-shadow: 0 4px 24px rgba(13,148,136,.15);
       transition: box-shadow .2s;
     }
 
     .card:hover {
-      box-shadow: 0 8px 32px rgba(13,148,136,.1);
-    }
-
-    .card.featured {
-      border-color: var(--teal);
-      box-shadow: 0 4px 24px rgba(13,148,136,.15);
+      box-shadow: 0 8px 32px rgba(13,148,136,.2);
     }
 
     .card-badge {
@@ -202,14 +190,6 @@
       margin-bottom: 20px;
       letter-spacing: .4px;
       text-transform: uppercase;
-    }
-
-    .badge-free {
-      background: var(--teal-l);
-      color: var(--teal-d);
-    }
-
-    .badge-popular {
       background: var(--teal);
       color: var(--white);
     }
@@ -237,6 +217,7 @@
       color: var(--teal-dd);
       line-height: 1;
       letter-spacing: -1px;
+      transition: opacity .2s;
     }
 
     .price-period {
@@ -244,6 +225,13 @@
       font-weight: 600;
       color: var(--slate);
       margin-bottom: 8px;
+    }
+
+    .card-subtitle {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--slate);
+      margin-bottom: 4px;
     }
 
     .price-sub {
@@ -265,10 +253,6 @@
     body.monthly .price-monthly { display: inline; }
     body.monthly .billing-yearly  { display: none; }
     body.monthly .billing-monthly { display: block; }
-
-    .price-amount {
-      transition: opacity .2s;
-    }
 
     .trial-banner {
       background: linear-gradient(135deg, var(--teal-ll), #fff);
@@ -309,13 +293,6 @@
       margin-top: 1px;
     }
 
-    .card-subtitle {
-      font-size: .85rem;
-      font-weight: 600;
-      color: var(--slate);
-      margin-bottom: 4px;
-    }
-
     .btn {
       display: block;
       width: 100%;
@@ -330,33 +307,47 @@
       cursor: pointer;
       transition: transform .15s, box-shadow .15s, background .15s;
       letter-spacing: .1px;
+      background: var(--teal);
+      color: var(--white);
     }
 
     .btn:hover {
+      background: var(--teal-d);
       transform: translateY(-1px);
       box-shadow: 0 4px 16px rgba(0,0,0,.12);
     }
 
     .btn:active { transform: translateY(0); }
 
-    .btn-outline {
-      background: transparent;
-      border: 2px solid var(--teal);
+    /* ─── Specialist note ─────────────────────────────────── */
+    .spec-note {
+      max-width: 520px;
+      margin: 20px auto 48px;
+      padding: 14px 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: .83rem;
+      color: var(--slate);
+      line-height: 1.55;
+    }
+
+    .spec-note-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .spec-note a {
       color: var(--teal);
+      text-decoration: none;
+      font-weight: 600;
     }
 
-    .btn-outline:hover {
-      background: var(--teal-ll);
-    }
-
-    .btn-primary {
-      background: var(--teal);
-      color: var(--white);
-    }
-
-    .btn-primary:hover {
-      background: var(--teal-d);
-    }
+    .spec-note a:hover { text-decoration: underline; }
 
     /* ─── FAQ ─────────────────────────────────────────────── */
     .faq-section {
@@ -491,17 +482,11 @@
 
       .hero { padding: 44px 20px 28px; }
 
-      .cards-section { padding: 20px 16px 48px; }
-
-      .cards-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-      }
-
-      /* featured card comes first on mobile */
-      .card.featured { order: -1; }
+      .cards-section { padding: 20px 16px 0; }
 
       .card { padding: 26px 22px; }
+
+      .spec-note { margin: 16px 16px 40px; }
 
       .faq-section { padding: 48px 16px 56px; }
     }
@@ -534,72 +519,48 @@
     <span class="save-badge">Save 28%</span>
   </div>
 
-  <!-- ─── Cards ───────────────────────────────────────────── -->
+  <!-- ─── Family Plan card ─────────────────────────────────── -->
   <section class="cards-section">
-    <div class="cards-grid">
+    <div class="card">
+      <span class="card-badge">Family Plan</span>
 
-      <!-- Card 1: Specialist (Free) -->
-      <div class="card">
-        <span class="card-badge badge-free">Always Free</span>
-
-        <div class="card-price">
-          <span class="price-dollar">$</span>
-          <span class="price-amount">0</span>
-        </div>
-        <p class="price-period">/month</p>
-        <p class="card-subtitle">For therapists, educators &amp; specialists</p>
-        <p class="price-sub">&nbsp;</p>
-
-        <ul class="feature-list">
-          <li>Connect with families you support</li>
-          <li>Assign homework &amp; tasks</li>
-          <li>Shared calendar &amp; appointments</li>
-          <li>Secure messaging</li>
-          <li>Share session notes &amp; summaries</li>
-          <li>File sharing with families</li>
-        </ul>
-
-        <p style="font-size:.78rem;color:#94a3b8;font-style:italic;text-align:center;margin-bottom:14px;">Free forever for core features. Premium specialist tools coming soon.</p>
-        <a class="btn btn-outline" href="https://www.huddledin.com">Get Started Free</a>
+      <div class="card-price">
+        <span class="price-dollar">$</span>
+        <span class="price-amount">
+          <span class="price-yearly">5</span><span class="price-monthly">7</span>
+        </span>
       </div>
+      <p class="price-period">/month</p>
+      <p class="card-subtitle">Per family · Unlimited children &amp; specialists</p>
+      <p class="price-sub">
+        <span class="billing-yearly">Billed $60/year</span>
+        <span class="billing-monthly">Billed monthly</span>
+      </p>
 
-      <!-- Card 2: Family Plan (Featured) -->
-      <div class="card featured">
-        <span class="card-badge badge-popular">Most Popular</span>
+      <div class="trial-banner">✨ Start with a 14-day free trial — no credit card required</div>
 
-        <div class="card-price">
-          <span class="price-dollar">$</span>
-          <span class="price-amount">
-            <span class="price-yearly">5</span><span class="price-monthly">7</span>
-          </span>
-        </div>
-        <p class="price-period">/month</p>
-        <p class="card-subtitle">Per family · Unlimited children &amp; specialists</p>
-        <p class="price-sub">
-          <span class="billing-yearly">Billed $60/year</span>
-          <span class="billing-monthly">Billed monthly</span>
-        </p>
+      <ul class="feature-list">
+        <li>Unlimited children</li>
+        <li>Unlimited specialist connections</li>
+        <li>Full care team coordination</li>
+        <li>Homework &amp; task tracking</li>
+        <li>Shared calendar &amp; appointments</li>
+        <li>Secure messaging with all specialists</li>
+        <li>File manager with folder permissions</li>
+        <li>Session notes &amp; progress summaries</li>
+        <li>Real-time notifications</li>
+        <li>14-day free trial</li>
+      </ul>
 
-        <div class="trial-banner">✨ Start with a 14-day free trial — no credit card required</div>
-
-        <ul class="feature-list">
-          <li>Unlimited children</li>
-          <li>Unlimited specialist connections</li>
-          <li>Full care team coordination</li>
-          <li>Homework &amp; task tracking</li>
-          <li>Shared calendar &amp; appointments</li>
-          <li>Secure messaging with all specialists</li>
-          <li>File manager with folder permissions</li>
-          <li>Session notes &amp; progress summaries</li>
-          <li>Real-time notifications</li>
-          <li>14-day free trial</li>
-        </ul>
-
-        <a class="btn btn-primary" href="https://www.huddledin.com">Start Free Trial</a>
-      </div>
-
+      <a class="btn" href="https://www.huddledin.com">Start Free Trial</a>
     </div>
   </section>
+
+  <!-- ─── Specialist note ───────────────────────────────────── -->
+  <div class="spec-note">
+    <span class="spec-note-icon">🩺</span>
+    <span>Are you a specialist? Huddledin is free for specialists invited by families. <a href="https://www.huddledin.com">Get started at no cost.</a></span>
+  </div>
 
   <!-- ─── FAQ ─────────────────────────────────────────────── -->
   <section class="faq-section">
