@@ -1848,8 +1848,12 @@ async function refreshFromSupabase(){
         (hid
           ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-        ).then(({data:hwt})=>{console.log('[Huddledin] homework_tasks loaded from Supabase:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
-          .catch(e=>console.error('refresh homework_tasks:',e)),
+        ).then(({data:hwt})=>{
+          console.log('[Huddledin] homework_tasks loaded from Supabase:',hwt?.length||0);
+          // Diagnostic: log any once-off task whose DB status doesn't match expected
+          (hwt||[]).filter(t=>t.recurrence==='once').forEach(t=>{console.log('📋 once-task refresh:',t.id?.slice(0,8),'status='+t.status,'title='+t.title?.slice(0,20));});
+          LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));
+        }).catch(e=>console.error('refresh homework_tasks:',e)),
         // Homework Occurrences — parent only (specialist loads per-task on demand)
         hid
           ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent,time_of_day').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-30*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+90*86400000).toISOString().split('T')[0])
@@ -9578,9 +9582,28 @@ function showCheckOffModal(occ,task,childColor){
         );
         // Never archive open-ended recurring tasks from completion alone
         if(_shouldArchive){
-          const{error:_archErr}=await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id);
-          if(_archErr){console.error('❌ archive task:',_archErr);toast('Task completed but could not archive.','error');}
-          else{const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}}
+          console.log('📋 Archive attempt: task.id=',task.id,'recurrence=',task.recurrence,'doneCount=',_doneCount,'/',_requiredCount);
+          // Use .select() to verify the update actually took effect — catches RLS silent failures
+          const{data:_archData,error:_archErr}=await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id).select('id,status').maybeSingle();
+          if(_archErr){
+            console.error('❌ archive task error:',_archErr);
+            toast('Task completed but could not archive.','error');
+          } else if(!_archData){
+            // Update returned no rows — likely RLS blocking parent from updating specialist-created task
+            console.error('❌ archive task: 0 rows updated (RLS?). Retrying with household_id filter…');
+            // Fallback: try updating with household_id match (broader RLS policy may allow this)
+            const{data:_retry,error:_retryErr}=await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id).eq('household_id',session.householdId).select('id,status').maybeSingle();
+            if(_retryErr||!_retry){
+              console.error('❌ archive retry also failed:',_retryErr||'0 rows');
+              toast('Could not archive task — please ask your specialist to archive it.','error');
+            } else {
+              console.log('✅ Archive succeeded on retry. status=',_retry.status);
+              const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}
+            }
+          } else {
+            console.log('✅ Archive confirmed in DB. status=',_archData.status);
+            const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}
+          }
         }
         const child=DB.children.find(c=>c.id===S.activeChild);
         await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
