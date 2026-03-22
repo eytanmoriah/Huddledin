@@ -3026,19 +3026,6 @@ async function approveSpecialistRequest(requestId,selectedFolders){
         }
       }
     }catch(e){console.error('add specialist to existing chats:',e);}
-    // Auto-create a direct chat if none exists for this specialist+child
-    try{
-      const{data:_existDirect}=await _supa.from('chats').select('id').eq('child_id',req.childId).eq('type','direct').contains('participants',JSON.stringify([req.specialistId]));
-      if(!_existDirect||_existDirect.length===0){
-        const _hParents=[session.id,...(DB.coParents||[]).map(p=>p.id)];
-        const _chatParts=[..._hParents,req.specialistId];
-        const _chatId='ch_'+Date.now();
-        const _chatName=(req.specialistName||'Specialist')+(req.role&&req.role!=='Specialist'?' · '+req.role:'');
-        const{error:_chatErr}=await _supa.from('chats').insert({id:_chatId,child_id:req.childId,household_id:_approveHhId,type:'direct',name:_chatName,participants:_chatParts,approved:true,unread_for:_hParents});
-        if(_chatErr)console.error('❌ auto-create chat:',_chatErr);
-        else{const chats=DB.chats||[];chats.push({id:_chatId,childId:req.childId,type:'direct',name:_chatName,participants:_chatParts,approved:true,messages:[],unreadFor:_hParents,unreadCount:0});DB.chats=chats;console.log('✅ Auto-created chat for specialist',req.specialistName);}
-      }
-    }catch(e){console.error('auto-create chat:',e);}
   }
   re();
   toast('Access granted to '+req.specialistName+'!');
@@ -12985,20 +12972,6 @@ async function _processPendingInvite(){
         }
         const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
         if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
-        // Auto-create direct chat if none exists for this specialist+child
-        try{
-          const{data:_exChat}=await _supa.from('chats').select('id').eq('child_id',data.child_id).eq('type','direct').contains('participants',JSON.stringify([session.id]));
-          if(!_exChat||_exChat.length===0){
-            const{data:_hhProfs}=await _supa.from('profiles').select('id').eq('household_id',data.household_id);
-            const _pIds=(_hhProfs||[]).map(p=>p.id).filter(id=>id!==session.id);
-            const _parts=[..._pIds,session.id];
-            const _cId='ch_'+Date.now();
-            const _cName=(_specRealName||'Specialist')+(_specRealRole&&_specRealRole!=='Specialist'?' · '+_specRealRole:'');
-            const{error:_cErr}=await _supa.from('chats').insert({id:_cId,child_id:data.child_id,household_id:data.household_id||null,type:'direct',name:_cName,participants:_parts,approved:true,unread_for:_pIds});
-            if(_cErr)console.error('❌ auto-create chat (invite):',_cErr);
-            else console.log('✅ Auto-created chat via invite for',_specRealName);
-          }
-        }catch(e){console.error('auto-create chat (invite):',e);}
       }catch(e){console.error('invite specialist_requests insert:',e);}
       toast('🎉 Welcome! You have joined the care team!','success',5000);
       // Full refresh to load child into patient list with correct connectionStatus
