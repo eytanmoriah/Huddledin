@@ -7054,8 +7054,9 @@ function renderTeam(){
             :[specId,targetSpecId];
           const chatName=specA.name.split(' ')[0]+' + '+specB.name.split(' ')[0]+' Consult'+(isInclusive?' (+ Parent)':'');
           try{
-            const newChat={id:'ch_'+Date.now(),type:'specialist-consult',participants,childId:child.id,approved:true,name:chatName,messages:[],isPrivate:!isInclusive};
-            await _supa.from('chats').insert({id:newChat.id,child_id:child.id,household_id:session.householdId||null,type:'specialist-consult',name:chatName,participants,approved:true});
+            const _dedupParts=[...new Set(participants)];
+            const newChat={id:'ch_'+Date.now(),type:'specialist-consult',participants:_dedupParts,childId:child.id,approved:true,name:chatName,messages:[],isPrivate:!isInclusive};
+            await _supa.from('chats').insert({id:newChat.id,child_id:child.id,household_id:session.householdId||null,type:'specialist-consult',name:chatName,participants:_dedupParts,approved:true});
             await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);
             const all=DB.specialistRequests,i=all.findIndex(r=>r.id===req.id);
             if(i>-1){all[i].status='approved';DB.specialistRequests=all;}
@@ -8378,9 +8379,10 @@ function showNewMessageModal(){
         }
         const _specRec=getMySpecialistRecord();
         const _chatName=(_specRec?.name||session?.displayName||'Specialist')+(_specRec?.role&&_specRec.role!=='Specialist'?' · '+_specRec.role:'');
-        chat={id:'ch_'+Date.now(),type:'direct',participants:[..._hParentIds,mySpecId],childId:activeChildId,approved:true,messages:[],unreadFor:[..._hParentIds]};
+        const _dedupParts2=[...new Set([..._hParentIds,mySpecId])];
+        chat={id:'ch_'+Date.now(),type:'direct',participants:_dedupParts2,childId:activeChildId,approved:true,messages:[],unreadFor:[..._hParentIds]};
         try{
-          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:_hhId||null,type:chat.type,name:_chatName,participants:chat.participants,approved:true,unread_for:[..._hParentIds]});
+          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:_hhId||null,type:chat.type,name:_chatName,participants:_dedupParts2,approved:true,unread_for:[..._hParentIds]});
           const allChats=DB.chats;allChats.push({...chat,name:_chatName});DB.chats=allChats;
           await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id});
         }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
@@ -11511,10 +11513,11 @@ function showCreateGroupChatModal(){
         S.activeChatId=existingChat.id;S.activeTab='chat';S.chatsLoaded=true;
         close();re();toast('You already have a chat with these participants.','info');return;
       }
-      const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[],unreadFor:participants.filter(p=>p!==session?.id)};
+      const _dedupParts3=[...new Set(participants)];
+      const newChat={id:'ch_'+Date.now(),type:'group',participants:_dedupParts3,childId:S.activeChild,approved:true,name,messages:[],unreadFor:_dedupParts3.filter(p=>p!==session?.id)};
       (async()=>{
         try{
-          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:newChat.participants,approved:true});
+          await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:_dedupParts3,approved:true});
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
           // Notify all participants about the new group chat
           try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
