@@ -3511,32 +3511,72 @@ function renderAuth(){
 async function _checkSubscription(){
   if(!session||session.role!=='parent'||session.id==='demo')return;
   try{
+    // Step 1 — check the current user's own subscription row
     const{data:sub}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).maybeSingle();
+    if(sub){
+      if(sub.exempt){S.subscription={status:'active',exempt:true};return;}
+      if(sub.status==='active'){
+        S.subscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};
+        return;
+      }
+      if(sub.status==='trial'){
+        const _days=Math.ceil((new Date(sub.trial_ends_at)-new Date())/(1000*60*60*24));
+        if(_days>0){S.subscription={status:'trial',daysRemaining:_days,exempt:false};return;}
+        // Trial expired — fall through to household check
+      }
+      // Own subscription expired or trial ended — fall through to household check
+    }
+
+    // Step 2 — check if ANY household member has an active subscription
+    let _hhSubs=null;
+    if(session.householdId){
+      try{
+        const{data:hhProfiles}=await _supa.from('profiles').select('id').eq('household_id',session.householdId).neq('id',session.id);
+        if(hhProfiles&&hhProfiles.length>0){
+          const hhIds=hhProfiles.map(p=>p.id);
+          const{data:_hhData}=await _supa.from('subscriptions').select('*').in('user_id',hhIds);
+          _hhSubs=_hhData;
+          if(_hhSubs&&_hhSubs.length>0){
+            // Active or exempt household member → grant access
+            const activeSub=_hhSubs.find(s=>s.exempt||s.status==='active');
+            if(activeSub){
+              S.subscription={status:'active',exempt:activeSub.exempt||false,billingCycle:activeSub.billing_cycle,periodEndsAt:activeSub.current_period_ends_at};
+              return;
+            }
+            // Active trial in household → share it
+            const trialSub=_hhSubs.find(s=>s.status==='trial'&&Math.ceil((new Date(s.trial_ends_at)-new Date())/(1000*60*60*24))>0);
+            if(trialSub){
+              const _days=Math.ceil((new Date(trialSub.trial_ends_at)-new Date())/(1000*60*60*24));
+              // Create own row synced to household trial dates (if no row yet)
+              if(!sub){
+                try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:trialSub.trial_started_at,trial_ends_at:trialSub.trial_ends_at,plan:'family',billing_cycle:'monthly'});}catch(e){console.error('copy household trial:',e);}
+              }
+              S.subscription={status:'trial',daysRemaining:_days,exempt:false};
+              return;
+            }
+          }
+        }
+      }catch(e){console.error('household sub check:',e);}
+    }
+
+    // Step 3 — no active subscription anywhere in household
     if(!sub){
-      // No row — start 14-day trial
+      // Co-parent joining household with existing (expired) subscription → copy status, do NOT create new trial
+      if(_hhSubs&&_hhSubs.length>0){
+        const _ref=_hhSubs[0];
+        try{await _supa.from('subscriptions').insert({user_id:session.id,status:_ref.status,trial_started_at:_ref.trial_started_at,trial_ends_at:_ref.trial_ends_at,plan:_ref.plan||'family',billing_cycle:_ref.billing_cycle||'monthly',current_period_ends_at:_ref.current_period_ends_at});}catch(e){console.error('copy household sub:',e);}
+        S.subscription={status:'expired',exempt:false};
+        return;
+      }
+      // First parent in household — create fresh 14-day trial
       const _now=new Date();
       const _end=new Date(_now.getTime()+14*24*60*60*1000);
-      try{
-        await _supa.from('subscriptions').insert({
-          user_id:session.id,status:'trial',
-          trial_started_at:_now.toISOString(),
-          trial_ends_at:_end.toISOString(),
-          plan:'family',billing_cycle:'monthly'
-        });
-      }catch(e){console.error('create trial:',e);}
+      try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:_now.toISOString(),trial_ends_at:_end.toISOString(),plan:'family',billing_cycle:'monthly'});}catch(e){console.error('create trial:',e);}
       S.subscription={status:'trial',daysRemaining:14,exempt:false};
       return;
     }
-    if(sub.exempt){S.subscription={status:'active',exempt:true};return;}
-    if(sub.status==='active'){
-      S.subscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};
-      return;
-    }
-    if(sub.status==='trial'){
-      const _days=Math.ceil((new Date(sub.trial_ends_at)-new Date())/(1000*60*60*24));
-      S.subscription=_days>0?{status:'trial',daysRemaining:_days,exempt:false}:{status:'expired',exempt:false};
-      return;
-    }
+
+    // All checks exhausted — expired
     S.subscription={status:'expired',exempt:false};
   }catch(e){console.error('_checkSubscription:',e);}finally{re();}
 }
