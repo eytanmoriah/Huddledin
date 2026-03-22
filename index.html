@@ -4195,12 +4195,27 @@ function _renderSpecDtPatientDetail(child,specId){
     {id:'chat',     label:'💬 Chat'},
     {id:'calendar', label:'📅 Calendar'},
   ];
+  // Compute per-tab badge counts for this child
+  const _tabBadges={};
+  if(child&&child.id){
+    _tabBadges.chat=(typeof _chatBadge==='function')?_chatBadge(child.id):0;
+    _tabBadges.homework=(typeof _hwBadge==='function')?_hwBadge(child.id):0;
+    const _cFiles=(DB.folders||[]).filter(f=>f.childId===child.id).flatMap(f=>f.files||[]);
+    _tabBadges.files=(typeof _newSince==='function')?_newSince(_cFiles,f=>f.date||f.uploadedAt,child.id,'files'):0;
+  }
   PTABS.forEach(t=>{
     const isAct=S.activeTab===t.id||(t.id==='vault'&&S.activeTab==='patient-detail');
-    const btn=el('button',{class:'spec-dt-tab'+(isAct?' active':'')},[t.label]);
+    const btn=el('button',{class:'spec-dt-tab'+(isAct?' active':''),style:{position:'relative'}},[t.label]);
+    // Show badge dot for tabs with unread activity (web view only)
+    const _bc=_tabBadges[t.id]||0;
+    if(_bc>0&&!isAct&&window.innerWidth>=768){
+      const dot=el('span',{style:{position:'absolute',top:'6px',right:'4px',width:'8px',height:'8px',borderRadius:'50%',background:'var(--teal)',display:'block'}});
+      btn.appendChild(dot);
+    }
     btn.onclick=()=>{
       _pushNav();
       S.activeTab=t.id;
+      if(child&&child.id)_markSeen(child.id,t.id==='vault'?'notes':t.id);
       if(t.id==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;S.chatsLoaded=false;}
       if(t.id==='files')S.activeFolderId=null;
       re();
@@ -4814,7 +4829,7 @@ function renderBottomNav(){
   const unreadNotifs=DB.notifications.filter(n=>!n.read).length;
   const myId=session?.id||'';
   const unreadChats=DB.chats.filter(c=>(c.unreadFor||[]).includes(myId)).reduce((s,c)=>s+(c.unreadCount||1),0);
-  const totalBadge=session?.role==='specialist'?unreadNotifs+unreadChats:unreadNotifs;
+  const totalBadge=unreadNotifs+unreadChats;
 
   const nav=el('nav',{id:'bottom-nav'});
   const inner=el('div',{class:'bnav-inner'});
@@ -10362,7 +10377,7 @@ function renderPatients(){
         opacity:isInactive?'0.75':'1',
         background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
       }});
-      const _avWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});_avWrap.appendChild(mkChildAvatar(c,52,'15px'));const _ptBadge=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;if(_ptBadge>0)_avWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488'}},[_ptBadge>99?'99+':String(_ptBadge)]));card.appendChild(_avWrap);
+      const _avWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});_avWrap.appendChild(mkChildAvatar(c,52,'15px'));const _ptNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;const _ptChatUn=(typeof _chatBadge==='function')?_chatBadge(c.id):0;const _ptBadge=_ptNotifs+_ptChatUn;if(_ptBadge>0)_avWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488',zIndex:'10'}},[_ptBadge>99?'99+':String(_ptBadge)]));card.appendChild(_avWrap);
       const info=d('',[], {flex:1});
       const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
