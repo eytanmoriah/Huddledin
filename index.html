@@ -7962,7 +7962,10 @@ function renderChat(){
   }
   hd.appendChild(titleRow);
   const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
-  if(role==='parent')hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
+  if(role==='parent'){
+    hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>_showParentNewChatModal()));
+    hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
+  }
   if(role==='specialist')hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>showNewMessageModal()));
   hd.appendChild(hdRight);
   listWrap.appendChild(hd);
@@ -8379,8 +8382,11 @@ function showNewMessageModal(){
           const _c=DB.children.find(c=>c.id===activeChildId)||(LS.get('children',[])||[]).find(c=>c.id===activeChildId);
           if(_c?.parentId)_hParentIds=[_c.parentId];
         }
-        const _specRec=getMySpecialistRecord();
-        const _chatName=(_specRec?.name||session?.displayName||'Specialist')+(_specRec?.role&&_specRec.role!=='Specialist'?' · '+_specRec.role:'');
+        // Fetch real display_name + profession from profiles (session.profession is never set)
+        let _specDispName=session?.displayName||'Specialist';
+        let _specProf='';
+        try{const{data:_myProf}=await _supa.from('profiles').select('display_name,profession').eq('id',mySpecId).single();if(_myProf?.display_name)_specDispName=_myProf.display_name;if(_myProf?.profession)_specProf=_myProf.profession;}catch(e){}
+        const _chatName=_specDispName+(_specProf&&_specProf!=='Specialist'?' · '+_specProf:'');
         const _dedupParts2=[...new Set([..._hParentIds,mySpecId])];
         chat={id:'ch_'+Date.now(),type:'direct',participants:_dedupParts2,childId:activeChildId,approved:true,messages:[],unreadFor:[..._hParentIds]};
         try{
@@ -11483,6 +11489,62 @@ function renderSessionSummaries(){
 /* -----------------------------------------------
    7. GROUP CHAT (multi-participant)
 ----------------------------------------------- */
+function _showParentNewChatModal(){
+  const _cid=S.activeChatChildId||S.activeChild;
+  if(!_cid){toast('Select a child first.','error');return;}
+  const _seenIds=new Set();
+  const specs=getChildTeam(_cid).filter(s=>s.status==='active').filter(s=>{if(_seenIds.has(s.id))return false;_seenIds.add(s.id);return true;});
+  if(!specs.length){toast('No specialists connected to this child yet.','error');return;}
+  // If only one specialist, skip the picker and create/open directly
+  if(specs.length===1){_openOrCreateDirectChat(_cid,specs[0].id,specs[0].name,specs[0].role);return;}
+  openModal('💬 New Conversation',(mb,close)=>{
+    mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},['Select a specialist to message:']));
+    specs.forEach(s=>{
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px',cursor:'pointer'}});
+      row.appendChild(mkAvatar(s.avatar||'🩺',36,'#d1fae5'));
+      row.appendChild(el('div',{style:{flex:1}},[el('div',{style:{fontWeight:700,fontSize:'.88rem',color:'var(--navy)'}},[s.name||'Specialist']),el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[s.role||''])]));
+      row.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem'}},['›']));
+      row.onclick=()=>{close();_openOrCreateDirectChat(_cid,s.id,s.name,s.role);};
+      mb.appendChild(row);
+    });
+  },420);
+}
+
+async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
+  // Check for existing direct chat
+  let chat=(DB.chats||[]).find(c=>c.type==='direct'&&(c.participants||[]).includes(specId)&&(c.childId||c.child_id)===_cid);
+  if(!chat){
+    try{
+      const{data:_ex}=await _supa.from('chats').select('id,participants,child_id,type,name').eq('child_id',_cid).eq('type','direct').contains('participants',JSON.stringify([specId]));
+      if(_ex&&_ex.length>0)chat={id:_ex[0].id,childId:_ex[0].child_id,type:'direct',participants:_ex[0].participants||[],name:_ex[0].name,approved:true,messages:[]};
+    }catch(e){}
+  }
+  if(chat){
+    S.activeChatId=chat.id;S.chatsLoaded=true;S.activeTab='chat';re();
+    toast('Opening existing conversation.','info');return;
+  }
+  // Fetch specialist display_name + profession from profiles for accurate naming
+  let _sName=specName||'Specialist';
+  let _sRole=specRole||'';
+  try{
+    const{data:_sp}=await _supa.from('profiles').select('display_name,profession').eq('id',specId).single();
+    if(_sp?.display_name)_sName=_sp.display_name;
+    if(_sp?.profession)_sRole=_sp.profession;
+  }catch(e){}
+  const _chatName=_sName+(_sRole&&_sRole!=='Specialist'?' · '+_sRole:'');
+  const _allParents=[session.id,...(DB.coParents||[]).map(p=>p.id)];
+  const _parts=[...new Set([..._allParents,specId])];
+  const _newId='ch_'+Date.now();
+  try{
+    const{error}=await _supa.from('chats').insert({id:_newId,child_id:_cid,household_id:session.householdId||null,type:'direct',name:_chatName,participants:_parts,approved:true,unread_for:_allParents});
+    if(error){console.error('create direct chat:',error);toast('Could not create chat.','error');return;}
+    const allChats=DB.chats||[];allChats.push({id:_newId,childId:_cid,type:'direct',name:_chatName,participants:_parts,approved:true,messages:[],unreadFor:_allParents,unreadCount:0});DB.chats=allChats;
+    await notifyOtherParty('chat','💬 '+session.name+' started a new chat',_cid,'chat',{chatId:_newId});
+  }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
+  S.activeChatId=_newId;S.chatsLoaded=true;S.activeTab='chat';re();
+  toast('✅ Chat created!');
+}
+
 function showCreateGroupChatModal(){
   openModal('👥 Create Group Chat',(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
