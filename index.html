@@ -9555,12 +9555,33 @@ function showCheckOffModal(occ,task,childColor){
           const {url}=await SB.uploadFile('homework/'+S.activeChild+'/'+occ.id,_photoFile);
           photoUrl=url;
         }
-        await _supa.from('homework_occurrences').update({status:'completed'}).eq('id',occ.id);
-        await _supa.from('homework_completions').insert({occurrence_id:occ.id,task_id:task.id,child_id:occ.childId||S.activeChild,completed_by:session.id,note:noteInp.value.trim()||null,photo_url:photoUrl,completed_at:new Date().toISOString()});
-        if(task.recurrence==='once'){try{await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id);const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}}catch(ae){console.error('archive task:',ae);}}
+        // Step 1: Mark this occurrence as completed in Supabase
+        const{error:_occErr}=await _supa.from('homework_occurrences').update({status:'completed'}).eq('id',occ.id);
+        if(_occErr)console.error('❌ occurrence update:',_occErr);
+        // Step 2: Insert completion record
+        const{error:_compErr}=await _supa.from('homework_completions').insert({occurrence_id:occ.id,task_id:task.id,child_id:occ.childId||S.activeChild,completed_by:session.id,note:noteInp.value.trim()||null,photo_url:photoUrl,completed_at:new Date().toISOString()});
+        if(_compErr)console.error('❌ completion insert:',_compErr);
+        // Step 3: Update local occurrence cache FIRST (before archive check)
         const all=DB.homeworkOccurrences||[];
         const i=all.findIndex(o=>o.id===occ.id);
         if(i>-1){all[i].status='completed';DB.homeworkOccurrences=all;}
+        // Step 4: Check if ALL required time slots for this task are now completed
+        const _today4=new Date().toISOString().split('T')[0];
+        const _taskAllOccs=all.filter(o=>o.taskId===task.id);
+        const _taskTodayOccs=_taskAllOccs.filter(o=>o.date===_today4||(task.recurrence==='once'));
+        const _doneCount=_taskTodayOccs.filter(o=>o.status==='completed').length;
+        const _requiredCount=_taskTodayOccs.length||1;
+        // Step 5: Archive only when ALL slots done AND task qualifies
+        const _shouldArchive=_doneCount>=_requiredCount&&(
+          task.recurrence==='once'||
+          (task.durationType==='end_date'&&task.endDate&&task.endDate<=_today4)
+        );
+        // Never archive open-ended recurring tasks from completion alone
+        if(_shouldArchive){
+          const{error:_archErr}=await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id);
+          if(_archErr){console.error('❌ archive task:',_archErr);toast('Task completed but could not archive.','error');}
+          else{const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}}
+        }
         const child=DB.children.find(c=>c.id===S.activeChild);
         await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
         close();re();toast('✅ Marked as done!');
@@ -10211,6 +10232,15 @@ function renderHomeworkParent(){
   // Tabs
   const tab=S._hwParentTab||'active';
   const _today3=new Date().toISOString().split('T')[0];
+  // Auto-archive expired date-limited tasks server-side (fire-and-forget)
+  const _expiredActive=allTasks.filter(t=>t.status==='active'&&t.endDate&&t.endDate<_today3);
+  if(_expiredActive.length&&session?.id!=='demo'){
+    _expiredActive.forEach(t=>{
+      _supa.from('homework_tasks').update({status:'archived'}).eq('id',t.id).then(({error})=>{
+        if(!error){const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(x=>x.id===t.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}}
+      }).catch(()=>{});
+    });
+  }
   const activeTasks=allTasks.filter(t=>t.status==='active'&&!(t.endDate&&t.endDate<_today3));
   const archiveTasks=allTasks.filter(t=>t.status==='archived'||t.isPaused||(t.status==='active'&&t.endDate&&t.endDate<_today3));
   const tabBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
@@ -10274,6 +10304,13 @@ function renderHomeworkParent(){
         _row.appendChild(_c);_row.appendChild(el('span',{style:{fontSize:'.58rem',color:'var(--slate)',fontWeight:600}},[_lbl]));
         chkWrap.appendChild(_row);
       });
+      // Progress indicator: show "✓ 2/3" for multi-slot tasks
+      const _doneToday=todayOccs.filter(o=>o.status==='completed').length;
+      if(_doneToday>0&&_doneToday<todayOccs.length){
+        chkWrap.appendChild(el('div',{style:{fontSize:'.56rem',fontWeight:700,color:'var(--teal)',textAlign:'center',marginTop:'2px'}},['✓ '+_doneToday+'/'+todayOccs.length]));
+      } else if(_doneToday>=todayOccs.length){
+        chkWrap.appendChild(el('div',{style:{fontSize:'.56rem',fontWeight:700,color:'var(--teal)',textAlign:'center',marginTop:'2px'}},['✓ All done']));
+      }
     }
     hdr.appendChild(chkWrap);
     const titleWrap=el('div',{style:{flex:1,minWidth:0}});
