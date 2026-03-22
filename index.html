@@ -2085,7 +2085,19 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},()=>{_debouncedRefresh();})
+    // Homework tasks — specialist creates/updates tasks for children in this household
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
     .subscribe();
+  // Per-child subscriptions for tables that filter by child_id (no household_id column)
+  const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
+  _hhChildren.forEach(cid=>{
+    _supa.channel('hh_child:'+cid)
+      // Vault notes / session summaries published by specialists
+      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
+      // Files uploaded to child folders
+      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
+      .subscribe();
+  });
 }
 
 // Real-time subscription sync — reacts to webhook-driven status changes
@@ -2130,11 +2142,10 @@ function setupSpecialistSync(){
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
-    // homework_tasks status changes — fires when parent archives a task so specialist's Active list updates in real-time
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'homework_tasks',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // homework_tasks changes — fires on all events (INSERT, UPDATE, DELETE) so specialist sees new, archived, and deleted tasks
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     .subscribe();
-  // Subscribe to appointment updates for each patient child
-  // (catches rsvp updates and new appointments from parents)
+  // Subscribe to per-child tables for each patient
   const childIds2=(LS.get('children',[])||[]).map(c=>c.id);
   childIds2.forEach(cid=>{
     _supa.channel('spec_apts:'+cid)
@@ -2142,6 +2153,11 @@ function setupSpecialistSync(){
       .subscribe();
     _supa.channel('spec_msgs:'+cid)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},()=>{loadChatsFromSupabase().then(()=>re());})
+      .subscribe();
+    // Vault notes and files for this child
+    _supa.channel('spec_child_data:'+cid)
+      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
+      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
   });
 }
