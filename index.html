@@ -4059,7 +4059,13 @@ function renderSpecDesktop(){
       }
 
       const row=el('div',{class:'spec-dt-pl-row'+(isAct?' active':'')});
-      row.appendChild(mkChildAvatar(c,36,'50%'));
+      const _dtAvWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});
+      _dtAvWrap.appendChild(mkChildAvatar(c,36,'50%'));
+      const _dtNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;
+      const _dtChatUn=(typeof _chatBadge==='function')?_chatBadge(c.id):0;
+      const _dtBadge=_dtNotifs+_dtChatUn;
+      if(_dtBadge>0)_dtAvWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488',zIndex:'10',minWidth:'16px',height:'16px',fontSize:'.5rem'}},[_dtBadge>99?'99+':String(_dtBadge)]));
+      row.appendChild(_dtAvWrap);
       const ri=el('div',{class:'spec-dt-pl-ri'});
       const rn=el('div',{class:'spec-dt-pl-name'}); rn.textContent=c.name;
       const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent='Age '+(c.age||'—');
@@ -8260,6 +8266,27 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         try{
           await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
+          // Insert notification for each recipient so it appears in the notification list
+          try{
+            const _msgChild=DB.children.find(c=>c.id===activeChat.childId)||(LS.get('children',[])||[]).find(c=>c.id===activeChat.childId);
+            const _msgChildName=_msgChild?.name||'your child';
+            let _msgText;
+            if(session.role==='specialist'){
+              const _specProf=session.profession||(DB.specialists||[]).find(s=>s.id===session.id)?.role||'Specialist';
+              _msgText='💬 New message from '+_msgChildName+"'s "+_specProf+' - '+senderName;
+            }else{
+              const _firstName=(senderName||'').split(' ')[0]||'Parent';
+              _msgText='💬 New message from '+_msgChildName+"'s parent "+_firstName;
+            }
+            const _recipients=(activeChat.participants||[]).filter(p=>p!==myId&&p!=='parent');
+            for(const uid of _recipients){
+              // Dedup: skip if unread notification for this chat+user exists within 30s
+              const{data:_dup}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type','message').eq('read',false).gte('created_at',new Date(Date.now()-30000).toISOString()).limit(1);
+              if(_dup&&_dup.length>0)continue;
+              const{error:_nErr}=await _supa.from('notifications').insert({user_id:uid,child_id:activeChat.childId||null,household_id:getChildHouseholdId(activeChat.childId)||null,type:'message',message:_msgText,read:false,link_tab:'chat',link_data:JSON.stringify({chatId:activeChat.id})});
+              if(_nErr)console.error('❌ msg notif insert:',_nErr);
+            }
+          }catch(e){console.error('msg notification:',e);}
         }catch(e){
           console.error('send message:',e);
           // Rollback: remove the optimistic message from local cache
