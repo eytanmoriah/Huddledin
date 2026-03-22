@@ -1918,6 +1918,8 @@ async function refreshFromSupabase(){
               if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
             });
             console.log('\u2705 Seen timestamps loaded:',(rows||[]).length,'rows');
+            // Clear stale legacy homework cache — prevents stuck badges
+            DB.homework=[];
           }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
         })()
       ]);
@@ -4798,7 +4800,7 @@ function switchTab(id){
   if(S.activeChild){
     if(['session-summaries','files','calendar','vault'].includes(id))
       _markSeen(S.activeChild,id);
-    if(id==='homework'){_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{_supa.from('notifications').update({read:true}).eq('id',id).catch(()=>{});});}}}
+    if(id==='homework'){_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{_supa.from('notifications').update({read:true}).eq('id',id).catch(()=>{});});}}}
     if(id==='chat'){
       // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
       const _chats=DB.chats||[];
@@ -4993,7 +4995,14 @@ function _markSeen(cid,s,cnt){
   }
 }
 function _newSince(items,dfn,cid,s){const ts=_seenTs(cid,s);if(!ts)return items.length;return items.filter(x=>{const d=dfn(x);return d&&(new Date(d).getTime()||0)>ts;}).length;}
-function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const newTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===cid&&t.status==='active'&&!(t.endDate&&t.endDate<today4)&&t.createdAt&&_seenTs(cid,'tasks')&&new Date(t.createdAt).getTime()>_seenTs(cid,'tasks')).length;const legacyUnread=(DB.homework||[]).filter(h=>h.childId===cid&&!h.completed).length;const notifCount=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;const k=cid+'_tasks_cnt';const stored=_seenTimestamps[k]!=null?_seenTimestamps[k]:parseInt(LS.get('seen_'+cid+'_homework_cnt','0'),10)||0;const legacyBadge=Math.max(0,legacyUnread-stored);return Math.max(notifCount,newTasks,legacyBadge);}
+function _clearHwBadgeCache(cid){
+  // Remove stale legacy homework cache for this child
+  LS.set('seen_'+cid+'_homework_cnt','0');
+  delete _seenTimestamps[cid+'_tasks_cnt'];
+  // Also clear legacy homework items for this child from cache
+  const hw=DB.homework||[];const cleaned=hw.filter(h=>h.childId!==cid);if(cleaned.length!==hw.length)DB.homework=cleaned;
+}
+function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const newTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===cid&&t.status==='active'&&!(t.endDate&&t.endDate<today4)&&t.createdAt&&_seenTs(cid,'tasks')&&new Date(t.createdAt).getTime()>_seenTs(cid,'tasks')).length;const notifCount=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return Math.max(notifCount,newTasks);}
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
 function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);const calNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&(n.type==='appointment'||n.linkTab==='calendar')).length;const hwNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return _chatBadge(cid)+Math.max(_hwBadge(cid),hwNotifs)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+Math.max(_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar'),calNotifs);}
 function renderGlobalHome(){
@@ -5110,7 +5119,7 @@ function renderGlobalHome(){
     if(_tot>0)_bwrap.appendChild(el('div',{class:'cb-badge'},[ _tot>9?'9+':String(_tot) ]));
     bubble.appendChild(_bwrap);
     bubble.appendChild(el('div',{class:'cb-name'},[c.name.split(' ')[0]]));
-    bubble.onclick=()=>{_pushNav();S.activeChatChildId=c.id;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';re();};
+    bubble.onclick=()=>{_pushNav();S.activeChatChildId=c.id;S.activeChild=c.id;S.navLevel=1;S.activeTab='dashboard';_clearHwBadgeCache(c.id);re();};
     bubble.oncontextmenu=e=>{e.preventDefault();showChildPhotoModal(c);};
     row.appendChild(bubble);
   });
