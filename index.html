@@ -1895,10 +1895,9 @@ async function refreshFromSupabase(){
         _supa.from('progress').select('*').eq('household_id',hid||session.id)
           .then(({data:prog})=>LS.set('progress',(prog||[]).map(p=>({id:p.id,childId:p.child_id,category:p.category||'General',label:p.label||'',value:p.value||0,maxValue:p.max_value||100,unit:p.unit||'',date:p.date||'',specialistId:p.specialist_id||null}))))
           .catch(e=>console.error('refresh progress:',e)),
-        // Chats (thread metadata; messages loaded on demand in loadChatsFromSupabase)
-        _supa.from('chats').select('*').eq('household_id',hid||session.id)
-          .then(({data:chatRows})=>{if(chatRows&&chatRows.length){const existing=DB.chats||[];const merged=chatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
-          .catch(e=>console.error('refresh chats:',e)),
+        // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
+        // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages/unreadFor with stale data.
+        Promise.resolve(),
         // Published session summaries — parents see only published:true, no clinical content
         (async()=>{
           try{
@@ -3294,6 +3293,20 @@ const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f5
 const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
 const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗',appointments:'📅',message:'💬',reconnected:'🔗'};
 
+// Auto-prune old notifications: keep last 50 per user (fire-and-forget)
+async function _pruneOldNotifications(userId){
+  if(!userId||userId==='demo'||!_supa)return;
+  try{
+    const{data:rows}=await _supa.from('notifications').select('id,created_at').eq('user_id',userId).order('created_at',{ascending:false});
+    if(!rows||rows.length<=50)return;
+    const toDelete=rows.slice(50).map(r=>r.id);
+    if(toDelete.length){
+      await _supa.from('notifications').delete().in('id',toDelete);
+      console.log('✅ Pruned '+toDelete.length+' old notifications for '+userId.slice(0,8)+'…');
+    }
+  }catch(e){console.error('prune notifications:',e);}
+}
+
 function pushNotif(type,msg,childId,linkTab=null){
   // Auto-derive linkTab from type if not provided
   if(!linkTab){
@@ -3376,6 +3389,9 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
         }catch(e){console.warn('notifyOtherParty parent insert:',e);}
       }
     }
+    // Fire-and-forget prune for all recipients
+    const _allRecipients=session.role==='specialist'?(householdUserIds||[]):(targetUserId?[targetUserId]:getChildTeam(childId).filter(s=>s.status==='active').map(s=>s.id));
+    _allRecipients.forEach(uid=>_pruneOldNotifications(uid));
   }catch(e){console.warn('notifyOtherParty:',e);}
 }
 
@@ -7956,7 +7972,10 @@ function renderChat(){
     const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
     const isGroup=chat.type==='group';
     const isConsult=chat.type==='specialist-consult';
-    const chatName=chat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(role==='parent'?(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist'):(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Family')));
+    // For parent direct chats, always show specialist name + role (dynamic) instead of stored chat.name
+    const _isDirect=!isGroup&&!isConsult;
+    const _dynamicName=role==='parent'?(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist'):(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Family');
+    const chatName=isConsult?'Specialist Consult':isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'&&otherSpec?_dynamicName:(chat.name||_dynamicName));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -10796,7 +10815,7 @@ function renderNotifications(){
     }));
   }
   sec.appendChild(hd);
-  const notifs=DB.notifications;
+  const notifs=[...DB.notifications].sort((a,b)=>{if(!a.read&&b.read)return -1;if(a.read&&!b.read)return 1;return 0;});
   if(!notifs.length){sec.appendChild(p('All caught up! 🎉'));return sec;}
   const stack=el('div',{class:'stack'});
   notifs.forEach(n=>{
@@ -12854,11 +12873,14 @@ function _showRemovedConnectionPopup(child){
   });
 }
 
+let _inviteProcessing=false;
 async function _processPendingInvite(){
+  if(_inviteProcessing)return; // Guard: prevent double execution from multiple callers
+  _inviteProcessing=true;
   console.log('🔍 _processPendingInvite fired for child:', localStorage.getItem('pendingInviteChild'), 'specialist:', session?.id);
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
-  if(!token)return;
+  if(!token){_inviteProcessing=false;return;}
   // Re-read profile from DB — authoritative role check before ANY writes.
   // Guards against session.role being wrong (e.g. set to 'parent' by auto-create race during signup).
   // If profile.role === 'specialist': ONLY write specialist_requests, NEVER touch profiles table.
@@ -12972,7 +12994,10 @@ async function _processPendingInvite(){
         const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
         if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
       }catch(e){console.error('invite specialist_requests insert:',e);}
-      toast('🎉 Welcome! You have joined the care team!','success',5000);
+      // Look up child name for welcome toast
+      let _invChildName='the';
+      try{const{data:_ic}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic?.name)_invChildName=_ic.name+"'s";}catch(e){}
+      toast('🎉 Welcome! You have joined '+_invChildName+' care team!','success',5000);
       // Full refresh to load child into patient list with correct connectionStatus
       await refreshFromSupabase();
       if(data.child_id)S.activeChild=data.child_id;
@@ -12996,7 +13021,8 @@ async function _processPendingInvite(){
           }
         }catch(e){console.error('fallback child load:',e);}
       }
-      toast('🎉 Welcome to the care team!','success',5000);
+      const _fbChild=(LS.get('children',[])||[]).find(c=>c.id===storedChild);
+      toast('🎉 Welcome! You have joined '+(_fbChild?.name?_fbChild.name+"'s":'the')+' care team!','success',5000);
       re();
     } else {
       toast('⚠️ Could not process invite. Please ask the family to send a new one.','error',5000);
@@ -13005,6 +13031,7 @@ async function _processPendingInvite(){
   localStorage.removeItem('pendingInviteToken');
   localStorage.removeItem('pendingInviteChild');
   localStorage.removeItem('pendingInviteEmail');
+  _inviteProcessing=false;
 }
 
 // Specialist desktop layout — re-render when crossing 1024px breakpoint
