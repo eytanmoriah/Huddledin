@@ -1851,7 +1851,6 @@ async function refreshFromSupabase(){
         ).then(({data:hwt})=>{
           console.log('[Huddledin] homework_tasks loaded from Supabase:',hwt?.length||0);
           // Diagnostic: log any once-off task whose DB status doesn't match expected
-          (hwt||[]).filter(t=>t.recurrence==='once').forEach(t=>{console.log('📋 once-task refresh:',t.id?.slice(0,8),'status='+t.status,'title='+t.title?.slice(0,20));});
           LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));
         }).catch(e=>console.error('refresh homework_tasks:',e)),
         // Homework Occurrences — parent only (specialist loads per-task on demand)
@@ -4808,7 +4807,7 @@ function switchTab(id){
   if(S.activeChild){
     if(['session-summaries','files','calendar','vault'].includes(id))
       _markSeen(S.activeChild,id);
-    if(id==='homework'){_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{_supa.from('notifications').update({read:true}).eq('id',id).catch(()=>{});});}}}
+    if(id==='homework'){_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{(async()=>{try{await _supa.from('notifications').update({read:true}).eq('id',id);}catch(e){}})();});}}}
     if(id==='chat'){
       // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
       const _chats=DB.chats||[];
@@ -9582,7 +9581,6 @@ function showCheckOffModal(occ,task,childColor){
         );
         // Never archive open-ended recurring tasks from completion alone
         if(_shouldArchive){
-          console.log('📋 Archive attempt: task.id=',task.id,'recurrence=',task.recurrence,'doneCount=',_doneCount,'/',_requiredCount);
           // Use .select() to verify the update actually took effect — catches RLS silent failures
           const{data:_archData,error:_archErr}=await _supa.from('homework_tasks').update({status:'archived'}).eq('id',task.id).select('id,status').maybeSingle();
           if(_archErr){
@@ -9597,11 +9595,9 @@ function showCheckOffModal(occ,task,childColor){
               console.error('❌ archive retry also failed:',_retryErr||'0 rows');
               toast('Could not archive task — please ask your specialist to archive it.','error');
             } else {
-              console.log('✅ Archive succeeded on retry. status=',_retry.status);
               const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}
             }
           } else {
-            console.log('✅ Archive confirmed in DB. status=',_archData.status);
             const _tks=DB.homeworkTasks||[];const _ti=_tks.findIndex(t=>t.id===task.id);if(_ti>-1){_tks[_ti].status='archived';DB.homeworkTasks=_tks;}
           }
         }
