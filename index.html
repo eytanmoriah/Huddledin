@@ -2872,14 +2872,16 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
         let _specRealName=specialistName;
         let _specRealRole=role||'Specialist';
         try{const{data:_sPro}=await _supa.from('profiles').select('display_name,profession').eq('id',specialistId).single();if(_sPro?.display_name)_specRealName=_sPro.display_name;if(_sPro?.profession)_specRealRole=_sPro.profession;}catch(e){}
-        // Only skip if there's already a pending row — approved rows don't block new requests
         // Check for an active (pending/approved) row first — skip if found
-        const {data:_activeReq}=await _supa.from('specialist_requests')
-          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).in('status',['pending','approved']).maybeSingle();
+        // Use .limit(1) instead of .maybeSingle() — maybeSingle errors on >1 row
+        const {data:_activeReqs}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',specialistId).eq('child_id',childId).in('status',['pending','approved']).limit(1);
+        const _activeReq=_activeReqs&&_activeReqs.length>0?_activeReqs[0]:null;
         if(!_activeReq){
           // Check for a removed row — reactivate it rather than inserting a duplicate
-          const {data:_removedReq}=await _supa.from('specialist_requests')
-            .select('id').eq('specialist_id',specialistId).eq('child_id',childId).eq('status','removed').maybeSingle();
+          const {data:_removedReqs}=await _supa.from('specialist_requests')
+            .select('id').eq('specialist_id',specialistId).eq('child_id',childId).eq('status','removed').limit(1);
+          const _removedReq=_removedReqs&&_removedReqs.length>0?_removedReqs[0]:null;
           if(_removedReq){
             // Reconnection — restore existing row to pending, preserving full history
             await _supa.from('specialist_requests').update({
@@ -12985,8 +12987,10 @@ async function _processPendingInvite(){
         let _specRealName=session.displayName||session.name||session.email;
         let _specRealRole=data.specialist_role||'Specialist';
         try{const{data:_sPro}=await _supa.from('profiles').select('display_name,profession').eq('id',session.id).single();if(_sPro?.display_name)_specRealName=_sPro.display_name;if(_sPro?.profession)_specRealRole=_sPro.profession;}catch(e){}
-        const {data:_invReq}=await _supa.from('specialist_requests')
-          .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).maybeSingle();
+        // Use .limit(1) instead of .maybeSingle() — maybeSingle errors on >1 row, causing duplicates
+        const {data:_invReqs}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).eq('request_type','join').order('created_at',{ascending:false}).limit(1);
+        const _invReq=_invReqs&&_invReqs.length>0?_invReqs[0]:null;
         if(!_invReq){
           // Fresh connection — insert new approved row
           await _supa.from('specialist_requests').insert({
@@ -13000,6 +13004,11 @@ async function _processPendingInvite(){
             request_type:'join',
             requested_at:new Date().toISOString()
           });
+        } else if(_invReq.status==='approved'){
+          // Already approved — just update name/role, don't insert duplicate
+          await _supa.from('specialist_requests').update({
+            specialist_name:_specRealName,role:_specRealRole,requested_at:new Date().toISOString()
+          }).eq('id',_invReq.id);
         } else if(_invReq.status==='removed'){
           // Reconnection via invite — reactivate existing row instead of inserting duplicate
           await _supa.from('specialist_requests').update({
