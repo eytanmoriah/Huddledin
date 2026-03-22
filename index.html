@@ -7977,8 +7977,11 @@ function renderChat(){
   visChats.forEach(chat=>{
     const isUnread=(chat.unreadFor||[]).includes(myId);
     const lastMsg=chat.messages[chat.messages.length-1];
-    const otherSpecId=chat.participants.find(p=>p!=='parent'&&p!==specId);
-    const otherSpec=getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
+    // Find the specialist among participants by checking DB.specialists, not by exclusion from self
+    // This correctly skips co-parents who are also in the participants array
+    const _specIds=new Set((DB.specialists||[]).map(s=>s.id));
+    const otherSpecId=chat.participants.find(p=>_specIds.has(p))||(chat.participants.find(p=>p!=='parent'&&p!==specId&&p!==myId));
+    const otherSpec=otherSpecId?(DB.specialists||[]).find(s=>s.id===otherSpecId)||getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId):null;
     const isGroup=chat.type==='group';
     const isConsult=chat.type==='specialist-consult';
     // For parent direct chats, always show specialist name + role (dynamic) instead of stored chat.name
@@ -8286,7 +8289,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
             const _msgChildName=_msgChild?.name||'your child';
             let _msgText;
             if(session.role==='specialist'){
-              const _specProf=session.profession||(DB.specialists||[]).find(s=>s.id===session.id)?.role||'Specialist';
+              const _specProf=session.profession||getMySpecialistRecord()?.role||(DB.specialists||[]).find(s=>s.id===session.id)?.role||'Specialist';
               _msgText='💬 New message from '+_msgChildName+"'s "+_specProf+' - '+senderName;
             }else{
               const _firstName=(senderName||'').split(' ')[0]||'Parent';
@@ -8294,8 +8297,8 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
             }
             const _recipients=(activeChat.participants||[]).filter(p=>p!==myId&&p!=='parent');
             for(const uid of _recipients){
-              // Dedup: skip if unread notification for this chat+user exists within 30s
-              const{data:_dup}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type','message').eq('read',false).gte('created_at',new Date(Date.now()-30000).toISOString()).limit(1);
+              // Dedup: skip if unread message notification for this child+user exists within 60s
+              const{data:_dup}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type','message').eq('child_id',activeChat.childId||'').eq('read',false).gte('created_at',new Date(Date.now()-60000).toISOString()).limit(1);
               if(_dup&&_dup.length>0)continue;
               const{error:_nErr}=await _supa.from('notifications').insert({user_id:uid,child_id:activeChat.childId||null,household_id:getChildHouseholdId(activeChat.childId)||null,type:'message',message:_msgText,read:false,link_tab:'chat',link_data:JSON.stringify({chatId:activeChat.id})});
               if(_nErr)console.error('❌ msg notif insert:',_nErr);
@@ -11460,7 +11463,9 @@ function showCreateGroupChatModal(){
     mb.appendChild(ni);
     mb.appendChild(el('div',{class:'inp-label'},['Select participants']));
     const selected=new Set();
-    const activeSpecs=getChildTeam(S.activeChild).filter(s=>s.status==='active');
+    // Deduplicate specialists by UUID — a specialist may have entries for multiple children
+    const _seenSpecIds=new Set();
+    const activeSpecs=getChildTeam(S.activeChild).filter(s=>s.status==='active').filter(s=>{if(_seenSpecIds.has(s.id))return false;_seenSpecIds.add(s.id);return true;});
     activeSpecs.forEach(s=>{
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 13px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px'}});
       const cb=el('input',{type:'checkbox'});
@@ -11474,6 +11479,13 @@ function showCreateGroupChatModal(){
       if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
       const name=ni.value.trim()||'Care Team Group Chat';
       const participants=[session.id,...(DB.coParents||[]).map(p=>p.id),...Array.from(selected)];
+      // Check for existing chat with identical participants for this child
+      const _sortedParts=[...participants].sort().join(',');
+      const existingChat=(DB.chats||[]).find(c=>c.childId===S.activeChild&&c.type==='group'&&[...(c.participants||[])].sort().join(',')===_sortedParts);
+      if(existingChat){
+        S.activeChatId=existingChat.id;S.activeTab='chat';S.chatsLoaded=true;
+        close();re();toast('You already have a chat with these participants.','info');return;
+      }
       const newChat={id:'ch_'+Date.now(),type:'group',participants,childId:S.activeChild,approved:true,name,messages:[],unreadFor:participants.filter(p=>p!==session?.id)};
       (async()=>{
         try{
