@@ -2022,10 +2022,9 @@ async function refreshFromSupabase(){
         _supa.from('vault_notes').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
           .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
           .catch(e=>console.error('refresh vaultNotes:',e)),
-        // Chats
-        _supa.from('chats').select('*').contains('participants',JSON.stringify([specId]))
-          .then(({data:specChatRows})=>{if(specChatRows&&specChatRows.length){const existing=DB.chats||[];const merged=specChatRows.map(ch=>{const loc=existing.find(c=>c.id===ch.id);return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,messages:loc?.messages||[],unreadFor:ch.unread_for||loc?.unreadFor||[],unreadCount:loc?.unreadCount||0};});LS.set('chats',merged);}})
-          .catch(e=>console.error('refresh spec chats:',e)),
+        // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
+        // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages with [].
+        Promise.resolve(),
         // Specialist clinical tasks (own table — separate from parent todos)
         _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
           .then(({data:tasks})=>LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at}))))
