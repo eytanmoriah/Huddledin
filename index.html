@@ -3346,6 +3346,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
       }
     }catch(e){}
   }
+  let _notifRecipients=[];
   try{
     if(session?.role==='specialist'){
       // Notify ALL users in the household (parent + co-parents)
@@ -3360,12 +3361,13 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
           const _c=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
           if(_c?.parentId)householdUserIds=[_c.parentId];
         }
+        _notifRecipients=householdUserIds;
         for(const uid of householdUserIds){
           try{
             const {data:_dup1}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
             if(_dup1&&_dup1.length>0)continue;
             const{error:_nErr}=await _supa.from('notifications').insert({
-              user_id:uid,
+              id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
               household_id:hid,child_id:childId||null,
               type,message:msg,read:false,link_tab:linkTab,
               link_data:linkData?JSON.stringify(linkData):null
@@ -3377,12 +3379,13 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
     } else {
       // Parent: notify only the target specialist if specified, otherwise all active specialists for this child
       const _recipientIds=targetUserId?[targetUserId]:getChildTeam(childId).filter(s=>s.status==='active').map(s=>s.id);
+      _notifRecipients=_recipientIds;
       for(const uid of _recipientIds){
         try{
           const {data:_dup2}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
           if(_dup2&&_dup2.length>0)continue;
           const{error:_nErr2}=await _supa.from('notifications').insert({
-            user_id:uid,
+            id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
             household_id:hid,child_id:childId||null,
             type,message:msg,read:false,link_tab:linkTab,
             link_data:linkData?JSON.stringify(linkData):null
@@ -3392,8 +3395,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
       }
     }
     // Fire-and-forget prune for all recipients
-    const _allRecipients=session.role==='specialist'?(householdUserIds||[]):(targetUserId?[targetUserId]:getChildTeam(childId).filter(s=>s.status==='active').map(s=>s.id));
-    _allRecipients.forEach(uid=>_pruneOldNotifications(uid));
+    _notifRecipients.forEach(uid=>_pruneOldNotifications(uid));
   }catch(e){console.warn('notifyOtherParty:',e);}
 }
 
@@ -7061,10 +7063,10 @@ function renderTeam(){
             // Notify both specialists
             const _notifTime=new Date().toISOString();
             if(_supa&&specId){
-              try{const{error:_ne}=await _supa.from('notifications').insert({user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ Your consultation request regarding ${child.name} was approved. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne)console.error('❌ consult notif a:',_ne);}catch(e){console.error('consult notif a:',e);}
+              try{const{error:_ne}=await _supa.from('notifications').insert({id:'notif_a_'+Date.now(),user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ Your consultation request regarding ${child.name} was approved. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne)console.error('❌ consult notif a:',_ne);}catch(e){console.error('consult notif a:',e);}
             }
             if(_supa&&targetSpecId&&targetSpecId!==specId){
-              try{const{error:_ne2}=await _supa.from('notifications').insert({user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne2)console.error('❌ consult notif b:',_ne2);}catch(e){console.error('consult notif b:',e);}
+              try{const{error:_ne2}=await _supa.from('notifications').insert({id:'notif_b_'+Date.now(),user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne2)console.error('❌ consult notif b:',_ne2);}catch(e){console.error('consult notif b:',e);}
             }
           }catch(e){console.error('approve consult:',e);toast('Error approving. Try again.','error');return;}
           re();toast('✅ Consultation approved! Chat created.');
@@ -7259,6 +7261,7 @@ async function reconnectSpecialist(ps){
   // Step 2: Send notification to specialist
   try{
     await _supa.from('notifications').insert({
+      id:'n_rc_'+Date.now()+'_'+_specId,
       user_id:_specId,
       type:'reconnected',
       message:child.name+' family has reconnected you to their care team',
@@ -8300,7 +8303,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
               // Dedup: skip if unread message notification for this child+user exists within 60s
               const{data:_dup}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type','message').eq('child_id',activeChat.childId||'').eq('read',false).gte('created_at',new Date(Date.now()-60000).toISOString()).limit(1);
               if(_dup&&_dup.length>0)continue;
-              const{error:_nErr}=await _supa.from('notifications').insert({user_id:uid,child_id:activeChat.childId||null,household_id:getChildHouseholdId(activeChat.childId)||null,type:'message',message:_msgText,read:false,link_tab:'chat',link_data:JSON.stringify({chatId:activeChat.id})});
+              const{error:_nErr}=await _supa.from('notifications').insert({id:'n_msg_'+Date.now()+'_'+uid,user_id:uid,child_id:activeChat.childId||null,household_id:getChildHouseholdId(activeChat.childId)||null,type:'message',message:_msgText,read:false,link_tab:'chat',link_data:JSON.stringify({chatId:activeChat.id})});
               if(_nErr)console.error('❌ msg notif insert:',_nErr);
             }
           }catch(e){console.error('msg notification:',e);}
