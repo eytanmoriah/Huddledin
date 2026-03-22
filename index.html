@@ -8353,13 +8353,35 @@ function showNewMessageModal(){
     pathA.onclick=async()=>{
       // Need a child context
       if(!activeChildId){toast('Please open a patient first, then start a new message.','error');close();return;}
-      let chat=DB.chats.find(c=>c.type==='direct'&&c.participants.includes(mySpecId)&&c.childId===activeChildId);
+      // Check local cache AND Supabase for existing direct chat with this specialist+child
+      let chat=DB.chats.find(c=>c.type==='direct'&&(c.participants||[]).includes(mySpecId)&&(c.childId||c.child_id)===activeChildId);
       if(!chat){
-        const _hParentIds=[session.id,...(DB.coParents||[]).map(p=>p.id)];
+        // Also check Supabase directly in case local cache is stale
+        try{
+          const{data:_exChats}=await _supa.from('chats').select('id,participants,child_id,type,name').eq('child_id',activeChildId).eq('type','direct').contains('participants',JSON.stringify([mySpecId]));
+          if(_exChats&&_exChats.length>0){
+            chat={id:_exChats[0].id,childId:_exChats[0].child_id,type:'direct',participants:_exChats[0].participants||[],name:_exChats[0].name,approved:true,messages:[]};
+          }
+        }catch(e){console.error('check existing chat:',e);}
+      }
+      if(!chat){
+        // Look up household parent IDs from Supabase (specialist doesn't have DB.coParents)
+        const _hhId=getChildHouseholdId(activeChildId);
+        let _hParentIds=[];
+        if(_hhId){
+          try{const{data:_hp}=await _supa.from('profiles').select('id').eq('household_id',_hhId).eq('role','parent');_hParentIds=(_hp||[]).map(p=>p.id);}catch(e){}
+        }
+        if(!_hParentIds.length){
+          // Fallback: use child's parentId
+          const _c=DB.children.find(c=>c.id===activeChildId)||(LS.get('children',[])||[]).find(c=>c.id===activeChildId);
+          if(_c?.parentId)_hParentIds=[_c.parentId];
+        }
+        const _specRec=getMySpecialistRecord();
+        const _chatName=(_specRec?.name||session?.displayName||'Specialist')+(_specRec?.role&&_specRec.role!=='Specialist'?' · '+_specRec.role:'');
         chat={id:'ch_'+Date.now(),type:'direct',participants:[..._hParentIds,mySpecId],childId:activeChildId,approved:true,messages:[],unreadFor:[..._hParentIds]};
         try{
-          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:getChildHouseholdId(chat.childId),type:chat.type,name:null,participants:chat.participants,approved:true,unread_for:[..._hParentIds]});
-          const allChats=DB.chats;allChats.push(chat);DB.chats=allChats;
+          await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:_hhId||null,type:chat.type,name:_chatName,participants:chat.participants,approved:true,unread_for:[..._hParentIds]});
+          const allChats=DB.chats;allChats.push({...chat,name:_chatName});DB.chats=allChats;
           await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id});
         }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
       }
