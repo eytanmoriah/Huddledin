@@ -7993,10 +7993,12 @@ function renderChat(){
     const otherSpec=otherSpecId?(DB.specialists||[]).find(s=>s.id===otherSpecId)||getChildTeam(chat?.childId||S.activeChild).find(s=>s.id===otherSpecId):null;
     const isGroup=chat.type==='group';
     const isConsult=chat.type==='specialist-consult';
-    // For parent direct chats, always show specialist name + role (dynamic) instead of stored chat.name
+    // Dynamic display names: parents see specialist name+role, specialists see child's family name
     const _isDirect=!isGroup&&!isConsult;
-    const _dynamicName=role==='parent'?(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist'):(otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Family');
-    const chatName=isConsult?'Specialist Consult':isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'&&otherSpec?_dynamicName:(chat.name||_dynamicName));
+    const _chatChild=DB.children.find(c=>c.id===chat.childId);
+    const _parentDynamic=otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist';
+    const _specDynamic=_chatChild?(_chatChild.name+"'s Family"):'Family';
+    const chatName=isConsult?'Specialist Consult':isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -11568,6 +11570,17 @@ function showCreateGroupChatModal(){
     mb.appendChild(el('div',{style:{height:'12px'}}));
     mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
       if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
+      // If only 1 specialist selected, check for existing direct chat first
+      if(selected.size===1){
+        const _soloSpecId=[...selected][0];
+        const _soloSpec=activeSpecs.find(s=>s.id===_soloSpecId);
+        const _cid=S.activeChild||S.activeChatChildId;
+        const _existDirect=(DB.chats||[]).find(c=>c.type==='direct'&&(c.participants||[]).includes(_soloSpecId)&&(c.childId||c.child_id)===_cid);
+        if(_existDirect){
+          S.activeChatId=_existDirect.id;S.chatsLoaded=true;S.activeTab='chat';
+          close();re();toast('You already have a conversation with '+(_soloSpec?.name||'this specialist')+'.','info');return;
+        }
+      }
       const name=ni.value.trim()||'Care Team Group Chat';
       const participants=[session.id,...(DB.coParents||[]).map(p=>p.id),...Array.from(selected)];
       // Check for existing chat with identical participants for this child
