@@ -19,6 +19,8 @@
 <!-- -- CROPPER.JS -- -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<!-- -- PADDLE.JS — payment overlay -- -->
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <!-- -- SENTRY — load synchronously before app code -- -->
 <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js"></script>
 <script>
@@ -1550,6 +1552,27 @@ const LS={
   del(k){localStorage.removeItem('hd9_'+k);}
 };
 
+/* -- Paddle config — replace placeholders once Paddle approves -- */
+const PADDLE_ENV = 'sandbox'; // change to 'production' when approved
+const PADDLE_CLIENT_TOKEN = 'PADDLE_CLIENT_TOKEN_PLACEHOLDER';
+const PADDLE_PRICE_MONTHLY = 'PADDLE_PRICE_MONTHLY_PLACEHOLDER';
+const PADDLE_PRICE_YEARLY = 'PADDLE_PRICE_YEARLY_PLACEHOLDER';
+
+// Initialize Paddle.js
+if(window.Paddle){
+  try{
+    Paddle.Environment.set(PADDLE_ENV);
+    Paddle.Setup({token:PADDLE_CLIENT_TOKEN,eventCallback:function(ev){
+      if(ev.name==='checkout.completed'){
+        toast('✅ Payment confirmed! Activating your account…','success',5000);
+        setTimeout(async()=>{try{await _checkSubscription();}catch(e){console.error('post-checkout refresh:',e);}},2000);
+      }
+      if(ev.name==='checkout.closed'){console.log('ℹ️ Paddle checkout closed');}
+    }});
+    console.log('✅ Paddle.js initialized ('+PADDLE_ENV+')');
+  }catch(e){console.warn('⚠️ Paddle.js init failed:',e);}
+}
+
 /* -- Supabase config — fill in your values -- */
 const SUPABASE_URL  = 'https://smgbojgrdezasxciloll.supabase.co';   // e.g. https://xxxx.supabase.co
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZ2JvamdyZGV6YXN4Y2lsb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDE4MjUsImV4cCI6MjA4ODAxNzgyNX0.TsfWwph6jHpoROzwQzwta50ZBO9tVboTz-uFTOKUnw4';
@@ -2062,6 +2085,28 @@ function setupHouseholdSync(){
     .subscribe();
 }
 
+// Real-time subscription sync — reacts to webhook-driven status changes
+let _subscriptionChannel=null;
+function setupSubscriptionSync(){
+  if(!session||session.role!=='parent'||session.id==='demo')return;
+  if(_subscriptionChannel)_subscriptionChannel.unsubscribe();
+  _subscriptionChannel=_supa.channel('sub:'+session.id)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'subscriptions',filter:'user_id=eq.'+session.id},async(payload)=>{
+      const ns=payload.new?.status;
+      console.log('✅ Subscription status changed:',ns);
+      if(ns==='active'){
+        S._showPaywall=false;
+        toast('✅ Your subscription is active!','success',4000);
+      }else if(ns==='cancelled'||ns==='expired'){
+        toast('Your subscription has ended.','error',5000);
+      }else if(ns==='past_due'){
+        toast('⚠️ Payment issue — please update your payment method.','error',6000);
+      }
+      try{await _checkSubscription();}catch(e){console.error('sub sync refresh:',e);}
+    })
+    .subscribe();
+}
+
 // Real-time chat message subscription handle
 let _chatSub=null;
 
@@ -2403,7 +2448,7 @@ function showVerificationPendingScreen(email){
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       await _checkSubscription();
       re();
-      setupHouseholdSync();setupSpecialistSync();
+      setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
       refreshFromSupabase().then(()=>re()).catch(()=>{});
       // Show household invite modal for parents
@@ -2417,7 +2462,7 @@ function showVerificationPendingScreen(email){
   if(session)_appLoading=true;
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();re();setupHouseholdSync();setupSpecialistSync();});}
+  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();});}
 })();
 
 async function doGoogleSignIn(role){
@@ -3441,7 +3486,7 @@ function renderAuth(){
       // Process pending invite AFTER re() so session is fully set
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
-      setupHouseholdSync();setupSpecialistSync();
+      setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
       refreshFromSupabase().then(()=>re()).catch(()=>{});
       // Show household invite modal for parents (if not dismissed/skipped)
@@ -3549,7 +3594,7 @@ async function _checkSubscription(){
               const _days=Math.ceil((new Date(trialSub.trial_ends_at)-new Date())/(1000*60*60*24));
               // Create own row synced to household trial dates (if no row yet)
               if(!sub){
-                try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:trialSub.trial_started_at,trial_ends_at:trialSub.trial_ends_at,plan:'family',billing_cycle:'monthly'});}catch(e){console.error('copy household trial:',e);}
+                try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:trialSub.trial_started_at,trial_ends_at:trialSub.trial_ends_at,plan:'family',billing_cycle:'monthly',household_id:session.householdId||null});}catch(e){console.error('copy household trial:',e);}
               }
               S.subscription={status:'trial',daysRemaining:_days,exempt:false};
               return;
@@ -3564,14 +3609,14 @@ async function _checkSubscription(){
       // Co-parent joining household with existing (expired) subscription → copy status, do NOT create new trial
       if(_hhSubs&&_hhSubs.length>0){
         const _ref=_hhSubs[0];
-        try{await _supa.from('subscriptions').insert({user_id:session.id,status:_ref.status,trial_started_at:_ref.trial_started_at,trial_ends_at:_ref.trial_ends_at,plan:_ref.plan||'family',billing_cycle:_ref.billing_cycle||'monthly',current_period_ends_at:_ref.current_period_ends_at});}catch(e){console.error('copy household sub:',e);}
+        try{await _supa.from('subscriptions').insert({user_id:session.id,status:_ref.status,trial_started_at:_ref.trial_started_at,trial_ends_at:_ref.trial_ends_at,plan:_ref.plan||'family',billing_cycle:_ref.billing_cycle||'monthly',current_period_ends_at:_ref.current_period_ends_at,household_id:session.householdId||null});}catch(e){console.error('copy household sub:',e);}
         S.subscription={status:'expired',exempt:false};
         return;
       }
       // First parent in household — create fresh 14-day trial
       const _now=new Date();
       const _end=new Date(_now.getTime()+14*24*60*60*1000);
-      try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:_now.toISOString(),trial_ends_at:_end.toISOString(),plan:'family',billing_cycle:'monthly'});}catch(e){console.error('create trial:',e);}
+      try{await _supa.from('subscriptions').insert({user_id:session.id,status:'trial',trial_started_at:_now.toISOString(),trial_ends_at:_end.toISOString(),plan:'family',billing_cycle:'monthly',household_id:session.householdId||null});}catch(e){console.error('create trial:',e);}
       S.subscription={status:'trial',daysRemaining:14,exempt:false};
       return;
     }
@@ -3583,7 +3628,22 @@ async function _checkSubscription(){
 
 function _handlePlanSelect(plan){
   localStorage.setItem('hd_pending_plan',plan);
-  toast('\uD83D\uDCB3 Payment coming soon \u2014 we\'ll notify you when ready!');
+  const priceId=plan==='yearly'?PADDLE_PRICE_YEARLY:PADDLE_PRICE_MONTHLY;
+  if(!window.Paddle||PADDLE_CLIENT_TOKEN==='PADDLE_CLIENT_TOKEN_PLACEHOLDER'){
+    toast('💳 Payment coming soon — we\'ll notify you when ready!');
+    return;
+  }
+  try{
+    Paddle.Checkout.open({
+      items:[{priceId:priceId,quantity:1}],
+      customer:{email:session?.email||''},
+      customData:{user_id:session?.id||'',household_id:session?.householdId||''},
+      settings:{theme:'light',locale:'en',displayMode:'overlay'}
+    });
+  }catch(e){
+    console.error('❌ Paddle checkout error:',e);
+    toast('Could not open checkout. Please try again.','error');
+  }
 }
 
 function renderTrialBanner(){
@@ -11395,7 +11455,7 @@ async function processHouseholdInvite(token){
 
   // Reload session with new household_id
   const {data:{session:s}}=await _supa.auth.getSession();
-  if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();}
+  if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();setupSubscriptionSync();}
   // Add co-parent to all existing non-consultation household chats so they see history
   if(_supa&&data.household_id&&session?.id&&session.id!=='demo'){
     try{
