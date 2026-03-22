@@ -185,7 +185,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 #bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(200%) blur(28px);backdrop-filter:saturate(200%) blur(28px);border-top:1px solid rgba(0,0,0,.06);box-shadow:0 -1px 0 rgba(255,255,255,.8),0 -8px 32px rgba(0,0,0,.08);padding-bottom:var(--safe-bottom)}
 @media(max-width:767px){#bottom-nav{display:block}}
 .bnav-inner{display:flex;height:64px}
-.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.56rem;font-weight:700;transition:color .15s;position:relative;padding:8px 2px 4px;-webkit-user-select:none;user-select:none;min-height:44px}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:700;transition:color .15s;position:relative;padding:8px 2px 4px;-webkit-user-select:none;user-select:none;min-height:44px}
 .bnav-btn.active{color:var(--teal)}
 .bnav-icon{font-size:1.4rem;line-height:1;transition:transform var(--spring);display:block}
 .bnav-btn.active .bnav-icon{transform:scale(1.15) translateY(-1px)}
@@ -824,7 +824,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .cb-circle.placeholder .cb-upload-hint{
   position:absolute;bottom:0;left:0;right:0;
   background:rgba(13,148,136,.75);
-  font-size:.5rem;font-weight:800;color:#fff;text-align:center;
+  font-size:.625rem;font-weight:800;color:#fff;text-align:center;
   padding:2px 0;
 }
 .cb-name{
@@ -2121,9 +2121,9 @@ function setupSpecialistSync(){
   const childIds=(LS.get('children',[])||[]).map(c=>c.id);
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
-    // specialist_requests changes — fires when parent removes specialist (status→'removed')
-    // Triggers immediate cache refresh so removed specialist loses access without page reload
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // specialist_requests changes — fires on approval, removal, or new connection via invite
+    // Triggers immediate cache refresh so specialist sees new patients without page reload
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
@@ -3026,6 +3026,19 @@ async function approveSpecialistRequest(requestId,selectedFolders){
         }
       }
     }catch(e){console.error('add specialist to existing chats:',e);}
+    // Auto-create a direct chat if none exists for this specialist+child
+    try{
+      const{data:_existDirect}=await _supa.from('chats').select('id').eq('child_id',req.childId).eq('type','direct').contains('participants',JSON.stringify([req.specialistId]));
+      if(!_existDirect||_existDirect.length===0){
+        const _hParents=[session.id,...(DB.coParents||[]).map(p=>p.id)];
+        const _chatParts=[..._hParents,req.specialistId];
+        const _chatId='ch_'+Date.now();
+        const _chatName=(req.specialistName||'Specialist')+(req.role&&req.role!=='Specialist'?' · '+req.role:'');
+        const{error:_chatErr}=await _supa.from('chats').insert({id:_chatId,child_id:req.childId,household_id:_approveHhId,type:'direct',name:_chatName,participants:_chatParts,approved:true,unread_for:_hParents});
+        if(_chatErr)console.error('❌ auto-create chat:',_chatErr);
+        else{const chats=DB.chats||[];chats.push({id:_chatId,childId:req.childId,type:'direct',name:_chatName,participants:_chatParts,approved:true,messages:[],unreadFor:_hParents,unreadCount:0});DB.chats=chats;console.log('✅ Auto-created chat for specialist',req.specialistName);}
+      }
+    }catch(e){console.error('auto-create chat:',e);}
   }
   re();
   toast('Access granted to '+req.specialistName+'!');
@@ -3350,12 +3363,13 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
           try{
             const {data:_dup1}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
             if(_dup1&&_dup1.length>0)continue;
-            await _supa.from('notifications').insert({
-              id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
+            const{error:_nErr}=await _supa.from('notifications').insert({
+              user_id:uid,
               household_id:hid,child_id:childId||null,
               type,message:msg,read:false,link_tab:linkTab,
               link_data:linkData?JSON.stringify(linkData):null
             });
+            if(_nErr)console.error('❌ notifyOtherParty specialist insert:',_nErr);
           }catch(e){console.warn('notifyOtherParty specialist insert:',e);}
         }
       }
@@ -3366,12 +3380,13 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
         try{
           const {data:_dup2}=await _supa.from('notifications').select('id').eq('user_id',uid).eq('type',type).gte('created_at',new Date(Date.now()-5000).toISOString()).limit(1);
           if(_dup2&&_dup2.length>0)continue;
-          await _supa.from('notifications').insert({
-            id:'n_op_'+Date.now()+'_'+uid,user_id:uid,
+          const{error:_nErr2}=await _supa.from('notifications').insert({
+            user_id:uid,
             household_id:hid,child_id:childId||null,
             type,message:msg,read:false,link_tab:linkTab,
             link_data:linkData?JSON.stringify(linkData):null
           });
+          if(_nErr2)console.error('❌ notifyOtherParty parent insert:',_nErr2);
         }catch(e){console.warn('notifyOtherParty parent insert:',e);}
       }
     }
@@ -5267,9 +5282,9 @@ function renderCalFullscreen(){
   hd.appendChild(fsLogo);
   // Month nav
   const monthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flex:1,justifyContent:'center'}});
-  const prevMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px'}},['‹']);
+  const prevMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},['‹']);
   prevMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)-1;re();};
-  const nextMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px'}},['›']);
+  const nextMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},['›']);
   nextMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)+1;re();};
   const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   monthNav.appendChild(prevMonBtn);
@@ -5283,6 +5298,7 @@ function renderCalFullscreen(){
       if(!S.activeChild){toast('Add a child profile first.','error');return;}
       showAddEventModal();
     });
+    addEvtBtn.style.minWidth='44px';addEvtBtn.style.minHeight='44px';
     hd.appendChild(addEvtBtn);
   }
   // Legend
@@ -6119,6 +6135,22 @@ function renderFiles(){
     ci.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fi);sec.appendChild(ci);
     const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
+    const _permBtn=mkBtn('⚙️','btn-sm btn-ghost',()=>{
+      // Show a picker to select which specialist to manage permissions for
+      const specs=(DB.specialists||[]).filter(s=>{const p=s.permissions||{};return s.status==='active'||Object.keys(p).length>0;});
+      if(!specs.length){toast('No specialists connected yet.','error');return;}
+      if(specs.length===1){showPermModal(specs[0]);return;}
+      openModal('⚙️ Manage Permissions',(mb)=>{
+        mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},['Select a specialist to manage folder access:']));
+        specs.forEach(s=>{
+          const row=mkBtn((s.name||'Specialist')+' '+(s.role&&s.role!=='Specialist'?'· '+s.role:''),'btn-md btn-ghost btn-full',()=>{document.getElementById('modal-overlay')?.remove();showPermModal(s);});
+          row.style.marginBottom='8px';row.style.textAlign='left';
+          mb.appendChild(row);
+        });
+      },420);
+    });
+    _permBtn.title='Manage Permissions';
+    rightEl.appendChild(_permBtn);
     rightEl.appendChild(mkBtn('📁','btn-sm btn-ghost',()=>showAddFolderModal()));
     rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
     sec.appendChild(mkSubHeader('File Manager',rightEl));
@@ -6997,10 +7029,10 @@ function renderTeam(){
             // Notify both specialists
             const _notifTime=new Date().toISOString();
             if(_supa&&specId){
-              try{await _supa.from('notifications').insert({id:'notif_a_'+Date.now(),user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ Your consultation request regarding ${child.name} was approved. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});}catch(e){}
+              try{const{error:_ne}=await _supa.from('notifications').insert({user_id:specId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ Your consultation request regarding ${child.name} was approved. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne)console.error('❌ consult notif a:',_ne);}catch(e){console.error('consult notif a:',e);}
             }
             if(_supa&&targetSpecId&&targetSpecId!==specId){
-              try{await _supa.from('notifications').insert({id:'notif_b_'+Date.now(),user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});}catch(e){}
+              try{const{error:_ne2}=await _supa.from('notifications').insert({user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne2)console.error('❌ consult notif b:',_ne2);}catch(e){console.error('consult notif b:',e);}
             }
           }catch(e){console.error('approve consult:',e);toast('Error approving. Try again.','error');return;}
           re();toast('✅ Consultation approved! Chat created.');
@@ -7884,7 +7916,7 @@ function renderChat(){
     titleRow.appendChild(backBtn);
   } else {
     if(role==='parent'&&S.activeChatChildId){
-      const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},['← Back']);
+      const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'inline-flex',alignItems:'center',gap:'4px',padding:'0',minHeight:'44px'}},['← Back']);
       _cbBtn.onclick=()=>{S.activeTab='dashboard';re();};
       titleRow.appendChild(_cbBtn);
     }
@@ -9991,7 +10023,7 @@ function renderHomeworkParent(){
   const sec=el('div',{class:'section'});
   // Back button
   const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},['← Back']);
+  const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},['← Back']);
   backBtn.onclick=()=>{S.activeTab='dashboard';re();};
   backBar.appendChild(backBtn);sec.appendChild(backBar);
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
@@ -12827,6 +12859,20 @@ async function _processPendingInvite(){
         }
         const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
         if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
+        // Auto-create direct chat if none exists for this specialist+child
+        try{
+          const{data:_exChat}=await _supa.from('chats').select('id').eq('child_id',data.child_id).eq('type','direct').contains('participants',JSON.stringify([session.id]));
+          if(!_exChat||_exChat.length===0){
+            const{data:_hhProfs}=await _supa.from('profiles').select('id').eq('household_id',data.household_id);
+            const _pIds=(_hhProfs||[]).map(p=>p.id).filter(id=>id!==session.id);
+            const _parts=[..._pIds,session.id];
+            const _cId='ch_'+Date.now();
+            const _cName=(_specRealName||'Specialist')+(_specRealRole&&_specRealRole!=='Specialist'?' · '+_specRealRole:'');
+            const{error:_cErr}=await _supa.from('chats').insert({id:_cId,child_id:data.child_id,household_id:data.household_id||null,type:'direct',name:_cName,participants:_parts,approved:true,unread_for:_pIds});
+            if(_cErr)console.error('❌ auto-create chat (invite):',_cErr);
+            else console.log('✅ Auto-created chat via invite for',_specRealName);
+          }
+        }catch(e){console.error('auto-create chat (invite):',e);}
       }catch(e){console.error('invite specialist_requests insert:',e);}
       toast('🎉 Welcome! You have joined the care team!','success',5000);
       // Full refresh to load child into patient list with correct connectionStatus
