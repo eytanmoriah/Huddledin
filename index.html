@@ -2077,26 +2077,23 @@ function setupHouseholdSync(){
   if(!session||session.role!=='parent'||!session.householdId)return;
   if(_householdChannel)_householdChannel.unsubscribe();
   _householdChannel=_supa.channel('household:'+session.householdId)
-    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    // Fires when specialist accepts an invite — refreshes team list so "Invited" card becomes "Connected"
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},()=>{_debouncedRefresh();})
-    // Homework tasks — specialist creates/updates tasks for children in this household
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+session.householdId},()=>{_debouncedRefresh();})
-    .subscribe();
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: children',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: specialists',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: specialist_requests',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: invites',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: appointments',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: homework',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{console.log('🔔 Realtime event fired: notifications',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: homework_tasks',p.eventType);_debouncedRefresh();})
+    .subscribe((status)=>{console.log('✅ Subscribed to household channel:',status);});
   // Per-child subscriptions for tables that filter by child_id (no household_id column)
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
+  console.log('✅ Setting up per-child subscriptions for',_hhChildren.length,'children');
   _hhChildren.forEach(cid=>{
     _supa.channel('hh_child:'+cid)
-      // Vault notes / session summaries published by specialists
-      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
-      // Files uploaded to child folders
-      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
-      .subscribe();
+      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime event fired: vault_notes',p.eventType,'child='+cid.slice(0,8));_debouncedRefresh();})
+      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime event fired: files',p.eventType,'child='+cid.slice(0,8));_debouncedRefresh();})
+      .subscribe((status)=>{console.log('✅ Subscribed to child channel:',cid.slice(0,8),status);});
   });
 }
 
