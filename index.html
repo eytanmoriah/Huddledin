@@ -1836,7 +1836,12 @@ async function refreshFromSupabase(){
       await Promise.allSettled([
         // Appointments
         _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
-          .then(({data:apts})=>LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null}))))
+          .then(({data:apts})=>{
+            // Merge: preserve locally-set parentReadAt (race condition on refresh)
+            const _localApts=LS.get('appointments',[])||[];
+            const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
+            LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null})));
+          })
           .catch(e=>console.error('refresh appointments:',e)),
         // Homework — legacy simple table (kept for backward compat)
         (hid
@@ -4827,6 +4832,18 @@ function switchTab(id){
   if(S.activeChild){
     if(['session-summaries','files','calendar','vault'].includes(id))
       _markSeen(S.activeChild,id);
+    // Mark specialist-created appointments as read for this child when opening calendar
+    if(id==='calendar'&&session?.id!=='demo'){
+      const _allApts=DB.appointments||[];
+      const _unreadChildApts=_allApts.filter(a=>a.childId===S.activeChild&&a.specialistId&&!a.parentReadAt);
+      if(_unreadChildApts.length){
+        const _now=new Date().toISOString();
+        _unreadChildApts.forEach(a=>{a.parentReadAt=_now;});
+        LS.set('appointments',_allApts);
+        const _aptIds=_unreadChildApts.map(a=>a.id);
+        (async()=>{try{const{error}=await _supa.from('appointments').update({parent_read_at:_now}).in('id',_aptIds);if(error)console.error('❌ mark apts read:',error);}catch(e){console.error('mark apts read:',e);}})();
+      }
+    }
     if(id==='homework'){_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{(async()=>{try{await _supa.from('notifications').update({read:true}).eq('id',id);}catch(e){}})();});}}}
     if(id==='chat'){
       // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
@@ -4875,7 +4892,22 @@ function renderBottomNav(){
     // 4-icon fixed bar for parents
     const parentTabs=[
       {id:'home',label:'Home',icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
-      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
+      {id:'calendar',label:'Calendar',icon:'📅',isActive:!!S.calFullscreen,action:()=>{
+        _pushNav();S.calFullscreen=true;S.navLevel=1;
+        // Mark ALL unread appointments as read when opening fullscreen calendar
+        if(session?.id!=='demo'){
+          const _allApts=DB.appointments||[];
+          const _unreadAll=_allApts.filter(a=>a.specialistId&&!a.parentReadAt);
+          if(_unreadAll.length){
+            const _now=new Date().toISOString();
+            _unreadAll.forEach(a=>{a.parentReadAt=_now;});
+            LS.set('appointments',_allApts);
+            const _ids=_unreadAll.map(a=>a.id);
+            (async()=>{try{const{error}=await _supa.from('appointments').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark apts read:',error);}catch(e){}})();
+          }
+        }
+        re();
+      }},
       {id:'chat',label:'Chats',icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;switchTab('chat');}},
       {id:'notifications',label:'Notifications',icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
     ];
@@ -4888,6 +4920,10 @@ function renderBottomNav(){
       }
       if(t.id==='chat'&&unreadChats>0){
         b.appendChild(el('span',{class:'bnav-badge',style:{background:'var(--coral)'}},[unreadChats>9?'9+':String(unreadChats)]));
+      }
+      const _calBadge=t.id==='calendar'?_totalUnreadApts():0;
+      if(_calBadge>0){
+        b.appendChild(el('span',{class:'bnav-badge',style:{background:'var(--teal)'}},[_calBadge>9?'9+':String(_calBadge)]));
       }
       b.onclick=t.action;
       inner.appendChild(b);
@@ -5033,7 +5069,11 @@ function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
 // Count unread published vault notes per child (uses parent_read_at column, falls back to _newSince)
 function _unreadNotes(cid,specId){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid&&n.published&&(!specId||n.specialistId===specId));const hasReadAt=notes.some(n=>n.parentReadAt!==undefined);if(hasReadAt)return notes.filter(n=>!n.parentReadAt).length;return _newSince(notes,n=>n.date,cid,'session-summaries');}
-function _childTotalBadge(cid){const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);const calNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&(n.type==='appointment'||n.linkTab==='calendar')).length;const hwNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return _chatBadge(cid)+Math.max(_hwBadge(cid),hwNotifs)+_unreadNotes(cid)+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+Math.max(_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar'),calNotifs);}
+// Count unread appointments per child — specialist-created only, uses parent_read_at column, falls back to _newSince
+function _unreadApts(cid){const apts=(DB.appointments||[]).filter(a=>a.childId===cid&&a.specialistId);const hasReadAt=apts.some(a=>a.parentReadAt!==undefined);if(hasReadAt)return apts.filter(a=>!a.parentReadAt).length;return _newSince(apts,a=>a.createdAt||a.date,cid,'calendar');}
+// Total unread count across ALL children — used for bottom nav Calendar badge
+function _totalUnreadApts(){return(DB.children||[]).reduce((s,c)=>s+_unreadApts(c.id),0);}
+function _childTotalBadge(cid){const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const calNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&(n.type==='appointment'||n.type==='appointments'||n.linkTab==='calendar')).length;const hwNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return _chatBadge(cid)+Math.max(_hwBadge(cid),hwNotifs)+_unreadNotes(cid)+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+Math.max(_unreadApts(cid),calNotifs);}
 function renderGlobalHome(){
   const children=DB.children;
   const allApts=LS.get('appointments',[]);
@@ -5724,7 +5764,7 @@ function renderParentDashboard(){
   _nb['session-summaries']=_unreadNotes(_cid);
   _nb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
   _nb['chat']=_chatBadge(_cid);
-  _nb['calendar']=_newSince(_apts,a=>a.createdAt||a.date||a.startDate,_cid,'calendar');
+  _nb['calendar']=_unreadApts(_cid);
   _nb['homework']=_hwBadge(_cid);_nb['team']=0;}
   [
     {icon:'📄',label:'Progress Notes',color:'#0d9488',bg:'#ecfdf5',tab:'session-summaries',sect:'session-summaries'},
