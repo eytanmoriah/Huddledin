@@ -1907,7 +1907,10 @@ async function refreshFromSupabase(){
             const childIds=(LS.get('children',[])||[]).map(c=>c.id);
             if(childIds.length){
               const {data:vnotes}=await _supa.from('vault_notes').select('id,specialist_id,child_id,title,summary,published,locked,created_at,parent_read_at').in('child_id',childIds).eq('published',true);
-              LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||'',parentReadAt:n.parent_read_at||null})));
+              // Merge: never overwrite a locally-set parentReadAt with null from server (race condition on refresh)
+              const _localNotes=LS.get('vaultNotes',[])||[];
+              const _localReadMap={};_localNotes.forEach(n=>{if(n.parentReadAt)_localReadMap[n.id]=n.parentReadAt;});
+              LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||'',parentReadAt:n.parent_read_at||_localReadMap[n.id]||null})));
             }
           }catch(e){console.error('refresh parent vaultNotes:',e);}
         })(),
@@ -11509,23 +11512,8 @@ function renderSessionSummaries(){
       const _specUnread=_unreadNotes(S.activeChild,sid);
       if(_specUnread>0)card.appendChild(el('div',{style:{background:'var(--teal)',color:'#fff',borderRadius:'99px',minWidth:'20px',height:'20px',fontSize:'.68rem',fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 6px',flexShrink:0}},[ _specUnread>9?'9+':String(_specUnread) ]));
       else card.appendChild(el('div',{style:{fontSize:'.9rem',color:'var(--slate-l)'}},['›']));
-      // Mark all this specialist's notes for this child as read when drilling in
-      card.onclick=()=>{
-        S._summarySpecFilter=sid;S._summaryOpen=null;
-        // Bulk mark as read — update local cache + Supabase in background
-        const _allNotes=DB.vaultNotes||[];
-        const _toMark=_allNotes.filter(n=>n.childId===S.activeChild&&n.specialistId===sid&&n.published&&!n.parentReadAt);
-        if(_toMark.length){
-          const _now=new Date().toISOString();
-          _toMark.forEach(n=>{n.parentReadAt=_now;});
-          LS.set('vaultNotes',_allNotes);// force LS write (DB proxy doesn't detect in-place mutation)
-          if(session?.id!=='demo'){
-            const _ids=_toMark.map(n=>n.id);
-            (async()=>{try{const{error}=await _supa.from('vault_notes').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark notes read:',error);}catch(e){console.error('mark notes read:',e);}})();
-          }
-        }
-        re();
-      };
+      // Navigate to specialist's notes — do NOT mark as read yet (parent needs to see unread dots)
+      card.onclick=()=>{S._summarySpecFilter=sid;S._summaryOpen=null;re();};
       list.appendChild(card);
     });
     sec.appendChild(list);
@@ -11536,7 +11524,21 @@ function renderSessionSummaries(){
   const spec=team.find(s=>s.id===selectedSpec)||{name:'Specialist',role:'',avatar:'🔬'};
   const specNotes=published.filter(n=>n.specialistId===selectedSpec); // already newest-first
 
-  const backBtn=mkBtn('← All Providers','btn-sm btn-ghost',()=>{S._summarySpecFilter=null;S._summaryOpen=null;re();});
+  // Mark all viewed specialist's notes as read when navigating BACK (not on entry — parent needs to see dots first)
+  const backBtn=mkBtn('← All Providers','btn-sm btn-ghost',()=>{
+    const _allNotes=DB.vaultNotes||[];
+    const _toMark=_allNotes.filter(n=>n.childId===S.activeChild&&n.specialistId===selectedSpec&&n.published&&!n.parentReadAt);
+    if(_toMark.length){
+      const _now=new Date().toISOString();
+      _toMark.forEach(n=>{n.parentReadAt=_now;});
+      LS.set('vaultNotes',_allNotes);
+      if(session?.id!=='demo'){
+        const _ids=_toMark.map(n=>n.id);
+        (async()=>{try{const{error}=await _supa.from('vault_notes').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark notes read:',error);}catch(e){console.error('mark notes read:',e);}})();
+      }
+    }
+    S._summarySpecFilter=null;S._summaryOpen=null;re();
+  });
   backBtn.style.marginBottom='16px';
   sec.appendChild(backBtn);
 
