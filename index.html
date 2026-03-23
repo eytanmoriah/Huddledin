@@ -3375,8 +3375,8 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
       if(hid){
         let householdUserIds=[];
         try{
-          const {data:hhMembers}=await _supa.from('profiles').select('id').eq('household_id',hid).eq('role','parent');
-          householdUserIds=(hhMembers||[]).map(m=>m.id).filter(id=>id!==session.id);
+          const {data:hhMembers}=await _supa.from('profiles').select('id,role').eq('household_id',hid);
+          householdUserIds=(hhMembers||[]).filter(m=>m.role==='parent').map(m=>m.id).filter(id=>id!==session.id);
         }catch(e){}
         // Fallback: use child's parentId if household lookup fails
         if(householdUserIds.length===0){
