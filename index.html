@@ -1301,10 +1301,11 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-ic-btn:hover{background:var(--mint-ll)}
 
   /* ── Body */
-  .spec-dt-body{flex:1;display:flex;overflow:hidden}
+  .spec-dt-body{flex:1;display:flex;overflow:hidden;position:relative}
 
   /* ── Patient list panel 260px */
-  .spec-dt-pl{width:260px;min-width:260px;border-right:1.5px solid var(--mint-l);overflow:hidden;background:#fff;flex-shrink:0;display:flex;flex-direction:column}
+  .spec-dt-pl{width:300px;max-width:85vw;position:absolute;top:0;left:0;bottom:0;z-index:50;border-right:1.5px solid var(--mint-l);background:#fff;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.12)}
+  .spec-dt-pl.open{transform:translateX(0)}
   .spec-dt-pl-top{padding:12px 12px 0;flex-shrink:0}
   .spec-dt-pl-search{width:100%;padding:8px 12px;border-radius:10px;border:1.5px solid var(--mint-l);background:var(--mint-ll);font-family:'Nunito',sans-serif;font-size:.82rem;color:var(--navy);outline:none;transition:border-color .15s;box-sizing:border-box;display:block}
   .spec-dt-pl-search:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
@@ -1318,7 +1319,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-pl-row:hover{background:var(--mint-ll)}
   .spec-dt-pl-row.active{background:var(--teal-ll);border-color:var(--teal)}
   .spec-dt-pl-ri{flex:1;min-width:0}
-  .spec-dt-pl-name{font-weight:800;color:var(--navy);font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-dt-pl-name{font-weight:800;color:var(--navy);font-size:.84rem;word-break:break-word}
   .spec-dt-pl-age{font-size:.7rem;color:var(--slate);font-weight:500;margin-top:1px}
   .spec-dt-pl-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;min-width:44px}
   .spec-dt-pl-tasks{font-size:.66rem;font-weight:800;color:var(--teal-d);background:var(--teal-ll);border-radius:6px;padding:2px 6px;text-align:center}
@@ -3896,7 +3897,7 @@ function renderShell(){
 ----------------------------------------------- */
 function renderSpecDesktop(){
   // Redirect patient-detail overview to notes tab on desktop
-  if(S.activeTab==='patient-detail')S.activeTab='vault';
+  if(S.activeTab==='patient-detail')S.activeTab='calendar';
   // Lazy-init desktop state keys
   if(!S._dtPF)S._dtPF='active';         // patient filter
   if(S._dtPS===undefined)S._dtPS='';    // patient search
@@ -3962,8 +3963,7 @@ function renderSpecDesktop(){
     }
     btn.onclick=()=>{
       if(item.id==='patients'){
-        if(sorted.length>0&&!S.activeChild){S.activeChild=sorted[0].id;}
-        S.activeTab=S.activeChild?'vault':'patients';
+        S._patientDrawerOpen=!S._patientDrawerOpen;
         re();
       } else if(item.id==='calendar'){
         // Global calendar — clear activeChild so all patients' appointments show
@@ -4055,8 +4055,13 @@ function renderSpecDesktop(){
   /* Body */
   const body=el('div',{class:'spec-dt-body'});
 
-  /* ── Patient list (always visible) ──────────────────────────────── */
-  const plPanel=el('div',{class:'spec-dt-pl'});
+  /* ── Patient list (slide-in drawer) ──────────────────────────────── */
+  const plPanel=el('div',{class:'spec-dt-pl'+(S._patientDrawerOpen?' open':'')});
+
+  // Close button at top of drawer
+  const _plClose=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',zIndex:2,minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
+  _plClose.onclick=()=>{S._patientDrawerOpen=false;re();};
+  plPanel.appendChild(_plClose);
 
   const plTop=el('div',{class:'spec-dt-pl-top'});
   const searchI=el('input',{class:'spec-dt-pl-search',placeholder:'🔍 Search patients…',type:'text'});
@@ -4113,7 +4118,7 @@ function renderSpecDesktop(){
       row.appendChild(_dtAvWrap);
       const ri=el('div',{class:'spec-dt-pl-ri'});
       const rn=el('div',{class:'spec-dt-pl-name'}); rn.textContent=c.name;
-      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent='Age '+(c.age||'—');
+      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent=calcAge(c.dob)||'Age —';
       ri.appendChild(rn); ri.appendChild(ra);
       row.appendChild(ri);
       const rr=el('div',{class:'spec-dt-pl-right'});
@@ -4142,7 +4147,7 @@ function renderSpecDesktop(){
       }
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
-        _pushNav();S.activeChild=c.id;S.activeTab='vault';
+        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S._patientDrawerOpen=false;
         re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});
       };
       plList.appendChild(row);
@@ -4152,7 +4157,7 @@ function renderSpecDesktop(){
   // Auto-select first active patient on initial patients view
   if((S.activeTab==='patients'||isPatientCtx)&&!S.activeChild&&sorted.length>0){
     S.activeChild=sorted[0].id;
-    S.activeTab='vault';
+    S.activeTab='calendar';
   }
 
   renderList(S._dtPS||'');
@@ -4240,11 +4245,11 @@ function _renderSpecDtPatientDetail(child,specId){
   /* Tab bar */
   const tabbar=el('div',{class:'spec-dt-tabbar'});
   const PTABS=[
+    {id:'calendar', label:'📅 Calendar'},
     {id:'vault',    label:'📋 Notes'},
     {id:'homework', label:'✅ Tasks'},
     {id:'files',    label:'📁 Files'},
     {id:'chat',     label:'💬 Chat'},
-    {id:'calendar', label:'📅 Calendar'},
   ];
   // Compute per-tab badge counts for this child
   const _tabBadges={};
@@ -9996,11 +10001,13 @@ function _renderHwTaskDashboard(taskId){
     sec.appendChild(mkBtn('← Back','btn-sm btn-ghost',()=>{S._hwTaskView=null;re();}));
     return sec;
   }
-  const backRow=el('div',{style:{marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const backBtn=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to Task List']);
-  backBtn.onclick=()=>{S._hwTaskView=null;re();};
-  backRow.appendChild(backBtn);
-  sec.appendChild(backRow);
+  if(window.innerWidth<1024){
+    const backRow=el('div',{style:{marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
+    const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Back to Task List']);
+    backBtn.onclick=()=>{S._hwTaskView=null;re();};
+    backRow.appendChild(backBtn);
+    sec.appendChild(backRow);
+  }
   sec.appendChild(el('h2',{class:'page-title'},[task.title]));
   const metaRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px',alignItems:'center'}});
   const db=_hwDiffBadge(task.difficulty);if(db)metaRow.appendChild(db);
@@ -10791,6 +10798,8 @@ function renderPatients(){
 // Specialist back-to-patient bar — insert at top of any section when role=specialist
 function mkSpecBackBar(childName){
   if(session?.role!=='specialist')return null;
+  // Hide back buttons on desktop — navigation via drawer + tabs
+  if(window.innerWidth>=1024)return null;
   const bar=el('div',{style:{
     display:'flex',alignItems:'center',gap:'8px',
     marginBottom:'14px',paddingBottom:'12px',
