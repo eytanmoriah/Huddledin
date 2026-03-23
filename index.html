@@ -1700,11 +1700,13 @@ const SB = {
   },
   async getSpecialists(parentId,householdId){
     // Two separate queries to avoid .or() type-casting issues with UUID columns
+    // Filter to request_type='join' only — folder access requests have stale name/role
     const [_qP,_qH]=await Promise.all([
-      _supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('parent_id',parentId),
-      householdId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId):Promise.resolve({data:[]})
+      _supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status,request_type').in('status',['approved','pending']).eq('parent_id',parentId),
+      householdId?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,status,request_type').in('status',['approved','pending']).eq('household_id',householdId):Promise.resolve({data:[]})
     ]);
-    const _all=[...(_qP.data||[]),...(_qH.data||[])];
+    // Prefer 'join' rows over 'folder' rows (join has authoritative name + specialty)
+    const _all=[...(_qP.data||[]),...(_qH.data||[])].sort((a,b)=>(a.request_type==='join'?0:1)-(b.request_type==='join'?0:1));
     // Deduplicate by specialist_id+child_id pair — keep one entry PER SPECIALIST PER CHILD
     // DO NOT deduplicate by specialist_id alone: a specialist may treat multiple children,
     // and renderTeam filters by s.childId===child.id so each child needs its own entry
@@ -1718,9 +1720,11 @@ const SB = {
   async getSpecialistsByHousehold(householdId){
     // Query specialist_requests by household_id — co-parents see identical specialist list
     const {data:reqs}=await _supa.from('specialist_requests')
-      .select('specialist_id,specialist_name,role,child_id,status').in('status',['approved','pending']).eq('household_id',householdId);
-    // Keep one entry per specialist per child — same fix as getSpecialists
-    const _deduped=(reqs||[]).filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
+      .select('specialist_id,specialist_name,role,child_id,status,request_type').in('status',['approved','pending']).eq('household_id',householdId);
+    // Sort: prefer 'join' rows (authoritative name + specialty) over 'folder' rows
+    const _sorted=(reqs||[]).sort((a,b)=>(a.request_type==='join'?0:1)-(b.request_type==='join'?0:1));
+    // Keep one entry per specialist per child
+    const _deduped=_sorted.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
     const specs=_deduped.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
