@@ -3375,7 +3375,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
       if(hid){
         let householdUserIds=[];
         try{
-          const {data:hhMembers}=await _supa.from('profiles').select('id').eq('household_id',hid);
+          const {data:hhMembers}=await _supa.from('profiles').select('id').eq('household_id',hid).eq('role','parent');
           householdUserIds=(hhMembers||[]).map(m=>m.id).filter(id=>id!==session.id);
         }catch(e){}
         // Fallback: use child's parentId if household lookup fails
@@ -5026,7 +5026,7 @@ function _clearHwBadgeCache(cid){
   // Also clear legacy homework items for this child from cache
   const hw=DB.homework||[];const cleaned=hw.filter(h=>h.childId!==cid);if(cleaned.length!==hw.length)DB.homework=cleaned;
 }
-function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const newTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===cid&&t.status==='active'&&!(t.endDate&&t.endDate<today4)&&t.createdAt&&_seenTs(cid,'tasks')&&new Date(t.createdAt).getTime()>_seenTs(cid,'tasks')).length;const notifCount=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return Math.max(notifCount,newTasks);}
+function _hwBadge(cid){const today4=new Date().toISOString().split('T')[0];const _myId=session?.id||'';const newTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===cid&&t.status==='active'&&!(t.endDate&&t.endDate<today4)&&t.createdAt&&_seenTs(cid,'tasks')&&new Date(t.createdAt).getTime()>_seenTs(cid,'tasks')&&t.specialistId!==_myId).length;const notifCount=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return Math.max(notifCount,newTasks);}
 function _chatBadge(cid){const mid=session?.id||'';return(DB.chats||[]).filter(ch=>ch.childId===cid&&(ch.unreadFor||[]).includes(mid)).reduce((s,ch)=>s+(ch.unreadCount||1),0);}
 function _childTotalBadge(cid){const notes=(DB.vaultNotes||[]).filter(n=>n.childId===cid);const fls=(DB.folders||[]).filter(f=>f.childId===cid).flatMap(f=>f.files||[]);const apts=(DB.appointments||[]).filter(a=>a.childId===cid);const calNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&(n.type==='appointment'||n.linkTab==='calendar')).length;const hwNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===cid&&n.type==='homework').length;return _chatBadge(cid)+Math.max(_hwBadge(cid),hwNotifs)+_newSince(notes,n=>n.date,cid,'session-summaries')+_newSince(fls,f=>f.date||f.uploadedAt,cid,'files')+Math.max(_newSince(apts,a=>a.createdAt||a.date||a.startDate,cid,'calendar'),calNotifs);}
 function renderGlobalHome(){
