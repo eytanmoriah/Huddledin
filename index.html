@@ -11513,11 +11513,12 @@ function renderSessionSummaries(){
       card.onclick=()=>{
         S._summarySpecFilter=sid;S._summaryOpen=null;
         // Bulk mark as read — update local cache + Supabase in background
-        const _toMark=(DB.vaultNotes||[]).filter(n=>n.childId===S.activeChild&&n.specialistId===sid&&n.published&&!n.parentReadAt);
+        const _allNotes=DB.vaultNotes||[];
+        const _toMark=_allNotes.filter(n=>n.childId===S.activeChild&&n.specialistId===sid&&n.published&&!n.parentReadAt);
         if(_toMark.length){
           const _now=new Date().toISOString();
           _toMark.forEach(n=>{n.parentReadAt=_now;});
-          DB.vaultNotes=DB.vaultNotes;// trigger LS write
+          LS.set('vaultNotes',_allNotes);// force LS write (DB proxy doesn't detect in-place mutation)
           if(session?.id!=='demo'){
             const _ids=_toMark.map(n=>n.id);
             (async()=>{try{const{error}=await _supa.from('vault_notes').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark notes read:',error);}catch(e){console.error('mark notes read:',e);}})();
@@ -11590,7 +11591,7 @@ function renderSessionSummaries(){
       // Mark this individual note as read when expanded
       if(!isOpen&&_isUnread&&session?.id!=='demo'){
         note.parentReadAt=new Date().toISOString();
-        DB.vaultNotes=DB.vaultNotes;// trigger LS write
+        LS.set('vaultNotes',DB.vaultNotes||[]);// force LS write
         (async()=>{try{await _supa.from('vault_notes').update({parent_read_at:note.parentReadAt}).eq('id',note.id);}catch(e){}})();
       }
       re();
