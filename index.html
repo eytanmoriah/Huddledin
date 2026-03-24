@@ -3455,507 +3455,290 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
 
 
 /* -----------------------------------------------
-   WEB AUTH MODAL (overlays landing page on desktop)
+   WEB AUTH MODAL (placeholder — triggers mobile auth for now)
 ----------------------------------------------- */
-function showWebAuthModal(initialTab){
-  // Remove existing modal if any
-  document.getElementById('web-auth-modal')?.remove();
-
-  let _mode=initialTab==='signin'?'signin':'signup';
-
-  const overlay=document.createElement('div');
-  overlay.id='web-auth-modal';
-  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;animation:hudFadeIn .15s ease-out';
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
-
-  const card=document.createElement('div');
-  card.style.cssText='background:#fff;border-radius:16px;padding:40px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.2)';
-
-  // Close button
-  const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';
-  closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;color:#7aaba5;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px';
-  closeBtn.onmouseenter=()=>closeBtn.style.background='#f5fafa';
-  closeBtn.onmouseleave=()=>closeBtn.style.background='none';
-  closeBtn.onclick=()=>overlay.remove();
-  card.appendChild(closeBtn);
-
-  // Escape key
-  const _escHandler=e=>{if(e.key==='Escape'){overlay.remove();document.removeEventListener('keydown',_escHandler);}};
-  document.addEventListener('keydown',_escHandler);
-
-  // Form area
-  const formWrap=document.createElement('div');
-  card.appendChild(formWrap);
-
-  function _buildForm(){
-    formWrap.innerHTML='';
-
-    // Logo
-    const logoWrap=document.createElement('div');
-    logoWrap.style.cssText='display:flex;justify-content:center;margin-bottom:24px';
-    logoWrap.appendChild(_hudLogo(36));
-    formWrap.appendChild(logoWrap);
-
-    // Title
-    const title=document.createElement('h2');
-    title.style.cssText='font-size:24px;font-weight:600;color:#0f1a18;text-align:center;margin-bottom:6px';
-    title.textContent=_mode==='signin'?'Welcome back':'Start your 14-day free trial';
-    formWrap.appendChild(title);
-
-    const sub=document.createElement('p');
-    sub.style.cssText='font-size:15px;color:#7aaba5;text-align:center;margin-bottom:28px';
-    sub.textContent=_mode==='signin'?'Sign in to your account':'No credit card required';
-    formWrap.appendChild(sub);
-
-    // Error box
-    const errBox=document.createElement('div');
-    errBox.style.cssText='display:none;background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px';
-    formWrap.appendChild(errBox);
-
-    function _showErr(msg){errBox.textContent=msg;errBox.style.display='block';}
-
-    // Inputs
-    const _mkInput=(placeholder,type)=>{
-      const inp=document.createElement('input');
-      inp.type=type||'text';
-      inp.placeholder=placeholder;
-      inp.style.cssText='width:100%;padding:12px 16px;border:1.5px solid #e8f4f2;border-radius:10px;font-size:15px;margin-bottom:12px;outline:none;transition:border-color .15s;box-sizing:border-box';
-      inp.onfocus=()=>inp.style.borderColor='#0d9488';
-      inp.onblur=()=>inp.style.borderColor='#e8f4f2';
-      return inp;
-    };
-
-    let nameInp,emailInp,passInp;
-    if(_mode==='signup'){
-      nameInp=_mkInput('Full name','text');
-      formWrap.appendChild(nameInp);
-    }
-    emailInp=_mkInput('Email address','email');
-    formWrap.appendChild(emailInp);
-    passInp=_mkInput('Password','password');
-    formWrap.appendChild(passInp);
-
-    // Submit button
-    const submitBtn=document.createElement('button');
-    submitBtn.textContent=_mode==='signin'?'Sign in':'Create account';
-    submitBtn.style.cssText='width:100%;padding:14px;background:#0d9488;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;margin-bottom:16px;transition:background .15s';
-    submitBtn.onmouseenter=()=>submitBtn.style.background='#0a4a44';
-    submitBtn.onmouseleave=()=>submitBtn.style.background='#0d9488';
-    submitBtn.onclick=async()=>{
-      const email=emailInp.value.trim();
-      const pass=passInp.value;
-      if(!email||!pass){_showErr('Please fill in all fields.');return;}
-      if(_mode==='signup'&&nameInp&&!nameInp.value.trim()){_showErr('Please enter your name.');return;}
-      submitBtn.disabled=true;submitBtn.textContent='Please wait…';errBox.style.display='none';
-      try{
-        const result=await doLogin(email,pass,'parent',_mode==='signup'?(nameInp?.value.trim()||''):'','',_mode);
-        if(result?.error){_showErr(result.error);submitBtn.disabled=false;submitBtn.textContent=_mode==='signin'?'Sign in':'Create account';return;}
-        overlay.remove();document.removeEventListener('keydown',_escHandler);
-      }catch(e){
-        console.error('web auth:',e);
-        _showErr('Something went wrong. Please try again.');
-        submitBtn.disabled=false;submitBtn.textContent=_mode==='signin'?'Sign in':'Create account';
-      }
-    };
-    formWrap.appendChild(submitBtn);
-
-    // Divider
-    const divider=document.createElement('div');
-    divider.style.cssText='display:flex;align-items:center;gap:12px;margin-bottom:16px';
-    divider.innerHTML='<div style="flex:1;height:1px;background:#e8f4f2"></div><span style="font-size:13px;color:#7aaba5">or</span><div style="flex:1;height:1px;background:#e8f4f2"></div>';
-    formWrap.appendChild(divider);
-
-    // Google button
-    const gBtn=document.createElement('button');
-    gBtn.style.cssText='width:100%;padding:12px;background:#fff;color:#2d4a46;border:1.5px solid #e8f4f2;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;transition:border-color .15s';
-    gBtn.onmouseenter=()=>gBtn.style.borderColor='#0d9488';
-    gBtn.onmouseleave=()=>gBtn.style.borderColor='#e8f4f2';
-    gBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>Continue with Google';
-    gBtn.onclick=()=>{doGoogleSignIn('parent');};
-    formWrap.appendChild(gBtn);
-
-    // Switch link
-    const switchRow=document.createElement('div');
-    switchRow.style.cssText='text-align:center;font-size:14px;color:#7aaba5';
-    if(_mode==='signin'){
-      switchRow.innerHTML='Don\'t have an account? <a href="#" style="color:#0d9488;font-weight:500;text-decoration:none">Start your free trial →</a>';
-      switchRow.querySelector('a').onclick=e=>{e.preventDefault();_mode='signup';_buildForm();};
-    }else{
-      switchRow.innerHTML='Already have an account? <a href="#" style="color:#0d9488;font-weight:500;text-decoration:none">Sign in →</a>';
-      switchRow.querySelector('a').onclick=e=>{e.preventDefault();_mode='signin';_buildForm();};
-    }
-    formWrap.appendChild(switchRow);
-
-    // Terms (signup only)
-    if(_mode==='signup'){
-      const terms=document.createElement('p');
-      terms.style.cssText='font-size:12px;color:#7aaba5;text-align:center;margin-top:16px;line-height:1.5';
-      terms.innerHTML='By creating an account you agree to our <a href="https://www.huddledin.com/terms" style="color:#0d9488;text-decoration:none">Terms</a> and <a href="https://www.huddledin.com/privacy" style="color:#0d9488;text-decoration:none">Privacy Policy</a>';
-      formWrap.appendChild(terms);
-    }
-
-    // Focus first input
-    setTimeout(()=>{(nameInp||emailInp)?.focus();},100);
-  }
-
-  _buildForm();
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
+function showWebAuthModal(tab){
+  S._authTab=tab==='signin'?'signin':'signup';
+  S._showLanding=false;
+  re();
 }
 
 /* -----------------------------------------------
-   LANDING PAGE (web only — shown to unauthenticated users on desktop)
+   LANDING PAGE — Clean vanilla HTML/CSS rebuild
 ----------------------------------------------- */
-function renderLandingPage(){
-  const _lp=document.createElement('div');
-  _lp.id='landing-page';
-  // State for pricing toggle
-  let _annual=true;
-  // Helper: open auth modal in sign-up or sign-in mode
-  function _openAuth(tab){S._authTab=tab||'signup';re();}
-  function _scrollTo(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});}
+function renderLandingPage(){const _lp=document.createElement('div');_lp.id='landing-page';
+_lp.innerHTML=`<style>
+#landing-page{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a2e2b;line-height:1.6;background:#fff}
+#landing-page *{box-sizing:border-box}
+.lp-c{max-width:1280px;margin:0 auto;padding:0 48px}
 
-  _lp.innerHTML=`
-<style>
-/* Landing page scoped styles — only render when #landing-page exists */
-#landing-page{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a2e2b;background:#fff;line-height:1.6}
-#landing-page *{box-sizing:border-box;margin:0;padding:0}
-.lp-nav{border-bottom:1px solid #e8f4f2;background:#fff;position:sticky;top:0;z-index:100}
-.lp-nav-inner{max-width:1280px;margin:0 auto;padding:0 48px;display:flex;align-items:center;justify-content:space-between;height:64px}
-.lp-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.lp-logo-icon{width:36px;height:36px;background:#0d9488;border-radius:10px;display:flex;align-items:center;justify-content:center}
-.lp-logo-icon svg{width:20px;height:20px;color:#fff}
-.lp-logo-text{font-size:20px;font-weight:600;color:#1a2e2b}
-.lp-nav-links{display:flex;align-items:center;gap:32px}
-.lp-nav-link{font-size:15px;color:#4a7570;text-decoration:none;font-weight:500;cursor:pointer;border:none;background:none;transition:color .15s}
+/* Nav */
+.lp-nav{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #e8f4f2;height:56px;display:flex;align-items:center}
+.lp-nav .lp-c{display:flex;align-items:center;justify-content:space-between;width:100%}
+.lp-nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#0f1a18}
+.lp-nav-logo-icon{width:32px;height:32px;background:#0d9488;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.lp-nav-logo span{font-size:18px;font-weight:600}
+.lp-nav-links{display:flex;align-items:center;gap:28px}
+.lp-nav-link{font-size:14px;color:#4a7570;text-decoration:none;font-weight:500;cursor:pointer;background:none;border:none;transition:color .15s}
 .lp-nav-link:hover{color:#0d9488}
-.lp-btn-signin{font-size:15px;color:#4a7570;font-weight:500;cursor:pointer;border:none;background:none;transition:color .15s}
-.lp-btn-signin:hover{color:#0d9488}
-.lp-btn-cta{background:#0d9488;color:#fff !important;padding:10px 24px;border-radius:10px;font-size:15px;font-weight:500;border:none;cursor:pointer;transition:background .15s}
-.lp-btn-cta:hover{background:#0a4a44}
+.lp-nav-cta{background:#0d9488;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:500;border:none;cursor:pointer;transition:background .15s}
+.lp-nav-cta:hover{background:#0a4a44}
 
-.lp-hero{padding:80px 48px 100px;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.lp-hero-text h1{font-size:52px;font-weight:700;color:#0f1a18;line-height:1.12;margin-bottom:24px;letter-spacing:-.02em}
-.lp-hero-text p{font-size:19px;color:#4a7570;margin-bottom:32px;line-height:1.65;max-width:520px}
-.lp-hero-btns{display:flex;gap:16px;margin-bottom:24px}
-.lp-hero-btn-primary{background:#0d9488;color:#fff !important;padding:16px 32px;border-radius:10px;font-size:17px;font-weight:500;border:none;cursor:pointer;transition:background .15s}
-.lp-hero-btn-primary:hover{background:#0a4a44}
-.lp-hero-btn-secondary{background:transparent;color:#2d4a46;padding:16px 32px;border-radius:10px;font-size:17px;font-weight:500;border:2px solid #c4dbd8;cursor:pointer;transition:border-color .15s,color .15s}
-.lp-hero-btn-secondary:hover{border-color:#0d9488;color:#0d9488}
-.lp-hero-sub{font-size:14px;color:#7aaba5}
-.lp-hero-img{position:relative}
-.lp-hero-img img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;box-shadow:0 8px 32px rgba(13,148,136,.18)}
-.lp-hero-float{position:absolute;bottom:20px;left:20px;background:#fff;padding:16px 20px;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.12);border:1px solid #e8f4f2;display:flex;align-items:center;gap:14px;max-width:280px;z-index:2}
-.lp-hero-float-icon{width:48px;height:48px;background:#ccfbf1;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.lp-hero-float-icon svg{width:24px;height:24px;color:#0d9488}
+/* Hero */
+.lp-hero{background:#0d6b63;padding:64px 0}
+.lp-hero .lp-c{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.lp-hero-eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:16px;font-weight:600}
+.lp-hero h1{font-size:40px;font-family:Georgia,serif;color:#fff;line-height:1.15;margin:0 0 20px;font-weight:700}
+.lp-hero-sub{font-size:15px;color:rgba(255,255,255,.8);line-height:1.7;margin:0 0 28px;max-width:480px}
+.lp-hero-btns{display:flex;gap:12px;margin-bottom:16px}
+.lp-hero-btn1{background:#fff;color:#0d9488;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
+.lp-hero-btn1:hover{background:#f0fdf9}
+.lp-hero-btn2{background:transparent;color:#fff;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:500;border:1.5px solid rgba(255,255,255,.4);cursor:pointer;transition:border-color .15s}
+.lp-hero-btn2:hover{border-color:#fff}
+.lp-hero-fine{font-size:12px;color:rgba(255,255,255,.5)}
+.lp-hero-photos{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;position:relative}
+.lp-hero-photos img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.lp-hero-photos .lp-ph-big{grid-row:1/3}
+.lp-hero-chip{position:absolute;bottom:12px;left:12px;background:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);display:flex;align-items:center;gap:10px;font-size:13px;z-index:2}
+.lp-hero-chip-bell{width:36px;height:36px;background:#ccfbf1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 
-.lp-features{padding:80px 0;background:#f5fafa}
-.lp-section-inner{max-width:1280px;margin:0 auto;padding:0 48px}
-.lp-section-hd{text-align:center;margin-bottom:64px}
-.lp-section-hd h2{font-size:38px;font-weight:700;color:#0f1a18;margin-bottom:16px;letter-spacing:-.015em}
-.lp-section-hd p{font-size:19px;color:#4a7570;max-width:600px;margin:0 auto}
-.lp-features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-bottom:80px}
-.lp-feature-card{background:#fff;padding:32px;border-radius:14px;border:1px solid #e8f4f2;box-shadow:0 1px 3px rgba(13,148,136,.08);transition:box-shadow .15s,border-color .15s}
-.lp-feature-card:hover{box-shadow:0 4px 16px rgba(13,148,136,.12);border-color:#c4dbd8}
-.lp-feature-icon{width:56px;height:56px;background:#ccfbf1;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:24px}
-.lp-feature-icon svg{width:28px;height:28px;color:#0d9488}
-.lp-feature-card h3{font-size:20px;font-weight:600;color:#0f1a18;margin-bottom:12px}
-.lp-feature-card p{font-size:15px;color:#4a7570;line-height:1.65}
-.lp-highlight{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.lp-highlight-img img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;box-shadow:0 8px 24px rgba(13,148,136,.12)}
-.lp-pill{display:inline-block;background:#ccfbf1;color:#0d6b63;padding:8px 18px;border-radius:99px;font-size:14px;font-weight:500;margin-bottom:16px}
-.lp-highlight-text h3{font-size:30px;font-weight:700;color:#0f1a18;margin-bottom:24px;line-height:1.2}
-.lp-highlight-text>p{font-size:17px;color:#4a7570;line-height:1.7;margin-bottom:28px}
-.lp-checklist{list-style:none;display:flex;flex-direction:column;gap:16px}
-.lp-checklist li{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:#2d4a46}
-.lp-check{width:24px;height:24px;background:#0d9488;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
-.lp-check svg{width:14px;height:14px;color:#fff}
+/* Features */
+.lp-features{background:#f0f7f6;padding:64px 0}
+.lp-sh{text-align:center;margin-bottom:48px}
+.lp-sh-label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#0d9488;font-weight:600;margin-bottom:10px}
+.lp-sh h2{font-size:28px;font-weight:600;color:#0f1a18;margin:0 0 12px}
+.lp-sh p{font-size:15px;color:#4a7570;max-width:520px;margin:0 auto}
+.lp-fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:64px}
+.lp-fcard{background:#fff;padding:28px;border-radius:14px;border:1px solid #e8f4f2;transition:box-shadow .15s}
+.lp-fcard:hover{box-shadow:0 4px 16px rgba(13,148,136,.1)}
+.lp-fcard-icon{font-size:28px;margin-bottom:16px}
+.lp-fcard h3{font-size:17px;font-weight:600;color:#0f1a18;margin:0 0 8px}
+.lp-fcard p{font-size:14px;color:#4a7570;line-height:1.65;margin:0}
+.lp-collab{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.lp-collab-pill{display:inline-block;background:#ccfbf1;color:#0d6b63;padding:6px 16px;border-radius:99px;font-size:13px;font-weight:500;margin-bottom:14px}
+.lp-collab h2{font-size:26px;font-weight:600;color:#0f1a18;margin:0 0 16px;line-height:1.25}
+.lp-collab>div>p{font-size:15px;color:#4a7570;line-height:1.7;margin:0 0 24px}
+.lp-collab img{width:100%;border-radius:14px;object-fit:cover;aspect-ratio:5/4}
+.lp-checks{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
+.lp-checks li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#2d4a46;line-height:1.5}
+.lp-checks li::before{content:'✓';display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0d9488;color:#fff;border-radius:50%;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
 
-.lp-testimonial{padding:80px 48px}
-.lp-testi-card{max-width:960px;margin:0 auto;background:linear-gradient(135deg,#f0fdf9,#fff);border-radius:24px;padding:48px 56px;border:1px solid #ccfbf1;display:grid;grid-template-columns:1fr 2fr;gap:40px;align-items:center}
-.lp-testi-img{aspect-ratio:1;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.lp-testi-img img{width:100%;height:100%;object-fit:cover}
-.lp-testi-quote svg{width:40px;height:40px;color:#0d9488;margin-bottom:16px}
-.lp-testi-quote blockquote{font-size:22px;color:#1a2e2b;line-height:1.6;margin-bottom:20px}
-.lp-testi-quote .lp-testi-name{font-weight:600;color:#0f1a18}
-.lp-testi-quote .lp-testi-role{color:#4a7570;font-size:15px}
+/* Testimonial */
+.lp-testi{background:#fff;padding:64px 0}
+.lp-testi .lp-c{display:grid;grid-template-columns:1fr 2fr;gap:40px;align-items:center;max-width:960px}
+.lp-testi img{width:100%;border-radius:16px;aspect-ratio:5/4;object-fit:cover}
+.lp-testi-q{font-size:13px;color:#0d9488;margin-bottom:12px}
+.lp-testi blockquote{font-size:18px;color:#1a2e2b;line-height:1.65;margin:0 0 16px;font-style:normal}
+.lp-testi-attr{font-size:14px;color:#4a7570}
+.lp-testi-attr strong{color:#0f1a18}
 
-.lp-pricing{padding:80px 0;background:#f5fafa}
-.lp-pricing-card{max-width:480px;width:100%;margin:0 auto;background:linear-gradient(135deg,#0d9488,#0d6b63);border-radius:20px;padding:40px;text-align:center;box-shadow:0 8px 32px rgba(13,148,136,.25);position:relative;overflow:hidden}
-.lp-pricing-card *{color:#fff}
-.lp-pricing-badge{position:absolute;top:-1px;right:24px;background:#f59e0b;color:#78350f!important;padding:6px 16px;border-radius:0 0 10px 10px;font-size:13px;font-weight:600;letter-spacing:.02em}
-.lp-toggle-wrap{display:flex;justify-content:center;gap:12px;align-items:center;margin-bottom:32px}
-.lp-toggle-label{font-size:14px;font-weight:500;opacity:.7;cursor:pointer}
-.lp-toggle-label.active{opacity:1;font-weight:600}
-.lp-toggle-pill{width:48px;height:26px;background:rgba(255,255,255,.3);border-radius:13px;position:relative;cursor:pointer;transition:background .2s}
-.lp-toggle-pill::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s}
-.lp-toggle-pill.monthly::after{transform:translateX(22px)}
-.lp-pricing-price{font-size:56px;font-weight:700;line-height:1;margin-bottom:4px}
-.lp-pricing-period{font-size:15px;opacity:.8;margin-bottom:8px}
-.lp-pricing-billing{font-size:13px;opacity:.6;margin-bottom:28px}
-.lp-pricing-features{list-style:none;text-align:left;display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
-.lp-pricing-features li{display:flex;align-items:center;gap:10px;font-size:15px}
-.lp-pricing-features li svg{width:18px;height:18px;flex-shrink:0}
-.lp-pricing-btn{width:100%;background:#fff;color:#0d9488!important;padding:16px;border-radius:10px;font-size:17px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
-.lp-pricing-btn:hover{background:#f0fdf9}
+/* Pricing */
+.lp-pricing{background:#f0f7f6;padding:64px 0}
+.lp-pcard{max-width:480px;width:100%;margin:0 auto;background:linear-gradient(135deg,#0d9488,#0d6b63);border-radius:16px;padding:36px;text-align:center;color:#fff;position:relative}
+.lp-pcard-badge{position:absolute;top:-1px;right:20px;background:#f59e0b;color:#78350f;padding:5px 14px;border-radius:0 0 8px 8px;font-size:12px;font-weight:600}
+.lp-pcard h3{font-size:22px;font-weight:600;margin:0 0 20px}
+.lp-ptoggle{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px}
+.lp-ptoggle span{font-size:13px;font-weight:500;opacity:.6;cursor:pointer;transition:opacity .15s}
+.lp-ptoggle span.on{opacity:1;font-weight:600}
+.lp-ptoggle-pill{width:44px;height:24px;background:rgba(255,255,255,.3);border-radius:12px;position:relative;cursor:pointer}
+.lp-ptoggle-pill::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+.lp-ptoggle-pill.mo::after{transform:translateX(20px)}
+.lp-pprice{font-size:48px;font-weight:700;line-height:1}
+.lp-pper{font-size:14px;opacity:.7;margin-bottom:6px}
+.lp-pbill{font-size:12px;opacity:.5;margin-bottom:24px}
+.lp-pfeats{list-style:none;padding:0;margin:0 0 28px;text-align:left;display:flex;flex-direction:column;gap:10px}
+.lp-pfeats li{font-size:14px;display:flex;align-items:center;gap:8px}
+.lp-pfeats li::before{content:'✓';font-weight:700}
+.lp-pbtn{width:100%;background:#fff;color:#0d9488;padding:14px;border-radius:10px;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
+.lp-pbtn:hover{background:#f0fdf9}
 
-.lp-cta{padding:80px 48px}
-.lp-cta-card{max-width:960px;margin:0 auto;border-radius:24px;overflow:hidden;position:relative}
-.lp-cta-bg{position:absolute;inset:0}
-.lp-cta-bg img{width:100%;height:100%;object-fit:cover}
-.lp-cta-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,74,68,.92),rgba(13,148,136,.85))}
-.lp-cta-content{position:relative;padding:64px;text-align:center}
-.lp-cta-content h2{font-size:42px;font-weight:700;color:#fff;margin-bottom:20px;line-height:1.15}
-.lp-cta-content p{font-size:19px;color:rgba(255,255,255,.85);margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto}
-.lp-cta-btn{background:#fff;color:#0d9488 !important;padding:16px 40px;border-radius:10px;font-size:17px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
+/* CTA */
+.lp-cta-sec{background:#0a4a44;padding:64px 0;text-align:center}
+.lp-cta-sec h2{font-size:32px;font-family:Georgia,serif;color:#fff;margin:0 0 14px;font-weight:700}
+.lp-cta-sec p{font-size:15px;color:rgba(255,255,255,.7);margin:0 0 28px}
+.lp-cta-btn{background:#fff;color:#0d9488;padding:14px 36px;border-radius:10px;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
 .lp-cta-btn:hover{background:#f0fdf9}
 
-.lp-footer{background:#0f1a18;color:#c4dbd8;padding:64px 0 32px}
-.lp-footer-inner{max-width:1280px;margin:0 auto;padding:0 48px}
-.lp-footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
-.lp-footer-brand p{font-size:14px;color:#7aaba5;line-height:1.65;margin-top:12px}
-.lp-footer h4{font-size:14px;font-weight:600;color:#fff;margin-bottom:16px;text-transform:uppercase;letter-spacing:.05em}
-.lp-footer ul{list-style:none}
-.lp-footer li{margin-bottom:10px}
-.lp-footer a{color:#7aaba5;text-decoration:none;font-size:14px;transition:color .15s}
-.lp-footer a:hover{color:#fff}
-.lp-footer-muted{color:#4a7570;font-size:14px;cursor:default}
-.lp-footer-bottom{border-top:1px solid #2d4a46;padding-top:24px;display:flex;justify-content:space-between;align-items:center}
-.lp-footer-bottom p{font-size:13px;color:#4a7570}
-.lp-footer-social{display:flex;gap:20px}
-.lp-footer-social a{color:#4a7570;transition:color .15s}
-.lp-footer-social a:hover{color:#fff}
-.lp-footer-social svg{width:22px;height:22px}
-@keyframes hudFadeIn{from{opacity:0}to{opacity:1}}
+/* Footer */
+.lp-ft{background:#0d6b63;padding:40px 0 24px;color:rgba(255,255,255,.7);font-size:13px}
+.lp-ft a{color:rgba(255,255,255,.7);text-decoration:none;transition:color .15s}
+.lp-ft a:hover{color:#fff}
+.lp-ft-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:32px}
+.lp-ft-brand span{font-size:18px;font-weight:600;color:#fff}
+.lp-ft-brand p{margin:10px 0 0;line-height:1.6}
+.lp-ft h4{color:#fff;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px}
+.lp-ft ul{list-style:none;padding:0;margin:0}
+.lp-ft li{margin-bottom:8px}
+.lp-ft-muted{color:rgba(255,255,255,.35);cursor:default}
+.lp-ft-bottom{border-top:1px solid rgba(255,255,255,.15);padding-top:20px;display:flex;justify-content:space-between;align-items:center}
+.lp-ft-social{display:flex;gap:16px}
+.lp-ft-social a{color:rgba(255,255,255,.5)}
+.lp-ft-social a:hover{color:#fff}
 </style>
 
-<!-- Navigation -->
-<nav class="lp-nav">
-  <div class="lp-nav-inner">
-    <a class="lp-logo" href="#">
-      <div class="lp-logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
-      <span class="lp-logo-text">Huddledin</span>
-    </a>
-    <div class="lp-nav-links">
-      <a class="lp-nav-link" data-scroll="lp-features">Features</a>
-      <a class="lp-nav-link" data-scroll="lp-pricing">Pricing</a>
-      <a class="lp-nav-link" href="mailto:specialists@huddledin.com">For Specialists</a>
-      <button class="lp-btn-signin" data-auth="signin">Sign in</button>
-      <button class="lp-btn-cta" data-auth="signup">Get started free</button>
-    </div>
+<!-- NAV -->
+<nav class="lp-nav"><div class="lp-c">
+  <a class="lp-nav-logo" href="#"><div class="lp-nav-logo-icon">🤝</div><span>Huddledin</span></a>
+  <div class="lp-nav-links">
+    <a class="lp-nav-link" data-scroll="lp-features">Features</a>
+    <a class="lp-nav-link" data-scroll="lp-pricing">Pricing</a>
+    <a class="lp-nav-link" href="mailto:specialists@huddledin.com">For Specialists</a>
+    <button class="lp-nav-link" data-auth="signin">Sign in</button>
+    <button class="lp-nav-cta" data-auth="signup">Get started free</button>
   </div>
-</nav>
+</div></nav>
 
-<!-- Hero -->
-<section class="lp-hero">
-  <div class="lp-hero-text">
+<!-- HERO -->
+<section class="lp-hero"><div class="lp-c">
+  <div>
+    <div class="lp-hero-eyebrow">CARE COORDINATION, SIMPLIFIED</div>
     <h1>Your child's care team, all in one place</h1>
-    <p>Coordinate appointments, share updates, and keep everyone on your child's care team connected. From therapists to specialists, Huddledin brings it all together.</p>
+    <p class="lp-hero-sub">Coordinate appointments, share updates, and keep everyone on your child's care team connected. From therapists to specialists, Huddledin brings it all together.</p>
     <div class="lp-hero-btns">
-      <button class="lp-hero-btn-primary" data-auth="signup">Start for free</button>
-      <button class="lp-hero-btn-secondary" data-scroll="lp-features">See how it works</button>
+      <button class="lp-hero-btn1" data-auth="signup">Start for free</button>
+      <button class="lp-hero-btn2" data-scroll="lp-features">See how it works</button>
     </div>
-    <p class="lp-hero-sub">No credit card required · 14-day free trial</p>
+    <p class="lp-hero-fine">No credit card required · 14-day free trial</p>
   </div>
-  <div class="lp-hero-img">
-    <img src="https://images.unsplash.com/photo-1709127347884-a106974ef58d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGlsZCUyMHRoZXJhcHklMjBzZXNzaW9uJTIwc3BlY2lhbGlzdHxlbnwxfHx8fDE3NzQzODk4MzB8MA&ixlib=rb-4.1.0&q=80&w=1080" alt="Child during therapy session" onerror="this.style.display='none'"/>
-    <div class="lp-hero-float">
-      <div class="lp-hero-float-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
-      <div><p style="font-size:14px;font-weight:500;color:#0f1a18">Session reminder</p><p style="font-size:12px;color:#7aaba5">Speech therapy at 2pm</p></div>
-    </div>
+  <div class="lp-hero-photos">
+    <img class="lp-ph-big" src="https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=400&h=500&fit=crop" alt="Child smiling" onerror="this.style.display='none'"/>
+    <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=300&h=240&fit=crop" alt="Therapy session" onerror="this.style.display='none'"/>
+    <img src="https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=300&h=240&fit=crop" alt="Child learning" onerror="this.style.display='none'"/>
+    <div class="lp-hero-chip"><div class="lp-hero-chip-bell">🔔</div><div><strong style="color:#0f1a18">Session reminder</strong><br/><span style="color:#7aaba5">Speech therapy at 2pm</span></div></div>
   </div>
-</section>
+</div></section>
 
-<!-- Features -->
-<section id="lp-features" class="lp-features">
-  <div class="lp-section-inner">
-    <div class="lp-section-hd">
-      <h2>Everything you need to stay organized</h2>
-      <p>Built for parents who are managing multiple appointments, therapies, and specialists.</p>
-    </div>
-    <div class="lp-features-grid">
-      <div class="lp-feature-card">
-        <div class="lp-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-        <h3>Unified calendar</h3>
-        <p>See all appointments across providers in one view. Sync with your calendar app and never miss a session.</p>
-      </div>
-      <div class="lp-feature-card">
-        <div class="lp-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
-        <h3>Shared updates</h3>
-        <p>Share progress notes, milestones, and observations with your entire care team in real-time.</p>
-      </div>
-      <div class="lp-feature-card">
-        <div class="lp-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
-        <h3>Care team hub</h3>
-        <p>Store contact info, session notes, and treatment plans for all your child's providers in one secure place.</p>
-      </div>
-    </div>
-
-    <div class="lp-highlight">
-      <div class="lp-highlight-img">
-        <img src="https://images.unsplash.com/photo-1758691463331-2ac00e6f676f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWRpYXRyaWMlMjBkb2N0b3IlMjBjaGlsZCUyMHBhdGllbnR8ZW58MXx8fHwxNzc0MzU2NDI4fDA&ixlib=rb-4.1.0&q=80&w=1080" alt="Healthcare professional with child patient" onerror="this.style.display='none'"/>
-      </div>
-      <div class="lp-highlight-text">
-        <div class="lp-pill">Collaboration made simple</div>
-        <h3>Keep everyone in the loop, effortlessly</h3>
-        <p>Your occupational therapist can see what your speech therapist is working on. Your pediatrician stays updated on specialist visits. Everyone works together for your child's progress.</p>
-        <ul class="lp-checklist">
-          <li><div class="lp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>Secure messaging between parents and providers</li>
-          <li><div class="lp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>Document sharing and goal tracking</li>
-          <li><div class="lp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>HIPAA compliance in progress — your data is always encrypted and private</li>
-        </ul>
-      </div>
-    </div>
+<!-- FEATURES -->
+<section id="lp-features" class="lp-features"><div class="lp-c">
+  <div class="lp-sh">
+    <div class="lp-sh-label">FEATURES</div>
+    <h2>Everything you need to stay organized</h2>
+    <p>Built for parents managing multiple appointments, therapies, and specialists.</p>
   </div>
-</section>
-
-<!-- Testimonial -->
-<section class="lp-testimonial">
-  <div class="lp-testi-card">
-    <div class="lp-testi-img">
-      <img src="https://images.unsplash.com/photo-1758598737977-094cb3ca9ce8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb3RoZXIlMjBkYXVnaHRlciUyMGNhcmluZyUyMG1vbWVudHxlbnwxfHx8fDE3NzQzODk4MzF8MA&ixlib=rb-4.1.0&q=80&w=1080" alt="Mother with daughter" onerror="this.style.display='none'"/>
-    </div>
-    <div class="lp-testi-quote">
-      <svg fill="#0d9488" viewBox="0 0 24 24"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
-      <blockquote>Huddledin has been a game-changer for our family. With Emma seeing four different therapists, I was drowning in paperwork and trying to remember who said what. Now everything is in one place, and her entire team can collaborate. It's given me peace of mind.</blockquote>
-      <p class="lp-testi-name">Sarah Martinez</p>
-      <p class="lp-testi-role">Mother of Emma, age 6</p>
-    </div>
+  <div class="lp-fgrid">
+    <div class="lp-fcard"><div class="lp-fcard-icon">📅</div><h3>Unified calendar</h3><p>See all appointments across providers in one view. Never miss a session.</p></div>
+    <div class="lp-fcard"><div class="lp-fcard-icon">💬</div><h3>Shared updates</h3><p>Share progress notes, milestones, and observations with your entire care team in real-time.</p></div>
+    <div class="lp-fcard"><div class="lp-fcard-icon">👥</div><h3>Care team hub</h3><p>Store contact info, session notes, and treatment plans for all your child's providers in one secure place.</p></div>
   </div>
-</section>
-
-<!-- Pricing -->
-<section id="lp-pricing" class="lp-pricing">
-  <div class="lp-section-inner">
-    <div class="lp-section-hd">
-      <h2>Simple, transparent pricing</h2>
-      <p>Start with a 14-day free trial. No credit card required.</p>
-    </div>
-    <div class="lp-pricing-card">
-      <div class="lp-pricing-badge">14-day free trial</div>
-      <h3 style="font-size:24px;font-weight:700;margin-bottom:24px">Pro</h3>
-      <div class="lp-toggle-wrap">
-        <span class="lp-toggle-label active" data-toggle="annual">Annual</span>
-        <div class="lp-toggle-pill" data-toggle="pill"></div>
-        <span class="lp-toggle-label" data-toggle="monthly">Monthly</span>
-      </div>
-      <div class="lp-pricing-price" data-price>$5</div>
-      <div class="lp-pricing-period">/month</div>
-      <div class="lp-pricing-billing" data-billing>Billed $60/year</div>
-      <ul class="lp-pricing-features">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Unlimited children</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>All specialists</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Session notes</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Home exercises</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Care team chat</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Shared calendar</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Priority support</li>
+  <div class="lp-collab">
+    <div>
+      <div class="lp-collab-pill">Collaboration made simple</div>
+      <h2>Keep everyone in the loop, effortlessly</h2>
+      <p>Your occupational therapist can see what your speech therapist is working on. Your pediatrician stays updated. Everyone works together for your child's progress.</p>
+      <ul class="lp-checks">
+        <li>Secure messaging between parents and providers</li>
+        <li>Document sharing and goal tracking</li>
+        <li>HIPAA compliance in progress — your data is always encrypted and private</li>
       </ul>
-      <button class="lp-pricing-btn" data-auth="signup">Start 14-day free trial — no credit card required</button>
     </div>
+    <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Parent and child" onerror="this.style.display='none'"/>
   </div>
-</section>
+</div></section>
+
+<!-- TESTIMONIAL -->
+<section class="lp-testi"><div class="lp-c">
+  <img src="https://images.unsplash.com/photo-1491013516836-7db643ee125a?w=500&h=400&fit=crop" alt="Mother with child" onerror="this.style.display='none'"/>
+  <div>
+    <div class="lp-testi-q">❝</div>
+    <blockquote>Huddledin has been a game-changer for our family. With Emma seeing four different therapists, I was drowning in paperwork and trying to remember who said what. Now everything is in one place, and her entire team can collaborate. It's given me peace of mind.</blockquote>
+    <p class="lp-testi-attr"><strong>Sarah Martinez</strong> · Mother of Emma, age 6</p>
+  </div>
+</div></section>
+
+<!-- PRICING -->
+<section id="lp-pricing" class="lp-pricing"><div class="lp-c">
+  <div class="lp-sh">
+    <h2>Simple, transparent pricing</h2>
+    <p>Start with a 14-day free trial. No credit card required.</p>
+  </div>
+  <div class="lp-pcard">
+    <div class="lp-pcard-badge">14-day free trial</div>
+    <h3>Pro</h3>
+    <div class="lp-ptoggle">
+      <span class="on" data-t="a">Annual</span>
+      <div class="lp-ptoggle-pill" data-t="pill"></div>
+      <span data-t="m">Monthly</span>
+    </div>
+    <div class="lp-pprice" data-t="price">$5</div>
+    <div class="lp-pper">/month</div>
+    <div class="lp-pbill" data-t="bill">Billed $60/year</div>
+    <ul class="lp-pfeats">
+      <li>Unlimited children</li>
+      <li>All specialists</li>
+      <li>Session notes &amp; summaries</li>
+      <li>Home exercises &amp; task tracking</li>
+      <li>Care team chat</li>
+      <li>Shared calendar</li>
+      <li>Priority support</li>
+    </ul>
+    <button class="lp-pbtn" data-auth="signup">Start 14-day free trial</button>
+  </div>
+</div></section>
 
 <!-- CTA -->
-<section class="lp-cta">
-  <div class="lp-cta-card">
-    <div class="lp-cta-bg">
-      <img src="https://images.unsplash.com/photo-1517236703105-9ec38fec32a3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBwYXJlbnQlMjBjaGlsZCUyMGhhcHB5fGVufDF8fHx8MTc3NDM4OTgzMXww&ixlib=rb-4.1.0&q=80&w=1080" alt="Happy family" onerror="this.style.display='none'"/>
-    </div>
-    <div class="lp-cta-content">
-      <h2>Ready to bring your child's care team together?</h2>
-      <p>Join hundreds of families who have simplified their care coordination with Huddledin.</p>
-      <button class="lp-cta-btn" data-auth="signup">Get started for free</button>
-    </div>
-  </div>
-</section>
+<section class="lp-cta-sec"><div class="lp-c">
+  <h2>Ready to bring your child's care team together?</h2>
+  <p>Join families already coordinating better care with Huddledin.</p>
+  <button class="lp-cta-btn" data-auth="signup">Get started free</button>
+</div></section>
 
-<!-- Footer -->
-<footer class="lp-footer">
-  <div class="lp-footer-inner">
-    <div class="lp-footer-grid">
-      <div class="lp-footer-brand">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="lp-logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
-          <span style="font-size:20px;font-weight:600;color:#fff">Huddledin</span>
-        </div>
-        <p>Helping families coordinate care for their children with multiple therapists and specialists.</p>
-      </div>
-      <div>
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#" data-scroll="lp-features">Features</a></li>
-          <li><a href="#" data-scroll="lp-pricing">Pricing</a></li>
-          <li><span class="lp-footer-muted">Roadmap (coming soon)</span></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Resources</h4>
-        <ul>
-          <li><span class="lp-footer-muted">Help center (coming soon)</span></li>
-          <li><span class="lp-footer-muted">Blog (coming soon)</span></li>
-          <li><span class="lp-footer-muted">Community (coming soon)</span></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Company</h4>
-        <ul>
-          <li><span class="lp-footer-muted">Careers (coming soon)</span></li>
-          <li><a href="https://www.huddledin.com/privacy">Privacy</a></li>
-          <li><a href="https://www.huddledin.com/terms">Terms</a></li>
-        </ul>
-      </div>
+<!-- FOOTER -->
+<footer class="lp-ft"><div class="lp-c">
+  <div class="lp-ft-grid">
+    <div class="lp-ft-brand">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="lp-nav-logo-icon" style="width:28px;height:28px;font-size:14px">🤝</div><span>Huddledin</span></div>
+      <p>Helping families coordinate care for their children with multiple therapists and specialists.</p>
     </div>
-    <div class="lp-footer-bottom">
-      <p>&copy; 2026 Huddledin. All rights reserved.</p>
-      <div class="lp-footer-social">
-        <a href="https://twitter.com/huddledin" target="_blank" rel="noopener"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"/></svg></a>
-        <a href="https://instagram.com/huddledin" target="_blank" rel="noopener"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"/></svg></a>
-        <a href="https://facebook.com/huddledin" target="_blank" rel="noopener"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
-      </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#" data-scroll="lp-features">Features</a></li>
+        <li><a href="#" data-scroll="lp-pricing">Pricing</a></li>
+        <li><a href="https://www.huddledin.com/privacy">Privacy</a></li>
+        <li><a href="https://www.huddledin.com/terms">Terms</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Resources</h4>
+      <ul>
+        <li><span class="lp-ft-muted">Help center (coming soon)</span></li>
+        <li><span class="lp-ft-muted">Blog (coming soon)</span></li>
+        <li><span class="lp-ft-muted">Community (coming soon)</span></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><span class="lp-ft-muted">About us (coming soon)</span></li>
+        <li><span class="lp-ft-muted">Careers (coming soon)</span></li>
+        <li><span class="lp-ft-muted">Roadmap (coming soon)</span></li>
+      </ul>
     </div>
   </div>
-</footer>
+  <div class="lp-ft-bottom">
+    <p>&copy; 2026 Huddledin. All rights reserved.</p>
+    <div class="lp-ft-social">
+      <a href="https://twitter.com/huddledin" target="_blank" rel="noopener">𝕏</a>
+      <a href="https://instagram.com/huddledin" target="_blank" rel="noopener">📷</a>
+      <a href="https://facebook.com/huddledin" target="_blank" rel="noopener">f</a>
+    </div>
+  </div>
+</div></footer>
 `;
 
-  // Wire up event handlers
-  _lp.querySelectorAll('[data-auth]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const tab=btn.dataset.auth;
-      if(window.innerWidth>=1024){
-        // Web: show modal overlay on landing page
-        showWebAuthModal(tab==='signin'?'signin':'signup');
-      }else{
-        // Mobile: navigate to full auth screen
-        S._authTab=tab==='signin'?'signin':'signup';
-        S._showLanding=false;
-        re();
-      }
-    });
-  });
-  _lp.querySelectorAll('[data-scroll]').forEach(link=>{
-    link.addEventListener('click',(e)=>{
-      e.preventDefault();
-      const target=document.getElementById(link.dataset.scroll);
-      if(target)target.scrollIntoView({behavior:'smooth'});
-    });
-  });
-  // Pricing toggle
-  const pill=_lp.querySelector('[data-toggle="pill"]');
-  const priceEl=_lp.querySelector('[data-price]');
-  const billingEl=_lp.querySelector('[data-billing]');
-  const annualLbl=_lp.querySelector('[data-toggle="annual"]');
-  const monthlyLbl=_lp.querySelector('[data-toggle="monthly"]');
-  function _setToggle(){
-    if(_annual){pill.classList.remove('monthly');annualLbl.classList.add('active');monthlyLbl.classList.remove('active');priceEl.textContent='$5';billingEl.textContent='Billed $60/year';}
-    else{pill.classList.add('monthly');monthlyLbl.classList.add('active');annualLbl.classList.remove('active');priceEl.textContent='$7';billingEl.textContent='Billed monthly';}
-  }
-  if(pill){pill.addEventListener('click',()=>{_annual=!_annual;_setToggle();});}
-  if(annualLbl)annualLbl.addEventListener('click',()=>{_annual=true;_setToggle();});
-  if(monthlyLbl)monthlyLbl.addEventListener('click',()=>{_annual=false;_setToggle();});
-  return _lp;
+// Wire buttons
+_lp.querySelectorAll('[data-auth]').forEach(b=>{b.addEventListener('click',()=>{showWebAuthModal(b.dataset.auth);});});
+_lp.querySelectorAll('[data-scroll]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth'});});});
+// Pricing toggle
+let _yr=true;
+const _pill=_lp.querySelector('[data-t="pill"]'),_pr=_lp.querySelector('[data-t="price"]'),_bl=_lp.querySelector('[data-t="bill"]'),_la=_lp.querySelector('[data-t="a"]'),_lm=_lp.querySelector('[data-t="m"]');
+function _tog(){if(_yr){_pill?.classList.remove('mo');_la?.classList.add('on');_lm?.classList.remove('on');if(_pr)_pr.textContent='$5';if(_bl)_bl.textContent='Billed $60/year';}else{_pill?.classList.add('mo');_lm?.classList.add('on');_la?.classList.remove('on');if(_pr)_pr.textContent='$7';if(_bl)_bl.textContent='Billed monthly';}}
+if(_pill)_pill.onclick=()=>{_yr=!_yr;_tog();};
+if(_la)_la.onclick=()=>{_yr=true;_tog();};
+if(_lm)_lm.onclick=()=>{_yr=false;_tog();};
+return _lp;
 }
+
 
 function renderAuth(){
   const root=el('div',{id:'auth-screen'});
