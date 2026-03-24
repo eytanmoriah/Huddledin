@@ -3224,13 +3224,15 @@ function makeDateInput(placeholder,extraAttrs={}){
   return inp;
 }
 
+function escapeHtml(str){if(!str)return '';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
 function el(tag,attrs={},kids=[]){
   const e=document.createElement(tag);
   for(const[k,v]of Object.entries(attrs)){
     if(k==='class')e.className=v;
     else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
     else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
-    else if(k==='html')e.innerHTML=v;
+    else if(k==='html')e.textContent=v; // Security: use textContent not innerHTML
     else e.setAttribute(k,v);
   }
   for(const k of kids){if(k==null)continue;e.appendChild(typeof k==='string'?document.createTextNode(k):k);}
@@ -3240,7 +3242,7 @@ const d=(cls,kids=[],s={})=>el('div',{class:cls,style:s},kids);
 const p=(t,s={})=>el('p',{style:{color:'var(--slate)',lineHeight:'1.65',fontSize:'.86rem',fontWeight:500,...s}},[t]);
 function mkBtn(label,cls,onClick,attrs={}){
   const b=el('button',{class:'btn '+cls,...attrs});
-  if(typeof label==='string')b.innerHTML=label;else b.appendChild(label);
+  if(typeof label==='string')b.textContent=label;else b.appendChild(label);
   b.addEventListener('click',onClick);return b;
 }
 function badge(t,c='teal'){return el('span',{class:`badge badge-${c}`},[t]);}
@@ -5923,7 +5925,7 @@ function renderSpecDashboard(){
     [...myNotes].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).forEach(n=>{
       const ch=DB.children.find(c=>c.id===n.childId);
       const card=el('div',{class:'card hov click',style:{display:'flex',gap:'13px',alignItems:'center'}});
-      card.innerHTML=`<span style="font-size:1.6rem">${ch?.avatar||'👤'}</span>`;
+      card.appendChild(el('span',{style:{fontSize:'1.6rem'}},[ch?.avatar||'👤']));
       const info=d('',[], {flex:1});
       info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
       info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
@@ -7750,7 +7752,8 @@ function renderCalendar(){
         if(da.length){
           da.forEach(apt=>{
             const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});
-            chip.innerHTML=`<div style="font-weight:800;color:var(--navy);margin-bottom:4px">${aptDisplayTitle(apt)}</div><div style="font-size:.8rem;color:var(--slate)">${aptDisplaySub(apt)} · ${apt.time}</div>`;
+            chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[aptDisplayTitle(apt)]));
+            chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[aptDisplaySub(apt)+' · '+(apt.time||'')]));
             mb.appendChild(chip);
           });
           mb.appendChild(el('div',{style:{height:'12px'}}));
@@ -11298,7 +11301,8 @@ function showAddChildModal(){
       const reader=new FileReader();
       reader.onload=ev=>{
         photoData=ev.target.result;
-        photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700">Photo selected ✓</div>`;
+        photoWrap.innerHTML='';const _pImg2=el('img',{class:'photo-preview',src:photoData||''});photoWrap.appendChild(_pImg2);
+        photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700}},['Photo selected ✓']));
       };
       reader.readAsDataURL(f);
     };
@@ -11331,7 +11335,9 @@ function showChildPhotoModal(child){
     let photoData=child.photo||null;
     const photoWrap=el('div',{class:'photo-upload-area',style:{marginBottom:'16px'}});
     if(child.photo){
-      photoWrap.innerHTML=`<img src="${child.photo}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Current photo — click to change</div>`;
+      const _pImg=el('img',{class:'photo-preview',src:child.photo||''});
+      photoWrap.appendChild(_pImg);
+      photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['Current photo — click to change']));
     } else {
       photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
     }
@@ -11357,7 +11363,8 @@ function showChildPhotoModal(child){
         useBtn.onclick=()=>{
           const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
           photoData=canvas.toDataURL('image/jpeg',0.88);
-          photoWrap.innerHTML=`<img src="${photoData}" class="photo-preview"/><div style="font-size:.78rem;color:var(--teal);font-weight:700;margin-top:6px">Photo cropped ✓</div>`;
+          photoWrap.innerHTML='';const _pImg3=el('img',{class:'photo-preview',src:photoData||''});photoWrap.appendChild(_pImg3);
+          photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['Photo cropped ✓']));
           cropper.destroy();ov.remove();
         };
         foot.appendChild(useBtn);
