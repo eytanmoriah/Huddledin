@@ -3455,7 +3455,82 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
 
 
 /* -----------------------------------------------
-   WEB AUTH MODAL (placeholder — triggers mobile auth for now)
+   FOR SPECIALISTS MODAL
+----------------------------------------------- */
+function showSpecialistModal(){
+  document.getElementById('spec-info-overlay')?.remove();
+  const ov=document.createElement('div');ov.id='spec-info-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px;animation:hudFadeIn .15s ease-out';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const _esc=e=>{if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_esc);}};
+  document.addEventListener('keydown',_esc);
+
+  const card=document.createElement('div');
+  card.style.cssText='background:#fff;border-radius:16px;padding:40px;max-width:640px;width:100%;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  const x=document.createElement('button');x.textContent='✕';x.style.cssText='position:absolute;top:14px;right:14px;background:none;border:none;font-size:18px;color:#7aaba5;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px';
+  x.onmouseenter=()=>x.style.background='#f0f7f6';x.onmouseleave=()=>x.style.background='none';
+  x.onclick=()=>{ov.remove();document.removeEventListener('keydown',_esc);};
+  card.appendChild(x);
+
+  card.innerHTML+=`
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+    <div style="width:40px;height:40px;background:#0d9488;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🩺</div>
+    <div style="font-size:22px;font-weight:600;color:#0f1a18">Huddledin for Specialists</div>
+  </div>
+  <p style="font-size:14px;color:#7aaba5;margin:0 0 28px">The care coordination platform built around your patients</p>
+
+  <h3 style="font-size:16px;font-weight:600;color:#0f1a18;margin:0 0 16px">Getting started is simple</h3>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:32px">
+    <div style="background:#f0f7f6;padding:20px;border-radius:12px">
+      <div style="font-size:24px;margin-bottom:10px">📩</div>
+      <div style="font-size:14px;font-weight:600;color:#0f1a18;margin-bottom:6px">A family invites you</div>
+      <div style="font-size:13px;color:#4a7570;line-height:1.55">A parent sends you an invite link or code. Accept it, create your free account, and you're immediately connected.</div>
+    </div>
+    <div style="background:#f0f7f6;padding:20px;border-radius:12px">
+      <div style="font-size:24px;margin-bottom:10px">🩺</div>
+      <div style="font-size:14px;font-weight:600;color:#0f1a18;margin-bottom:6px">You invite a family</div>
+      <div style="font-size:13px;color:#4a7570;line-height:1.55">Create your free specialist account and invite your patient's family to join. They sign up, you're connected — coordination starts immediately.</div>
+    </div>
+    <div style="background:#f0f7f6;padding:20px;border-radius:12px">
+      <div style="font-size:24px;margin-bottom:10px">➕</div>
+      <div style="font-size:14px;font-weight:600;color:#0f1a18;margin-bottom:6px">Sign up and grow</div>
+      <div style="font-size:13px;color:#4a7570;line-height:1.55">Already on Huddledin? Add new patients anytime and build your full caseload in one place.</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:16px;font-weight:600;color:#0f1a18;margin:0 0 6px">Core features are always free for specialists</h3>
+  <p style="font-size:13px;color:#7aaba5;margin:0 0 16px">No trial. No credit card. No catch.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px">
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">📋</span><div><strong>Session notes</strong><br/>Private clinical notes + parent-friendly summaries you control</div></div>
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">✅</span><div><strong>Home exercises</strong><br/>Assign tasks, set schedules, track completion</div></div>
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">💬</span><div><strong>Secure messaging</strong><br/>Direct chat with parents and co-treating specialists</div></div>
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">📅</span><div><strong>Shared calendar</strong><br/>Coordinate appointments across the care team</div></div>
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">📁</span><div><strong>File sharing</strong><br/>Secure document storage with permission controls</div></div>
+    <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#2d4a46;line-height:1.5"><span style="flex-shrink:0">👥</span><div><strong>Care team view</strong><br/>See all specialists working with each patient</div></div>
+  </div>
+
+  <div style="background:#0d9488;border-radius:12px;padding:24px;margin-bottom:28px;color:#fff">
+    <div style="font-size:24px;margin-bottom:8px;opacity:.6">❝</div>
+    <p style="font-size:15px;line-height:1.65;margin:0 0 12px;font-style:italic">"I used to spend 20 minutes at the start of every session asking parents what other therapists had said. Now I just check Huddledin."</p>
+    <p style="font-size:13px;opacity:.7;margin:0">— Occupational Therapist</p>
+  </div>
+
+  <div style="display:flex;gap:12px" id="spec-modal-btns">
+    <button style="flex:1;padding:12px;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;border:1.5px solid #0d9488;background:transparent;color:#0d9488;transition:background .15s;font-family:inherit" data-sm="signin">Sign in</button>
+    <button style="flex:1;padding:12px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:none;background:#0d9488;color:#fff;transition:background .15s;font-family:inherit" data-sm="signup">Create free account</button>
+  </div>
+  `;
+
+  // Wire footer buttons
+  card.querySelector('[data-sm="signin"]').onclick=()=>{ov.remove();document.removeEventListener('keydown',_esc);showWebAuthModal('signin');};
+  card.querySelector('[data-sm="signup"]').onclick=()=>{ov.remove();document.removeEventListener('keydown',_esc);showWebAuthModal('signup');};
+
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+}
+
+/* -----------------------------------------------
+   WEB AUTH MODAL
 ----------------------------------------------- */
 function showWebAuthModal(tab){
   if(window.innerWidth<1024){S._authTab=tab==='signin'?'signin':'signup';S._showLanding=false;re();return;}
@@ -3711,7 +3786,7 @@ _lp.innerHTML=`<style>
   <div class="lp-nav-links">
     <a class="lp-nav-link" data-scroll="lp-features">Features</a>
     <a class="lp-nav-link" data-scroll="lp-pricing">Pricing</a>
-    <a class="lp-nav-link" href="mailto:specialists@huddledin.com">For Specialists</a>
+    <a class="lp-nav-link" href="#" data-action="spec-modal">For Specialists</a>
     <button class="lp-nav-link" data-auth="signin">Sign in</button>
     <button class="lp-nav-cta" data-auth="signup">Get started free</button>
   </div>
@@ -3730,9 +3805,9 @@ _lp.innerHTML=`<style>
     <p class="lp-hero-fine">No credit card required · 14-day free trial</p>
   </div>
   <div class="lp-hero-photos">
-    <img class="lp-ph-big" src="https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=400&h=500&fit=crop" alt="Child smiling" onerror="this.style.display='none'"/>
-    <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=300&h=240&fit=crop" alt="Therapy session" onerror="this.style.display='none'"/>
-    <img src="https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=300&h=240&fit=crop" alt="Child learning" onerror="this.style.display='none'"/>
+    <img class="lp-ph-big" src="https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=600&h=500&fit=crop" alt="Child in therapy session" onerror="this.src='https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=500&fit=crop'"/>
+    <img src="https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=300&h=240&fit=crop" alt="Specialist with child" onerror="this.src='https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=500&fit=crop'"/>
+    <img src="https://images.unsplash.com/photo-1536640712-4d4c36ff0e4e?w=300&h=240&fit=crop" alt="Parent and child" onerror="this.src='https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=500&fit=crop'"/>
     <div class="lp-hero-chip"><div class="lp-hero-chip-bell">🔔</div><div><strong style="color:#0f1a18">Session reminder</strong><br/><span style="color:#7aaba5">Speech therapy at 2pm</span></div></div>
   </div>
 </div></section>
@@ -3760,13 +3835,13 @@ _lp.innerHTML=`<style>
         <li>HIPAA compliance in progress — your data is always encrypted and private</li>
       </ul>
     </div>
-    <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=500&h=400&fit=crop" alt="Parent and child" onerror="this.style.display='none'"/>
+    <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=500&h=400&fit=crop" alt="Specialist meeting with family" onerror="this.src='https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=500&fit=crop'"/>
   </div>
 </div></section>
 
 <!-- TESTIMONIAL -->
 <section class="lp-testi"><div class="lp-c">
-  <img src="https://images.unsplash.com/photo-1491013516836-7db643ee125a?w=500&h=400&fit=crop" alt="Mother with child" onerror="this.style.display='none'"/>
+  <img src="https://images.unsplash.com/photo-1491013516836-7db643ee125a?w=500&h=400&fit=crop" alt="Mother with child" onerror="this.src='https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=500&fit=crop'"/>
   <div>
     <div class="lp-testi-q">❝</div>
     <blockquote>Huddledin has been a game-changer for our family. With Emma seeing four different therapists, I was drowning in paperwork and trying to remember who said what. Now everything is in one place, and her entire team can collaborate. It's given me peace of mind.</blockquote>
@@ -3858,6 +3933,7 @@ _lp.innerHTML=`<style>
 // Wire buttons
 _lp.querySelectorAll('[data-auth]').forEach(b=>{b.addEventListener('click',()=>{showWebAuthModal(b.dataset.auth);});});
 _lp.querySelectorAll('[data-scroll]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:'smooth'});});});
+_lp.querySelectorAll('[data-action="spec-modal"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();showSpecialistModal();});});
 // Pricing toggle
 let _yr=true;
 const _pill=_lp.querySelector('[data-t="pill"]'),_pr=_lp.querySelector('[data-t="price"]'),_bl=_lp.querySelector('[data-t="bill"]'),_la=_lp.querySelector('[data-t="a"]'),_lm=_lp.querySelector('[data-t="m"]');
