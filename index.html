@@ -3458,9 +3458,138 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
    WEB AUTH MODAL (placeholder — triggers mobile auth for now)
 ----------------------------------------------- */
 function showWebAuthModal(tab){
-  S._authTab=tab==='signin'?'signin':'signup';
-  S._showLanding=false;
-  re();
+  if(window.innerWidth<1024){S._authTab=tab==='signin'?'signin':'signup';S._showLanding=false;re();return;}
+  document.getElementById('web-auth-overlay')?.remove();
+  let _mode=tab==='signin'?'signin':'signup';
+  let _role=null; // null = show role picker on signup
+
+  // Overlay
+  const ov=document.createElement('div');
+  ov.id='web-auth-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;animation:hudFadeIn .15s ease-out';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const _esc=e=>{if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_esc);}};
+  document.addEventListener('keydown',_esc);
+
+  // Card
+  const card=document.createElement('div');
+  card.style.cssText='background:#fff;border-radius:16px;padding:40px;max-width:480px;width:92%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  const x=document.createElement('button');
+  x.textContent='✕';x.style.cssText='position:absolute;top:14px;right:14px;background:none;border:none;font-size:18px;color:#7aaba5;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px';
+  x.onmouseenter=()=>x.style.background='#f0f7f6';x.onmouseleave=()=>x.style.background='none';
+  x.onclick=()=>{ov.remove();document.removeEventListener('keydown',_esc);};
+  card.appendChild(x);
+  const fw=document.createElement('div');card.appendChild(fw);
+  ov.appendChild(card);
+
+  // Helpers
+  const _logo=()=>{
+    const w=document.createElement('div');w.style.cssText='display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px';
+    if(HUD_LOGO_SRC){const img=document.createElement('img');img.src=HUD_LOGO_SRC;img.style.height='36px';w.appendChild(img);}
+    else{const ic=document.createElement('div');ic.style.cssText='width:36px;height:36px;background:#0d9488;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px';ic.textContent='🤝';w.appendChild(ic);const t=document.createElement('span');t.style.cssText='font-size:20px;font-weight:600;color:#0f1a18';t.textContent='Huddledin';w.appendChild(t);}
+    return w;
+  };
+  const _inp=(ph,type)=>{const i=document.createElement('input');i.type=type||'text';i.placeholder=ph;i.style.cssText='width:100%;padding:12px 16px;border:1.5px solid #e8f4f2;border-radius:10px;font-size:15px;margin-bottom:12px;outline:none;transition:border-color .15s;box-sizing:border-box;font-family:inherit';i.onfocus=()=>i.style.borderColor='#0d9488';i.onblur=()=>i.style.borderColor='#e8f4f2';return i;};
+  const _btn=(text,primary)=>{const b=document.createElement('button');b.textContent=text;b.style.cssText='width:100%;padding:14px;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:background .15s;border:none;font-family:inherit;'+(primary?'background:#0d9488;color:#fff;':'background:#fff;color:#2d4a46;border:1.5px solid #e8f4f2;');return b;};
+  const _divider=()=>{const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:12px;margin:16px 0';d.innerHTML='<div style="flex:1;height:1px;background:#e8f4f2"></div><span style="font-size:13px;color:#7aaba5">or</span><div style="flex:1;height:1px;background:#e8f4f2"></div>';return d;};
+  const _gBtn=()=>{const g=document.createElement('button');g.style.cssText='width:100%;padding:12px;background:#fff;color:#2d4a46;border:1.5px solid #e8f4f2;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;transition:border-color .15s;font-family:inherit';g.onmouseenter=()=>g.style.borderColor='#0d9488';g.onmouseleave=()=>g.style.borderColor='#e8f4f2';g.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>Continue with Google';return g;};
+
+  function _render(){
+    fw.innerHTML='';
+
+    // ─── ROLE PICKER (signup only, before form) ───
+    if(_mode==='signup'&&!_role){
+      fw.appendChild(_logo());
+      const h=document.createElement('h2');h.style.cssText='font-size:22px;font-weight:600;color:#0f1a18;text-align:center;margin:0 0 6px';h.textContent='Create your account';fw.appendChild(h);
+      const s=document.createElement('p');s.style.cssText='font-size:14px;color:#7aaba5;text-align:center;margin:0 0 28px';s.textContent='How will you use Huddledin?';fw.appendChild(s);
+
+      const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px';
+      [{id:'specialist',icon:'🩺',label:"I'm a specialist",desc:'Manage your patients and sessions'},{id:'parent',icon:'👨‍👩‍👧',label:"I'm a parent",desc:"Coordinate your child's care team"}].forEach(r=>{
+        const c=document.createElement('div');
+        c.style.cssText='padding:24px 18px;border-radius:14px;border:2px solid #e8f4f2;cursor:pointer;text-align:center;transition:all .15s;'+(r.id==='specialist'?'order:-1;':'');
+        c.onmouseenter=()=>{if(_role!==r.id)c.style.borderColor='#0d9488';};
+        c.onmouseleave=()=>{if(_role!==r.id)c.style.borderColor='#e8f4f2';};
+        c.onclick=()=>{_role=r.id;grid.querySelectorAll('div').forEach(d=>{d.style.borderColor='#e8f4f2';d.style.background='#fff';});c.style.borderColor='#0d9488';c.style.background='#f0fdf9';nextBtn.style.opacity='1';nextBtn.disabled=false;};
+        c.innerHTML='<div style="font-size:32px;margin-bottom:10px">'+r.icon+'</div><div style="font-weight:600;color:#0f1a18;font-size:15px;margin-bottom:4px">'+escapeHtml(r.label)+'</div><div style="font-size:13px;color:#7aaba5">'+escapeHtml(r.desc)+'</div>';
+        grid.appendChild(c);
+      });
+      fw.appendChild(grid);
+
+      const nextBtn=_btn('Next →',true);nextBtn.disabled=true;nextBtn.style.opacity='.5';
+      nextBtn.onclick=()=>{if(_role)_render();};
+      fw.appendChild(nextBtn);
+
+      // Switch to sign in
+      const sw=document.createElement('div');sw.style.cssText='text-align:center;font-size:14px;color:#7aaba5;margin-top:16px';
+      sw.innerHTML='Already have an account? <a href="#" style="color:#0d9488;font-weight:500;text-decoration:none">Sign in →</a>';
+      sw.querySelector('a').onclick=e=>{e.preventDefault();_mode='signin';_role=null;_render();};
+      fw.appendChild(sw);
+      return;
+    }
+
+    // ─── FORM (sign in or sign up with role selected) ───
+    fw.appendChild(_logo());
+    const errBox=document.createElement('div');errBox.style.cssText='display:none;background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px';
+    const _err=msg=>{errBox.textContent=msg;errBox.style.display='block';};
+
+    if(_mode==='signin'){
+      const h=document.createElement('h2');h.style.cssText='font-size:22px;font-weight:600;color:#0f1a18;text-align:center;margin:0 0 6px';h.textContent='Welcome back';fw.appendChild(h);
+      const s=document.createElement('p');s.style.cssText='font-size:14px;color:#7aaba5;text-align:center;margin:0 0 24px';s.textContent='Sign in to your account';fw.appendChild(s);
+      fw.appendChild(errBox);
+      const em=_inp('Email address','email');fw.appendChild(em);
+      const pw=_inp('Password','password');fw.appendChild(pw);
+      const sub=_btn('Sign in',true);sub.style.marginTop='8px';sub.style.marginBottom='16px';
+      sub.onclick=async()=>{
+        if(!em.value.trim()||!pw.value){_err('Please fill in all fields.');return;}
+        sub.disabled=true;sub.textContent='Signing in…';errBox.style.display='none';
+        try{const r=await doLogin(em.value.trim(),pw.value,'parent','','','signin');if(r?.error){_err(r.error);sub.disabled=false;sub.textContent='Sign in';return;}ov.remove();document.removeEventListener('keydown',_esc);}catch(e){console.error('web signin:',e);_err('Something went wrong. Please try again.');sub.disabled=false;sub.textContent='Sign in';}
+      };
+      pw.onkeydown=e=>{if(e.key==='Enter')sub.click();};
+      fw.appendChild(sub);
+      fw.appendChild(_divider());
+      const g=_gBtn();g.onclick=()=>doGoogleSignIn('parent');fw.appendChild(g);
+      const sw=document.createElement('div');sw.style.cssText='text-align:center;font-size:14px;color:#7aaba5';
+      sw.innerHTML='Don\'t have an account? <a href="#" style="color:#0d9488;font-weight:500;text-decoration:none">Start your free trial →</a>';
+      sw.querySelector('a').onclick=e=>{e.preventDefault();_mode='signup';_role=null;_render();};
+      fw.appendChild(sw);
+      setTimeout(()=>em.focus(),100);
+    } else {
+      // Sign up form (role already selected)
+      const h=document.createElement('h2');h.style.cssText='font-size:22px;font-weight:600;color:#0f1a18;text-align:center;margin:0 0 6px';h.textContent='Start your 14-day free trial';fw.appendChild(h);
+      const s=document.createElement('p');s.style.cssText='font-size:14px;color:#7aaba5;text-align:center;margin:0 0 24px';s.textContent='No credit card required';fw.appendChild(s);
+      fw.appendChild(errBox);
+      const nm=_inp('Full name','text');fw.appendChild(nm);
+      let specInp=null;
+      if(_role==='specialist'){specInp=_inp('Specialty (e.g. Speech-Language Therapist)','text');fw.appendChild(specInp);}
+      const em=_inp('Email address','email');fw.appendChild(em);
+      const pw=_inp('Password','password');fw.appendChild(pw);
+      const sub=_btn('Create account',true);sub.style.marginTop='8px';sub.style.marginBottom='16px';
+      sub.onclick=async()=>{
+        if(!nm.value.trim()||!em.value.trim()||!pw.value){_err('Please fill in all fields.');return;}
+        if(_role==='specialist'&&specInp&&!specInp.value.trim()){_err('Please enter your specialty.');return;}
+        sub.disabled=true;sub.textContent='Creating account…';errBox.style.display='none';
+        try{const r=await doLogin(em.value.trim(),pw.value,_role||'parent',nm.value.trim(),specInp?.value.trim()||'','signup');if(r?.error){_err(r.error);sub.disabled=false;sub.textContent='Create account';return;}ov.remove();document.removeEventListener('keydown',_esc);}catch(e){console.error('web signup:',e);_err('Something went wrong. Please try again.');sub.disabled=false;sub.textContent='Create account';}
+      };
+      pw.onkeydown=e=>{if(e.key==='Enter')sub.click();};
+      fw.appendChild(sub);
+      fw.appendChild(_divider());
+      const g=_gBtn();g.onclick=()=>doGoogleSignIn(_role||'parent');fw.appendChild(g);
+      const sw=document.createElement('div');sw.style.cssText='text-align:center;font-size:14px;color:#7aaba5;margin-bottom:12px';
+      sw.innerHTML='Already have an account? <a href="#" style="color:#0d9488;font-weight:500;text-decoration:none">Sign in →</a>';
+      sw.querySelector('a').onclick=e=>{e.preventDefault();_mode='signin';_role=null;_render();};
+      fw.appendChild(sw);
+      const terms=document.createElement('p');terms.style.cssText='font-size:12px;color:#7aaba5;text-align:center;line-height:1.5';
+      terms.innerHTML='By creating an account you agree to our <a href="https://www.huddledin.com/terms" style="color:#0d9488;text-decoration:none" target="_blank">Terms</a> and <a href="https://www.huddledin.com/privacy" style="color:#0d9488;text-decoration:none" target="_blank">Privacy Policy</a>';
+      fw.appendChild(terms);
+      // Back to role picker link
+      const back=document.createElement('div');back.style.cssText='text-align:center;font-size:13px;color:#7aaba5;margin-top:10px;cursor:pointer';
+      back.textContent='← Change role';back.onclick=()=>{_role=null;_render();};
+      fw.appendChild(back);
+      setTimeout(()=>nm.focus(),100);
+    }
+  }
+  _render();
+  document.body.appendChild(ov);
 }
 
 /* -----------------------------------------------
