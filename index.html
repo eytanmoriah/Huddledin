@@ -4524,7 +4524,7 @@ function renderParentDesktop(){
     const cg=el('div',{style:{display:'grid',gridTemplateColumns:gridCols,gap:'16px'}});
     children.forEach(c=>{
       const badge=_childTotalBadge(c.id);
-      const specCount=getChildTeam(c.id).filter(s=>s.status==='active').length;
+      const specCount=getChildTeam(c.id).filter(s=>s.status==='active'&&s.childId===c.id).length;
       const card=el('div',{style:{background:'#fff',borderRadius:'14px',padding:childCount===1?'20px 24px':'20px',border:'1.5px solid #e8f4f2',cursor:'pointer',transition:'border-color .15s,box-shadow .15s',position:'relative',display:childCount===1?'flex':'block',alignItems:'center',gap:childCount===1?'20px':'0',maxWidth:childCount===1?'480px':'none',margin:childCount===1?'0 auto':'0'}});
       card.onmouseenter=()=>{card.style.borderColor='#0d9488';card.style.boxShadow='0 4px 16px rgba(13,148,136,.1)';};
       card.onmouseleave=()=>{card.style.borderColor='#e8f4f2';card.style.boxShadow='none';};
