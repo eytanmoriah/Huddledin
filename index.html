@@ -4400,7 +4400,7 @@ function renderParentDesktop(){
       // Override inner .section constraint (970px → 100%) for all tab content on web
       content.querySelectorAll('.section').forEach(s=>{s.style.maxWidth='100%';s.style.margin='0';s.style.padding='0';});
       // If content itself has .section class
-      if(content.classList?.contains('section')){content.style.maxWidth='100%';content.style.margin='0';}
+      if(content.classList?.contains('section')){content.style.maxWidth='100%';content.style.margin='0';content.style.padding='0';}
       prof.appendChild(content);
     }
     shell.appendChild(prof);
@@ -4426,7 +4426,10 @@ function renderParentDesktop(){
     const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
     bcBack2.onclick=()=>{S.calFullscreen=false;S.navLevel=0;re();};
     page.appendChild(bcBack2);
-    page.appendChild(el('div',{style:{marginTop:'16px'}},[renderCalFullscreen()]));
+    const _calFs=renderCalFullscreen();
+    // Override mobile fixed positioning for web — render inline
+    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:block;padding:0;width:100%';
+    page.appendChild(el('div',{style:{marginTop:'16px'}},[_calFs]));
     shell.appendChild(page);
     return shell;
   }
