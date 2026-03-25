@@ -4361,13 +4361,27 @@ function renderParentDesktop(){
   if(S.navLevel===1&&S.activeChild){
     const prof=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 32px'}});
     // Breadcrumb
-    const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'20px',fontSize:'14px'}});
+    const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent='Home';
     bcHome.onclick=()=>{S.navLevel=0;S.activeChild=null;re();};
     bc.appendChild(bcHome);bc.appendChild(el('span',{style:{color:'#7aaba5'}},['›']));
     const child=children.find(c=>c.id===S.activeChild);
     bc.appendChild(el('span',{style:{color:'#0f1a18',fontWeight:500}},[child?.name||'Child']));
     prof.appendChild(bc);
+    // Child switcher — show all children as small pills (only if >1 child)
+    if(children.length>1){
+      const sw=el('div',{style:{display:'flex',gap:'8px',marginBottom:'16px',flexWrap:'wrap'}});
+      children.forEach(c=>{
+        const isAct=c.id===S.activeChild;
+        const pill=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',padding:'5px 14px',borderRadius:'99px',fontSize:'13px',fontWeight:isAct?600:500,color:isAct?'#0d9488':'#7aaba5',background:isAct?'#f0fdf9':'transparent',border:isAct?'1.5px solid #0d9488':'1.5px solid #e8f4f2',cursor:'pointer',transition:'all .15s'}});
+        pill.appendChild(el('span',{style:{fontSize:'14px'}},[c.avatar||'🧒']));
+        pill.appendChild(document.createTextNode(c.name.split(' ')[0]));
+        if(!isAct){pill.onmouseenter=()=>{pill.style.borderColor='#0d9488';pill.style.color='#0d9488';};pill.onmouseleave=()=>{pill.style.borderColor='#e8f4f2';pill.style.color='#7aaba5';};}
+        pill.onclick=()=>{S.activeChild=c.id;if(S.activeTab==='chat'){S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;}re();};
+        sw.appendChild(pill);
+      });
+      prof.appendChild(sw);
+    }
     // Tabs
     const tabs=[{id:'calendar',label:'Calendar'},{id:'session-summaries',label:'Notes'},{id:'homework',label:'Tasks'},{id:'files',label:'Files'},{id:'chat',label:'Chat'},{id:'team',label:'Care Team'}];
     const tabBar=el('div',{style:{display:'flex',gap:'0',borderBottom:'1.5px solid #e8f4f2',marginBottom:'24px'}});
@@ -4379,9 +4393,12 @@ function renderParentDesktop(){
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
-    // Content — reuse existing render
+    // Content — reuse existing render, full width for web
     const content=renderContent();
-    if(content)prof.appendChild(content);
+    if(content){
+      content.style.maxWidth='100%';content.style.width='100%';content.style.padding='0';
+      prof.appendChild(content);
+    }
     shell.appendChild(prof);
     return shell;
   }
