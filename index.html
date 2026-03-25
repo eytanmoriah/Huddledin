@@ -3235,6 +3235,7 @@ function makeDateInput(placeholder,extraAttrs={}){
 }
 
 function escapeHtml(str){if(!str)return '';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function _stripEmoji(s){if(!s)return s;return s.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\s]+/u,'').trim();}
 
 function el(tag,attrs={},kids=[]){
   const e=document.createElement(tag);
@@ -5052,7 +5053,7 @@ function renderNotifBell(){
       const ni=el('div',{class:'notif-item'+(n.read?'':' unread'),style:_bnColor?{borderLeft:`3px solid ${_bnColor}`}:{}});
       ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
       const niBody=el('div',{});
-      niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[n.msg]));
+      niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[_stripEmoji(n.msg)]));
       niBody.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'2px'}},[n.time]));
       ni.appendChild(niBody);
       ni.onclick=async()=>{
@@ -11585,7 +11586,7 @@ function renderNotifications(){
     }});
     card.appendChild(el('span',{style:{fontSize:'1.45rem',flexShrink:0}},[notifIcon[n.type]||'📢']));
     const ncBody=el('div',{style:{flex:'1'}});
-    ncBody.appendChild(el('div',{style:{fontWeight:n.read?500:800,color:n.read?'var(--slate)':'var(--navy)',lineHeight:'1.4',marginBottom:'3px'}},[n.msg]));
+    ncBody.appendChild(el('div',{style:{fontWeight:n.read?500:800,color:n.read?'var(--slate)':'var(--navy)',lineHeight:'1.4',marginBottom:'3px'}},[_stripEmoji(n.msg)]));
     ncBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)'}},[n.time]));
     card.appendChild(ncBody);
     if(!n.read){
