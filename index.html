@@ -2560,7 +2560,7 @@ async function doLogin(email,password,role,name='',profession='',mode='signin'){
 
 async function doLogout(){
   // Reset nav state immediately — prevents stale view flashing before login screen appears
-  S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.isDrawerOpen=false;
+  S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.webCal=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
   session=null;
   _seenTimestamps={};
@@ -4336,7 +4336,7 @@ function renderParentDesktop(){
   const logo=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}});
   logo.appendChild(el('div',{style:{width:'32px',height:'32px',background:'#0d9488',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px'}},['🤝']));
   logo.appendChild(el('span',{style:{fontSize:'18px',fontWeight:600,color:'#0f1a18'}},['Huddledin']));
-  logo.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
+  logo.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
   navC.appendChild(logo);
   // Right nav
   const navR=el('div',{style:{display:'flex',alignItems:'center',gap:'24px'}});
@@ -4349,7 +4349,7 @@ function renderParentDesktop(){
   };
   const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const unreadNotifs=(DB.notifications||[]).filter(n=>!n.read).length;
-  navR.appendChild(_navLink('Calendar',()=>{S.calFullscreen=true;S.navLevel=1;re();}));
+  navR.appendChild(_navLink('Calendar',()=>{S.webCal=true;S.calendarMode='joint';S.navLevel=1;re();}));
   navR.appendChild(_navLink('Messages',()=>{S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');},unreadChats));
   navR.appendChild(_navLink('Notifications',()=>{S.navLevel=1;S.activeTab='notifications';re();},unreadNotifs));
   // Avatar with dropdown
@@ -4442,31 +4442,38 @@ function renderParentDesktop(){
     return shell;
   }
 
+  // ─── WEB CALENDAR (cross-child joint view) ───
+  if(S.webCal){
+    S.calendarMode='joint';
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1',width:'100%',minWidth:'0'}});
+    const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
+    bcBack2.onclick=()=>{S.webCal=false;S.navLevel=0;re();};
+    page.appendChild(bcBack2);
+    page.appendChild(el('h1',{style:{fontSize:'24px',fontWeight:600,color:'#0f1a18',margin:'16px 0 20px'}},['Calendar']));
+    // Render the existing calendar view in joint mode (all children, colored dots)
+    const _calContent=renderCalendar();
+    const _calWrap=el('div',{style:{width:'100%'}});
+    if(_calContent&&_calContent.classList&&_calContent.classList.contains('section')){
+      while(_calContent.firstChild)_calWrap.appendChild(_calContent.firstChild);
+    } else if(_calContent){
+      _calWrap.appendChild(_calContent);
+    }
+    page.appendChild(_calWrap);
+    shell.appendChild(page);
+    return shell;
+  }
+
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
     const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
-    bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
+    bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
     const _pgRc=renderContent();
     const _pgWrap=el('div',{style:{width:'100%',marginTop:'16px'}});
     if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
-    shell.appendChild(page);
-    return shell;
-  }
-
-  // ─── FULLSCREEN CALENDAR ───
-  if(S.calFullscreen){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
-    const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
-    bcBack2.onclick=()=>{S.calFullscreen=false;S.navLevel=0;re();};
-    page.appendChild(bcBack2);
-    const _calFs=renderCalFullscreen();
-    // Override mobile fixed positioning for web — render inline
-    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:block;padding:0;width:100%';
-    page.appendChild(el('div',{style:{marginTop:'16px'}},[_calFs]));
     shell.appendChild(page);
     return shell;
   }
@@ -4490,7 +4497,7 @@ function renderParentDesktop(){
   const todayStr=new Date().toISOString().split('T')[0];
   const tasksDue=(DB.homeworkTasks||[]).filter(t=>t.status==='active'&&children.some(c=>c.id===t.childId)).length;
   pills.appendChild(_pill(unreadNotifs+unreadChats,'unread',()=>{S.navLevel=1;S.activeTab='notifications';re();}));
-  pills.appendChild(_pill(weekApts,'this week',()=>{S.calFullscreen=true;S.navLevel=1;re();}));
+  pills.appendChild(_pill(weekApts,'this week',()=>{S.webCal=true;S.calendarMode='joint';S.navLevel=1;re();}));
   pills.appendChild(_pill(tasksDue,'tasks',()=>{if(children.length){S.activeChild=children[0].id;S.navLevel=1;S.activeTab='homework';re();}}));
   greetRow.appendChild(pills);
   main.appendChild(greetRow);
