@@ -4352,11 +4352,39 @@ function renderParentDesktop(){
   navR.appendChild(_navLink('Calendar',()=>{S.calFullscreen=true;S.navLevel=1;re();}));
   navR.appendChild(_navLink('Messages',()=>{S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');},unreadChats));
   navR.appendChild(_navLink('Notifications',()=>{S.navLevel=1;S.activeTab='notifications';re();},unreadNotifs));
-  // Avatar
+  // Avatar with dropdown
+  const avWrap=el('div',{style:{position:'relative'}});
   const av=el('div',{style:{width:'34px',height:'34px',background:'#0d9488',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'14px',fontWeight:600,cursor:'pointer'}});
   av.textContent=(session?.displayName||session?.name||'?')[0].toUpperCase();
-  av.onclick=()=>{S.navLevel=1;switchTab('settings');};
-  navR.appendChild(av);
+  av.onclick=(e)=>{
+    e.stopPropagation();
+    // Toggle dropdown
+    const existing=avWrap.querySelector('.av-dropdown');
+    if(existing){existing.remove();return;}
+    const dd=el('div',{class:'av-dropdown',style:{position:'absolute',top:'42px',right:0,background:'#fff',borderRadius:'10px',boxShadow:'0 4px 20px rgba(0,0,0,.12)',border:'1px solid #e8f4f2',minWidth:'180px',zIndex:200,overflow:'hidden',animation:'fadeIn .15s ease'}});
+    // Display name
+    dd.appendChild(el('div',{style:{padding:'12px 16px 8px',fontSize:'13px',fontWeight:600,color:'#7aaba5',borderBottom:'1px solid #f0f7f6'}},[(session?.displayName||session?.name||session?.email||'User')]));
+    // Settings
+    const settingsItem=el('div',{style:{padding:'10px 16px',fontSize:'14px',fontWeight:500,color:'#0f1a18',cursor:'pointer',transition:'background .15s'}});
+    settingsItem.textContent='Settings';
+    settingsItem.onmouseenter=()=>settingsItem.style.background='#f0fdf9';
+    settingsItem.onmouseleave=()=>settingsItem.style.background='transparent';
+    settingsItem.onclick=()=>{dd.remove();S.navLevel=1;switchTab('settings');};
+    dd.appendChild(settingsItem);
+    // Sign out
+    const soItem=el('div',{style:{padding:'10px 16px',fontSize:'14px',fontWeight:500,color:'#d4183d',cursor:'pointer',transition:'background .15s',borderTop:'1px solid #f0f7f6'}});
+    soItem.textContent='Sign out';
+    soItem.onmouseenter=()=>soItem.style.background='#fef2f2';
+    soItem.onmouseleave=()=>soItem.style.background='transparent';
+    soItem.onclick=()=>{dd.remove();doLogout();re();};
+    dd.appendChild(soItem);
+    avWrap.appendChild(dd);
+    // Close on outside click
+    const _closeDD=()=>{dd.remove();document.removeEventListener('click',_closeDD);};
+    setTimeout(()=>document.addEventListener('click',_closeDD),0);
+  };
+  avWrap.appendChild(av);
+  navR.appendChild(avWrap);
   navC.appendChild(navR);nav.appendChild(navC);shell.appendChild(nav);
 
   // ─── CHILD PROFILE MODE ───
@@ -4429,16 +4457,34 @@ function renderParentDesktop(){
     return shell;
   }
 
-  // ─── FULLSCREEN CALENDAR ───
+  // ─── FULLSCREEN CALENDAR (desktop inline) ───
   if(S.calFullscreen){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1',width:'100%',minWidth:'0'}});
     const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
     bcBack2.onclick=()=>{S.calFullscreen=false;S.navLevel=0;re();};
     page.appendChild(bcBack2);
+    // Page title + Add Event button
+    const calTitleRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:'16px',marginBottom:'20px'}});
+    calTitleRow.appendChild(el('h1',{style:{fontSize:'24px',fontWeight:600,color:'#0f1a18',margin:0}},['Calendar']));
+    const calAddBtn=el('button',{style:{background:'#0d9488',color:'#fff',border:'none',borderRadius:'10px',padding:'8px 20px',fontSize:'13px',fontWeight:600,cursor:'pointer'}});
+    calAddBtn.textContent='+ Add Event';
+    calAddBtn.onclick=()=>{
+      const _ch=DB.children||[];
+      if(!S.activeChild&&_ch.length>0)S.activeChild=_ch[0].id;
+      if(!S.activeChild){toast('Add a child profile first.','error');return;}
+      showAddEventModal();
+    };
+    calTitleRow.appendChild(calAddBtn);
+    page.appendChild(calTitleRow);
     const _calFs=renderCalFullscreen();
-    // Override mobile fixed positioning for web — render inline
-    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:block;padding:0;width:100%';
-    page.appendChild(el('div',{style:{marginTop:'16px'}},[_calFs]));
+    // Override mobile fixed positioning — render inline
+    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:flex;flex-direction:column;padding:0;width:100%';
+    // Replace mobile header with clean month nav only (keep arrows + label, hide logo/legend)
+    const _calFsHd=_calFs.querySelector('.cal-fs-hd');
+    if(_calFsHd)_calFsHd.style.display='none';
+    const _calFsBody=_calFs.querySelector('.cal-fs-body');
+    if(_calFsBody)_calFsBody.style.padding='0';
+    page.appendChild(_calFs);
     shell.appendChild(page);
     return shell;
   }
@@ -4589,8 +4635,8 @@ function renderShell(){
     return renderPaywall();
   }
 
-  // Full-screen calendar overlay (always on top)
-  if(S.calFullscreen){
+  // Full-screen calendar overlay — mobile only (desktop parent handles cal inline)
+  if(S.calFullscreen&&!(session?.role==='parent'&&window.innerWidth>=1024)){
     const shell=el('div',{id:'app-shell'});
     shell.appendChild(renderHeader());
     shell.appendChild(renderCalFullscreen());
