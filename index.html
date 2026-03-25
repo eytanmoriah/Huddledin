@@ -4411,6 +4411,8 @@ function renderParentDesktop(){
       prof.appendChild(contentWrap);
     }
     shell.appendChild(prof);
+    // TEMP DEBUG — remove after investigation
+    requestAnimationFrame(()=>console.log('CHAIN:',prof.offsetWidth,prof.firstChild?.offsetWidth,prof.firstChild?.firstChild?.offsetWidth,prof.firstChild?.firstChild?.firstChild?.offsetWidth));
     return shell;
   }
 
