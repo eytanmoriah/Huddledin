@@ -4412,7 +4412,7 @@ function renderParentDesktop(){
     }
     shell.appendChild(prof);
     // TEMP DEBUG — remove after investigation
-    requestAnimationFrame(()=>console.log('CHAIN:',prof.offsetWidth,prof.firstChild?.offsetWidth,prof.firstChild?.firstChild?.offsetWidth,prof.firstChild?.firstChild?.firstChild?.offsetWidth));
+    requestAnimationFrame(()=>{let _d=prof;while(_d){const cs=getComputedStyle(_d);console.log('ANCESTOR:',_d.tagName,_d.className||'(none)',_d.id||'(none)','offsetW='+_d.offsetWidth,'style.w='+_d.style.width,'style.maxW='+_d.style.maxWidth,'computed.w='+cs.width,'computed.maxW='+cs.maxWidth,'computed.flex='+cs.flex,'computed.display='+cs.display);_d=_d.parentElement;}});
     return shell;
   }
 
