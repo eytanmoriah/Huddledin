@@ -8472,7 +8472,8 @@ function renderCalendar(){
     :_allApts.filter(a=>(S.activeChild?a.childId===S.activeChild:_myPatientIds.includes(a.childId))&&(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id))));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
-  const sec=el('div',{class:'section'});
+  const _isWebCal=window.innerWidth>=1024;
+  const sec=el('div',{class:'section',style:_isWebCal?{maxWidth:'100%',width:'100%',margin:'0'}:{}});
   if(isParent){
     const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
     rightEl.appendChild(mkBtn('📅','btn-sm btn-ghost',()=>showGoogleSyncModal()));
@@ -8501,7 +8502,8 @@ function renderCalendar(){
   const calTodayStr=calNow.toISOString().split('T')[0];
   const calTodayDay=calNow.getDate();
 
-  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px'}});
+  const _isWeb=window.innerWidth>=1024;
+  const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px',width:_isWeb?'100%':'auto'}});
   const calHd2=el('div',{class:'cal-hd'});
   calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">${calNow.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
   calCard.appendChild(calHd2);
@@ -8550,8 +8552,8 @@ function renderCalendar(){
   calCard.appendChild(cg);
   sec.appendChild(calCard);
 
-  sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['Upcoming Events']));
-  const stack=el('div',{class:'stack'});
+  sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px',width:_isWeb?'100%':'auto'}},['Upcoming Events']));
+  const stack=el('div',{class:'stack',style:{width:_isWeb?'100%':'auto'}});
   const todayStr2=new Date().toISOString().split('T')[0];
   [...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
     const ch=DB.children.find(c=>c.id===apt.childId);
