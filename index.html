@@ -4457,34 +4457,16 @@ function renderParentDesktop(){
     return shell;
   }
 
-  // ─── FULLSCREEN CALENDAR (desktop inline) ───
+  // ─── FULLSCREEN CALENDAR ───
   if(S.calFullscreen){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1',width:'100%',minWidth:'0'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
     bcBack2.onclick=()=>{S.calFullscreen=false;S.navLevel=0;re();};
     page.appendChild(bcBack2);
-    // Page title + Add Event button
-    const calTitleRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:'16px',marginBottom:'20px'}});
-    calTitleRow.appendChild(el('h1',{style:{fontSize:'24px',fontWeight:600,color:'#0f1a18',margin:0}},['Calendar']));
-    const calAddBtn=el('button',{style:{background:'#0d9488',color:'#fff',border:'none',borderRadius:'10px',padding:'8px 20px',fontSize:'13px',fontWeight:600,cursor:'pointer'}});
-    calAddBtn.textContent='+ Add Event';
-    calAddBtn.onclick=()=>{
-      const _ch=DB.children||[];
-      if(!S.activeChild&&_ch.length>0)S.activeChild=_ch[0].id;
-      if(!S.activeChild){toast('Add a child profile first.','error');return;}
-      showAddEventModal();
-    };
-    calTitleRow.appendChild(calAddBtn);
-    page.appendChild(calTitleRow);
     const _calFs=renderCalFullscreen();
-    // Override mobile fixed positioning — render inline
-    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:flex;flex-direction:column;padding:0;width:100%';
-    // Replace mobile header with clean month nav only (keep arrows + label, hide logo/legend)
-    const _calFsHd=_calFs.querySelector('.cal-fs-hd');
-    if(_calFsHd)_calFsHd.style.display='none';
-    const _calFsBody=_calFs.querySelector('.cal-fs-body');
-    if(_calFsBody)_calFsBody.style.padding='0';
-    page.appendChild(_calFs);
+    // Override mobile fixed positioning for web — render inline
+    _calFs.style.cssText='position:static;inset:auto;z-index:auto;background:transparent;display:block;padding:0;width:100%';
+    page.appendChild(el('div',{style:{marginTop:'16px'}},[_calFs]));
     shell.appendChild(page);
     return shell;
   }
@@ -4635,8 +4617,8 @@ function renderShell(){
     return renderPaywall();
   }
 
-  // Full-screen calendar overlay — mobile only (desktop parent handles cal inline)
-  if(S.calFullscreen&&!(session?.role==='parent'&&window.innerWidth>=1024)){
+  // Full-screen calendar overlay (always on top)
+  if(S.calFullscreen){
     const shell=el('div',{id:'app-shell'});
     shell.appendChild(renderHeader());
     shell.appendChild(renderCalFullscreen());
