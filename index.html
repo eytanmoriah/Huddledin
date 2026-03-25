@@ -279,6 +279,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* -- SECTION / PAGE -- */
 .section{padding:20px 16px 16px;max-width:970px;margin:0 auto;animation:fadeIn .2s ease}
+.web-parent-view .section{max-width:100%!important;margin:0!important;padding-left:0!important;padding-right:0!important}
 .page-title{font-family:'Fraunces',serif;font-size:1.45rem;font-weight:800;color:var(--navy);margin-bottom:2px;line-height:1.2}
 .page-sub{color:var(--slate);font-size:.8rem;margin-bottom:16px;font-weight:500}
 .sec-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;flex-wrap:wrap}
@@ -4359,7 +4360,7 @@ function renderParentDesktop(){
 
   // ─── CHILD PROFILE MODE ───
   if(S.navLevel===1&&S.activeChild){
-    const prof=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     // Breadcrumb
     const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent='Home';
@@ -4393,29 +4394,9 @@ function renderParentDesktop(){
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
-    // Content — reuse existing render, force full width for web
+    // Content — reuse existing render (CSS .web-parent-view .section handles width override)
     const content=renderContent();
     if(content){
-      // Force !important overrides on content root and all .section elements to beat CSS specificity
-      const _forceWide=(el)=>{
-        const cur=el.getAttribute('style')||'';
-        el.setAttribute('style',cur+';max-width:100%!important;width:100%!important;margin:0!important;padding:0!important');
-      };
-      _forceWide(content);
-      // Override every .section, .global-home, .cal-fullscreen, .mini-cal-card inside
-      content.querySelectorAll('.section,.global-home,.cal-fullscreen,.mini-cal-card').forEach(_forceWide);
-      // Also force every direct ancestor chain — any intermediate div that might constrain
-      content.querySelectorAll('div,section,main').forEach(child=>{
-        const cur=child.getAttribute('style')||'';
-        // Only override if this element has a constraining max-width or auto margin from CSS class
-        if(child.className&&(child.className.includes('section')||child.className.includes('cal-')||child.className.includes('mini-cal'))){
-          child.setAttribute('style',cur+';max-width:100%!important;width:100%!important;margin:0!important');
-        }
-      });
-      // Force cards and calendar grid elements to full width
-      content.querySelectorAll('.card,.cal-grid,.cal-hd,.mini-cal-hd,.mini-cal-body').forEach(e=>{
-        e.style.width='100%';e.style.maxWidth='100%';
-      });
       prof.appendChild(content);
     }
     shell.appendChild(prof);
@@ -4424,12 +4405,11 @@ function renderParentDesktop(){
 
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    const page=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
     page.appendChild(bcBack);
     const _pgContent=renderContent();
-    if(_pgContent){_pgContent.querySelectorAll('.section').forEach(s=>{s.style.maxWidth='100%';s.style.margin='0';});if(_pgContent.classList?.contains('section')){_pgContent.style.maxWidth='100%';_pgContent.style.margin='0';}}
     page.appendChild(el('div',{style:{marginTop:'16px'}},[_pgContent]));
     shell.appendChild(page);
     return shell;
