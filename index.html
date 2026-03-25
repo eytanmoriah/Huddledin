@@ -279,7 +279,6 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* -- SECTION / PAGE -- */
 .section{padding:20px 16px 16px;max-width:970px;margin:0 auto;animation:fadeIn .2s ease}
-.web-parent-view .section{max-width:100%!important;margin:0!important;padding-left:0!important;padding-right:0!important}
 .page-title{font-family:'Fraunces',serif;font-size:1.45rem;font-weight:800;color:var(--navy);margin-bottom:2px;line-height:1.2}
 .page-sub{color:var(--slate);font-size:.8rem;margin-bottom:16px;font-weight:500}
 .sec-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;flex-wrap:wrap}
@@ -4360,7 +4359,8 @@ function renderParentDesktop(){
 
   // ─── CHILD PROFILE MODE ───
   if(S.navLevel===1&&S.activeChild){
-    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    // Use exact same container as home dashboard — plain div, no .section class
+    const prof=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     // Breadcrumb
     const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent='Home';
@@ -4394,10 +4394,19 @@ function renderParentDesktop(){
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
-    // Content — reuse existing render (CSS .web-parent-view .section handles width override)
-    const content=renderContent();
-    if(content){
-      prof.appendChild(content);
+    // Content — get from renderContent(), then move children out of .section wrapper into prof directly
+    const _rc=renderContent();
+    if(_rc){
+      // If the returned element has class .section, extract its children into a plain wrapper
+      // This bypasses the .section{max-width:970px} constraint entirely
+      const contentWrap=el('div',{style:{width:'100%'}});
+      if(_rc.classList&&_rc.classList.contains('section')){
+        // Move all children from the .section div into our plain wrapper
+        while(_rc.firstChild)contentWrap.appendChild(_rc.firstChild);
+      } else {
+        contentWrap.appendChild(_rc);
+      }
+      prof.appendChild(contentWrap);
     }
     shell.appendChild(prof);
     return shell;
@@ -4405,12 +4414,15 @@ function renderParentDesktop(){
 
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
-    const page=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
     page.appendChild(bcBack);
-    const _pgContent=renderContent();
-    page.appendChild(el('div',{style:{marginTop:'16px'}},[_pgContent]));
+    const _pgRc=renderContent();
+    const _pgWrap=el('div',{style:{width:'100%',marginTop:'16px'}});
+    if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
+    else if(_pgRc){_pgWrap.appendChild(_pgRc);}
+    page.appendChild(_pgWrap);
     shell.appendChild(page);
     return shell;
   }
