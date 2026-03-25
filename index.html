@@ -4393,14 +4393,29 @@ function renderParentDesktop(){
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
-    // Content — reuse existing render, override .section max-width for web
+    // Content — reuse existing render, force full width for web
     const content=renderContent();
     if(content){
-      content.style.maxWidth='100%';content.style.width='100%';content.style.padding='0';
-      // Override inner .section constraint (970px → 100%) for all tab content on web
-      content.querySelectorAll('.section').forEach(s=>{s.style.maxWidth='100%';s.style.margin='0';s.style.padding='0';});
-      // If content itself has .section class
-      if(content.classList?.contains('section')){content.style.maxWidth='100%';content.style.margin='0';content.style.padding='0';}
+      // Recursively override all width constraints on all descendant divs
+      const _webExpand=(node)=>{
+        if(!node||!node.style)return;
+        const cs=node.style;
+        if(cs.maxWidth||cs.width||cs.margin){
+          cs.maxWidth='100%';cs.width='100%';cs.margin='0';
+        }
+        // Also force on elements with constraining classes
+        if(node.classList&&(node.classList.contains('section')||node.classList.contains('cal-fullscreen')||node.classList.contains('global-home')||node.classList.contains('mini-cal-card'))){
+          cs.maxWidth='100%';cs.width='100%';cs.margin='0';cs.padding='0';cs.position='static';cs.inset='auto';
+        }
+        node.querySelectorAll('div,section,main').forEach(child=>{
+          const s=child.style;
+          const comp=getComputedStyle(child);
+          if(comp.maxWidth!=='none'&&parseInt(comp.maxWidth)<1200){s.maxWidth='100%';}
+          if(comp.marginLeft==='auto'||comp.marginRight==='auto'){s.margin='0';}
+        });
+      };
+      content.style.maxWidth='100%';content.style.width='100%';content.style.padding='0';content.style.margin='0';
+      _webExpand(content);
       prof.appendChild(content);
     }
     shell.appendChild(prof);
