@@ -6552,22 +6552,6 @@ function renderParentDashboard(){
   const pushBanner=renderPushBanner();
   if(pushBanner)sec.appendChild(pushBanner);
 
-  // PTR
-  const ptr=el('div',{class:'ptr-indicator',id:'ptr-indicator'});
-  ptr.innerHTML='<span class="ptr-spinner">🔄</span> <span>Refreshing…</span>';
-  sec.appendChild(ptr);
-  let ptrStart=0;
-  sec.addEventListener('touchstart',e=>{ptrStart=e.touches[0].clientY;},{passive:true});
-  sec.addEventListener('touchmove',e=>{
-    const scrollEl=document.getElementById('main');
-    if(scrollEl&&scrollEl.scrollTop===0&&e.touches[0].clientY-ptrStart>60)ptr.classList.add('visible');
-  },{passive:true});
-  sec.addEventListener('touchend',()=>{
-    if(ptr.classList.contains('visible')){
-      setTimeout(()=>{ptr.classList.remove('visible');toast('✅ Dashboard refreshed!');},900);
-    }
-  });
-
   // Welcome card
   const welcome=el('div',{class:'welcome-card'});
   // FIX QA-SEC-2: build welcome card with safe text nodes to avoid XSS from user-controlled data
