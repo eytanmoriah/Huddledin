@@ -4349,9 +4349,9 @@ function renderParentDesktop(){
   };
   const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const unreadNotifs=(DB.notifications||[]).filter(n=>!n.read).length;
-  navR.appendChild(_navLink('Calendar',()=>{S.webCal=true;S.calendarMode='joint';S.navLevel=1;re();}));
-  navR.appendChild(_navLink('Messages',()=>{S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');},unreadChats));
-  navR.appendChild(_navLink('Notifications',()=>{S.navLevel=1;S.activeTab='notifications';re();},unreadNotifs));
+  navR.appendChild(_navLink('Calendar',()=>{S.activeChild=null;S.webCal=true;S.calendarMode='joint';S.navLevel=0;re();}));
+  navR.appendChild(_navLink('Messages',()=>{S.activeChild=null;S.webCal=false;S.activeChatChildId=null;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';S.navLevel=1;re();},unreadChats));
+  navR.appendChild(_navLink('Notifications',()=>{S.activeChild=null;S.webCal=false;S.navLevel=1;S.activeTab='notifications';re();},unreadNotifs));
   // Avatar with dropdown
   const avWrap=el('div',{style:{position:'relative'}});
   const av=el('div',{style:{width:'34px',height:'34px',background:'#0d9488',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'14px',fontWeight:600,cursor:'pointer'}});
@@ -6751,9 +6751,11 @@ function renderSpecDashboard(){
 ----------------------------------------------- */
 function mkSubHeader(title,rightEl=null){
   const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
-  const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
-  backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
-  hd.appendChild(backBtn);
+  if(!(window.innerWidth>=1024&&session?.role==='parent')){
+    const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
+    backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
+    hd.appendChild(backBtn);
+  }
   // Child color chip in center alongside title
   const titleRow=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}});
   titleRow.appendChild(el('h2',{class:'page-title',style:{margin:'0',fontSize:'1rem'}},[title]));
@@ -8880,7 +8882,7 @@ function renderChat(){
     backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
     titleRow.appendChild(backBtn);
   } else {
-    if(role==='parent'&&S.activeChatChildId){
+    if(role==='parent'&&S.activeChatChildId&&!(window.innerWidth>=1024)){
       const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'inline-flex',alignItems:'center',gap:'4px',padding:'0',minHeight:'44px'}},['← Back']);
       _cbBtn.onclick=()=>{S.activeTab='dashboard';re();};
       titleRow.appendChild(_cbBtn);
@@ -11193,11 +11195,13 @@ function renderHomeworkParent(){
   const allTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status!=='deleted');
   const allOccs=DB.homeworkOccurrences||[];
   const sec=el('div',{class:'section'});
-  // Back button
-  const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},['← Back']);
-  backBtn.onclick=()=>{S.activeTab='dashboard';re();};
-  backBar.appendChild(backBtn);sec.appendChild(backBar);
+  // Back button (mobile only — web has breadcrumb nav)
+  if(!(window.innerWidth>=1024&&session?.role==='parent')){
+    const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
+    const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},['← Back']);
+    backBtn.onclick=()=>{S.activeTab='dashboard';re();};
+    backBar.appendChild(backBtn);sec.appendChild(backBar);
+  }
   sec.appendChild(el('h2',{class:'page-title'},['Homework & Tasks']));
   sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s assigned tasks"]));
   // Tabs
@@ -12385,9 +12389,11 @@ function renderSessionSummaries(){
   // ── STEP 1: Specialist picker ──
   const selectedSpec=S._summarySpecFilter||null;
   if(!selectedSpec){
-    const backBtn=mkBtn('← Back','btn-sm btn-ghost',()=>{switchTab('dashboard');});
-    backBtn.style.marginBottom='16px';
-    sec.appendChild(backBtn);
+    if(!(window.innerWidth>=1024&&session?.role==='parent')){
+      const backBtn=mkBtn('← Back','btn-sm btn-ghost',()=>{switchTab('dashboard');});
+      backBtn.style.marginBottom='16px';
+      sec.appendChild(backBtn);
+    }
     sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
     sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+' · Select a provider to view their summaries']));
 
