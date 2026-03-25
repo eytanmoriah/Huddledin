@@ -4624,11 +4624,16 @@ function renderShell(){
     return renderPaywall();
   }
 
-  // Full-screen calendar overlay (always on top)
+  // Calendar view — renders in normal content area below header (not fullscreen overlay)
   if(S.calFullscreen){
+    S.calendarMode='joint';
     const shell=el('div',{id:'app-shell'});
     shell.appendChild(renderHeader());
-    shell.appendChild(renderCalFullscreen());
+    const calBody=el('div',{id:'body'});
+    const calMain=el('main',{id:'main'});
+    calMain.appendChild(renderCalendar());
+    calBody.appendChild(calMain);
+    shell.appendChild(calBody);
     shell.appendChild(renderBottomNav());
     return shell;
   }
