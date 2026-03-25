@@ -4362,7 +4362,7 @@ function renderParentDesktop(){
   // ─── CHILD PROFILE MODE ───
   if(S.navLevel===1&&S.activeChild){
     // Use exact same container as home dashboard — plain div, no .section class
-    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1'}});
+    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1',width:'100%',minWidth:'0'}});
     // Breadcrumb
     const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent='Home';
@@ -4411,8 +4411,6 @@ function renderParentDesktop(){
       prof.appendChild(contentWrap);
     }
     shell.appendChild(prof);
-    // TEMP DEBUG
-    requestAnimationFrame(()=>{let _d=shell;while(_d){const cs=getComputedStyle(_d);console.log('ANCESTOR:',_d.tagName,_d.className||'(none)',_d.id||'(none)','offsetW='+_d.offsetWidth,'flex='+cs.flex,'display='+cs.display,'width='+cs.width);_d=_d.parentElement;}});
     return shell;
   }
 
