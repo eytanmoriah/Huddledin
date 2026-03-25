@@ -4359,7 +4359,7 @@ function renderParentDesktop(){
 
   // ─── CHILD PROFILE MODE ───
   if(S.navLevel===1&&S.activeChild){
-    const prof=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 32px'}});
+    const prof=el('div',{style:{maxWidth:'1280px',margin:'0',padding:'24px 32px'}});
     // Breadcrumb
     const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent='Home';
@@ -4409,7 +4409,7 @@ function renderParentDesktop(){
 
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 32px'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0',padding:'24px 32px'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
     page.appendChild(bcBack);
@@ -4422,7 +4422,7 @@ function renderParentDesktop(){
 
   // ─── FULLSCREEN CALENDAR ───
   if(S.calFullscreen){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 32px'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0',padding:'24px 32px'}});
     const bcBack2=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack2.textContent='← Home';
     bcBack2.onclick=()=>{S.calFullscreen=false;S.navLevel=0;re();};
     page.appendChild(bcBack2);
@@ -4435,7 +4435,7 @@ function renderParentDesktop(){
   }
 
   // ─── HOME: GREETING + STATS + CHILDREN + SIDEBAR ───
-  const main=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'28px 32px'}});
+  const main=el('div',{style:{maxWidth:'1280px',margin:'0',padding:'28px 32px'}});
 
   // Greeting
   const hr=new Date().getHours();
