@@ -6781,245 +6781,207 @@ function getFileThumb(f){
   return {type:'icon',icon:'📎',color:'#64748b'};
 }
 
+function _filePreview(f){
+  const ext=(f.name||'').split('.').pop().toLowerCase();
+  if(!f.url)return;
+  const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
+  const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+  bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
+  const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
+  xb.onclick=()=>ov.remove();bar.appendChild(xb);ov.appendChild(bar);
+  const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
+  if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+    body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
+  } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
+    body.appendChild(el('iframe',{src:ext==='pdf'?f.url:'https://docs.google.com/viewer?url='+encodeURIComponent(f.url)+'&embedded=true',style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
+  } else {
+    const w=el('div',{style:{textAlign:'center',color:'#fff'}});
+    w.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+    w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},['Preview not available']));
+    w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download']));
+    body.appendChild(w);
+  }
+  ov.appendChild(body);ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);
+}
+
+function _fileThumbColors(f){
+  const ext=(f.name||'').split('.').pop().toLowerCase();
+  if(['jpg','jpeg','png','gif','webp'].includes(ext))return {icon:'🖼️',bg:'#e0f2fe'};
+  if(ext==='pdf')return {icon:'📄',bg:'#fef3c7'};
+  if(['mp4','mov','avi'].includes(ext))return {icon:'🎬',bg:'#ccfbf1'};
+  if(['mp3','wav','m4a'].includes(ext))return {icon:'🎵',bg:'#f3e8ff'};
+  if(['doc','docx'].includes(ext))return {icon:'📝',bg:'#dbeafe'};
+  if(['xls','xlsx','csv'].includes(ext))return {icon:'📊',bg:'#dcfce7'};
+  return {icon:'📎',bg:'#f1f5f9'};
+}
+
+function _fileActions(f,folder,isParent){
+  const ext=(f.name||'').split('.').pop().toLowerCase();
+  const acts=el('div',{style:{display:'flex',borderTop:'1px solid var(--mint-ll)',overflow:'hidden'}});
+  const mkAct=(icon,label,fn)=>{
+    const b=el('button',{style:{flex:1,background:'none',border:'none',padding:'6px 2px',cursor:'pointer',fontSize:'.65rem',color:'var(--slate)',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',transition:'background .1s'}},[el('span',{style:{fontSize:'.9rem'}},[icon]),label]);
+    b.onmouseover=()=>{b.style.background='var(--mint-ll)';};b.onmouseout=()=>{b.style.background='none';};
+    b.onclick=e=>{e.stopPropagation();fn();};return b;
+  };
+  if(f.url){
+    acts.appendChild(mkAct('👁','View',()=>_filePreview(f)));
+    acts.appendChild(mkAct('⬇','Save',async()=>{
+      try{const resp=await fetch(f.url);const blob=await resp.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click();}catch(e){window.open(f.url,'_blank');}
+    }));
+  }
+  if(isParent){
+    acts.appendChild(mkAct('✏️','Rename',()=>{
+      openModal('Rename File',(mb,close)=>{
+        mb.appendChild(el('div',{class:'inp-label'},['New name']));
+        const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
+        mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',()=>{
+          if(!ni.value.trim())return;const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
+          if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast('File renamed!');
+        }));
+      },380);
+    }));
+    acts.appendChild(mkAct('🗑','Delete',()=>{
+      openConfirm('Delete "'+f.name+'"?','This permanently removes the file.',true,async()=>{
+        const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
+        if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast('🗑️ File deleted.');
+      });
+    }));
+  }
+  if(!isParent&&f.uploadedBy===session?.id){
+    acts.appendChild(mkAct('✏️','Rename',()=>{
+      openModal('Rename File',(mb,close)=>{
+        mb.appendChild(el('div',{class:'inp-label'},['New name']));
+        const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
+        mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',async()=>{
+          if(!ni.value.trim())return;
+          try{await SB.renameFile(f.id,ni.value.trim());const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast('File renamed!');
+          }catch(e){console.error('rename failed:',e);toast('❌ Rename failed. Please try again.','error');}
+        }));
+      },380);
+    }));
+    acts.appendChild(mkAct('🗑','Delete',()=>{
+      openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
+        try{await SB.deleteFile(f.id);const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
+          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast('🗑 File deleted.');
+        }catch(e){console.error('delete failed:',e);toast('❌ Delete failed. Please try again.','error');}
+      });
+    }));
+  }
+  return acts;
+}
+
 function renderFolderGrid(folder,isParent,childColor){
   const sec=el('div',{class:'section'});
-  // Header with back button
+  const child=DB.children.find(c=>c.id===S.activeChild);
+  const viewPref=localStorage.getItem('huddledin_files_view')||'grid';
+  // Hidden file input
   const fi2=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi2.id='fileInputFolder';
   fi2.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
   sec.appendChild(fi2);
-  const hd=el('div',{class:'sec-hd',style:{marginBottom:'16px'}});
-  const left=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
-  const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.3rem',color:'var(--slate)',padding:'0 4px',lineHeight:1}},['‹']);
-  backBtn.onclick=()=>{S.activeFolderId=null;re();};
-  // Specialist: also show a back-to-patient crumb above
+  // Specialist: back-to-patient crumb
   if(session?.role==='specialist'){
     const crumb=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',marginBottom:'8px',fontSize:'.75rem',color:'var(--slate)'}});
-    const patLink=el('span',{style:{color:'var(--teal)',fontWeight:700,cursor:'pointer'}},['← '+(_c?.name||'Patient')]);
+    const patLink=el('span',{style:{color:'var(--teal)',fontWeight:700,cursor:'pointer'}},['← '+(child?.name||'Patient')]);
     patLink.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
-    crumb.appendChild(patLink);
-    crumb.appendChild(el('span',{},[' / '+folder.name]));
+    crumb.appendChild(patLink);crumb.appendChild(el('span',{},[' / '+folder.name]));
     sec.appendChild(crumb);
   }
+  // Header
+  const hd=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',gap:'8px'}});
+  const left=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',flex:1,minWidth:0}});
+  const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.3rem',color:'var(--slate)',padding:'0 4px',lineHeight:1}},['‹']);
+  backBtn.onclick=()=>{S.activeFolderId=null;re();};
   left.appendChild(backBtn);
   left.appendChild(el('span',{style:{fontSize:'1.3rem'}},[folder.icon]));
-  left.appendChild(el('div',{},[
+  left.appendChild(el('div',{style:{minWidth:0}},[
     el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem'}},[folder.name]),
-    el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'1px'}},[`${folder.files.length} file${folder.files.length!==1?'s':''}`])
+    el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'1px'}},[folder.files.length+' file'+(folder.files.length!==1?'s':'')])
   ]));
   hd.appendChild(left);
-  if(isParent){
-    const right=el('div',{style:{display:'flex',gap:'6px'}});
-    right.appendChild(mkBtn('📤 Upload','btn-sm btn-primary',()=>document.getElementById('fileInputFolder')?.click()));
-    hd.appendChild(right);
-  }
+  // Right: toggle + upload
+  const right=el('div',{style:{display:'flex',gap:'6px',alignItems:'center',flexShrink:0}});
+  // View toggle pill
+  const togglePill=el('div',{style:{display:'flex',borderRadius:'8px',border:'1.5px solid var(--mint-l)',overflow:'hidden',height:'30px'}});
+  const mkToggle=(label,mode)=>{
+    const isAct=viewPref===mode;
+    const tb=el('button',{style:{background:isAct?'#fff':'transparent',border:'none',padding:'0 10px',fontSize:'.72rem',fontWeight:isAct?700:500,color:isAct?'var(--navy)':'var(--slate)',cursor:'pointer',boxShadow:isAct?'0 1px 3px rgba(0,0,0,.1)':'none',transition:'all .15s'}});
+    tb.textContent=label;
+    tb.onclick=()=>{localStorage.setItem('huddledin_files_view',mode);re();};
+    return tb;
+  };
+  togglePill.appendChild(mkToggle('⊞ Grid','grid'));
+  togglePill.appendChild(mkToggle('☰ List','list'));
+  right.appendChild(togglePill);
+  if(isParent)right.appendChild(mkBtn('📤 Upload','btn-sm btn-primary',()=>document.getElementById('fileInputFolder')?.click()));
+  hd.appendChild(right);
   sec.appendChild(hd);
 
+  // Empty state
   if(!folder.files||folder.files.length===0){
     const empty=el('div',{style:{textAlign:'center',padding:'48px 24px',color:'var(--slate)'}});
     empty.appendChild(el('div',{style:{fontSize:'2.5rem',marginBottom:'12px'}},[folder.icon]));
     empty.appendChild(el('div',{style:{fontWeight:700,fontSize:'.9rem',marginBottom:'6px'}},['No files yet']));
     empty.appendChild(el('div',{style:{fontSize:'.8rem'}},['Upload the first file to this folder']));
-    if(isParent){
-      empty.appendChild(el('div',{style:{marginTop:'20px'}},[
-        mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInputFolder')?.click())
-      ]));
-    }
-    sec.appendChild(empty);
-    return sec;
+    if(isParent)empty.appendChild(el('div',{style:{marginTop:'20px'}},[mkBtn('📤 Upload File','btn-md btn-primary',()=>document.getElementById('fileInputFolder')?.click())]));
+    sec.appendChild(empty);return sec;
   }
 
-  // File grid
-  const grid=el('div',{style:{
-    display:'grid',
-    gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',
-    gap:'12px',
-    marginTop:'4px'
-  }});
-
-  folder.files.forEach(f=>{
-    const ext=(f.name||'').split('.').pop().toLowerCase();
-    const thumb=getFileThumb(f);
-    const card=el('div',{style:{
-      background:'#fff',borderRadius:'14px',overflow:'hidden',
-      border:'1.5px solid var(--mint-l)',
-      boxShadow:'0 1px 4px rgba(0,0,0,.06)',
-      cursor:'pointer',transition:'transform .15s,box-shadow .15s',
-      display:'flex',flexDirection:'column'
-    }});
-    card.onmouseover=()=>{card.style.transform='translateY(-2px)';card.style.boxShadow='0 4px 16px rgba(0,0,0,.1)';};
-    card.onmouseout=()=>{card.style.transform='';card.style.boxShadow='0 1px 4px rgba(0,0,0,.06)';};
-
-    // Thumbnail area
-    const thumbArea=el('div',{style:{
-      height:'110px',background:'var(--mint-ll)',
-      display:'flex',alignItems:'center',justifyContent:'center',
-      overflow:'hidden',position:'relative',flexShrink:0
-    }});
-
-    if(thumb.type==='img'){
-      const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
-      img.onerror=()=>{thumbArea.innerHTML='<span style="font-size:2.2rem">🖼️</span>';};
-      thumbArea.appendChild(img);
-    } else if(thumb.type==='pdf'&&f.url){
-      // PDF — styled placeholder (iframes blocked by X-Frame-Options/CSP on desktop browsers)
-      thumbArea.style.background='#fff1f2';
-      const pdfWrap=el('div',{style:{textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:'6px'}});
-      pdfWrap.appendChild(el('div',{style:{fontSize:'2.2rem',lineHeight:1}},['📄']));
-      pdfWrap.appendChild(el('div',{style:{background:'#dc2626',color:'#fff',fontSize:'.58rem',fontWeight:900,padding:'2px 7px',borderRadius:'4px',letterSpacing:'.06em'}},['PDF']));
-      thumbArea.appendChild(pdfWrap);
-    } else {
-      // Icon fallback
-      thumbArea.style.background=thumb.color+'18';
-      thumbArea.appendChild(el('span',{style:{fontSize:'2.4rem'}},[thumb.icon]));
-    }
-
-    // Lock overlay
-    if(f.locked){
-      const lockOv=el('div',{style:{
-        position:'absolute',inset:0,background:'rgba(0,0,0,.45)',
-        display:'flex',alignItems:'center',justifyContent:'center',
-        fontSize:'1.5rem'
-      }},['🔒']);
-      thumbArea.appendChild(lockOv);
-    }
-    card.appendChild(thumbArea);
-
-    // File info
-    const info=el('div',{style:{padding:'8px 10px',flex:1,minWidth:0}});
-    info.appendChild(el('div',{style:{
-      fontWeight:700,fontSize:'.75rem',color:'var(--navy)',
-      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-      marginBottom:'2px'
-    }},[f.name]));
-    info.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate-l)'}},[f.date||'']));
-    card.appendChild(info);
-
-    // Action row
-    const actions=el('div',{style:{
-      display:'flex',borderTop:'1px solid var(--mint-ll)',
-      overflow:'hidden'
-    }});
-    const mkAct=(icon,label,fn)=>{
-      const b=el('button',{style:{
-        flex:1,background:'none',border:'none',padding:'6px 2px',
-        cursor:'pointer',fontSize:'.65rem',color:'var(--slate)',
-        display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',
-        transition:'background .1s'
-      }},[el('span',{style:{fontSize:'.9rem'}},[icon]),label]);
-      b.onmouseover=()=>{b.style.background='var(--mint-ll)';};
-      b.onmouseout=()=>{b.style.background='none';};
-      b.onclick=e=>{e.stopPropagation();fn();};
-      return b;
-    };
-
-    if(f.url){
-      actions.appendChild(mkAct('👁','View',()=>{
-        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
-        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
-        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
-        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
-        xb.onclick=()=>ov.remove();
-        bar.appendChild(xb);ov.appendChild(bar);
-        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
-        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
-          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
-        } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
-          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
-        } else {
-          const w=el('div',{style:{textAlign:'center',color:'#fff'}});
-          w.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
-          w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},['Preview not available']));
-          w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download']));
-          body.appendChild(w);
-        }
-        ov.appendChild(body);
-        ov.onclick=e=>{if(e.target===ov)ov.remove();};
-        document.body.appendChild(ov);
-      }));
-      actions.appendChild(mkAct('⬇','Save',async()=>{
-        try{
-          const resp=await fetch(f.url);
-          const blob=await resp.blob();
-          const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click();
-        }catch(e){window.open(f.url,'_blank');}
-      }));
-    }
-    if(isParent){
-      actions.appendChild(mkAct('✏️','Rename',()=>{
-        openModal('Rename File',(mb,close)=>{
-          mb.appendChild(el('div',{class:'inp-label'},['New name']));
-          const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});
-          mb.appendChild(ni);
-          mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',()=>{
-            if(!ni.value.trim())return;
-            const fls=DB.folders;
-            const fi3=fls.find(x=>x.id===folder.id);
-            const ff=fi3?.files.find(x=>x.id===f.id);
-            if(ff){ff.name=ni.value.trim();DB.folders=fls;}
-            close();re();toast('File renamed!');
-          }));
-        },380);
-      }));
-      actions.appendChild(mkAct('🗑','Delete',()=>{
-        openConfirm('Delete "'+f.name+'"?','This permanently removes the file.',true,async()=>{
-          const fls=DB.folders;
-          const fi3=fls.find(x=>x.id===folder.id);
-          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-          re();toast('🗑️ File deleted.');
-        });
-      }));
-    }
-    if(!isParent&&f.uploadedBy===session?.id){
-      actions.appendChild(mkAct('✏️','Rename',()=>{
-        openModal('Rename File',(mb,close)=>{
-          mb.appendChild(el('div',{class:'inp-label'},['New name']));
-          const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});
-          mb.appendChild(ni);
-          mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',async()=>{
-            if(!ni.value.trim())return;
-            try{
-              await SB.renameFile(f.id,ni.value.trim());
-              const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
-              if(ff){ff.name=ni.value.trim();DB.folders=fls;}
-              close();re();toast('File renamed!');
-            }catch(e){console.error('rename failed:',e);toast('❌ Rename failed. Please try again.','error');}
-          }));
-        },380);
-      }));
-      actions.appendChild(mkAct('🗑','Delete',()=>{
-        openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
-          try{
-            await SB.deleteFile(f.id);
-            const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
-            if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-            re();toast('🗑 File deleted.');
-          }catch(e){console.error('delete failed:',e);toast('❌ Delete failed. Please try again.','error');}
-        });
-      }));
-    }
-    card.appendChild(actions);
-
-    // Tap the card itself = preview
-    card.onclick=()=>{
-      if(f.url){
-        const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
-        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
-        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
-        const xb=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'50%',width:'34px',height:'34px',cursor:'pointer',fontSize:'1.1rem',flexShrink:0,marginLeft:'12px'}},['✕']);
-        xb.onclick=()=>ov.remove();bar.appendChild(xb);ov.appendChild(bar);
-        const body=el('div',{style:{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 16px 16px'}});
-        if(['jpg','jpeg','png','gif','webp'].includes(ext)){
-          body.appendChild(el('img',{src:f.url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}}));
-        } else {
-          body.appendChild(el('iframe',{src:ext==='pdf'?f.url:`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}&embedded=true`,style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}}));
-        }
-        ov.appendChild(body);ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);
+  if(viewPref==='list'){
+    // ─── LIST VIEW ───
+    const list=el('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}});
+    folder.files.forEach(f=>{
+      const tc=_fileThumbColors(f);const thumb=getFileThumb(f);
+      const row=el('div',{style:{background:'#fff',borderRadius:'12px',border:'1.5px solid var(--mint-l)',overflow:'hidden',cursor:'pointer',transition:'border-color .15s'}});
+      row.onmouseover=()=>{row.style.borderColor='var(--teal)';};row.onmouseout=()=>{row.style.borderColor='var(--mint-l)';};
+      const main=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px'}});
+      // Colored icon square
+      const iconSq=el('div',{style:{width:'36px',height:'36px',borderRadius:'8px',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
+      if(thumb.type==='img'){
+        const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'8px'},loading:'lazy'});
+        img.onerror=()=>{img.remove();iconSq.textContent=tc.icon;};iconSq.appendChild(img);
+      } else {iconSq.textContent=tc.icon;}
+      main.appendChild(iconSq);
+      const info=el('div',{style:{flex:1,minWidth:0}});
+      info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.82rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[f.name]));
+      const meta=[];
+      const ext=(f.name||'').split('.').pop().toUpperCase();
+      if(ext)meta.push(ext);if(f.size)meta.push(f.size);if(f.date)meta.push(f.date);
+      info.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)'}},[meta.join(' · ')]));
+      main.appendChild(info);row.appendChild(main);
+      main.onclick=()=>_filePreview(f);
+      row.appendChild(_fileActions(f,folder,isParent));
+      list.appendChild(row);
+    });
+    sec.appendChild(list);
+  } else {
+    // ─── GRID VIEW ───
+    const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginTop:'4px'}});
+    folder.files.forEach(f=>{
+      const thumb=getFileThumb(f);const tc=_fileThumbColors(f);
+      const card=el('div',{style:{background:'#fff',borderRadius:'10px',overflow:'hidden',border:'0.5px solid #e8f4f2',cursor:'pointer',transition:'transform .15s,box-shadow .15s',display:'flex',flexDirection:'column'}});
+      card.onmouseover=()=>{card.style.transform='translateY(-2px)';card.style.boxShadow='0 4px 16px rgba(0,0,0,.1)';};
+      card.onmouseout=()=>{card.style.transform='';card.style.boxShadow='none';};
+      // Square thumbnail area
+      const thumbArea=el('div',{style:{aspectRatio:'1',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative'}});
+      if(thumb.type==='img'){
+        const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
+        img.onerror=()=>{img.remove();thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['🖼️']));};
+        thumbArea.appendChild(img);
+      } else if(thumb.type==='pdf'){
+        thumbArea.style.background='#fef3c7';thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['📄']));
+      } else {
+        thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},[tc.icon]));
       }
-    };
-    grid.appendChild(card);
-  });
-
-  sec.appendChild(grid);
+      if(f.locked){thumbArea.appendChild(el('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.45)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem'}},['🔒']));}
+      card.appendChild(thumbArea);
+      // Filename label
+      card.appendChild(el('div',{style:{padding:'6px 8px',fontSize:'10px',fontWeight:600,color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[f.name]));
+      card.onclick=()=>_filePreview(f);
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+  }
   return sec;
 }
 
