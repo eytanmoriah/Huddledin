@@ -7405,6 +7405,66 @@ function showFolderModal(folder,isParent){
     toggleRow.appendChild(togglePill);
     mb.appendChild(toggleRow);
 
+    // Helper: build action buttons for a file
+    const _mkFileActions=(f)=>{
+      const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
+      if(f.url){
+        actions.appendChild(mkBtn('👁 Preview','btn-sm btn-ghost',()=>_filePreview(f)));
+        const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',async()=>{
+          try{
+            dlBtn.textContent='⏳…';dlBtn.disabled=true;
+            const resp=await fetch(f.url);if(!resp.ok)throw new Error('Failed');
+            const blob=await resp.blob();const blobUrl=URL.createObjectURL(blob);
+            const a=document.createElement('a');a.href=blobUrl;a.download=f.name;
+            document.body.appendChild(a);a.click();
+            setTimeout(()=>{URL.revokeObjectURL(blobUrl);a.remove();},1000);
+            dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
+          }catch(e){window.open(f.url,'_blank');dlBtn.textContent='⬇ Download';dlBtn.disabled=false;}
+        });
+        actions.appendChild(dlBtn);
+      }
+      if(isParent&&!f.locked){
+        actions.appendChild(mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+            }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
+          }
+        }));
+        actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+        actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
+          openConfirm('Delete "'+f.name+'"?','This will permanently delete the file and cannot be undone.',true,async()=>{
+            try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+              close();re();toast('🗑 File deleted.');
+            }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
+          });
+        }));
+      }
+      if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
+        actions.appendChild(mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
+          const newName=prompt('Rename file:',f.name);
+          if(newName&&newName.trim()){
+            try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+            }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
+          }
+        }));
+        actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
+          openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
+            try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
+              close();re();toast('🗑 File deleted.');
+            }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
+          });
+        }));
+      }
+      return actions;
+    };
+
     if(!folder.files||folder.files.length===0){
       mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No files in this folder yet.']));
     } else if(_fvPref==='grid'){
@@ -7430,7 +7490,19 @@ function showFolderModal(folder,isParent){
         card.appendChild(thumbArea);
         // Filename
         card.appendChild(el('div',{style:{padding:'6px 8px',fontSize:'10px',fontWeight:600,color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[f.name]));
-        card.onclick=()=>_filePreview(f);
+        // Tap thumbnail = show actions in a mini sheet
+        card.onclick=()=>{
+          openModal(f.name,(amb)=>{
+            // Preview thumbnail at top
+            const tc2=_fileThumbColors(f);const thumb2=getFileThumb(f);
+            const prevArea=el('div',{style:{height:'160px',background:tc2.bg,borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',marginBottom:'14px'}});
+            if(thumb2.type==='img'){const img2=el('img',{src:thumb2.src,style:{width:'100%',height:'100%',objectFit:'contain'},loading:'lazy'});img2.onerror=()=>{img2.remove();prevArea.appendChild(el('span',{style:{fontSize:'3rem'}},['🖼️']));};prevArea.appendChild(img2);}
+            else{prevArea.appendChild(el('span',{style:{fontSize:'3rem'}},[tc2.icon]));}
+            amb.appendChild(prevArea);
+            if(f.date)amb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'10px'}},[f.date]));
+            amb.appendChild(_mkFileActions(f));
+          },400);
+        };
         grid.appendChild(card);
       });
       mb.appendChild(grid);
@@ -7454,97 +7526,12 @@ function showFolderModal(folder,isParent){
         topRow.appendChild(info);
         if(f.locked)topRow.appendChild(el('span',{class:'locked-badge'},['🔒']));
         fi.appendChild(topRow);
+        // Action buttons inline
+        const acts=_mkFileActions(f);
+        if(acts.children.length>0)fi.appendChild(acts);
         stack.appendChild(fi);
       });
       mb.appendChild(stack);
-    }
-
-    // Per-file action buttons (always shown below, regardless of view mode)
-    if(folder.files&&folder.files.length>0){
-      const actionsWrap=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'16px'}});
-      folder.files.forEach(f=>{
-        const ext=(f.name||'').split('.').pop().toLowerCase();
-        const tc=_fileThumbColors(f);
-        const fRow=el('div',{style:{background:'#f8fffe',borderRadius:'10px',padding:'10px 12px',border:'1px solid var(--mint-l)'}});
-        const fHd=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}});
-        fHd.appendChild(el('span',{style:{fontSize:'.9rem'}},[tc.icon]));
-        fHd.appendChild(el('span',{style:{fontWeight:700,fontSize:'.78rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[f.name]));
-        fRow.appendChild(fHd);
-        const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
-        // Preview
-        if(f.url){
-          actions.appendChild(mkBtn('👁 Preview','btn-sm btn-ghost',()=>_filePreview(f)));
-        }
-        // Download
-        if(f.url){
-          const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',async()=>{
-            try{
-              dlBtn.textContent='⏳…';dlBtn.disabled=true;
-              const resp=await fetch(f.url);
-              if(!resp.ok)throw new Error('Failed to fetch file');
-              const blob=await resp.blob();
-              const blobUrl=URL.createObjectURL(blob);
-              const a=document.createElement('a');a.href=blobUrl;a.download=f.name;
-              document.body.appendChild(a);a.click();
-              setTimeout(()=>{URL.revokeObjectURL(blobUrl);a.remove();},1000);
-              dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
-            }catch(e){
-              window.open(f.url,'_blank');
-              dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
-            }
-          });
-          actions.appendChild(dlBtn);
-        }
-        // Rename (parent only)
-        if(isParent&&!f.locked){
-          actions.appendChild(mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
-            const newName=prompt('Rename file:',f.name);
-            if(newName&&newName.trim()){
-              try{
-                await SB.renameFile(f.id,newName.trim());
-                const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-                if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-                close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
-              }catch(e){console.error('rename failed:',e);toast('❌ Rename failed. Please try again.','error');}
-            }
-          }));
-          actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
-          actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',async()=>{
-            openConfirm('Delete "'+f.name+'"?','This will permanently delete the file and cannot be undone.',true,async()=>{
-              try{
-                await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-                if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-                close();re();toast('🗑 File deleted.');
-              }catch(e){console.error('delete failed:',e);toast('❌ Delete failed. Please try again.','error');}
-            });
-          }));
-        }
-        if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
-          actions.appendChild(mkBtn('✏️ Rename','btn-sm btn-ghost',async()=>{
-            const newName=prompt('Rename file:',f.name);
-            if(newName&&newName.trim()){
-              try{
-                await SB.renameFile(f.id,newName.trim());
-                const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-                if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-                close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
-              }catch(e){console.error('rename failed:',e);toast('❌ Rename failed. Please try again.','error');}
-            }
-          }));
-          actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',async()=>{
-            openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
-              try{
-                await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-                if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-                close();re();toast('🗑 File deleted.');
-              }catch(e){console.error('delete failed:',e);toast('❌ Delete failed. Please try again.','error');}
-            });
-          }));
-        }
-        if(actions.children.length>0)fRow.appendChild(actions);
-        actionsWrap.appendChild(fRow);
-      });
-      mb.appendChild(actionsWrap);
     }
     if(isParent){
       mb.appendChild(mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
