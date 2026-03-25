@@ -4416,6 +4416,8 @@ function renderParentDesktop(){
       };
       content.style.maxWidth='100%';content.style.width='100%';content.style.padding='0';content.style.margin='0';
       _webExpand(content);
+      // Force calendar and card elements to full width
+      content.querySelectorAll('.card,.cal-grid,.cal-hd,.mini-cal-card,.mini-cal-hd,.mini-cal-body').forEach(e=>{e.style.width='100%';e.style.maxWidth='100%';});
       prof.appendChild(content);
     }
     shell.appendChild(prof);
