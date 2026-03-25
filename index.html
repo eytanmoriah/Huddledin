@@ -4465,7 +4465,7 @@ function renderParentDesktop(){
 
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',width:'100%',flex:'1',minWidth:'0'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
