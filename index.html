@@ -4393,10 +4393,14 @@ function renderParentDesktop(){
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
-    // Content — reuse existing render, full width for web
+    // Content — reuse existing render, override .section max-width for web
     const content=renderContent();
     if(content){
       content.style.maxWidth='100%';content.style.width='100%';content.style.padding='0';
+      // Override inner .section constraint (970px → 100%) for all tab content on web
+      content.querySelectorAll('.section').forEach(s=>{s.style.maxWidth='100%';s.style.margin='0';s.style.padding='0';});
+      // If content itself has .section class
+      if(content.classList?.contains('section')){content.style.maxWidth='100%';content.style.margin='0';}
       prof.appendChild(content);
     }
     shell.appendChild(prof);
@@ -4409,7 +4413,9 @@ function renderParentDesktop(){
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent='← Home';
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;re();};
     page.appendChild(bcBack);
-    page.appendChild(el('div',{style:{marginTop:'16px'}},[renderContent()]));
+    const _pgContent=renderContent();
+    if(_pgContent){_pgContent.querySelectorAll('.section').forEach(s=>{s.style.maxWidth='100%';s.style.margin='0';});if(_pgContent.classList?.contains('section')){_pgContent.style.maxWidth='100%';_pgContent.style.margin='0';}}
+    page.appendChild(el('div',{style:{marginTop:'16px'}},[_pgContent]));
     shell.appendChild(page);
     return shell;
   }
