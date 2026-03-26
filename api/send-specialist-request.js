@@ -1,7 +1,3 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -9,6 +5,12 @@ export default async function handler(req, res) {
 
   if (!to || !specialistName || !requestId) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('RESEND_API_KEY not set');
+    return res.status(500).json({ error: 'Email service not configured' });
   }
 
   const appUrl = process.env.APP_URL || 'https://huddledin.com';
@@ -19,7 +21,7 @@ export default async function handler(req, res) {
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:24px">
       <div style="text-align:center;margin-bottom:24px">
-        <div style="display:inline-block;width:48px;height:48px;background:#0d9488;border-radius:12px;line-height:48px;font-size:24px">🤝</div>
+        <div style="display:inline-block;width:48px;height:48px;background:#0d9488;border-radius:12px;line-height:48px;font-size:24px">&#129309;</div>
         <h2 style="color:#0f1a18;margin:12px 0 0;font-size:20px">Care Team Request</h2>
       </div>
       <p style="color:#333;font-size:15px;line-height:1.6">Hi,</p>
@@ -43,18 +45,32 @@ export default async function handler(req, res) {
       </p>
       <hr style="border:none;border-top:1px solid #e8f4f2;margin:24px 0">
       <p style="color:#aaa;font-size:11px;text-align:center">
-        Huddledin — Care coordination for families
+        Huddledin &mdash; Care coordination for families
       </p>
     </div>
   `;
 
   try {
-    await resend.emails.send({
-      from: 'Huddledin <noreply@huddledin.com>',
-      to,
-      subject,
-      html,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Huddledin <noreply@huddledin.com>',
+        to,
+        subject,
+        html,
+      }),
     });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Resend API error:', response.status, err);
+      return res.status(500).json({ error: 'Failed to send email' });
+    }
+
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('Email error:', err);
