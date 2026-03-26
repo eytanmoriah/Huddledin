@@ -2132,6 +2132,7 @@ function setupHouseholdSync(){
       else if(p.eventType==='UPDATE'&&p.new){const idx=arr.findIndex(t=>t.id===p.new.id);if(idx>-1){arr[idx]=p.new;}else{arr.unshift(p.new);}DB.parentTasks=arr;}
       else if(p.eventType==='DELETE'&&p.old){DB.parentTasks=arr.filter(t=>t.id!==p.old.id);}
       re();
+      _debouncedRefresh();
     })
     .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
