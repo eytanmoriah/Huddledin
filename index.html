@@ -10224,12 +10224,13 @@ function _renderParentTaskCard(task,container,children,coParent){
   // Checkbox
   const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
   chk.style.cssText='flex-shrink:0;margin-top:2px;';
-  chk.onclick=async()=>{
-    const nowDone=!task.completed;const now=new Date().toISOString();
-    const idx=(DB.parentTasks||[]).findIndex(t=>t.id===task.id);
-    if(idx>-1){DB.parentTasks[idx].completed=nowDone;DB.parentTasks[idx].completed_by=nowDone?session.id:null;DB.parentTasks[idx].completed_at=nowDone?now:null;}
-    re(); // immediate visual update
-    try{const{error}=await _supa.from('parent_tasks').update({completed:nowDone,completed_by:nowDone?session.id:null,completed_at:nowDone?now:null}).eq('id',task.id);if(error)console.error('❌ toggle task:',error);}catch(e){}
+  chk.onclick=()=>{
+    const now=new Date().toISOString();
+    const newCompleted=!task.completed;
+    const idx=DB.parentTasks.findIndex(t=>t.id===task.id);
+    if(idx>-1){DB.parentTasks[idx].completed=newCompleted;DB.parentTasks[idx].completed_by=newCompleted?session.id:null;DB.parentTasks[idx].completed_at=newCompleted?now:null;}
+    re();
+    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
   };
   card.appendChild(chk);
   const info=el('div',{style:{flex:1,minWidth:0}});
