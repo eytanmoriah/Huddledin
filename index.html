@@ -10152,6 +10152,7 @@ function renderTodoList(){
   }
 
   // Category filter chips
+  sec.appendChild(el('div',{style:{fontSize:'12px',color:'var(--slate)',marginBottom:'6px',marginTop:'8px'}},['Category:']));
   const catFilter=S._parentTaskFilter||'All';
   const filterRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'16px',overflowX:'auto',paddingBottom:'4px'}});
   CATEGORIES.forEach(cat=>{
@@ -10227,8 +10228,8 @@ function _renderParentTaskCard(task,container,children,coParent){
     const nowDone=!task.completed;const now=new Date().toISOString();
     const idx=(DB.parentTasks||[]).findIndex(t=>t.id===task.id);
     if(idx>-1){DB.parentTasks[idx].completed=nowDone;DB.parentTasks[idx].completed_by=nowDone?session.id:null;DB.parentTasks[idx].completed_at=nowDone?now:null;}
+    re(); // immediate visual update
     try{const{error}=await _supa.from('parent_tasks').update({completed:nowDone,completed_by:nowDone?session.id:null,completed_at:nowDone?now:null}).eq('id',task.id);if(error)console.error('❌ toggle task:',error);}catch(e){}
-    re();
   };
   card.appendChild(chk);
   const info=el('div',{style:{flex:1,minWidth:0}});
@@ -10256,11 +10257,9 @@ function _renderParentTaskCard(task,container,children,coParent){
   // Notes preview
   if(task.notes&&!task.completed)info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'5px',lineHeight:'1.4',fontStyle:'italic'}},[task.notes.slice(0,80)+(task.notes.length>80?'…':'')]));
   card.appendChild(info);
-  if(!task.completed){
-    const _isMob=window.innerWidth<768;
-    if(_isMob){card.style.cursor='pointer';card.onclick=(e)=>{if(e.target.closest('.chk'))return;showParentTaskModal(task);};card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800,flexShrink:0,alignSelf:'center'}},['›']));}
-    else{const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showParentTaskModal(task));editBtn.style.flexShrink='0';card.appendChild(editBtn);}
-  }
+  const _isMob=window.innerWidth<768;
+  if(_isMob){card.style.cursor='pointer';card.onclick=(e)=>{if(e.target.closest('.chk'))return;showParentTaskModal(task);};card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800,flexShrink:0,alignSelf:'center'}},['›']));}
+  else{const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showParentTaskModal(task));editBtn.style.flexShrink='0';card.appendChild(editBtn);}
   container.appendChild(card);
 }
 
@@ -10357,6 +10356,8 @@ function showParentTaskModal(existing=null){
           try{const{error:nErr}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+assignState.v,user_id:assignState.v,child_id:childSel.value||null,type:'todo',message:'📋 '+(session.displayName||session.name||'Your co-parent')+' assigned you a task: "'+taskTitle+'"',read:false,link_tab:'todo'});if(nErr)console.error('❌ notify co-parent:',nErr);}catch(e){}
         }
       }
+      // Re-fetch from Supabase to ensure cache is fully in sync
+      try{const{data:_ptRefresh}=await _supa.from('parent_tasks').select('*').eq('household_id',String(session.householdId)).order('created_at',{ascending:false});DB.parentTasks=_ptRefresh||[];}catch(e){}
       close();re();toast(existing?'Task updated':'Task added ✅');
     });
     mb.appendChild(saveBtn);
