@@ -2124,9 +2124,16 @@ function setupHouseholdSync(){
   _supa.channel('hh_hw_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: homework_tasks',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
-  console.log('🔔 Setting up parent_tasks realtime channel, hid:',_hid,'role:',session.role);
   _supa.channel('hh_parent_tasks:'+_hid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 parent_tasks realtime fired!',p.eventType,p.new);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
+      console.log('🔔 parent_tasks realtime fired!',p.eventType,p.new);
+      const arr=DB.parentTasks||[];
+      if(p.eventType==='INSERT'&&p.new){if(!arr.find(t=>t.id===p.new.id)){arr.unshift(p.new);DB.parentTasks=arr;}}
+      else if(p.eventType==='UPDATE'&&p.new){const idx=arr.findIndex(t=>t.id===p.new.id);if(idx>-1){arr[idx]=p.new;}else{arr.unshift(p.new);}DB.parentTasks=arr;}
+      else if(p.eventType==='DELETE'&&p.old){DB.parentTasks=arr.filter(t=>t.id!==p.old.id);}
+      re();
+      setTimeout(()=>{_debouncedRefresh();},1500);
+    })
     .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
   _hhChildren.forEach(cid=>{
