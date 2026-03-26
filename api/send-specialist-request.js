@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   const appUrl = process.env.APP_URL || 'https://huddledin.com';
-  const link = `${appUrl}?specialist_request=${requestId}`;
+  const link = `${appUrl}?specialist_request=${requestId}&sn=${encodeURIComponent(specialistName)}&sr=${encodeURIComponent(specialistRole || 'Specialist')}&ch=${encodeURIComponent(childNameHint || '')}`;
 
   const subject = `${specialistName} wants to join your child's care team on Huddledin`;
 
