@@ -10310,7 +10310,7 @@ function _renderParentTaskCard(task,container,children,coParent){
     DB.parentTasks=arr;
     _localParentTaskChanges.add(task.id);
     re();
-    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
+    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id).then(({error})=>{if(error)console.error('❌ parent_task toggle failed:',error);});
   };
 
   // Assignee display name
