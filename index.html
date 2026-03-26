@@ -2328,6 +2328,7 @@ async function _loadSessionFromSupabase(s){
     session={id:s.user.id,email:s.user.email,role:profile.role,
       name:_displayName,displayName:_fullDisplayName,specialistId:profile.id,isNew:false,
       householdId:profile.household_id,isPrimary:profile.is_primary!==false,
+      profession:profile.profession||null,
       googleCalendarEnabled:profile.google_calendar_enabled||false};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
@@ -2529,7 +2530,7 @@ async function doGoogleSignIn(role){
 // doLogin is async now — wraps Supabase email auth, falls back to demo mode
 async function doLogin(email,password,role,name='',profession='',mode='signin'){
   if(password==='demo'&&email==='demo@huddledin.com'){
-    session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true};
+    session={id:'demo',email,role,name:name||'Demo User',specialistId:'demo',isNew:true,profession:profession||null};
     _seedHistory();
     return{ok:true,isNew:true};
   }
@@ -5432,7 +5433,7 @@ function renderDrawer(){
   const displayName=session?.role==='parent'
     ?`${session?.name||'Parent'}`
     :(spec?.name||session?.name||'Specialist');
-  const displayRole=session?.role==='parent'?'Parent · Managing Care':'🩺 '+( spec?.role||'Specialist');
+  const displayRole=session?.role==='parent'?'Parent · Managing Care':'🩺 '+(session?.profession||spec?.role||'Specialist');
   const avatar=session?.role==='parent'?'👨‍👩‍👧':'🩺';
 
   const prof=el('div',{class:'drawer-profile'});
@@ -5576,7 +5577,7 @@ function renderSidenav(){
   prof.appendChild(el('div',{class:'sp-label'},['Signed in as']));
   const profName=session?.role==='parent'?(session?.name||'Parent'):(spec?.name||session?.name||'Specialist');
   prof.appendChild(el('div',{class:'sp-name'},[profName]));
-  prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 Specialist','teal'));
+  prof.appendChild(badge(session?.role==='parent'?'👨‍👩‍👧 Parent':'🩺 '+(session?.profession||'Specialist'),'teal'));
   nav.appendChild(prof);
   const tourTargets={files:'tour-target-files',team:'tour-target-team',vault:'tour-target-vault',credentials:'tour-target-creds',patients:'tour-target-patients',settings:'tour-target-settings'};
   tabs.forEach(t=>{
