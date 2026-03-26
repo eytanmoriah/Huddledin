@@ -10225,14 +10225,15 @@ function _renderParentTaskCard(task,container,children,coParent){
   const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
   chk.style.cssText='flex-shrink:0;margin-top:2px;';
   chk.onclick=()=>{
-    const idx=DB.parentTasks.findIndex(t=>t.id===task.id);
+    const arr=DB.parentTasks;
+    const idx=arr.findIndex(t=>t.id===task.id);
     if(idx<0)return;
-    const current=DB.parentTasks[idx];
     const now=new Date().toISOString();
-    const newCompleted=!current.completed;
-    current.completed=newCompleted;
-    current.completed_by=newCompleted?session.id:null;
-    current.completed_at=newCompleted?now:null;
+    const newCompleted=!arr[idx].completed;
+    arr[idx].completed=newCompleted;
+    arr[idx].completed_by=newCompleted?session.id:null;
+    arr[idx].completed_at=newCompleted?now:null;
+    DB.parentTasks=arr;
     re();
     _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
   };
