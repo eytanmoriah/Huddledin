@@ -2078,6 +2078,11 @@ async function refreshFromSupabase(){
       // hd9_inactive_children controls which tab removed patients appear in.
     }
   }catch(e){console.log('refreshFromSupabase error:',e);}
+  // After all data loaded: show co-parent invite once per session if no co-parent exists
+  if(session?.role==='parent'&&!S._hhModalChecked&&shouldShowHouseholdModal()){
+    S._hhModalChecked=true;
+    setTimeout(()=>showHouseholdInviteModal(false),2000);
+  }
 }
 
 // Debounced refresh — collapses burst real-time events into one refresh
@@ -2496,10 +2501,6 @@ function showVerificationPendingScreen(email){
       setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
       refreshFromSupabase().then(()=>re()).catch(()=>{});
-      // Show household invite modal for parents
-      if(session?.role==='parent'&&shouldShowHouseholdModal()){
-        setTimeout(()=>showHouseholdInviteModal(false),1500);
-      }
     }
     if(event==='SIGNED_OUT'){session=null;S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;re();}
   });
@@ -4054,10 +4055,6 @@ function renderAuth(){
       setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
       refreshFromSupabase().then(()=>re()).catch(()=>{});
-      // Show household invite modal for parents (if not dismissed/skipped)
-      if(session?.role==='parent'&&shouldShowHouseholdModal()){
-        setTimeout(()=>showHouseholdInviteModal(false),1200);
-      }
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -13063,7 +13060,8 @@ function shouldShowHouseholdModal(){
   if(!session||session.role!=='parent')return false;
   if(LS.get('householdModalDismissed',false))return false;
   if(LS.get('householdInviteSent',false))return false;
-  // Check if already has a co-parent (household has 2+ members) — checked async, skip here
+  // Check if already has a co-parent (DB.coParents loaded by refreshFromSupabase)
+  if((DB.coParents||[]).length>0)return false;
   return true;
 }
 
