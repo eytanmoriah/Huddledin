@@ -10288,7 +10288,8 @@ function _renderParentTaskCard(task,container,children,coParent){
     arr[idx].completed_at=newCompleted?now:null;
     DB.parentTasks=arr;
     re();
-    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
+    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id)
+      .then(({error})=>console.log('💾 parent_tasks update result:',error||'OK'));
   };
 
   // Assignee display name
