@@ -2124,6 +2124,9 @@ function setupHouseholdSync(){
   _supa.channel('hh_hw_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: homework_tasks',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
+  _supa.channel('hh_parent_tasks:'+_hid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: parent_tasks',p.eventType);_debouncedRefresh();})
+    .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
   _hhChildren.forEach(cid=>{
     _supa.channel('hh_vnotes:'+cid)
@@ -2617,7 +2620,8 @@ let S={
   pastPatientMode:false,  // specialist: true when viewing a removed patient's read-only archive
   subscription:null,      // {status:'trial'|'active'|'expired', daysRemaining, exempt, ...}
   _showPaywall:false,     // force paywall open (e.g. user clicks "Upgrade now")
-  _trialBannerDismissed:false  // session-scoped dismiss of trial banner
+  _trialBannerDismissed:false,  // session-scoped dismiss of trial banner
+  _parentTaskExpandedId:null   // parent to-do: expanded card id (mobile)
 };
 
 /* -----------------------------------------------
@@ -10283,15 +10287,16 @@ function _renderParentTaskCard(task,container,children,coParent){
   const assignLabel=task.assigned_to===session.id?'Mine':task.assigned_to&&coParent&&task.assigned_to===coParent.id?(coParent.name||'Co-Parent'):'Shared';
 
   if(!_web){
-    // ─── MOBILE: compact single-line row ───
-    const card=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'10px 12px',background:'#fff',borderRadius:'12px',border:'1px solid var(--mint-l)',borderLeft:'4px solid '+borderColor,opacity:task.completed?'0.6':'1'}});
-    card.appendChild(chk);
-    // Info
+    // ─── MOBILE: compact row with expand/collapse ───
+    const isExpanded=S._parentTaskExpandedId===task.id;
+    const card=el('div',{style:{background:'#fff',borderRadius:'12px',border:'1px solid var(--mint-l)',borderLeft:'4px solid '+borderColor,opacity:task.completed?'0.6':'1',overflow:'hidden'}});
+    // Header row (always visible)
+    const hdr=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'10px 12px',cursor:'pointer'}});
+    hdr.appendChild(chk);
     const info=el('div',{style:{flex:1,minWidth:0}});
-    const title=el('div',{style:{fontSize:'14px',fontWeight:500,color:task.completed?'var(--slate-l)':'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textDecoration:task.completed?'line-through':'none'}});
-    title.textContent=task.title||'Task';
-    info.appendChild(title);
-    // Subtitle
+    const titleEl=el('div',{style:{fontSize:'14px',fontWeight:500,color:task.completed?'var(--slate-l)':'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textDecoration:task.completed?'line-through':'none'}});
+    titleEl.textContent=task.title||'Task';
+    info.appendChild(titleEl);
     const subParts=[assignLabel];
     if(isOverdue)subParts.push('Overdue');
     else if(isDueToday)subParts.push('Due today');
@@ -10300,7 +10305,9 @@ function _renderParentTaskCard(task,container,children,coParent){
     const sub=el('div',{style:{fontSize:'12px',color:isOverdue?'var(--coral)':isDueToday?'#f59e0b':'var(--slate)'}});
     sub.textContent=subParts.join(' · ');
     info.appendChild(sub);
-    card.appendChild(info);
+    hdr.appendChild(info);
+    // Chevron
+    hdr.appendChild(el('span',{style:{fontSize:'10px',color:'var(--slate-l)',flexShrink:0,marginRight:'2px'}},[isExpanded?'▴':'▾']));
     // Action buttons
     const acts=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
     const _mkSmBtn=(icon,bg,border,fn)=>{
@@ -10309,7 +10316,39 @@ function _renderParentTaskCard(task,container,children,coParent){
     };
     acts.appendChild(_mkSmBtn('✏️','#f8fafc','#e2e8f0',()=>showParentTaskModal(task)));
     acts.appendChild(_mkSmBtn('🗑️','#fff1f1','#fca5a5',()=>_deleteParentTask(task)));
-    card.appendChild(acts);
+    hdr.appendChild(acts);
+    // Tap header to expand/collapse (not on chk or buttons)
+    hdr.onclick=(e)=>{if(e.target.closest('.chk')||e.target.closest('button'))return;S._parentTaskExpandedId=isExpanded?null:task.id;re();};
+    card.appendChild(hdr);
+    // Expanded detail
+    const detail=el('div',{style:{maxHeight:isExpanded?'200px':'0',overflow:'hidden',transition:'max-height .2s ease-out'}});
+    if(isExpanded){
+      const inner=el('div',{style:{padding:'0 12px 12px',display:'flex',flexDirection:'column',gap:'6px'}});
+      const badges=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}});
+      // Priority
+      const priBadge=task.priority==='urgent'?el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--coral)',background:'#fff1f0',padding:'2px 8px',borderRadius:'99px'}},['🔴 Urgent']):task.priority==='low'?el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--slate)',background:'#f1f5f9',padding:'2px 8px',borderRadius:'99px'}},['🟢 Low']):null;
+      if(priBadge)badges.appendChild(priBadge);
+      // Category
+      if(task.category&&task.category!=='Other')badges.appendChild(badge(task.category,'teal'));
+      // Child link
+      if(child)badges.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--teal)',background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['Re: '+(child.avatar||'')+' '+child.name]));
+      // Reminder
+      if(task.reminder&&task.reminder!=='none')badges.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:600}},['🔔 '+task.reminder.replace(/-/g,' ')]));
+      // Assignee (full)
+      if(task.assigned_to===session.id)badges.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--teal)',background:'#ccfbf122',padding:'2px 8px',borderRadius:'99px'}},['👤 Mine']));
+      else if(task.assigned_to&&coParent&&task.assigned_to===coParent.id)badges.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'#d97706',background:'#fef3c722',padding:'2px 8px',borderRadius:'99px'}},['👤 '+(coParent.name||'Co-Parent')]));
+      else badges.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['👥 Shared']));
+      if(badges.childNodes.length)inner.appendChild(badges);
+      // Notes
+      if(task.notes){const notesEl=el('div',{style:{fontSize:'13px',color:'var(--slate)',lineHeight:'1.5',fontStyle:'italic'}});notesEl.textContent=task.notes;inner.appendChild(notesEl);}
+      // Completed by
+      if(task.completed&&task.completed_by){
+        const doneBy=task.completed_by===session.id?(session.name||'You'):(coParent&&task.completed_by===coParent.id?coParent.name:'Someone');
+        inner.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)'}},['✓ Done by '+doneBy]));
+      }
+      detail.appendChild(inner);
+    }
+    card.appendChild(detail);
     container.appendChild(card);
   } else {
     // ─── WEB: full card (existing layout + bin icon) ───
