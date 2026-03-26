@@ -1848,6 +1848,11 @@ async function refreshFromSupabase(){
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join',parentEmailHint:r.parent_email_hint||null,childNameHint:r.child_name_hint||null,parentSeenAt:r.parent_seen_at||null}));
         DB.specialistRequests=mapped;
       }catch(e){console.error('load specialist_requests:',e);}
+      // Parent tasks (household to-do list)
+      try{
+        const{data:ptData}=await _supa.from('parent_tasks').select('*').eq('household_id',String(session.householdId)).order('created_at',{ascending:false});
+        DB.parentTasks=ptData||[];
+      }catch(e){console.error('load parent_tasks:',e);}
       // Fetch all secondary data in parallel for speed
       await Promise.allSettled([
         // Appointments
@@ -3323,6 +3328,7 @@ function openConfirm(title,msg,danger,onOk){
 const PARENT_TABS=[
   {id:'dashboard',label:'Home',icon:'🏠'},
   {id:'calendar',label:'Calendar',icon:'📅'},
+  {id:'todo',label:'To-Do',icon:'✅'},
   {id:'chat',label:'Chat',icon:'💬'},
   {id:'notifications',label:'Notifications',icon:'🔔'},
   {id:'settings',label:'Settings',icon:'⚙️'}
@@ -4347,6 +4353,7 @@ function renderParentDesktop(){
   const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const unreadNotifs=(DB.notifications||[]).filter(n=>!n.read).length;
   navR.appendChild(_navLink('Calendar',()=>{S.activeChild=null;S.webCal=true;S.calendarMode='joint';S.navLevel=0;re();}));
+  navR.appendChild(_navLink('To-Do',()=>{S.activeChild=null;S.webCal=false;S.navLevel=1;S.activeTab='todo';re();}));
   navR.appendChild(_navLink('Messages',()=>{S.activeChild=null;S.webCal=false;S.activeChatChildId=null;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';S.navLevel=1;re();},unreadChats));
   const _srPendingWeb=(DB.specialistRequests||[]).filter(r=>r.status==='pending'&&r.requestType==='join'&&!r.childId).length;
   navR.appendChild(_navLink('Requests',()=>{S.activeChild=null;S.webCal=false;S.navLevel=1;S.activeTab='specialist-requests';re();},_srPendingWeb));
@@ -5477,6 +5484,7 @@ function renderDrawer(){
       {icon:'🏠',label:'Family Home',id:'home'},
       {icon:'📊',label:'Dashboard',id:'dashboard'},
       {icon:'📅',label:'Calendar',id:'calendar'},
+      {icon:'✅',label:'To-Do',id:'todo'},
       {icon:'💬',label:'Chat',id:'chat'},
     ];
     coreItems.forEach(({icon,label,id})=>scroll.appendChild(drawerItem(icon,label,id)));
@@ -10093,55 +10101,269 @@ function showSpecTaskModal(existing=null){
 
 
 function renderTodoList(){
-  const isParent=session?.role==='parent';
-  const childId=S.activeChild;
-  const child=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
   const sec=el('div',{class:'section'});
+  const allTasks=(DB.parentTasks||[]);
+  const children=DB.children||[];
+  const coParents=DB.coParents||[];
+  const coParent=coParents[0]||null;
+  const CATEGORIES=['All','Appointment','Insurance','School','Therapy','Admin','Other'];
+  const today=new Date().toISOString().split('T')[0];
 
+  // Header
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},['✅ To-Do List']),
-    el('p',{class:'page-sub'},[child?child.avatar+' '+child.name+'\'s tasks':'All tasks'])
+    el('p',{class:'page-sub'},['Family tasks, reminders, and follow-ups'])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
-    mkBtn('➕ Add Task','btn-sm btn-primary',()=>showAddTodoModal(childId))
+    mkBtn('➕ Add Task','btn-md btn-primary',()=>showParentTaskModal())
   ]));
   sec.appendChild(hd);
 
-  const todos=(DB.todos||[]).filter(t=>!childId||t.childId===childId);
-  const pending=todos.filter(t=>!t.completed);
-  const done=todos.filter(t=>t.completed);
-  const today=new Date().toISOString().split('T')[0];
+  // Assignee filter (only if co-parent exists)
+  const assignFilter=S._parentTaskAssigneeFilter||'all';
+  if(coParent){
+    const afRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'12px'}});
+    [['all','All'],['mine','Mine'],[coParent.id,coParent.name||'Co-Parent']].forEach(([v,label])=>{
+      const isAct=assignFilter===v;
+      const pill=el('button',{style:{padding:'5px 14px',borderRadius:'99px',border:'1.5px solid '+(isAct?'var(--teal)':'var(--mint-l)'),background:isAct?'var(--teal)':'#fff',color:isAct?'#fff':'var(--navy)',fontWeight:700,fontSize:'.76rem',cursor:'pointer'}});
+      pill.textContent=label;
+      pill.onclick=()=>{S._parentTaskAssigneeFilter=v;re();};
+      afRow.appendChild(pill);
+    });
+    sec.appendChild(afRow);
+  }
 
-  if(!todos.length){
+  // Apply assignee filter
+  let visible=allTasks;
+  if(assignFilter==='mine'){visible=allTasks.filter(t=>!t.assigned_to||t.assigned_to===session.id);}
+  else if(assignFilter!=='all'&&coParent){visible=allTasks.filter(t=>t.assigned_to===assignFilter);}
+
+  // Stats
+  const urgentCount=visible.filter(t=>!t.completed&&t.priority==='urgent').length;
+  const overdueCount=visible.filter(t=>!t.completed&&t.due_date&&t.due_date<today).length;
+  const todayCount=visible.filter(t=>!t.completed&&t.due_date===today).length;
+  if(urgentCount||overdueCount||todayCount){
+    const statsRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
+    if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' Urgent']));
+    if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' Overdue']));
+    if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' Due Today']));
+    sec.appendChild(statsRow);
+  }
+
+  // Category filter chips
+  const catFilter=S._parentTaskFilter||'All';
+  const filterRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'16px',overflowX:'auto',paddingBottom:'4px'}});
+  CATEGORIES.forEach(cat=>{
+    const count=cat==='All'?visible.filter(t=>!t.completed).length:visible.filter(t=>!t.completed&&(t.category||'Other')===cat).length;
+    if(cat!=='All'&&count===0)return;
+    const isActive=catFilter===cat;
+    const chip=el('button',{style:{padding:'5px 13px',borderRadius:'99px',border:'1.5px solid '+(isActive?'var(--teal)':'var(--mint-l)'),background:isActive?'var(--teal)':'#fff',color:isActive?'#fff':'var(--navy)',fontWeight:700,fontSize:'.76rem',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}});
+    chip.textContent=cat+(count?' ('+count+')':'');
+    chip.onclick=()=>{S._parentTaskFilter=cat;re();};
+    filterRow.appendChild(chip);
+  });
+  sec.appendChild(filterRow);
+
+  // Apply category filter
+  let filtered=visible;
+  if(catFilter!=='All')filtered=visible.filter(t=>(t.category||'Other')===catFilter);
+
+  const pending=filtered.filter(t=>!t.completed).sort((a,b)=>{
+    const pa=a.priority==='urgent'?0:a.priority==='low'?2:1;
+    const pb=b.priority==='urgent'?0:b.priority==='low'?2:1;
+    if(pa!==pb)return pa-pb;
+    if(a.due_date&&b.due_date)return a.due_date.localeCompare(b.due_date);
+    if(a.due_date)return -1;if(b.due_date)return 1;
+    return 0;
+  });
+  const done=filtered.filter(t=>t.completed).sort((a,b)=>(b.completed_at||'').localeCompare(a.completed_at||''));
+
+  if(!allTasks.length){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['✅']),
       el('div',{class:'empty-state-title'},['No tasks yet']),
-      el('div',{class:'empty-state-body'},['Add tasks with optional reminders to stay on top of things.']),
-      el('div',{class:'empty-state-actions'},[mkBtn('➕ Add First Task','btn-md btn-primary',()=>showAddTodoModal(childId))])
+      el('div',{class:'empty-state-body'},['Add tasks to stay on top of appointments, insurance, school forms, and more.']),
+      el('div',{class:'empty-state-actions'},[mkBtn('➕ Add First Task','btn-md btn-primary',()=>showParentTaskModal())])
     ]));
     return sec;
   }
 
-  // Pending tasks
+  // Pending
   if(pending.length){
-    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},['Pending ('+pending.length+')']));
-    pending.sort((a,b)=>(a.dueDate||'9')>(b.dueDate||'9')?1:-1).forEach(todo=>{
-      sec.appendChild(renderTodoCard(todo,today));
-    });
+    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['Pending ('+pending.length+')']));
+    const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'20px'}});
+    pending.forEach(task=>_renderParentTaskCard(task,stack,children,coParent));
+    sec.appendChild(stack);
   }
 
-  // Completed tasks
+  // Done (collapsible)
   if(done.length){
-    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--slate)',marginBottom:'12px',marginTop:'18px',fontSize:'.9rem'}},['Completed ('+done.length+')']));
-    done.forEach(todo=>{
-      sec.appendChild(renderTodoCard(todo,today));
-    });
+    const doneHd=el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}});
+    doneHd.appendChild(el('span',{},['Completed ('+done.length+')']));
+    doneHd.appendChild(el('span',{style:{fontSize:'.8rem',color:'var(--slate-l)'}},[S._parentTaskDoneOpen?'▲':'▼']));
+    doneHd.onclick=()=>{S._parentTaskDoneOpen=!S._parentTaskDoneOpen;re();};
+    sec.appendChild(doneHd);
+    if(S._parentTaskDoneOpen){
+      const doneStack=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}});
+      done.slice(0,10).forEach(task=>_renderParentTaskCard(task,doneStack,children,coParent));
+      sec.appendChild(doneStack);
+    }
   }
-
   return sec;
 }
 
+function _renderParentTaskCard(task,container,children,coParent){
+  const child=task.child_id?children.find(c=>c.id===task.child_id):null;
+  const today=new Date().toISOString().split('T')[0];
+  const isOverdue=task.due_date&&!task.completed&&task.due_date<today;
+  const isDueToday=task.due_date===today&&!task.completed;
+  const priorityColor=task.priority==='urgent'?'var(--coral)':task.priority==='low'?'var(--teal)':'var(--amber)';
+  const card=el('div',{class:'card',style:{display:'flex',gap:'12px',alignItems:'flex-start',borderLeft:'4px solid '+(task.completed?'var(--mint-l)':isOverdue?'var(--coral)':isDueToday?'#f59e0b':priorityColor),opacity:task.completed?'0.6':'1',padding:'12px 14px'}});
+  // Checkbox
+  const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
+  chk.style.cssText='flex-shrink:0;margin-top:2px;';
+  chk.onclick=async()=>{
+    const nowDone=!task.completed;const now=new Date().toISOString();
+    const idx=(DB.parentTasks||[]).findIndex(t=>t.id===task.id);
+    if(idx>-1){DB.parentTasks[idx].completed=nowDone;DB.parentTasks[idx].completed_by=nowDone?session.id:null;DB.parentTasks[idx].completed_at=nowDone?now:null;}
+    try{const{error}=await _supa.from('parent_tasks').update({completed:nowDone,completed_by:nowDone?session.id:null,completed_at:nowDone?now:null}).eq('id',task.id);if(error)console.error('❌ toggle task:',error);}catch(e){}
+    re();
+  };
+  card.appendChild(chk);
+  const info=el('div',{style:{flex:1,minWidth:0}});
+  info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.87rem',lineHeight:'1.4',marginBottom:'5px',color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none'}},[task.title||'Task']));
+  const meta=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}});
+  // Assignee badge
+  if(task.assigned_to===session.id)meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--teal)',background:'#ccfbf122',padding:'2px 8px',borderRadius:'99px'}},['👤 Mine']));
+  else if(task.assigned_to&&coParent&&task.assigned_to===coParent.id)meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'#d97706',background:'#fef3c722',padding:'2px 8px',borderRadius:'99px'}},['👤 '+(coParent.name||'Co-Parent')]));
+  else meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['👥 Shared']));
+  // Category
+  if(task.category&&task.category!=='Other')meta.appendChild(badge(task.category,'teal'));
+  // Child link
+  if(child)meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:'var(--teal)',background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['Re: '+(child.avatar||'')+' '+child.name]));
+  // Due date
+  if(task.due_date){
+    meta.appendChild(el('span',{style:{fontSize:'.7rem',fontWeight:700,color:isOverdue?'var(--coral)':isDueToday?'#f59e0b':'var(--slate)'}},[isOverdue?'⚠️ Overdue: '+task.due_date:isDueToday?'📅 Due today':'📅 '+task.due_date]));
+  }
+  if(task.reminder&&task.reminder!=='none')meta.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:600}},['🔔 '+task.reminder.replace(/-/g,' ')]));
+  if(meta.childNodes.length)info.appendChild(meta);
+  // Completed by
+  if(task.completed&&task.completed_by){
+    const doneBy=task.completed_by===session.id?(session.name||'You'):(coParent&&task.completed_by===coParent.id?coParent.name:'Someone');
+    info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'4px'}},['✓ Done by '+doneBy]));
+  }
+  // Notes preview
+  if(task.notes&&!task.completed)info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'5px',lineHeight:'1.4',fontStyle:'italic'}},[task.notes.slice(0,80)+(task.notes.length>80?'…':'')]));
+  card.appendChild(info);
+  if(!task.completed){
+    const _isMob=window.innerWidth<768;
+    if(_isMob){card.style.cursor='pointer';card.onclick=(e)=>{if(e.target.closest('.chk'))return;showParentTaskModal(task);};card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800,flexShrink:0,alignSelf:'center'}},['›']));}
+    else{const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showParentTaskModal(task));editBtn.style.flexShrink='0';card.appendChild(editBtn);}
+  }
+  container.appendChild(card);
+}
+
+function showParentTaskModal(existing=null){
+  const title=existing?'Edit Task':'New Task';
+  openModal(title,(mb,close)=>{
+    const children=DB.children||[];
+    const coParents=DB.coParents||[];
+    const coParent=coParents[0]||null;
+    const CATS=['Appointment','Insurance','School','Therapy','Admin','Other'];
+    // Title
+    mb.appendChild(el('div',{class:'inp-label'},['Task *']));
+    const titleInp=el('input',{class:'inp',placeholder:'e.g. Call insurance about referral'});
+    if(existing)titleInp.value=existing.title||'';
+    mb.appendChild(titleInp);
+    // Notes
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const notesInp=el('textarea',{class:'inp',style:{minHeight:'60px'},placeholder:'Add any context…'});
+    if(existing)notesInp.value=existing.notes||'';
+    mb.appendChild(notesInp);
+    // Category
+    mb.appendChild(el('div',{class:'inp-label'},['Category']));
+    const catSel=el('select',{class:'inp'});
+    CATS.forEach(c=>{const o=el('option',{value:c},[c]);if((existing?.category||'Admin')===c)o.selected=true;catSel.appendChild(o);});
+    mb.appendChild(catSel);
+    // Priority
+    mb.appendChild(el('div',{class:'inp-label'},['Priority']));
+    const priRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
+    const priState={v:existing?.priority||'normal'};
+    [['urgent','🔴 Urgent'],['normal','🟡 Normal'],['low','🟢 Low']].forEach(([v,l])=>{
+      const btn=el('button',{style:{flex:1,padding:'7px 4px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',cursor:'pointer',fontSize:'.76rem',fontWeight:700,background:priState.v===v?'var(--navy)':'#fff',color:priState.v===v?'#fff':'var(--navy)'}});
+      btn.textContent=l;
+      btn.onclick=()=>{priState.v=v;priRow.querySelectorAll('button').forEach((b,i)=>{const vals=['urgent','normal','low'];b.style.background=priState.v===vals[i]?'var(--navy)':'#fff';b.style.color=priState.v===vals[i]?'#fff':'var(--navy)';});};
+      priRow.appendChild(btn);
+    });
+    mb.appendChild(priRow);
+    // Assign to (only if co-parent exists)
+    const assignState={v:existing?.assigned_to||null};
+    if(coParent){
+      mb.appendChild(el('div',{class:'inp-label'},['Assign to']));
+      const assignRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
+      [[null,'👥 Shared'],[session.id,'👤 Me'],[coParent.id,'👤 '+(coParent.name||'Co-Parent')]].forEach(([v,l])=>{
+        const btn=el('button',{style:{flex:1,padding:'7px 4px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',cursor:'pointer',fontSize:'.76rem',fontWeight:700,background:assignState.v===v?'var(--navy)':'#fff',color:assignState.v===v?'#fff':'var(--navy)'}});
+        btn.textContent=l;
+        btn.onclick=()=>{assignState.v=v;assignRow.querySelectorAll('button').forEach((b,i)=>{const vals=[null,session.id,coParent.id];b.style.background=assignState.v===vals[i]?'var(--navy)':'#fff';b.style.color=assignState.v===vals[i]?'#fff':'var(--navy)';});};
+        assignRow.appendChild(btn);
+      });
+      mb.appendChild(assignRow);
+    }
+    // Related child
+    mb.appendChild(el('div',{class:'inp-label'},['Related Child (optional)']));
+    const childSel=el('select',{class:'inp'});
+    childSel.appendChild(el('option',{value:''},['— No specific child —']));
+    children.forEach(c=>{const o=el('option',{value:c.id},[(c.avatar||'🧒')+' '+c.name]);if(existing?.child_id===c.id)o.selected=true;childSel.appendChild(o);});
+    mb.appendChild(childSel);
+    // Due date
+    mb.appendChild(el('div',{class:'inp-label'},['Due Date (optional)']));
+    const dueInp=makeDateInput('Due date');
+    if(existing?.due_date)dueInp.value=existing.due_date;
+    mb.appendChild(dueInp);
+    // Reminder
+    mb.appendChild(el('div',{class:'inp-label'},['Reminder (optional)']));
+    const remSel=el('select',{class:'inp'});
+    [['','No reminder'],['on-due-date','On due date'],['1-day-before','1 day before'],['1-week-before','1 week before']].forEach(([v,l])=>{const o=el('option',{value:v},[l]);if((existing?.reminder||'')===v)o.selected=true;remSel.appendChild(o);});
+    mb.appendChild(remSel);
+    // Delete
+    if(existing){
+      const delBtn=mkBtn('🗑️ Delete Task','btn-sm btn-ghost',async()=>{
+        DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==existing.id);
+        try{const{error}=await _supa.from('parent_tasks').delete().eq('id',existing.id);if(error)console.error('❌ delete task:',error);}catch(e){}
+        close();re();toast('Task deleted');
+      });
+      delBtn.style.cssText='margin-top:6px;width:100%;color:var(--coral);';
+      mb.appendChild(delBtn);
+    }
+    // Save
+    const saveBtn=mkBtn(existing?'Save Changes':'Add Task','btn-lg btn-primary btn-full',async()=>{
+      const taskTitle=titleInp.value.trim();
+      if(!taskTitle){toast('Enter a task title','error');return;}
+      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      const now=new Date().toISOString();
+      if(existing){
+        const upd={title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,assigned_to:assignState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null};
+        const idx=(DB.parentTasks||[]).findIndex(t=>t.id===existing.id);
+        if(idx>-1)Object.assign(DB.parentTasks[idx],upd);
+        try{const{error}=await _supa.from('parent_tasks').update(upd).eq('id',existing.id);if(error)console.error('❌ update task:',error);}catch(e){console.error('update parent task:',e);}
+      } else {
+        const id='pt_'+Date.now();
+        const newTask={id,household_id:String(session.householdId),created_by:session.id,assigned_to:assignState.v,child_id:childSel.value||null,title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,due_date:dueInp.value||null,reminder:remSel.value||null,completed:false,created_at:now};
+        (DB.parentTasks||[]).unshift(newTask);
+        try{const{error}=await _supa.from('parent_tasks').insert(newTask);if(error)console.error('❌ insert task:',error);}catch(e){console.error('create parent task:',e);}
+        // Notify co-parent if assigned to them
+        if(assignState.v&&assignState.v!==session.id&&coParent&&session.id!=='demo'){
+          try{const{error:nErr}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+assignState.v,user_id:assignState.v,child_id:childSel.value||null,type:'todo',message:'📋 '+(session.displayName||session.name||'Your co-parent')+' assigned you a task: "'+taskTitle+'"',read:false,link_tab:'todo'});if(nErr)console.error('❌ notify co-parent:',nErr);}catch(e){}
+        }
+      }
+      close();re();toast(existing?'Task updated':'Task added ✅');
+    });
+    mb.appendChild(saveBtn);
+  },480);
+}
+
+// Legacy renderTodoCard kept for backward compat
 function renderTodoCard(todo,today){
   const isOverdue=!todo.completed&&todo.dueDate&&todo.dueDate<today;
   const card=el('div',{class:'card',style:{
