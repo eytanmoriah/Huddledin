@@ -2126,7 +2126,7 @@ function setupHouseholdSync(){
     .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
   _supa.channel('hh_parent_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
-      console.log('🔔 parent_tasks realtime fired!',p.eventType,p.new);
+      console.log('🔔 Realtime: parent_tasks',p.eventType);
       const arr=DB.parentTasks||[];
       if(p.eventType==='INSERT'&&p.new){if(!arr.find(t=>t.id===p.new.id)){arr.unshift(p.new);DB.parentTasks=arr;}}
       else if(p.eventType==='UPDATE'&&p.new){const idx=arr.findIndex(t=>t.id===p.new.id);if(idx>-1){arr[idx]=p.new;}else{arr.unshift(p.new);}DB.parentTasks=arr;}
@@ -10288,8 +10288,7 @@ function _renderParentTaskCard(task,container,children,coParent){
     arr[idx].completed_at=newCompleted?now:null;
     DB.parentTasks=arr;
     re();
-    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id)
-      .then(({error})=>console.log('💾 parent_tasks update result:',error||'OK'));
+    _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
   };
 
   // Assignee display name
