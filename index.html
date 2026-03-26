@@ -1837,21 +1837,14 @@ async function refreshFromSupabase(){
         const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
         let _allReqs=[];
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        // Parallel: 3 request sources (RLS-visible rows only)
-        const [_reqR1,_reqR2,_reqR3]=await Promise.all([
+        // Parallel: 4 request sources (4th = specialist-initiated by email hint)
+        const [_reqR1,_reqR2,_reqR3,_reqR4]=await Promise.all([
           _hid?_supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
           _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id),
           _childIds.length?_supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+          session.email?_supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_email_hint',session.email):Promise.resolve({data:[]}),
         ]);
-        _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);
-        // Inject pending specialist-initiated request from localStorage (RLS blocks direct query)
-        const _pendingSRId=localStorage.getItem('pendingSpecialistRequestId');
-        if(_pendingSRId&&!_allReqs.find(r=>r.id===_pendingSRId)){
-          const _lsN=localStorage.getItem('pendingSR_name');
-          const _lsR=localStorage.getItem('pendingSR_role');
-          const _lsC=localStorage.getItem('pendingSR_child');
-          if(_lsN){_allReqs.push({id:_pendingSRId,specialist_id:null,specialist_name:_lsN,role:_lsR||'Specialist',child_id:null,requested_at:new Date().toISOString(),status:'pending',request_type:'join',parent_email_hint:null,child_name_hint:_lsC||''});}
-        }
+        _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);_dedup(_reqR4.data);
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join',parentEmailHint:r.parent_email_hint||null,childNameHint:r.child_name_hint||null,parentSeenAt:r.parent_seen_at||null}));
         DB.specialistRequests=mapped;
       }catch(e){console.error('load specialist_requests:',e);}
