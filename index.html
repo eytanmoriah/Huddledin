@@ -4764,6 +4764,7 @@ function renderSpecDesktop(){
     {id:'calendar', label:'Calendar',icon:'📅'},
     {id:'todo',     label:'To-Do',  icon:'✅'},
     {id:'notifications',label:'Notifications',icon:'🔔',badge:unreadN||null},
+    {id:'request',label:'Join Team',icon:'📨'},
     {id:'settings', label:'Settings',icon:'⚙️'},
   ].forEach(item=>{
     const isAct=item.id==='patients'?isPatientsActive:(S.activeTab===item.id);
@@ -12253,81 +12254,88 @@ function sendPush(title,body){
 ----------------------------------------------- */
 function renderSpecialistRequest(){
   const sec=el('div',{class:'section'});
-  sec.appendChild(el('h2',{class:'page-title'},['📨 Request to Join a Care Team']));
-  sec.appendChild(el('p',{class:'page-sub'},['Send a request to a parent to add you to their child\'s care team. The parent must approve before you gain access.']));
+  sec.appendChild(el('h2',{class:'page-title'},['📨 Join a Care Team']));
+  sec.appendChild(el('p',{class:'page-sub'},['Send a request to a parent to join their child\'s care team.']));
 
-  // Pending requests
-  const myRequests=(DB.specialistRequests||[]).filter(r=>r.specialistId===(session?.specialistId||null));
-  if(myRequests.length){
-    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['My Requests']));
-    myRequests.forEach(r=>{
-      const card=el('div',{class:'spec-request-card'});
-      const rcTop=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}});
-      rcTop.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[r.childName||'Unknown child']));
-      const rcBadge=r.status==='pending'?el('span',{class:'badge badge-amber'},['⏳ Pending']):r.status==='approved'?el('span',{class:'badge badge-green'},['✅ Approved']):el('span',{class:'badge badge-rose'},['✗ Denied']);
-      rcTop.appendChild(rcBadge);
-      card.appendChild(rcTop);
-      card.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[`Sent to: ${r.parentEmail||'parent'} · ${r.requestedAt}`]));
-      sec.appendChild(card);
-    });
-  }
+  // ─── MY REQUESTS (from Supabase) ───
+  const _reqWrap=el('div',{id:'spec-req-list'});
+  sec.appendChild(_reqWrap);
+  (async()=>{
+    if(session?.id==='demo'||!_supa)return;
+    try{
+      const{data:myReqs,error}=await _supa.from('specialist_requests')
+        .select('id,child_id,child_name_hint,parent_email_hint,status,requested_at,request_type')
+        .eq('specialist_id',session.id).eq('request_type','join')
+        .order('requested_at',{ascending:false});
+      if(error){console.error('❌ load my requests:',error);return;}
+      if(!myReqs||myReqs.length===0){
+        _reqWrap.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',fontStyle:'italic',marginBottom:'20px'}},['No requests sent yet.']));
+        return;
+      }
+      _reqWrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'8px'}},['My Requests']));
+      myReqs.forEach(r=>{
+        const dbChild=(LS.get('children',[])||[]).find(c=>c.id===r.child_id);
+        const childName=dbChild?.name||r.child_name_hint||'Pending';
+        const card=el('div',{class:'spec-request-card'});
+        const top=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'}});
+        top.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[childName]));
+        const badge=r.status==='pending'?el('span',{class:'badge badge-amber'},['⏳ Pending'])
+          :r.status==='approved'?el('span',{class:'badge badge-green'},['✅ Approved'])
+          :el('span',{class:'badge badge-slate'},['Removed']);
+        top.appendChild(badge);card.appendChild(top);
+        const meta=[];
+        if(r.parent_email_hint)meta.push('To: '+r.parent_email_hint);
+        if(r.requested_at){meta.push(new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}));}
+        card.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[meta.join(' · ')]));
+        _reqWrap.appendChild(card);
+      });
+    }catch(e){console.error('load my requests:',e);}
+  })();
 
-  // New request form
+  // ─── SEND NEW REQUEST FORM ───
   const fc=el('div',{class:'card',style:{marginTop:'20px'}});
   fc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['➕ Send New Request']));
-  const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
-  const pi=el('input',{class:'inp',placeholder:"Parent's email address",type:'email'});
-  const ni=el('input',{class:'inp',placeholder:"Child's name"});
-  const ri=el('select',{class:'inp'});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
-  [pi,ni,ri].forEach(i=>ig.appendChild(i));
-  fc.appendChild(ig);
+  fc.appendChild(el('div',{class:'inp-label'},["Parent's email"]));
+  const pi=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
+  fc.appendChild(pi);
+  fc.appendChild(el('div',{class:'inp-label'},["Child's name (hint for the parent)"]));
+  const ni=el('input',{class:'inp',placeholder:'e.g. Erez, Shalev…',style:{marginBottom:'4px'}});
+  fc.appendChild(ni);
+  fc.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'16px',fontStyle:'italic'}},["The parent's name for the child takes priority."]));
+  const specRole=session?.profession||'Specialist';
+  fc.appendChild(el('div',{class:'inp-label'},['Your specialty']));
+  fc.appendChild(el('div',{style:{padding:'10px 14px',background:'var(--mint-ll)',borderRadius:'var(--r-md)',fontSize:'.88rem',fontWeight:600,color:'var(--navy)',marginBottom:'16px'}},[specRole]));
   fc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
-    ['The parent will receive a notification and email. Once approved, the child\'s profile will appear in your Patients list and you\'ll receive access to the folders they choose to share.']));
-  fc.appendChild(mkBtn('📨 Send Join Request','btn-lg btn-primary btn-full',()=>{
-    if(!pi.value.trim()||!ni.value.trim()){toast('⚠️ Parent email and child name required.','error');return;}
-    const reqs=DB.specialistRequests||[];
-    const specId=session?.specialistId||null;
-    const spec=getMySpecialistRecord();
-    reqs.push({id:'req_'+Date.now(),specialistId:specId,specialistName:spec?.name||session?.name,parentEmail:pi.value.trim(),childName:ni.value.trim(),reason:ri.value.trim(),requestedAt:new Date().toISOString().split('T')[0],status:'pending'});
-    DB.specialistRequests=reqs;
-    // Add notification for parent (simulated)
-    pushNotif('invite',`${spec?.name||'A specialist'} has requested to join ${ni.value.trim()}'s care team`,'c1');
-    // Add simulated email
-    const emails=DB.emailInbox;
-    emails.unshift({id:'e_'+Date.now(),from:'huddledin@app.com',to:pi.value,subject:`🤝 ${spec?.name||'A specialist'} wants to join ${ni.value.trim()}'s care team`,body:`${spec?.name||'A specialist'} (${spec?.role||'Specialist'}) has requested to join ${ni.value.trim()}'s care team on Huddledin.\n\nReason: ${ri.value||'Not specified'}\n\nPlease log in to approve or deny this request.`,date:new Date().toISOString().split('T')[0],read:false,type:'invite'});
-    DB.emailInbox=emails;
-    re();toast('✅ Request sent! The parent will be notified.');
-  }));
-  sec.appendChild(fc);
-
-  // Show incoming requests on parent side (for demo, show any pending)
-  const incomingReqs=(DB.specialistRequests||[]).filter(r=>r.status==='pending');
-  if(incomingReqs.length&&session?.role==='parent'){
-    const ic=el('div',{class:'card',style:{marginTop:'20px',background:'var(--sky-l)',border:'2px solid var(--sky)'}});
-    ic.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['📩 Incoming Specialist Requests']));
-    incomingReqs.forEach(r=>{
-      const row=d('',[], {display:'flex',gap:'12px',alignItems:'center',padding:'10px 0',borderBottom:'1px solid rgba(0,0,0,.06)'});
-      row.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🩺']));
-      const inf=d('',[], {flex:1});
-      inf.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[r.specialistName+' — '+r.childName]));
-      inf.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[r.reason||r.specialistName]));
-      row.appendChild(inf);
-      const acts=d('',[], {display:'flex',gap:'8px'});
-      acts.appendChild(mkBtn('✓ Approve','btn-sm btn-primary',()=>{
-        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
-        if(i>-1){reqs[i].status='approved';DB.specialistRequests=reqs;}
-        re();toast('✅ Request approved! Specialist added to care team.');
-      }));
-      acts.appendChild(mkBtn('✗ Deny','btn-sm btn-danger',()=>{
-        const reqs=DB.specialistRequests,i=reqs.findIndex(x=>x.id===r.id);
-        if(i>-1){reqs[i].status='denied';DB.specialistRequests=reqs;}
-        re();toast('Request denied.');
-      }));
-      row.appendChild(acts);
-      ic.appendChild(row);
-    });
-    sec.appendChild(ic);
-  }
+    ['The parent will receive an email with a link to approve your request. Once approved, the child will appear in your Patients list.']));
+  const _srBtn=mkBtn('📨 Send Request','btn-lg btn-primary btn-full',async()=>{
+    const parentEmail=pi.value.trim();const childHint=ni.value.trim();
+    if(!parentEmail||!parentEmail.includes('@')){toast('Please enter a valid email address.','error');return;}
+    if(!childHint){toast("Please enter the child's name.",'error');return;}
+    if(session?.id==='demo'){toast('Demo mode — request not sent.','info');return;}
+    _srBtn.disabled=true;_srBtn.textContent='⏳ Sending…';
+    try{
+      // Dedup: same specialist + same parent email + pending + NULL child_id
+      const{data:dup}=await _supa.from('specialist_requests').select('id')
+        .eq('specialist_id',session.id).eq('parent_email_hint',parentEmail)
+        .eq('status','pending').is('child_id',null).limit(1);
+      if(dup&&dup.length>0){toast('You already sent a request to this parent. Wait for their response.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';return;}
+      const newId=crypto.randomUUID();
+      const{error:insErr}=await _supa.from('specialist_requests').insert({
+        id:newId,specialist_id:session.id,
+        specialist_name:session.displayName||session.name||'Specialist',
+        role:session.profession||'Specialist',
+        status:'pending',request_type:'join',
+        requested_at:new Date().toISOString(),
+        parent_email_hint:parentEmail,child_name_hint:childHint
+      });
+      if(insErr){console.error('❌ insert specialist_request:',insErr);toast('Failed to send request. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';return;}
+      // Send email
+      try{await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
+      toast('✅ Request sent to '+parentEmail+'!');pi.value='';ni.value='';
+      _srBtn.disabled=false;_srBtn.textContent='📨 Send Request';re();
+    }catch(e){console.error('send specialist request:',e);toast('Something went wrong. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';}
+  });
+  fc.appendChild(_srBtn);sec.appendChild(fc);
   return sec;
 }
 
@@ -13989,6 +13997,117 @@ initData();
     },500);
   }
 })();
+
+// ─── Handle specialist-initiated request links (?specialist_request=ID) ───
+(async function handleSpecialistRequestLink(){
+  const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
+  const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
+  const srId=params.get('specialist_request');
+  if(srId){
+    localStorage.setItem('pendingSpecialistRequestId',srId);
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('🩺 A specialist wants to join your care team. Please sign in to review.','info',5000),800);
+  }
+  const pendingSR=localStorage.getItem('pendingSpecialistRequestId');
+  if(pendingSR&&session&&session.role==='parent'){
+    await _processPendingSpecialistRequest();
+  } else if(pendingSR&&!session){
+    let retries=0;
+    const ri2=setInterval(async()=>{
+      retries++;
+      if(session){
+        clearInterval(ri2);
+        if(session.role==='parent')await _processPendingSpecialistRequest();
+        else localStorage.removeItem('pendingSpecialistRequestId');
+      }
+      if(retries>20)clearInterval(ri2);
+    },500);
+  }
+})();
+
+// ─── Parent: process incoming specialist-initiated request ───
+async function _processPendingSpecialistRequest(){
+  const reqId=localStorage.getItem('pendingSpecialistRequestId');
+  if(!reqId||!session||session.role!=='parent')return;
+  localStorage.removeItem('pendingSpecialistRequestId');
+  if(!_supa)return;
+  try{
+    const{data:req,error}=await _supa.from('specialist_requests').select('*').eq('id',reqId).single();
+    if(error||!req){toast('This request is no longer available.','error');return;}
+    if(req.status==='approved'){toast('This specialist is already connected.','info');return;}
+    if(req.status!=='pending'){toast('This request has been '+req.status+'.','info');return;}
+    const specName=req.specialist_name||'A specialist';
+    const specRole=req.role||'Specialist';
+    const childHint=req.child_name_hint||'your child';
+    const children=DB.children||[];
+    if(children.length===0){
+      // No children yet — re-store and prompt
+      localStorage.setItem('pendingSpecialistRequestId',reqId);
+      toast('🩺 '+specName+' wants to join your care team. Add a child first to approve.','info',6000);
+      return;
+    }
+    // Approval modal — parent selects which child
+    openModal('🩺 Specialist Request',(mb,close)=>{
+      mb.appendChild(el('p',{style:{fontSize:'.88rem',color:'var(--navy)',marginBottom:'6px',fontWeight:600}},
+        [specName+' ('+specRole+') wants to join your care team.']));
+      if(childHint)mb.appendChild(el('p',{style:{fontSize:'.82rem',color:'var(--slate)',marginBottom:'16px'}},
+        ['They mentioned: "'+childHint+'"']));
+      mb.appendChild(el('div',{class:'inp-label'},['Which child is this specialist for?']));
+      const sel=el('select',{class:'inp',style:{marginBottom:'16px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=(c.avatar||'🧒')+' '+c.name;sel.appendChild(o);});
+      mb.appendChild(sel);
+      const approveBtn=mkBtn('✅ Approve','btn-lg btn-primary btn-full',async()=>{
+        const selectedChildId=sel.value;
+        if(!selectedChildId){toast('Please select a child.','error');return;}
+        approveBtn.disabled=true;approveBtn.textContent='⏳ Approving…';
+        try{
+          // Collision: check if specialist already connected to this child
+          const{data:existing}=await _supa.from('specialist_requests')
+            .select('id,status').eq('specialist_id',req.specialist_id)
+            .eq('child_id',selectedChildId).eq('request_type','join').limit(1);
+          if(existing&&existing.length>0&&existing[0].status==='approved'){
+            toast('This specialist is already connected to this child.','info');close();return;
+          }
+          // If pending row from other direction exists, approve that one too
+          if(existing&&existing.length>0&&existing[0].status==='pending'&&existing[0].id!==reqId){
+            await _supa.from('specialist_requests').update({status:'approved'}).eq('id',existing[0].id);
+          }
+          // Fill missing fields on the specialist-initiated row
+          const{error:updErr}=await _supa.from('specialist_requests').update({
+            child_id:selectedChildId,
+            household_id:String(session.householdId),
+            parent_id:session.id
+          }).eq('id',reqId);
+          if(updErr){console.error('❌ update specialist_request:',updErr);toast('Failed to approve. Please try again.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';return;}
+          // Load into local cache so approveSpecialistRequest can find it
+          const mapped={id:reqId,specialistId:req.specialist_id,specialistName:req.specialist_name,role:req.role,childId:selectedChildId,requestedAt:req.requested_at,status:'pending',requestType:'join'};
+          const reqs=DB.specialistRequests||[];reqs.push(mapped);DB.specialistRequests=reqs;
+          // Run existing approval flow
+          await approveSpecialistRequest(reqId,[]);
+          // Notify the requesting specialist directly
+          try{
+            const child=DB.children.find(c=>c.id===selectedChildId);
+            const{error:nErr}=await _supa.from('notifications').insert({
+              id:'n_op_'+Date.now()+'_'+req.specialist_id,
+              user_id:req.specialist_id,child_id:selectedChildId,
+              type:'invite',
+              message:'🎉 Your request to join '+(child?.name||'a child')+"'s care team has been approved!",
+              read:false,link_tab:'patients'
+            });
+            if(nErr)console.error('❌ notify specialist:',nErr);
+          }catch(e){console.warn('notify specialist:',e);}
+          close();await refreshFromSupabase();re();
+        }catch(e){console.error('approve specialist request:',e);toast('Something went wrong.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';}
+      });
+      mb.appendChild(approveBtn);
+      mb.appendChild(el('div',{style:{height:'8px'}}));
+      mb.appendChild(mkBtn('✗ Decline','btn-lg btn-ghost btn-full',async()=>{
+        try{const{error:dErr}=await _supa.from('specialist_requests').update({status:'denied'}).eq('id',reqId);if(dErr)console.error('deny:',dErr);}catch(e){}
+        close();toast('Request declined.');re();
+      }));
+    },440);
+  }catch(e){console.error('process specialist request:',e);}
+}
 
 // Show once-per-session popup when a specialist's connection is removed by the parent.
 // Gives specialist the choice to move the patient to their inactive/past patients section.
