@@ -2093,6 +2093,7 @@ async function refreshFromSupabase(){
 // Debounced refresh — collapses burst real-time events into one refresh
 let _refreshTimer=null;
 let _seenTimestamps={};
+const _localParentTaskChanges=new Set();
 function _debouncedRefresh(){
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(()=>{
@@ -2133,10 +2134,8 @@ function setupHouseholdSync(){
       else if(p.eventType==='DELETE'&&p.old){DB.parentTasks=arr.filter(t=>t.id!==p.old.id);}
       re();
       setTimeout(()=>{
-        const localTask=(DB.parentTasks||[]).find(t=>t.id===(p.new||p.old||{}).id);
-        const eventCompleted=p.new?p.new.completed:null;
-        const localCompleted=localTask?localTask.completed:null;
-        if(eventCompleted===localCompleted)return;
+        const changedId=(p.new||p.old||{}).id;
+        if(_localParentTaskChanges.has(changedId)){_localParentTaskChanges.delete(changedId);return;}
         _debouncedRefresh();
       },1500);
     })
@@ -10265,6 +10264,7 @@ function _deleteParentTask(task){
   openConfirm('Delete this task?','This will permanently remove "'+task.title+'".', true, async()=>{
     const arr=(DB.parentTasks||[]).filter(t=>t.id!==task.id);
     DB.parentTasks=arr;
+    _localParentTaskChanges.add(task.id);
     re();
     try{const{error}=await _supa.from('parent_tasks').delete().eq('id',task.id);if(error)console.error('❌ delete task:',error);}catch(e){}
     toast('Task deleted');
@@ -10293,6 +10293,7 @@ function _renderParentTaskCard(task,container,children,coParent){
     arr[idx].completed_by=newCompleted?session.id:null;
     arr[idx].completed_at=newCompleted?now:null;
     DB.parentTasks=arr;
+    _localParentTaskChanges.add(task.id);
     re();
     _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id);
   };
@@ -10462,6 +10463,7 @@ function showParentTaskModal(existing=null){
     if(existing){
       const delBtn=mkBtn('🗑️ Delete Task','btn-sm btn-ghost',async()=>{
         DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==existing.id);
+        _localParentTaskChanges.add(existing.id);
         try{const{error}=await _supa.from('parent_tasks').delete().eq('id',existing.id);if(error)console.error('❌ delete task:',error);}catch(e){}
         close();re();toast('Task deleted');
       });
@@ -10478,11 +10480,13 @@ function showParentTaskModal(existing=null){
         const upd={title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,assigned_to:assignState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null};
         const idx=(DB.parentTasks||[]).findIndex(t=>t.id===existing.id);
         if(idx>-1)Object.assign(DB.parentTasks[idx],upd);
+        _localParentTaskChanges.add(existing.id);
         try{const{error}=await _supa.from('parent_tasks').update(upd).eq('id',existing.id);if(error)console.error('❌ update task:',error);}catch(e){console.error('update parent task:',e);}
       } else {
         const id='pt_'+Date.now();
         const newTask={id,household_id:String(session.householdId),created_by:session.id,assigned_to:assignState.v,child_id:childSel.value||null,title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,due_date:dueInp.value||null,reminder:remSel.value||null,completed:false,created_at:now};
         (DB.parentTasks||[]).unshift(newTask);
+        _localParentTaskChanges.add(id);
         try{const{error}=await _supa.from('parent_tasks').insert(newTask);if(error)console.error('❌ insert task:',error);}catch(e){console.error('create parent task:',e);}
         // Notify co-parent if assigned to them
         if(assignState.v&&assignState.v!==session.id&&coParent&&session.id!=='demo'){
