@@ -2124,8 +2124,9 @@ function setupHouseholdSync(){
   _supa.channel('hh_hw_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: homework_tasks',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
+  console.log('🔔 Setting up parent_tasks realtime channel, hid:',_hid,'role:',session.role);
   _supa.channel('hh_parent_tasks:'+_hid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: parent_tasks',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 parent_tasks realtime fired!',p.eventType,p.new);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
   _hhChildren.forEach(cid=>{
