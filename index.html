@@ -12290,7 +12290,7 @@ function renderSpecialistRequests(){
       top.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.82rem',fontWeight:700,flexShrink:0}},[initials]));
       const info=el('div',{style:{flex:1,minWidth:0}});
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.92rem'}},[r.specialistName||'Specialist']));
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},[r.role||'Specialist']));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},[_resolveSpecRole(r)]));
       if(r.childNameHint)info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}},['Requested for: '+r.childNameHint]));
       if(r.requestedAt)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'2px'}},[new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})]));
       top.appendChild(info);card.appendChild(top);
@@ -12307,42 +12307,8 @@ function renderSpecialistRequests(){
       });
       sel.appendChild(el('option',{value:'__add_new'},['+ Add a new child']));
       card.appendChild(sel);
-      // Inline add-child form (hidden by default)
-      const addChildForm=el('div',{style:{display:'none',background:'var(--mint-ll)',borderRadius:'12px',padding:'14px',marginBottom:'12px'}});
-      addChildForm.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'10px'}},['New child']));
-      const acName=el('input',{class:'inp',placeholder:"Child's full name",style:{marginBottom:'8px'}});
-      const acDob=makeDateInput('Date of birth',{style:{marginBottom:'8px'}});
-      addChildForm.appendChild(acName);addChildForm.appendChild(acDob);
-      const acEmojis=['🌸','🚀','⭐','🦋','🐻','🦁'];
-      let acEmoji=acEmojis[0];
-      const emoRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}});
-      acEmojis.forEach(e=>{
-        const eb=el('button',{style:{fontSize:'1.2rem',padding:'4px 8px',borderRadius:'10px',border:'2px solid transparent',background:'#fff',cursor:'pointer'}});
-        eb.textContent=e;if(e===acEmoji){eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';}
-        eb.onclick=()=>{acEmoji=e;emoRow.querySelectorAll('button').forEach(b=>{b.style.borderColor='transparent';b.style.background='#fff';});eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';};
-        emoRow.appendChild(eb);
-      });
-      addChildForm.appendChild(emoRow);
-      const acBtns=el('div',{style:{display:'flex',gap:'8px'}});
-      acBtns.appendChild(mkBtn('Save & Select','btn-sm btn-primary',async()=>{
-        if(!acName.value.trim()||!acDob.value){toast('Name and date of birth required.','error');return;}
-        try{
-          const _takenColors=(DB.children||[]).map(c2=>c2.color);
-          const CHILD_COLORS2=['#0d9488','#7c3aed','#2563eb','#db2777','#ea580c','#65a30d'];
-          const _autoColor=CHILD_COLORS2.find(c2=>!_takenColors.includes(c2))||CHILD_COLORS2[(DB.children||[]).length%CHILD_COLORS2.length];
-          const{data:newChild,error:cErr}=await _supa.from('children').insert({household_id:session.householdId,name:acName.value.trim(),dob:acDob.value,avatar_emoji:acEmoji,color:_autoColor}).select().single();
-          if(cErr){console.error('❌ add child:',cErr);toast('Failed to add child.','error');return;}
-          const cid=newChild.id;
-          const cObj={id:cid,name:newChild.name,dob:newChild.dob,avatar:acEmoji,color:_autoColor,householdId:session.householdId};
-          const kids=DB.children||[];kids.push(cObj);DB.children=kids;
-          // Auto-select the new child
-          sel.appendChild(el('option',{value:cid,selected:true},[(acEmoji||'🧒')+' '+newChild.name]));
-          sel.value=cid;addChildForm.style.display='none';
-          toast('✅ '+newChild.name+' added!');
-        }catch(e){console.error('add child:',e);toast('Something went wrong.','error');}
-      }));
-      acBtns.appendChild(mkBtn('Cancel','btn-sm btn-ghost',()=>{addChildForm.style.display='none';sel.value='';}));
-      addChildForm.appendChild(acBtns);
+      // Inline add-child form (uses shared helper)
+      const addChildForm=_buildAddChildForm(sel);
       card.appendChild(addChildForm);
       sel.onchange=()=>{if(sel.value==='__add_new'){addChildForm.style.display='block';sel.value='';}else{addChildForm.style.display='none';}};
       // Action buttons
@@ -12429,28 +12395,67 @@ function renderSpecialistRequests(){
 }
 
 // ─── Parent login popup for pending specialist requests ───
+// Resolve specialist role: try DB.specialists lookup, then row value, then 'Specialist'
+function _resolveSpecRole(r){
+  if(r.specialistId){
+    const dbSpec=(DB.specialists||[]).find(s=>String(s.id||s.specialistId)===String(r.specialistId));
+    if(dbSpec?.role&&dbSpec.role!=='Specialist')return dbSpec.role;
+  }
+  return (r.role&&r.role!=='Specialist')?r.role:'Specialist';
+}
+
+// Build inline add-child form for specialist request approval
+function _buildAddChildForm(sel,onCreated){
+  const form=el('div',{style:{display:'none',background:'var(--mint-ll)',borderRadius:'12px',padding:'14px',marginBottom:'12px'}});
+  form.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'10px'}},['New child']));
+  const acName=el('input',{class:'inp',placeholder:"Child's full name",style:{marginBottom:'8px'}});
+  const acDob=makeDateInput('Date of birth',{style:{marginBottom:'8px'}});
+  form.appendChild(acName);form.appendChild(acDob);
+  const acEmojis=['🌸','🚀','⭐','🦋','🐻','🦁'];let acEmoji=acEmojis[0];
+  const emoRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'10px'}});
+  acEmojis.forEach(e=>{
+    const eb=el('button',{style:{fontSize:'1.2rem',padding:'4px 8px',borderRadius:'10px',border:'2px solid transparent',background:'#fff',cursor:'pointer'}});
+    eb.textContent=e;if(e===acEmoji){eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';}
+    eb.onclick=()=>{acEmoji=e;emoRow.querySelectorAll('button').forEach(b=>{b.style.borderColor='transparent';b.style.background='#fff';});eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';};
+    emoRow.appendChild(eb);
+  });
+  form.appendChild(emoRow);
+  const acBtns=el('div',{style:{display:'flex',gap:'8px'}});
+  acBtns.appendChild(mkBtn('Save & Select','btn-sm btn-primary',async()=>{
+    if(!acName.value.trim()||!acDob.value){toast('Name and date of birth required.','error');return;}
+    try{
+      const CHILD_COLORS2=['#0d9488','#7c3aed','#2563eb','#db2777','#ea580c','#65a30d'];
+      const _takenColors=(DB.children||[]).map(c2=>c2.color);
+      const _autoColor=CHILD_COLORS2.find(c2=>!_takenColors.includes(c2))||CHILD_COLORS2[(DB.children||[]).length%CHILD_COLORS2.length];
+      const{data:newChild,error:cErr}=await _supa.from('children').insert({household_id:session.householdId,name:acName.value.trim(),dob:acDob.value,avatar_emoji:acEmoji,color:_autoColor}).select().single();
+      if(cErr){console.error('❌ add child:',cErr);toast('Failed to add child.','error');return;}
+      const kids=DB.children||[];kids.push({id:newChild.id,name:newChild.name,dob:newChild.dob,avatar:acEmoji,color:_autoColor,householdId:session.householdId});DB.children=kids;
+      const o=el('option',{value:newChild.id,selected:true},[(acEmoji||'🧒')+' '+newChild.name]);
+      sel.insertBefore(o,sel.querySelector('option[value="__add_new"]'));
+      sel.value=newChild.id;form.style.display='none';
+      toast('✅ '+newChild.name+' added!');
+      if(onCreated)onCreated(newChild.id);
+    }catch(e){console.error('add child:',e);toast('Something went wrong.','error');}
+  }));
+  acBtns.appendChild(mkBtn('Cancel','btn-sm btn-ghost',()=>{form.style.display='none';sel.value='';}));
+  form.appendChild(acBtns);
+  return form;
+}
+
 async function _showPendingSpecialistRequestsPopup(){
   if(!session||session.role!=='parent'||session.id==='demo'||!_supa)return;
-  // Filter to pending requests not yet seen by parent (parent_seen_at IS NULL)
   const pending=(DB.specialistRequests||[]).filter(r=>r.status==='pending'&&r.requestType==='join'&&!r.childId&&!r.parentSeenAt);
   if(pending.length===0)return;
-  // Show the first unseen request
   const r=pending[0];
   const specName=r.specialistName||'A specialist';
-  const specRole=r.role||'Specialist';
+  const specRole=_resolveSpecRole(r);
   const childHint=r.childNameHint||'';
-  // Mark as seen in DB so popup doesn't show again on next login
-  if(r.id){
-    try{
-      const{error}=await _supa.from('specialist_requests').update({parent_seen_at:new Date().toISOString()}).eq('id',r.id);
-      if(error)console.error('❌ mark parent_seen_at:',error);
-      else{r.parentSeenAt=new Date().toISOString();}
-    }catch(e){}
-    // Also mark any other unseen pending requests so they don't trigger popup next time
-    pending.slice(1).forEach(r2=>{
-      if(r2.id){(async()=>{try{await _supa.from('specialist_requests').update({parent_seen_at:new Date().toISOString()}).eq('id',r2.id);}catch(e){}})();r2.parentSeenAt=new Date().toISOString();}
-    });
+  // Mark all unseen as seen
+  for(const r2 of pending){
+    if(r2.id){try{const{error}=await _supa.from('specialist_requests').update({parent_seen_at:new Date().toISOString()}).eq('id',r2.id);if(!error)r2.parentSeenAt=new Date().toISOString();}catch(e){}}
   }
+  const children=DB.children||[];
+  const allSpecs=DB.specialists||[];
   openModal('🩺 New Specialist Request',(mb,close)=>{
     mb.appendChild(el('div',{style:{textAlign:'center',marginBottom:'16px'}},
       [el('div',{style:{width:'56px',height:'56px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem',fontWeight:700,margin:'0 auto 10px'}},
@@ -12458,15 +12463,63 @@ async function _showPendingSpecialistRequestsPopup(){
        el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[specName]),
        el('div',{style:{fontSize:'.84rem',color:'var(--teal)',fontWeight:600}},[specRole])]));
     if(childHint)mb.appendChild(el('p',{style:{textAlign:'center',fontSize:'.84rem',color:'var(--slate)',marginBottom:'16px'}},['Wants to join care team for: "'+childHint+'"']));
-    mb.appendChild(el('p',{style:{textAlign:'center',fontSize:'.82rem',color:'var(--slate)',marginBottom:'16px'}},
-      ['Review this request in the Requests section.']));
-    mb.appendChild(mkBtn('Review Now','btn-lg btn-primary btn-full',()=>{close();S.activeTab='specialist-requests';S.navLevel=1;re();}));
-    mb.appendChild(el('div',{style:{height:'8px'}}));
-    mb.appendChild(mkBtn('Later','btn-lg btn-ghost btn-full',()=>close()));
+    // Child selector
+    if(children.length>0){
+      mb.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--navy)',marginBottom:'6px'}},['Which child is this specialist for?']));
+      const sel=el('select',{class:'inp',style:{marginBottom:'8px'}});
+      sel.appendChild(el('option',{value:''},['Select a child...']));
+      children.forEach(c=>{
+        const alreadyConnected=allSpecs.some(s=>String(s.id||s.specialistId)===String(r.specialistId)&&String(s.childId)===String(c.id)&&s.status==='active');
+        const o=el('option',{value:c.id});o.textContent=(c.avatar||'🧒')+' '+c.name+(alreadyConnected?' — already connected':'');
+        if(alreadyConnected)o.disabled=true;sel.appendChild(o);
+      });
+      sel.appendChild(el('option',{value:'__add_new'},['+ Add a new child']));
+      mb.appendChild(sel);
+      const addForm=_buildAddChildForm(sel);
+      mb.appendChild(addForm);
+      sel.onchange=()=>{if(sel.value==='__add_new'){addForm.style.display='block';sel.value='';}else{addForm.style.display='none';}};
+      // Approve
+      const approveBtn=mkBtn('✅ Approve','btn-lg btn-primary btn-full',async()=>{
+        const selectedChildId=sel.value;
+        if(!selectedChildId||selectedChildId==='__add_new'){toast('Please select a child first.','error');return;}
+        approveBtn.disabled=true;approveBtn.textContent='⏳ Approving…';
+        try{
+          if(r.specialistId){
+            const{data:existing}=await _supa.from('specialist_requests').select('id,status')
+              .eq('specialist_id',r.specialistId).eq('child_id',selectedChildId).eq('request_type','join').limit(1);
+            if(existing&&existing.length>0&&existing[0].status==='approved'){toast('Already connected to this child.','info');close();return;}
+            if(existing&&existing.length>0&&existing[0].status==='pending'&&existing[0].id!==r.id){
+              await _supa.from('specialist_requests').update({status:'approved'}).eq('id',existing[0].id);}
+          }
+          const{error:updErr}=await _supa.from('specialist_requests').update({
+            child_id:selectedChildId,household_id:String(session.householdId),parent_id:session.id
+          }).eq('id',r.id);
+          if(updErr){console.error('❌ update:',updErr);toast('Failed to approve.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';return;}
+          const mapped={id:r.id,specialistId:r.specialistId,specialistName:r.specialistName,role:r.role,childId:selectedChildId,requestedAt:r.requestedAt,status:'pending',requestType:'join'};
+          const reqs=DB.specialistRequests||[];const idx=reqs.findIndex(x=>x.id===r.id);if(idx>-1)reqs[idx]=mapped;else reqs.push(mapped);DB.specialistRequests=reqs;
+          await approveSpecialistRequest(r.id,[]);
+          try{const child=DB.children.find(c=>c.id===selectedChildId);
+            const{error:nErr}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+r.specialistId,user_id:r.specialistId,child_id:selectedChildId,type:'invite',message:'🎉 Your request to join '+(child?.name||'a child')+"'s care team has been approved!",read:false,link_tab:'patients'});
+            if(nErr)console.error('❌ notify:',nErr);}catch(e){}
+          toast('✅ '+(r.specialistName||'Specialist')+' added to '+(DB.children.find(c=>c.id===selectedChildId)?.name||'')+"'s care team!");
+          close();await refreshFromSupabase();re();
+        }catch(e){console.error('approve:',e);toast('Something went wrong.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';}
+      });
+      mb.appendChild(approveBtn);
+      mb.appendChild(el('div',{style:{height:'8px'}}));
+    } else {
+      mb.appendChild(el('p',{style:{textAlign:'center',fontSize:'.82rem',color:'var(--slate)',marginBottom:'16px'}},['Add a child first to approve this request.']));
+    }
+    mb.appendChild(mkBtn('✗ Decline','btn-lg btn-ghost btn-full',async()=>{
+      try{const{error:dErr}=await _supa.from('specialist_requests').update({status:'denied'}).eq('id',r.id);if(dErr)console.error('deny:',dErr);}catch(e){}
+      close();toast('Request declined.');re();
+    }));
+    mb.appendChild(el('div',{style:{height:'6px'}}));
+    mb.appendChild(mkBtn('Later','btn-sm btn-ghost btn-full',()=>close()));
     if(pending.length>1){
       mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.76rem',color:'var(--slate)',marginTop:'12px'}},['+'+(pending.length-1)+' more pending request'+(pending.length>2?'s':'')]));
     }
-  },400);
+  },440);
 }
 
 /* -----------------------------------------------
