@@ -13998,13 +13998,18 @@ initData();
   }
 })();
 
-// ─── Handle specialist-initiated request links (?specialist_request=ID) ───
+// ─── Handle specialist-initiated request links (?specialist_request=ID&sn=Name&sr=Role&ch=ChildHint) ───
 (async function handleSpecialistRequestLink(){
   const searchStr=window.location.search||window.location.hash.replace(/^#\??/,'?');
   const params=new URLSearchParams(searchStr.startsWith('?')?searchStr:('?'+searchStr));
   const srId=params.get('specialist_request');
   if(srId){
     localStorage.setItem('pendingSpecialistRequestId',srId);
+    // Store specialist info from URL so we don't need to query the row (RLS may block it)
+    const _sn=params.get('sn');const _sr=params.get('sr');const _ch=params.get('ch');
+    if(_sn)localStorage.setItem('pendingSR_name',decodeURIComponent(_sn));
+    if(_sr)localStorage.setItem('pendingSR_role',decodeURIComponent(_sr));
+    if(_ch)localStorage.setItem('pendingSR_child',decodeURIComponent(_ch));
     window.history.replaceState({},'',window.location.pathname);
     setTimeout(()=>toast('🩺 A specialist wants to join your care team. Please sign in to review.','info',5000),800);
   }
@@ -14031,14 +14036,28 @@ async function _processPendingSpecialistRequest(){
   if(!reqId||!session||session.role!=='parent')return;
   localStorage.removeItem('pendingSpecialistRequestId');
   if(!_supa)return;
+  // Try to read specialist info from localStorage (passed via URL params — avoids RLS issues)
+  const _lsName=localStorage.getItem('pendingSR_name');
+  const _lsRole=localStorage.getItem('pendingSR_role');
+  const _lsChild=localStorage.getItem('pendingSR_child');
+  localStorage.removeItem('pendingSR_name');localStorage.removeItem('pendingSR_role');localStorage.removeItem('pendingSR_child');
+  // Try Supabase query — may fail due to RLS (parent_id is NULL on specialist-initiated rows)
+  let req=null;
   try{
-    const{data:req,error}=await _supa.from('specialist_requests').select('*').eq('id',reqId).single();
-    if(error||!req){toast('This request is no longer available.','error');return;}
-    if(req.status==='approved'){toast('This specialist is already connected.','info');return;}
-    if(req.status!=='pending'){toast('This request has been '+req.status+'.','info');return;}
-    const specName=req.specialist_name||'A specialist';
-    const specRole=req.role||'Specialist';
-    const childHint=req.child_name_hint||'your child';
+    const{data,error}=await _supa.from('specialist_requests').select('*').eq('id',reqId).limit(1);
+    if(!error&&data&&data.length>0)req=data[0];
+  }catch(e){}
+  // If RLS blocked the read, build a minimal req from URL params
+  if(!req&&_lsName){
+    req={id:reqId,specialist_id:null,specialist_name:_lsName,role:_lsRole||'Specialist',child_name_hint:_lsChild||'',status:'pending'};
+  }
+  if(!req){toast('This request is no longer available.','error');return;}
+  if(req.status==='approved'){toast('This specialist is already connected.','info');return;}
+  if(req.status!=='pending'){toast('This request has been '+req.status+'.','info');return;}
+  try{
+    const specName=req.specialist_name||_lsName||'A specialist';
+    const specRole=req.role||_lsRole||'Specialist';
+    const childHint=req.child_name_hint||_lsChild||'your child';
     const children=DB.children||[];
     if(children.length===0){
       // No children yet — re-store and prompt
