@@ -1566,12 +1566,12 @@ function _hudLogo(size){
 }
 
 /* -- Paddle config — replace placeholders once Paddle approves -- */
-const PADDLE_ENV = 'sandbox'; // change to 'production' when approved
-const PADDLE_CLIENT_TOKEN = 'PADDLE_CLIENT_TOKEN_PLACEHOLDER';
-const PADDLE_PRICE_MONTHLY = 'PADDLE_PRICE_MONTHLY_PLACEHOLDER';
-const PADDLE_PRICE_YEARLY = 'PADDLE_PRICE_YEARLY_PLACEHOLDER';
-const PADDLE_SPEC_PRICE_MONTHLY = 'PADDLE_SPEC_PRICE_MONTHLY_PLACEHOLDER';
-const PADDLE_SPEC_PRICE_YEARLY = 'PADDLE_SPEC_PRICE_YEARLY_PLACEHOLDER';
+const PADDLE_ENV = 'production';
+const PADDLE_CLIENT_TOKEN = 'live_903ba43df97634845305971b2be';
+const PADDLE_PRICE_MONTHLY = 'pri_01kmxkcr56swaz1586k0h1dtgk';
+const PADDLE_PRICE_YEARLY = 'pri_01kmxkbxrxd12hq1tmb9fgs4vy';
+const PADDLE_SPEC_PRICE_MONTHLY = 'pri_01kmxk2pr30n39nypv2js4ty3z';
+const PADDLE_SPEC_PRICE_YEARLY = 'pri_01kmxjyhfz8djvt026fc41j0h2';
 
 // Initialize Paddle.js
 if(window.Paddle){
@@ -4246,7 +4246,7 @@ function _handlePlanSelect(plan){
     Paddle.Checkout.open({
       items:[{priceId:priceId,quantity:1}],
       customer:{email:session?.email||''},
-      customData:{user_id:session?.id||'',household_id:session?.householdId||''},
+      customData:{user_id:session?.id||'',household_id:session?.householdId||'',plan:'family'},
       settings:{theme:'light',locale:'en',displayMode:'overlay'}
     });
   }catch(e){
