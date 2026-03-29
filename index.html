@@ -4165,7 +4165,8 @@ async function _checkSubscription(){
   if(!session||session.role!=='parent'||session.id==='demo')return;
   try{
     // Step 1 — check the current user's own subscription row
-    const{data:sub}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).maybeSingle();
+    const{data:_subRows}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).eq('plan','family').limit(1);
+    const sub=_subRows&&_subRows.length>0?_subRows[0]:null;
     if(sub){
       if(sub.exempt){S.subscription={status:'active',exempt:true};return;}
       if(sub.status==='active'){
@@ -4187,7 +4188,7 @@ async function _checkSubscription(){
         const{data:hhProfiles}=await _supa.from('profiles').select('id').eq('household_id',session.householdId).neq('id',session.id);
         if(hhProfiles&&hhProfiles.length>0){
           const hhIds=hhProfiles.map(p=>p.id);
-          const{data:_hhData}=await _supa.from('subscriptions').select('*').in('user_id',hhIds);
+          const{data:_hhData}=await _supa.from('subscriptions').select('*').in('user_id',hhIds).eq('plan','family');
           _hhSubs=_hhData;
           if(_hhSubs&&_hhSubs.length>0){
             // Active or exempt household member → grant access
