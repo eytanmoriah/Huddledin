@@ -1570,6 +1570,8 @@ const PADDLE_ENV = 'sandbox'; // change to 'production' when approved
 const PADDLE_CLIENT_TOKEN = 'PADDLE_CLIENT_TOKEN_PLACEHOLDER';
 const PADDLE_PRICE_MONTHLY = 'PADDLE_PRICE_MONTHLY_PLACEHOLDER';
 const PADDLE_PRICE_YEARLY = 'PADDLE_PRICE_YEARLY_PLACEHOLDER';
+const PADDLE_SPEC_PRICE_MONTHLY = 'PADDLE_SPEC_PRICE_MONTHLY_PLACEHOLDER';
+const PADDLE_SPEC_PRICE_YEARLY = 'PADDLE_SPEC_PRICE_YEARLY_PLACEHOLDER';
 
 // Initialize Paddle.js
 if(window.Paddle){
@@ -1578,7 +1580,12 @@ if(window.Paddle){
     Paddle.Setup({token:PADDLE_CLIENT_TOKEN,eventCallback:function(ev){
       if(ev.name==='checkout.completed'){
         toast('✅ Payment confirmed! Activating your account…','success',5000);
-        setTimeout(async()=>{try{await _checkSubscription();}catch(e){console.error('post-checkout refresh:',e);}},2000);
+        setTimeout(async()=>{
+          try{
+            if(session?.role==='specialist')await _checkSpecAiSubscription();
+            else await _checkSubscription();
+          }catch(e){console.error('post-checkout refresh:',e);}
+        },2000);
       }
       if(ev.name==='checkout.closed'){console.log('ℹ️ Paddle checkout closed');}
     }});
@@ -2544,7 +2551,7 @@ function showVerificationPendingScreen(email){
   if(session)_appLoading=true;
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);});}
+  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);});}
 })();
 
 async function doGoogleSignIn(role){
@@ -2649,7 +2656,8 @@ let S={
   subscription:null,      // {status:'trial'|'active'|'expired', daysRemaining, exempt, ...}
   _showPaywall:false,     // force paywall open (e.g. user clicks "Upgrade now")
   _trialBannerDismissed:false,  // session-scoped dismiss of trial banner
-  _parentTaskExpandedId:null   // parent to-do: expanded card id (mobile)
+  _parentTaskExpandedId:null,  // parent to-do: expanded card id (mobile)
+  specAiSubscription:null      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
 };
 
 /* -----------------------------------------------
@@ -4246,6 +4254,124 @@ function _handlePlanSelect(plan){
   }
 }
 
+/* -----------------------------------------------
+   SPECIALIST AI SUBSCRIPTION
+----------------------------------------------- */
+async function _checkSpecAiSubscription(){
+  if(!session||session.role!=='specialist'||session.id==='demo')return;
+  try{
+    const{data,error}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).eq('plan','specialist_ai').limit(1);
+    if(error){console.error('❌ spec AI sub check:',error);return;}
+    const sub=data&&data.length>0?data[0]:null;
+    if(!sub){S.specAiSubscription=null;return;}
+    if(sub.exempt){S.specAiSubscription={status:'active',exempt:true};return;}
+    if(sub.status==='active'){S.specAiSubscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};return;}
+    if(sub.status==='trial'){
+      const _days=Math.ceil((new Date(sub.trial_ends_at)-new Date())/(1000*60*60*24));
+      if(_days>0){S.specAiSubscription={status:'trial',daysRemaining:_days,exempt:false};return;}
+    }
+    S.specAiSubscription={status:'expired',exempt:false};
+  }catch(e){console.error('_checkSpecAiSubscription:',e);}
+}
+
+function _hasSpecAiAccess(){
+  const s=S.specAiSubscription;
+  if(!s)return false;
+  return s.exempt||s.status==='active'||s.status==='trial';
+}
+
+async function _startSpecAiTrial(){
+  if(!session||session.role!=='specialist'||session.id==='demo')return;
+  const _now=new Date();
+  const _end=new Date(_now.getTime()+7*24*60*60*1000);
+  try{
+    const{error}=await _supa.from('subscriptions').insert({
+      user_id:session.id,status:'trial',
+      trial_started_at:_now.toISOString(),trial_ends_at:_end.toISOString(),
+      plan:'specialist_ai',billing_cycle:'monthly',household_id:null
+    });
+    if(error){console.error('❌ create spec AI trial:',error);toast('Could not start trial. Please try again.','error');return;}
+    S.specAiSubscription={status:'trial',daysRemaining:7,exempt:false};
+    toast('🎉 Your 7-day AI trial has started!','success',4000);
+    re();
+  }catch(e){console.error('start spec AI trial:',e);toast('Something went wrong.','error');}
+}
+
+function _handleSpecAiPlanSelect(plan){
+  localStorage.setItem('hd_pending_spec_plan',plan);
+  const priceId=plan==='yearly'?PADDLE_SPEC_PRICE_YEARLY:PADDLE_SPEC_PRICE_MONTHLY;
+  if(!window.Paddle||PADDLE_CLIENT_TOKEN==='PADDLE_CLIENT_TOKEN_PLACEHOLDER'){
+    toast('💳 Payment coming soon — we\'ll notify you when ready!');return;
+  }
+  try{
+    Paddle.Checkout.open({
+      items:[{priceId:priceId,quantity:1}],
+      customer:{email:session?.email||''},
+      customData:{user_id:session?.id||'',plan:'specialist_ai'},
+      settings:{theme:'light',locale:'en',displayMode:'overlay'}
+    });
+  }catch(e){console.error('❌ Paddle checkout error:',e);toast('Could not open checkout. Please try again.','error');}
+}
+
+function _showSpecAiUpgradeModal(featureName){
+  openModal('✨ '+featureName,(mb,close)=>{
+    mb.appendChild(el('div',{style:{textAlign:'center',marginBottom:'16px'}},
+      [el('div',{style:{fontSize:'2.2rem',marginBottom:'8px'}},['✨']),
+       el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1.05rem',marginBottom:'6px'}},[featureName]),
+       el('p',{style:{color:'var(--slate)',fontSize:'.88rem',lineHeight:'1.6'}},['This is an AI-powered feature. Start a free trial or subscribe to unlock.'])]));
+    // Pricing
+    mb.appendChild(el('div',{style:{display:'flex',gap:'12px',marginBottom:'16px',justifyContent:'center'}},
+      [el('div',{style:{textAlign:'center',padding:'12px 16px',background:'var(--mint-ll)',borderRadius:'12px',flex:1}},
+        [el('div',{style:{fontWeight:900,fontSize:'1.3rem',color:'var(--navy)'}},['$9']),
+         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['/ month']),
+         el('div',{style:{fontSize:'.68rem',color:'var(--teal)',fontWeight:700}},['Billed annually'])]),
+       el('div',{style:{textAlign:'center',padding:'12px 16px',background:'#fff',border:'1.5px solid var(--mint-l)',borderRadius:'12px',flex:1}},
+        [el('div',{style:{fontWeight:900,fontSize:'1.3rem',color:'var(--navy)'}},['$11']),
+         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['/ month']),
+         el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},['Billed monthly'])])]));
+    // Trial button
+    const trialBtn=mkBtn('🎁 Start 7-Day Free Trial','btn-lg btn-primary btn-full',async()=>{
+      trialBtn.disabled=true;trialBtn.textContent='Starting…';
+      await _startSpecAiTrial();close();
+    });
+    mb.appendChild(trialBtn);
+    mb.appendChild(el('div',{style:{height:'8px'}}));
+    // Subscribe buttons
+    const subRow=el('div',{style:{display:'flex',gap:'8px'}});
+    subRow.appendChild(mkBtn('$9/mo (annual)','btn-md btn-slate',()=>{close();_handleSpecAiPlanSelect('yearly');}));
+    subRow.appendChild(mkBtn('$11/mo','btn-md btn-ghost',()=>{close();_handleSpecAiPlanSelect('monthly');}));
+    subRow.style.cssText='display:flex;gap:8px;';
+    subRow.querySelectorAll('button').forEach(b=>{b.style.flex='1';});
+    mb.appendChild(subRow);
+    mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.74rem',color:'var(--slate-l)',marginTop:'12px'}},['Cancel anytime. All base features remain free.']));
+  },420);
+}
+
+function renderSpecTrialBanner(){
+  const sub=S.specAiSubscription;
+  if(!sub||sub.status!=='trial'||sub.exempt)return null;
+  const d=sub.daysRemaining||0;
+  const urgent=d<=2;
+  const banner=el('div',{style:{background:urgent?'#fef3c7':'#ecfdf5',padding:'6px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',fontSize:'.82rem',fontWeight:600,color:urgent?'#92400e':'var(--teal)',flexShrink:0,borderBottom:'1px solid '+(urgent?'#f59e0b':'var(--mint-l)')}});
+  const left=el('span',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+  left.appendChild(document.createTextNode('✨ AI trial: '+d+' day'+(d===1?'':'s')+' left · '));
+  const upgLink=el('span',{style:{cursor:'pointer',textDecoration:'underline',fontWeight:700}},['Upgrade']);
+  upgLink.onclick=()=>_showSpecAiUpgradeModal('AI Features');
+  left.appendChild(upgLink);
+  banner.appendChild(left);
+  return banner;
+}
+
+function setupSpecSubscriptionSync(){
+  if(!session||session.role!=='specialist'||session.id==='demo')return;
+  _supa.channel('spec_sub:'+session.id)
+    .on('postgres_changes',{event:'*',schema:'public',table:'subscriptions',filter:'user_id=eq.'+session.id},async(payload)=>{
+      console.log('✅ Specialist subscription changed:',payload.new?.status);
+      try{await _checkSpecAiSubscription();re();}catch(e){console.error('spec sub sync:',e);}
+    })
+    .subscribe();
+}
+
 function renderTrialBanner(){
   const sub=S.subscription;
   if(!sub||sub.status!=='trial'||sub.exempt||S._trialBannerDismissed)return null;
@@ -4698,6 +4824,13 @@ function renderShell(){
       shell.appendChild(_trialBanner);
     }
   }
+  if(session?.role==='specialist'){
+    const _specBanner=renderSpecTrialBanner();
+    if(_specBanner){
+      _specBanner.style.marginTop='calc(var(--header-h) + var(--safe-top))';
+      shell.appendChild(_specBanner);
+    }
+  }
 
   // Drawer backdrop
   if(S.isDrawerOpen){
@@ -4846,6 +4979,10 @@ function renderSpecDesktop(){
 
   /* ── MAIN ──────────────────────────────────────────────────────────── */
   const main=el('div',{class:'spec-dt-main'});
+
+  // Specialist AI trial banner
+  const _specTrialB=renderSpecTrialBanner();
+  if(_specTrialB)main.appendChild(_specTrialB);
 
   /* Top bar */
   const topbar=el('div',{class:'spec-dt-topbar'});
@@ -9676,17 +9813,59 @@ function renderVault(){
       titleRow.appendChild(minBtn);
       body.appendChild(titleRow);
 
-      // Clinical notes textarea
-      body.appendChild(el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']));
-      const ta=el('textarea',{class:'inp',style:{minHeight:'120px',background:note.locked?'#f8fafc':''}});
-      ta.value=note.content;
-      ta.readOnly=note.locked;
-      ta.oninput=e=>{
-        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-        if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
-        S.vaultHasUnsaved=true;
-      };
-      body.appendChild(ta);
+      // Clinical notes — gated behind AI subscription
+      const _aiOk=_hasSpecAiAccess();
+      const _notesLabel=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}});
+      _notesLabel.appendChild(el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']));
+      // Mic button for voice-to-text
+      if(_aiOk&&!note.locked){
+        const _SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
+        if(_SpeechRec){
+          const micBtn=el('button',{style:{background:'none',border:'1.5px solid var(--teal)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🎙 Dictate']);
+          let _recog=null;let _isRec=false;
+          micBtn.onclick=()=>{
+            if(_isRec){_recog.stop();return;}
+            _recog=new _SpeechRec();_recog.continuous=true;_recog.interimResults=false;_recog.lang='en-US';
+            _recog.onresult=ev=>{
+              const transcript=Array.from(ev.results).map(r=>r[0].transcript).join(' ');
+              const _ta2=document.getElementById('vault-notes-'+note.id);
+              if(_ta2){_ta2.value=(_ta2.value?_ta2.value+' ':'')+transcript;_ta2.dispatchEvent(new Event('input'));}
+            };
+            _recog.onend=()=>{_isRec=false;micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';};
+            _recog.onerror=e=>{_isRec=false;micBtn.textContent='🎙 Dictate';if(e.error!=='aborted')toast('Microphone error: '+e.error,'error');};
+            _recog.start();_isRec=true;micBtn.textContent='⏹ Stop';micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
+          };
+          _notesLabel.appendChild(micBtn);
+        }
+      } else if(!_aiOk&&!note.locked){
+        const micLock=el('button',{style:{background:'none',border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:600,color:'var(--slate-l)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🔒 🎙 Dictate']);
+        micLock.onclick=()=>_showSpecAiUpgradeModal('Voice Dictation');
+        _notesLabel.appendChild(micLock);
+      }
+      body.appendChild(_notesLabel);
+      let ta;
+      if(!_aiOk&&!note.locked){
+        // Locked placeholder for free specialists
+        const lockedBox=el('div',{style:{minHeight:'120px',background:'#f8fafc',border:'1.5px dashed var(--mint-l)',borderRadius:'var(--r-md)',padding:'24px 16px',textAlign:'center',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px'}});
+        lockedBox.appendChild(el('div',{style:{fontSize:'1.5rem'}},['✨']));
+        lockedBox.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},['AI-Powered Session Notes']));
+        lockedBox.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},['Write detailed clinical notes with voice dictation and AI-generated parent summaries.']));
+        lockedBox.appendChild(mkBtn('Unlock with AI Trial','btn-sm btn-primary',()=>_showSpecAiUpgradeModal('Session Notes')));
+        lockedBox.onclick=e=>{if(!e.target.closest('button'))_showSpecAiUpgradeModal('Session Notes');};
+        body.appendChild(lockedBox);
+        ta=el('textarea',{style:{display:'none'}});ta.value=note.content||'';
+      } else {
+        ta=el('textarea',{class:'inp',style:{minHeight:'120px',background:note.locked?'#f8fafc':''}});
+        ta.id='vault-notes-'+note.id;
+        ta.value=note.content;
+        ta.readOnly=note.locked;
+        ta.oninput=e=>{
+          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+          if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
+          S.vaultHasUnsaved=true;
+        };
+        body.appendChild(ta);
+      }
 
       if(!note.locked){
         // Action buttons row
@@ -9703,17 +9882,35 @@ function renderVault(){
           }catch(e){console.error('save draft:',e);toast('❌ Could not save draft. Please try again.','error');}
         });
 
-        // Create parent summary button (replaces AI Summarize)
-        const summaryBtn=mkBtn('📝 Create Parent Summary','btn-sm btn-secondary',()=>{
-          if(!ta.value.trim()){toast('Write some notes first!','error');return;}
-          // Expand the summary section and focus it
+        // Manual parent summary button (always available)
+        const summaryBtn=mkBtn('📝 Write Summary','btn-sm btn-secondary',()=>{
           const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
           if(i>-1&&!ns[i].summary){ns[i].summary='';DB.vaultNotes=ns;}
-          S.vaultSummary=note.summary||'';
-          re();
-          // Scroll to summary after render
+          S.vaultSummary=note.summary||'';re();
           setTimeout(()=>{const sa=document.getElementById('vault-summary-'+note.id);if(sa)sa.focus();},100);
         });
+        // AI summary button (gated)
+        let aiSumBtn;
+        if(_aiOk){
+          aiSumBtn=mkBtn('✨ AI Summary','btn-sm btn-primary',async()=>{
+            if(!ta.value||!ta.value.trim()){toast('Write session notes first so AI can summarize them.','error');return;}
+            aiSumBtn.disabled=true;aiSumBtn.textContent='✨ Generating…';
+            try{
+              const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:ta.value,childName:child?.name||'the child'})});
+              const result=await resp.json();
+              if(result.summary){
+                S.vaultSummary=result.summary;
+                const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+                if(i>-1){ns[i].summary=result.summary;DB.vaultNotes=ns;}
+                S.vaultHasUnsaved=true;re();
+                toast('✨ AI summary generated! Review and edit before publishing.','success');
+              } else {toast(result.error||'Could not generate summary.','error');}
+            }catch(e){console.error('AI summary:',e);toast('Could not reach AI service.','error');}
+            aiSumBtn.disabled=false;aiSumBtn.textContent='✨ AI Summary';
+          });
+        } else {
+          aiSumBtn=mkBtn('🔒 AI Summary','btn-sm btn-ghost',()=>_showSpecAiUpgradeModal('AI Parent Summary'));
+        }
 
         // Lock session notes button
         const lockBtn=mkBtn('🔒 Lock Session Notes','btn-sm btn-ghost',()=>{
@@ -9754,6 +9951,7 @@ function renderVault(){
 
         actRow.appendChild(saveDraftBtn);
         actRow.appendChild(summaryBtn);
+        actRow.appendChild(aiSumBtn);
         actRow.appendChild(lockBtn);
         if(!note.published){
           const delBtn=mkBtn('🗑️ Delete','btn-sm btn-ghost',()=>{
