@@ -9855,7 +9855,7 @@ function renderVault(){
               for(const phrase of cmd.phrases){
                 const re=new RegExp('(^|\\s)'+phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(\\s|$)','gi');
                 if(re.test(result)){
-                  if(cmd.insert==='__STOP__'){result=result.replace(re,'$1');recog.stop();return result.trim();}
+                  if(cmd.insert==='__STOP__'){result=result.replace(re,'$1');_shouldContinue=false;recog.stop();return result.trim();}
                   if(cmd.insert==='__SCRATCH__'){result=result.replace(re,'$1');result=result.trimEnd().replace(/\S+$/,'');return result;}
                   if(cmd.insert==='__START_NUM_LIST__'){_listMode='numbered';_listCounter=1;result=result.replace(re,'$1\n'+_listCounter+'. ');_listCounter++;return result;}
                   if(cmd.insert==='__START_BULLET_LIST__'){_listMode='bullet';_listCounter=1;result=result.replace(re,'$1\n• ');return result;}
@@ -9873,30 +9873,64 @@ function renderVault(){
             return result;
           };
           const micBtn=el('button',{style:{background:'none',border:'1.5px solid var(--teal)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🎙 Dictate']);
-          let _recog=null;let _isRec=false;
+          let _recog=null;let _isRec=false;let _shouldContinue=false;
+          const _stopRec=()=>{_shouldContinue=false;if(_recog)_recog.stop();};
           micBtn.onclick=()=>{
-            if(_isRec){_recog.stop();return;}
-            _recog=new _SpeechRec();_recog.continuous=true;_recog.interimResults=true;_recog.lang='en-US';
+            if(_isRec){_stopRec();return;}
             const _ta2=document.getElementById('vault-notes-'+note.id);
-            const _prefix=_ta2?_ta2.value:'';
+            let _prefix=_ta2?_ta2.value:'';
             let _finalTranscript='';
-            _recog.onresult=ev=>{
-              let _interim='';
-              for(let i=ev.resultIndex;i<ev.results.length;i++){
-                if(ev.results[i].isFinal){
-                  let seg=ev.results[i][0].transcript;
-                  seg=_processVoiceCommands(seg,_recog);
-                  _finalTranscript+=seg;
-                } else {_interim+=ev.results[i][0].transcript;}
-              }
-              if(_ta2){
-                _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
-                _ta2.dispatchEvent(new Event('input'));
-              }
+            // Sync prefix when user manually edits textarea during recording
+            let _fromSpeech=false;
+            const _onManualEdit=()=>{
+              if(_fromSpeech)return; // ignore events fired by speech updates
+              _prefix=_ta2.value;_finalTranscript='';
             };
-            _recog.onend=()=>{_isRec=false;_listMode=null;_listCounter=1;micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';};
-            _recog.onerror=e=>{_isRec=false;micBtn.textContent='🎙 Dictate';if(e.error!=='aborted')toast('Microphone error: '+e.error,'error');};
-            _recog.start();_isRec=true;micBtn.textContent='⏹ Stop';micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
+            if(_ta2)_ta2.addEventListener('input',_onManualEdit);
+            const _startRecog=()=>{
+              _recog=new _SpeechRec();_recog.continuous=false;_recog.interimResults=true;_recog.lang='en-US';
+              _recog.onresult=ev=>{
+                let _interim='';
+                for(let i=ev.resultIndex;i<ev.results.length;i++){
+                  if(ev.results[i].isFinal){
+                    let seg=ev.results[i][0].transcript;
+                    seg=_processVoiceCommands(seg,_recog);
+                    _finalTranscript+=seg;
+                  } else {_interim+=ev.results[i][0].transcript;}
+                }
+                if(_ta2){
+                  _fromSpeech=true;
+                  _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
+                  _ta2.dispatchEvent(new Event('input'));
+                  _fromSpeech=false;
+                }
+              };
+              _recog.onend=()=>{
+                if(_shouldContinue){
+                  // Manual restart: current textarea becomes new prefix, reset final transcript
+                  if(_ta2)_prefix=_ta2.value;
+                  _finalTranscript='';
+                  try{_recog.start();}catch(e){_shouldContinue=false;}
+                  return;
+                }
+                // Fully stopped
+                _isRec=false;_listMode=null;_listCounter=1;
+                micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';
+                if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
+              };
+              _recog.onerror=e=>{
+                if(e.error==='aborted')return;
+                if(e.error==='no-speech'&&_shouldContinue){return;} // silence timeout — onend will restart
+                _shouldContinue=false;_isRec=false;
+                micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';
+                if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
+                toast('Microphone error: '+e.error,'error');
+              };
+              _recog.start();
+            };
+            _shouldContinue=true;_isRec=true;
+            micBtn.textContent='⏹ Stop';micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
+            _startRecog();
           };
           _notesLabel.appendChild(micBtn);
           // Commands cheat sheet button
