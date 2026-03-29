@@ -9826,11 +9826,21 @@ function renderVault(){
           let _recog=null;let _isRec=false;
           micBtn.onclick=()=>{
             if(_isRec){_recog.stop();return;}
-            _recog=new _SpeechRec();_recog.continuous=true;_recog.interimResults=false;_recog.lang='en-US';
+            _recog=new _SpeechRec();_recog.continuous=true;_recog.interimResults=true;_recog.lang='en-US';
+            // Capture existing text as prefix before recording starts
+            const _ta2=document.getElementById('vault-notes-'+note.id);
+            const _prefix=_ta2?_ta2.value:'';
+            let _finalTranscript='';
             _recog.onresult=ev=>{
-              const transcript=Array.from(ev.results).map(r=>r[0].transcript).join(' ');
-              const _ta2=document.getElementById('vault-notes-'+note.id);
-              if(_ta2){_ta2.value=(_ta2.value?_ta2.value+' ':'')+transcript;_ta2.dispatchEvent(new Event('input'));}
+              let _interim='';
+              for(let i=ev.resultIndex;i<ev.results.length;i++){
+                if(ev.results[i].isFinal){_finalTranscript+=ev.results[i][0].transcript;}
+                else{_interim+=ev.results[i][0].transcript;}
+              }
+              if(_ta2){
+                _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
+                _ta2.dispatchEvent(new Event('input'));
+              }
             };
             _recog.onend=()=>{_isRec=false;micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';};
             _recog.onerror=e=>{_isRec=false;micBtn.textContent='🎙 Dictate';if(e.error!=='aborted')toast('Microphone error: '+e.error,'error');};
