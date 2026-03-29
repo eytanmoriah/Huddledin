@@ -9829,7 +9829,7 @@ function renderVault(){
             {phrases:['question mark'],insert:'?'},
             {phrases:['colon'],insert:':'},
             {phrases:['dash'],insert:' - '},
-            {phrases:['new line','next line'],insert:'\n'},
+            {phrases:['new line','next line'],insert:'__NEWLINE__'},
             {phrases:['new paragraph'],insert:'\n\n'},
             {phrases:['next section'],insert:'\n---\n'},
             {phrases:['goals'],insert:'\nGoals:\n'},
@@ -9839,19 +9839,33 @@ function renderVault(){
             {phrases:['recommendations'],insert:'\nRecommendations:\n'},
             {phrases:['summary'],insert:'\nSummary:\n'},
             {phrases:['background'],insert:'\nBackground:\n'},
+            {phrases:['start list'],insert:'__START_NUM_LIST__'},
+            {phrases:['bullet list'],insert:'__START_BULLET_LIST__'},
+            {phrases:['end list'],insert:'__END_LIST__'},
             {phrases:['scratch that'],insert:'__SCRATCH__'},
             {phrases:['stop recording','stop dictation'],insert:'__STOP__'}
           ];
+          // List mode state (reset per recording session)
+          let _listMode=null; // null | 'numbered' | 'bullet'
+          let _listCounter=1;
           // Process final transcript segment for voice commands
           const _processVoiceCommands=(text,recog)=>{
             let result=text;
             for(const cmd of _vcmds){
               for(const phrase of cmd.phrases){
-                // Match standalone phrase (word boundary, case-insensitive)
                 const re=new RegExp('(^|\\s)'+phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(\\s|$)','gi');
                 if(re.test(result)){
                   if(cmd.insert==='__STOP__'){result=result.replace(re,'$1');recog.stop();return result.trim();}
                   if(cmd.insert==='__SCRATCH__'){result=result.replace(re,'$1');result=result.trimEnd().replace(/\S+$/,'');return result;}
+                  if(cmd.insert==='__START_NUM_LIST__'){_listMode='numbered';_listCounter=1;result=result.replace(re,'$1\n'+_listCounter+'. ');_listCounter++;return result;}
+                  if(cmd.insert==='__START_BULLET_LIST__'){_listMode='bullet';_listCounter=1;result=result.replace(re,'$1\n• ');return result;}
+                  if(cmd.insert==='__END_LIST__'){_listMode=null;_listCounter=1;result=result.replace(re,'$1\n');return result;}
+                  if(cmd.insert==='__NEWLINE__'){
+                    if(_listMode==='numbered'){result=result.replace(re,'$1\n'+_listCounter+'. ');_listCounter++;}
+                    else if(_listMode==='bullet'){result=result.replace(re,'$1\n• ');}
+                    else{result=result.replace(re,'$1\n');}
+                    return result;
+                  }
                   result=result.replace(re,'$1'+cmd.insert);
                 }
               }
@@ -9880,7 +9894,7 @@ function renderVault(){
                 _ta2.dispatchEvent(new Event('input'));
               }
             };
-            _recog.onend=()=>{_isRec=false;micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';};
+            _recog.onend=()=>{_isRec=false;_listMode=null;_listCounter=1;micBtn.textContent='🎙 Dictate';micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';};
             _recog.onerror=e=>{_isRec=false;micBtn.textContent='🎙 Dictate';if(e.error!=='aborted')toast('Microphone error: '+e.error,'error');};
             _recog.start();_isRec=true;micBtn.textContent='⏹ Stop';micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
           };
@@ -9902,6 +9916,7 @@ function renderVault(){
               _sec('Punctuation',[['period','inserts .'],['comma','inserts ,'],['question mark','inserts ?'],['colon','inserts :'],['dash','inserts -']]);
               _sec('Formatting',[['new line','line break'],['new paragraph','double line break'],['next section','horizontal divider']]);
               _sec('Structure Headings',[['goals','Goals:'],['observations','Observations:'],['progress','Progress:'],['plan','Plan:'],['recommendations','Recommendations:'],['summary','Summary:'],['background','Background:']]);
+              _sec('Lists',[['start list','begins a numbered list'],['bullet list','begins a bullet list'],['end list','ends the list']]);
               _sec('Editing',[['scratch that','removes last word'],['stop recording','stops the microphone']]);
             },380);
           };
