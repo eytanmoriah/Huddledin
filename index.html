@@ -8839,11 +8839,31 @@ function showAddEventModal(prefilledDate=null){
     mb.appendChild(timeRow);
 
     mb.appendChild(el('div',{class:'inp-label'},['Session type']));
-    const typeSel=el('select',{class:'inp',style:{marginBottom:'10px'}});
-    [['speech','🗣 Speech Therapy'],['ot','🖐 Occupational Therapy'],['pt','🏃 Physical Therapy'],['psychology','🧠 Psychology / Counselling'],['general','📋 General / Other']].forEach(([v,l])=>{
-      const o=el('option');o.value=v;o.textContent=l;typeSel.appendChild(o);
-    });
-    mb.appendChild(typeSel);
+    const _aptTypes=['Speech Therapy','Occupational Therapy','Physical Therapy','ABA Therapy','Feeding Therapy','Play Therapy','Music Therapy','Art Therapy','Aquatic Therapy','Sensory Integration','Developmental Therapy','Vision Therapy','Behavioral Therapy','Cognitive Behavioral Therapy (CBT)','Dialectical Behavior Therapy (DBT)','Pediatrician','Neurologist','Psychiatrist','Psychologist','Developmental Pediatrician','Audiologist','Ophthalmologist','Orthopedist','Geneticist','Allergist','ENT Specialist','Gastroenterologist','Endocrinologist','Cardiologist','Educational Assessment','IEP Meeting','School Observation','Tutoring','Social Skills Group','Parent Training','Family Therapy','Sibling Support','Case Management','Early Intervention','Follow-up Appointment','Evaluation','Re-assessment','Consultation','Telehealth Session','Hospital Visit','Lab Work','Other'];
+    const typeWrap=el('div',{style:{position:'relative',marginBottom:'10px'}});
+    const typeSel=el('input',{class:'inp',placeholder:'Search or type a session type…',style:{marginBottom:0}});
+    typeSel.value='';
+    const typeDd=el('div',{style:{display:'none',position:'absolute',top:'100%',left:0,right:0,maxHeight:'180px',overflowY:'auto',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'0 0 10px 10px',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:20}});
+    const _buildTypeDd=(q)=>{
+      typeDd.innerHTML='';
+      const _q=(q||'').toLowerCase();
+      const matches=_q?_aptTypes.filter(t=>t.toLowerCase().includes(_q)):_aptTypes;
+      if(!matches.length){typeDd.style.display='none';return;}
+      matches.forEach(t=>{
+        const item=el('div',{style:{padding:'8px 12px',fontSize:'.82rem',cursor:'pointer',transition:'background .1s'}});
+        item.textContent=t;
+        item.onmouseenter=()=>{item.style.background='var(--mint-ll)';};
+        item.onmouseleave=()=>{item.style.background='transparent';};
+        item.onmousedown=e=>{e.preventDefault();typeSel.value=t;typeDd.style.display='none';};
+        typeDd.appendChild(item);
+      });
+      typeDd.style.display='block';
+    };
+    typeSel.onfocus=()=>_buildTypeDd(typeSel.value);
+    typeSel.oninput=()=>_buildTypeDd(typeSel.value);
+    typeSel.onblur=()=>{setTimeout(()=>{typeDd.style.display='none';},150);};
+    typeWrap.appendChild(typeSel);typeWrap.appendChild(typeDd);
+    mb.appendChild(typeWrap);
 
     mb.appendChild(el('div',{class:'inp-label'},['Location (optional)']));
     const loci=el('input',{class:'inp',placeholder:'e.g. Clinic, Zoom, Home visit',style:{marginBottom:'10px'}});
@@ -8916,8 +8936,10 @@ function showAddEventModal(prefilledDate=null){
             specialist_name:si.value||session?.name||null
           });
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
-          // Notify the other party (specialist→parent or parent→specialists)
-          await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+          // Notify only when specialist books — parents booking their own child's appointment skip notification
+          if(session?.role==='specialist'){
+            await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+          }
           // Push to Google Calendar (server decides if connected)
           if(session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
