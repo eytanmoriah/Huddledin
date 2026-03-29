@@ -5568,7 +5568,7 @@ function renderNotifBell(){
             }
           } else {S.chatsLoaded=true;}
         } else if(tab==='calendar'){
-          S.calFullscreen=true;S.activeTab='calendar';
+          S.calFullscreen=session?.role!=='specialist';S.activeTab='calendar';
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
         } else if(tab){
           S.calFullscreen=false;S.activeTab=tab;
@@ -8860,19 +8860,33 @@ function showAddEventModal(prefilledDate=null){
     });
     mb.appendChild(recurSel);
 
-    const team=getChildTeam(S.activeChild).filter(s=>s.status==='active');
     const sharedWith=[];
-    if(team.length>0&&session?.role==='parent'){
+    if(session?.role==='parent'){
       mb.appendChild(el('div',{class:'inp-label'},['Share with specialists']));
-      const shr=el('div',{class:'inp-group',style:{marginBottom:'12px'}});
-      team.forEach(s=>{
-        const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
-        const cb=el('input',{type:'checkbox'});
-        cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
-        lbl.appendChild(cb);lbl.appendChild(el('span',{},[s.avatar+' '+s.name]));
-        shr.appendChild(lbl);
-      });
-      mb.appendChild(shr);
+      const shrWrap=el('div',{class:'inp-group',style:{marginBottom:'12px'}});
+      const _buildSpecList=(childId)=>{
+        shrWrap.innerHTML='';sharedWith.length=0;
+        if(!childId){shrWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontStyle:'italic',padding:'8px 0'}},['Select a child to see their specialists.']));return;}
+        // Deduplicate by specialist id — one entry per specialist for THIS child
+        const _seen=new Set();
+        const team=getChildTeam(childId).filter(s=>s.status==='active'&&(s.childId===childId||s.child_id===childId)).filter(s=>{if(_seen.has(s.id))return false;_seen.add(s.id);return true;});
+        if(!team.length){shrWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontStyle:'italic',padding:'8px 0'}},['No specialists connected to this child.']));return;}
+        team.forEach(s=>{
+          const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
+          const cb=el('input',{type:'checkbox'});
+          cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
+          lbl.appendChild(cb);lbl.appendChild(el('span',{},[s.avatar+' '+s.name+(s.role&&s.role!=='Specialist'?' · '+s.role:'')]));
+          shrWrap.appendChild(lbl);
+        });
+      };
+      _buildSpecList(S.activeChild);
+      // Re-build when child picker changes
+      if(children.length>1){
+        const _origOnChange=mb.querySelector('select')?.onchange;
+        const childSel=mb.querySelector('select');
+        if(childSel){childSel.onchange=e=>{S.activeChild=e.target.value;_buildSpecList(e.target.value);};}
+      }
+      mb.appendChild(shrWrap);
     }
 
     const _aptSaveBtn=mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
@@ -12597,7 +12611,7 @@ function renderNotifications(){
             } else {S.activeChatId=ld.chatId;}
           } else {S.chatsLoaded=true;}
         } else if(tab==='calendar'){
-          S.calFullscreen=true;S.activeTab='calendar';
+          S.calFullscreen=session?.role!=='specialist';S.activeTab='calendar';
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
         } else {
           S.calFullscreen=false;S.activeTab=tab;
