@@ -9822,20 +9822,58 @@ function renderVault(){
       if(_aiOk&&!note.locked){
         const _SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
         if(_SpeechRec){
+          // Voice commands definition
+          const _vcmds=[
+            {phrases:['period','full stop'],insert:'.'},
+            {phrases:['comma'],insert:','},
+            {phrases:['question mark'],insert:'?'},
+            {phrases:['colon'],insert:':'},
+            {phrases:['dash'],insert:' - '},
+            {phrases:['new line','next line'],insert:'\n'},
+            {phrases:['new paragraph'],insert:'\n\n'},
+            {phrases:['next section'],insert:'\n---\n'},
+            {phrases:['goals'],insert:'\nGoals:\n'},
+            {phrases:['observations'],insert:'\nObservations:\n'},
+            {phrases:['progress'],insert:'\nProgress:\n'},
+            {phrases:['plan'],insert:'\nPlan:\n'},
+            {phrases:['recommendations'],insert:'\nRecommendations:\n'},
+            {phrases:['summary'],insert:'\nSummary:\n'},
+            {phrases:['background'],insert:'\nBackground:\n'},
+            {phrases:['scratch that'],insert:'__SCRATCH__'},
+            {phrases:['stop recording','stop dictation'],insert:'__STOP__'}
+          ];
+          // Process final transcript segment for voice commands
+          const _processVoiceCommands=(text,recog)=>{
+            let result=text;
+            for(const cmd of _vcmds){
+              for(const phrase of cmd.phrases){
+                // Match standalone phrase (word boundary, case-insensitive)
+                const re=new RegExp('(^|\\s)'+phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(\\s|$)','gi');
+                if(re.test(result)){
+                  if(cmd.insert==='__STOP__'){result=result.replace(re,'$1');recog.stop();return result.trim();}
+                  if(cmd.insert==='__SCRATCH__'){result=result.replace(re,'$1');result=result.trimEnd().replace(/\S+$/,'');return result;}
+                  result=result.replace(re,'$1'+cmd.insert);
+                }
+              }
+            }
+            return result;
+          };
           const micBtn=el('button',{style:{background:'none',border:'1.5px solid var(--teal)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🎙 Dictate']);
           let _recog=null;let _isRec=false;
           micBtn.onclick=()=>{
             if(_isRec){_recog.stop();return;}
             _recog=new _SpeechRec();_recog.continuous=true;_recog.interimResults=true;_recog.lang='en-US';
-            // Capture existing text as prefix before recording starts
             const _ta2=document.getElementById('vault-notes-'+note.id);
             const _prefix=_ta2?_ta2.value:'';
             let _finalTranscript='';
             _recog.onresult=ev=>{
               let _interim='';
               for(let i=ev.resultIndex;i<ev.results.length;i++){
-                if(ev.results[i].isFinal){_finalTranscript+=ev.results[i][0].transcript;}
-                else{_interim+=ev.results[i][0].transcript;}
+                if(ev.results[i].isFinal){
+                  let seg=ev.results[i][0].transcript;
+                  seg=_processVoiceCommands(seg,_recog);
+                  _finalTranscript+=seg;
+                } else {_interim+=ev.results[i][0].transcript;}
               }
               if(_ta2){
                 _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
@@ -9847,6 +9885,27 @@ function renderVault(){
             _recog.start();_isRec=true;micBtn.textContent='⏹ Stop';micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
           };
           _notesLabel.appendChild(micBtn);
+          // Commands cheat sheet button
+          const cmdBtn=el('button',{style:{background:'none',border:'1px solid var(--mint-l)',borderRadius:'8px',padding:'3px 8px',fontSize:'.68rem',fontWeight:600,color:'var(--slate)',cursor:'pointer'}},['Commands ?']);
+          cmdBtn.onclick=()=>{
+            openModal('🎙 Voice Commands',(mb)=>{
+              const _sec=(title,cmds)=>{
+                mb.appendChild(el('div',{style:{fontWeight:800,fontSize:'.78rem',color:'var(--navy)',marginTop:'12px',marginBottom:'6px'}},[title]));
+                cmds.forEach(([say,does])=>{
+                  const row=el('div',{style:{display:'flex',gap:'8px',alignItems:'baseline',padding:'3px 0',fontSize:'.78rem'}});
+                  row.appendChild(el('span',{style:{fontWeight:700,color:'var(--teal)',background:'var(--mint-ll)',padding:'1px 8px',borderRadius:'6px',whiteSpace:'nowrap'}},
+                    ['"'+say+'"']));
+                  row.appendChild(el('span',{style:{color:'var(--slate)'}},['→ '+does]));
+                  mb.appendChild(row);
+                });
+              };
+              _sec('Punctuation',[['period','inserts .'],['comma','inserts ,'],['question mark','inserts ?'],['colon','inserts :'],['dash','inserts -']]);
+              _sec('Formatting',[['new line','line break'],['new paragraph','double line break'],['next section','horizontal divider']]);
+              _sec('Structure Headings',[['goals','Goals:'],['observations','Observations:'],['progress','Progress:'],['plan','Plan:'],['recommendations','Recommendations:'],['summary','Summary:'],['background','Background:']]);
+              _sec('Editing',[['scratch that','removes last word'],['stop recording','stops the microphone']]);
+            },380);
+          };
+          _notesLabel.appendChild(cmdBtn);
         }
       } else if(!_aiOk&&!note.locked){
         const micLock=el('button',{style:{background:'none',border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:600,color:'var(--slate-l)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🔒 🎙 Dictate']);
