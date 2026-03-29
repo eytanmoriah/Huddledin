@@ -10092,14 +10092,14 @@ function renderVault(){
       const sumTxt=S.vaultSummary||(note.summary||'');
       if(sumTxt!==undefined){
         const hasSumContent=sumTxt.length>0;
-        const showSumSection=hasSumContent||(note.isDraft&&!note.locked);
-        if(showSumSection||!note.locked){
+        const showSumSection=hasSumContent||note.isDraft||note.locked;
+        if(showSumSection){
           const ab=el('div',{class:'ai-block'});
           ab.appendChild(el('div',{class:'ai-label'},['📤 Parent Summary']));
           const sta=el('textarea',{class:'inp',style:{background:note.locked?'#f8fafc':'white',minHeight:'88px'}});
           sta.id='vault-summary-'+note.id;
           sta.value=sumTxt;
-          sta.readOnly=note.locked;
+          sta.readOnly=false;
           sta.placeholder='Write a parent-friendly summary here. This will be published to the parent when you\'re ready.';
           sta.oninput=e=>{
             S.vaultSummary=e.target.value;
@@ -10108,7 +10108,7 @@ function renderVault(){
             S.vaultHasUnsaved=true;
           };
           ab.appendChild(sta);
-          if(!note.locked&&!note.published&&!_vaultRemoved){
+          if(!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn('📤 Publish Summary to Parent','btn-md btn-primary',()=>{
               if(!(S.vaultSummary||note.summary||'').trim()){toast('Write a summary before publishing','error');return;}
               openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
