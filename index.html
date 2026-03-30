@@ -12274,13 +12274,14 @@ function renderVault(){
           };
           const micBtn=el('button',{style:{background:'none',border:'1.5px solid var(--teal)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},[T('vault_voice_start')]);
           let _recog=null;let _isRec=false;let _shouldContinue=false;
-          const _ta2=document.getElementById('vault-notes-'+note.id);
-          let _prefix=_ta2?_ta2.value:'';
+          // _ta2 looked up lazily — textarea may not be in DOM yet during setup
+          const _getNotesTa=()=>document.getElementById('vault-notes-'+note.id);
+          let _prefix='';
           let _finalTranscript='';
           let _fromSpeech=false;
           const _onManualEdit=()=>{
             if(_fromSpeech)return;
-            _prefix=_ta2.value;_finalTranscript='';
+            const _t=_getNotesTa();if(_t){_prefix=_t.value;_finalTranscript='';}
           };
           const _setMicUI=(recording)=>{
             micBtn.textContent=recording?T('vault_voice_stop'):T('vault_voice_start');
@@ -12297,7 +12298,7 @@ function renderVault(){
           const _cleanupRec=()=>{
             _isRec=false;_listMode=null;_listCounter=1;
             _setMicUI(false);
-            if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
+            const _t=_getNotesTa();if(_t)_t.removeEventListener('input',_onManualEdit);
           };
           // Create a fresh recognition instance (needed for reliable restart on mobile)
           const _makeRecog=()=>{
@@ -12311,16 +12312,17 @@ function renderVault(){
                   _finalTranscript+=seg;
                 } else {_interim+=ev.results[i][0].transcript;}
               }
-              if(_ta2){
+              const _t=_getNotesTa();
+              if(_t){
                 _fromSpeech=true;
-                _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
-                _ta2.dispatchEvent(new Event('input'));
+                _t.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
+                _t.dispatchEvent(new Event('input'));
                 _fromSpeech=false;
               }
             };
             r.onend=()=>{
               if(_shouldContinue){
-                if(_ta2)_prefix=_ta2.value;
+                const _t=_getNotesTa();if(_t)_prefix=_t.value;
                 _finalTranscript='';
                 // Create fresh instance for restart (avoids stale state on mobile browsers)
                 setTimeout(()=>{
@@ -12355,9 +12357,10 @@ function renderVault(){
           const _stopRec=()=>{_shouldContinue=false;if(_recog)try{_recog.stop();}catch(e){}};
           micBtn.onclick=()=>{
             if(_isRec){_stopRec();return;}
-            _prefix=_ta2?_ta2.value:'';
+            const _t=_getNotesTa();
+            _prefix=_t?_t.value:'';
             _finalTranscript='';
-            if(_ta2)_ta2.addEventListener('input',_onManualEdit);
+            if(_t)_t.addEventListener('input',_onManualEdit);
             _shouldContinue=true;_isRec=true;
             _setMicUI(true);
             _recog=_makeRecog();
