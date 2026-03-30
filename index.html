@@ -1435,6 +1435,11 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Email unread indicator */
 [dir="rtl"] .email-item.unread{border-left:none;border-right:3px solid var(--teal)}
 
+/* Pricing toggle — force LTR so pill doesn't flip */
+[dir="rtl"] .lp-ptoggle{direction:ltr}
+[dir="rtl"] .lp-ptoggle-pill::after{left:auto;right:3px}
+[dir="rtl"] .lp-ptoggle-pill.mo::after{transform:translateX(-20px)}
+
 /* Language picker */
 .lang-picker{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
 .lang-picker button{background:none;border:none;cursor:pointer;padding:3px 8px;border-radius:6px;font-size:13px;color:var(--slate);font-weight:500;transition:all .15s}
@@ -3400,6 +3405,67 @@ btn_next:'Next',
 btn_done:'Done',
 btn_edit:'Edit',
 btn_loading:'Loading\u2026',
+// ── Missing Translations (Fix 3) ──
+// Calendar
+cal_day_su:'Su',cal_day_mo:'Mo',cal_day_tu:'Tu',cal_day_we:'We',cal_day_th:'Th',cal_day_fr:'Fr',cal_day_sa:'Sa',
+// To-Do
+ptodo_subtitle:'Family tasks, reminders, and follow-ups',
+ptodo_filter_due:'Due date',
+ptodo_filter_category:'Category',
+ptodo_filter_priority:'Priority',
+ptodo_filter_assigned:'Assigned to',
+ptodo_empty_sub:'Add tasks to stay on top of appointments, insurance, school forms, and more.',
+// Chat
+chat_select_convo:'Select a conversation',
+chat_group_btn:'Group',
+chat_new_btn:'New',
+chat_search_placeholder:'Search conversations\u2026',
+// Specialist Requests
+sr_title:'Specialist Requests',
+sr_subtitle:'Specialists who want to join your care team',
+sr_no_pending:'No pending requests',
+sr_recent:'Recent',
+// Session Summaries
+ss_title:'Session Summaries',
+ss_select_provider:'Select a provider to view their summaries',
+// Homework
+hw_child_tasks:'{child}\u2019s assigned tasks',
+// Files
+files_manager:'File Manager',
+files_search:'Search files\u2026',
+// Care Team
+team_invite_desc:'Invite a specialist to join your team.',
+team_invite_long:'Generate a connection code or send an email invitation to bring a therapist onto the care team.',
+// Notifications
+notif_new_task:'\uD83D\uDCCB New task for {child}: "{title}"',
+notif_new_apt:'\uD83D\uDCC5 New appointment for {child}: {title}',
+notif_task_completed:'\u2705 {child} completed: "{title}"',
+notif_note_published:'\uD83D\uDCDD New note published for {child}',
+notif_spec_joined:'\uD83E\uDD1D {name} joined {child}\u2019s care team',
+notif_coparent_task:'\uD83D\uDCCB {name} assigned you a task: "{title}"',
+// Settings misc
+settings_notif_prefs:'\uD83D\uDD14 Notification Preferences',
+settings_notif_for:'{key} notifications',
+settings_notif_alerts:'Alerts for {key} activity',
+settings_push_enabled:'Push notifications enabled \u2705',
+settings_push_blocked:'Push notifications blocked',
+settings_push_not_enabled:'Push notifications not yet enabled',
+settings_push_status:'Browser status: {status}',
+settings_push_enable_btn:'Enable',
+settings_push_toast:'\uD83D\uDD14 Push notifications enabled!',
+settings_household:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 Shared Household',
+settings_household_loading:'Loading household info...',
+settings_manage_children:'\uD83D\uDC76 Manage Children',
+settings_edit_btn:'\u270F\uFE0F Edit',
+settings_photo_btn:'\uD83D\uDCF7 Photo',
+settings_delete_btn:'\uD83D\uDDD1\uFE0F Delete',
+settings_add_child_btn:'\u2795 Add Child',
+settings_name_prompt:'Enter your display name:',
+settings_name_updated:'Name updated!',
+settings_name_failed:'Could not save name.',
+settings_email_label:'Email: {email}',
+settings_role_parent:'Role: Parent / Guardian',
+settings_role_specialist:'Role: Specialist / Therapist',
 },
 he:{
 // ── Nav & Header ──
@@ -4031,6 +4097,57 @@ btn_next:'\u05D4\u05D1\u05D0',
 btn_done:'\u05E1\u05D9\u05D5\u05DD',
 btn_edit:'\u05E2\u05E8\u05D9\u05DB\u05D4',
 btn_loading:'\u05D8\u05D5\u05E2\u05DF\u2026',
+// ── Missing Translations (Fix 3) ──
+cal_day_su:'\u05D0\u05F3',cal_day_mo:'\u05D1\u05F3',cal_day_tu:'\u05D2\u05F3',cal_day_we:'\u05D3\u05F3',cal_day_th:'\u05D4\u05F3',cal_day_fr:'\u05D5\u05F3',cal_day_sa:'\u05E9\u05F3',
+ptodo_subtitle:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9\u05D5\u05EA, \u05EA\u05D6\u05DB\u05D5\u05E8\u05D5\u05EA \u05D5\u05DE\u05E2\u05E7\u05D1\u05D9\u05DD',
+ptodo_filter_due:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3',
+ptodo_filter_category:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D4',
+ptodo_filter_priority:'\u05E2\u05D3\u05D9\u05E4\u05D5\u05EA',
+ptodo_filter_assigned:'\u05D4\u05D5\u05E7\u05E6\u05D4 \u05DC',
+ptodo_empty_sub:'\u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05DB\u05D3\u05D9 \u05DC\u05D4\u05D9\u05E9\u05D0\u05E8 \u05DE\u05E2\u05DC \u05EA\u05D5\u05E8\u05D9\u05DD, \u05D1\u05D9\u05D8\u05D5\u05D7, \u05D8\u05E4\u05E1\u05D9 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D5\u05E2\u05D5\u05D3.',
+chat_select_convo:'\u05D1\u05D7\u05E8\u05D5 \u05E9\u05D9\u05D7\u05D4',
+chat_group_btn:'\u05E7\u05D1\u05D5\u05E6\u05D4',
+chat_new_btn:'\u05D7\u05D3\u05E9',
+chat_search_placeholder:'\u05D7\u05D9\u05E4\u05D5\u05E9 \u05E9\u05D9\u05D7\u05D5\u05EA\u2026',
+sr_title:'\u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
+sr_subtitle:'\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05E8\u05D5\u05E6\u05D9\u05DD \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05DC\u05DA',
+sr_no_pending:'\u05D0\u05D9\u05DF \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA',
+sr_recent:'\u05D0\u05D7\u05E8\u05D5\u05E0\u05D5\u05EA',
+ss_title:'\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9 \u05DE\u05E4\u05D2\u05E9\u05D9\u05DD',
+ss_select_provider:'\u05D1\u05D7\u05E8\u05D5 \u05DE\u05D8\u05E4\u05DC/\u05EA \u05DC\u05E6\u05E4\u05D9\u05D9\u05D4 \u05D1\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD',
+hw_child_tasks:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05DC {child}',
+files_manager:'\u05DE\u05E0\u05D4\u05DC \u05E7\u05D1\u05E6\u05D9\u05DD',
+files_search:'\u05D7\u05D9\u05E4\u05D5\u05E9 \u05E7\u05D1\u05E6\u05D9\u05DD\u2026',
+team_invite_desc:'\u05D4\u05D6\u05DE\u05D9\u05E0\u05D5 \u05DE\u05D8\u05E4\u05DC/\u05EA \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC\u05DB\u05DD.',
+team_invite_long:'\u05E6\u05E8\u05D5 \u05E7\u05D5\u05D3 \u05D7\u05D9\u05D1\u05D5\u05E8 \u05D0\u05D5 \u05E9\u05DC\u05D7\u05D5 \u05D4\u05D6\u05DE\u05E0\u05D4 \u05D1\u05DE\u05D9\u05D9\u05DC \u05DB\u05D3\u05D9 \u05DC\u05E6\u05E8\u05E3 \u05DE\u05D8\u05E4\u05DC/\u05EA \u05DC\u05E6\u05D5\u05D5\u05EA.',
+notif_new_task:'\uD83D\uDCCB \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05DC{child}: "{title}"',
+notif_new_apt:'\uD83D\uDCC5 \u05EA\u05D5\u05E8 \u05D7\u05D3\u05E9 \u05DC{child}: {title}',
+notif_task_completed:'\u2705 {child} \u05D1\u05D9\u05E6\u05E2: "{title}"',
+notif_note_published:'\uD83D\uDCDD \u05E1\u05D9\u05DB\u05D5\u05DD \u05D7\u05D3\u05E9 \u05E4\u05D5\u05E8\u05E1\u05DD \u05E2\u05D1\u05D5\u05E8 {child}',
+notif_spec_joined:'\uD83E\uDD1D {name} \u05D4\u05E6\u05D8\u05E8\u05E3/\u05D4 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC {child}',
+notif_coparent_task:'\uD83D\uDCCB {name} \u05D4\u05E7\u05E6\u05D4 \u05DC\u05DA \u05DE\u05E9\u05D9\u05DE\u05D4: "{title}"',
+settings_notif_prefs:'\uD83D\uDD14 \u05D4\u05E2\u05D3\u05E4\u05D5\u05EA \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',
+settings_notif_for:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA {key}',
+settings_notif_alerts:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05E2\u05DC \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA {key}',
+settings_push_enabled:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05DE\u05D5\u05E4\u05E2\u05DC\u05D5\u05EA \u2705',
+settings_push_blocked:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05D7\u05E1\u05D5\u05DE\u05D5\u05EA',
+settings_push_not_enabled:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05DC\u05D0 \u05D4\u05D5\u05E4\u05E2\u05DC\u05D5 \u05E2\u05D3\u05D9\u05D9\u05DF',
+settings_push_status:'\u05E1\u05D8\u05D8\u05D5\u05E1 \u05D3\u05E4\u05D3\u05E4\u05DF: {status}',
+settings_push_enable_btn:'\u05D4\u05E4\u05E2\u05DC\u05D4',
+settings_push_toast:'\uD83D\uDD14 \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05D4\u05D5\u05E4\u05E2\u05DC\u05D5!',
+settings_household:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \u05DE\u05E9\u05E7 \u05D1\u05D9\u05EA \u05DE\u05E9\u05D5\u05EA\u05E3',
+settings_household_loading:'\u05D8\u05D5\u05E2\u05DF \u05DE\u05D9\u05D3\u05E2 \u05DE\u05E9\u05E7 \u05D1\u05D9\u05EA...',
+settings_manage_children:'\uD83D\uDC76 \u05E0\u05D9\u05D4\u05D5\u05DC \u05D9\u05DC\u05D3\u05D9\u05DD',
+settings_edit_btn:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05D4',
+settings_photo_btn:'\uD83D\uDCF7 \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_delete_btn:'\uD83D\uDDD1\uFE0F \u05DE\u05D7\u05D9\u05E7\u05D4',
+settings_add_child_btn:'\u2795 \u05D4\u05D5\u05E1\u05E4\u05EA \u05D9\u05DC\u05D3/\u05D4',
+settings_name_prompt:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05D0\u05EA \u05E9\u05DD \u05D4\u05EA\u05E6\u05D5\u05D2\u05D4:',
+settings_name_updated:'\u05D4\u05E9\u05DD \u05E2\u05D5\u05D3\u05DB\u05DF!',
+settings_name_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05D0\u05EA \u05D4\u05E9\u05DD.',
+settings_email_label:'\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC: {email}',
+settings_role_parent:'\u05EA\u05E4\u05E7\u05D9\u05D3: \u05D4\u05D5\u05E8\u05D4 / \u05D0\u05E4\u05D5\u05D8\u05E8\u05D5\u05E4\u05D5\u05E1',
+settings_role_specialist:'\u05EA\u05E4\u05E7\u05D9\u05D3: \u05DE\u05D8\u05E4\u05DC/\u05EA',
 }
 };
 
@@ -5319,15 +5436,18 @@ function renderAuth(){
   const hero=el('div',{class:'auth-hero'});
   hero.appendChild(el('div',{class:'auth-logo-wrap'},['🤝']));
   hero.appendChild(el('h1',{class:'auth-title ff'},['Huddledin']));
-  hero.appendChild(el('p',{class:'auth-sub'},['Collaborative care for children']));
+  hero.appendChild(el('p',{class:'auth-sub'},[T('auth_tagline')]));
+  // Language picker on mobile auth (Israel only)
+  const _authLang=renderLangPicker({justifyContent:'center',marginTop:'10px'});
+  if(_authLang)hero.appendChild(_authLang);
   card.appendChild(hero);
 
   const body=el('div',{class:'auth-body'});
   let mode=S._authTab==='signup'?'signup':'signin',selRole='parent';
 
   const tabRow=el('div',{class:'auth-tab-row'});
-  const t1=el('button',{class:'auth-tab'+(mode==='signin'?' active':'')},['Sign In']);
-  const t2=el('button',{class:'auth-tab'+(mode==='signup'?' active':'')},['Create Account']);
+  const t1=el('button',{class:'auth-tab'+(mode==='signin'?' active':'')},[T('auth_sign_in')]);
+  const t2=el('button',{class:'auth-tab'+(mode==='signup'?' active':'')},[T('auth_create_account')]);
   const setMode=m=>{mode=m;t1.className='auth-tab'+(m==='signin'?' active':'');t2.className='auth-tab'+(m==='signup'?' active':'');buildForm();};
   t1.onclick=()=>setMode('signin');t2.onclick=()=>setMode('signup');
   tabRow.appendChild(t1);tabRow.appendChild(t2);
@@ -7024,6 +7144,16 @@ function renderDrawer(){
     scroll.appendChild(tourItem);
   }
 
+  // -- Language picker (mobile drawer — only for Israel) --
+  const _drawerLang=renderLangPicker({padding:'4px 14px',fontSize:'.84rem'});
+  if(_drawerLang){
+    scroll.appendChild(el('div',{class:'drawer-sep'}));
+    const langItem=el('div',{class:'drawer-item',style:{cursor:'default',gap:'10px'}});
+    langItem.appendChild(el('div',{class:'di-icon'},['\uD83C\uDF10']));
+    langItem.appendChild(_drawerLang);
+    scroll.appendChild(langItem);
+  }
+
   // -- Sign Out (bottom, danger) --
   scroll.appendChild(el('div',{class:'drawer-sep'}));
   const signOutItem=el('button',{class:'drawer-item danger'});
@@ -7563,7 +7693,7 @@ function renderMiniCalendar(children,allApts){
     const d=new Date(now);d.setDate(d.getDate()+i);
     days.push(d.toISOString().split('T')[0]);
   }
-  const DAY_LABELS=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const DAY_LABELS=[T('cal_day_su'),T('cal_day_mo'),T('cal_day_tu'),T('cal_day_we'),T('cal_day_th'),T('cal_day_fr'),T('cal_day_sa')];
 
   // Upcoming apts (next 14 days)
   const cutoff=new Date(now);cutoff.setDate(cutoff.getDate()+14);
@@ -7744,7 +7874,7 @@ function renderCalFullscreen(){
   calCard.appendChild(calHead);
 
   const grid=el('div',{class:'cal-grid'});
-  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
+  [T('cal_day_su'),T('cal_day_mo'),T('cal_day_tu'),T('cal_day_we'),T('cal_day_th'),T('cal_day_fr'),T('cal_day_sa')].forEach(d=>grid.appendChild(el('div',{class:'cal-dl'},[d])));
   for(let i=0;i<firstDay;i++)grid.appendChild(el('div',{class:'cal-day'}));
   // Track selected date for inline day view
   const selDate=S.calSelectedDate;
@@ -8521,14 +8651,14 @@ function renderFiles(){
     rightEl.appendChild(_permBtn);
     rightEl.appendChild(mkBtn('📁','btn-sm btn-ghost',()=>showAddFolderModal()));
     rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
-    sec.appendChild(mkSubHeader('File Manager',rightEl));
+    sec.appendChild(mkSubHeader(T('files_manager'),rightEl));
   } else {
     const fiSpec=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fiSpec.id='fileInputSpec';
     fiSpec.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
     sec.appendChild(fiSpec);
     const hd=el('div',{class:'sec-hd'});
     hd.appendChild(el('div',{class:'sec-hd-left'},[
-      el('h2',{class:'page-title'},['File Manager']),
+      el('h2',{class:'page-title'},[T('files_manager')]),
       el('p',{class:'page-sub'},[`${child?.avatar||''} ${child?.name||''}`])
     ]));
     const hdRight=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
@@ -8538,7 +8668,7 @@ function renderFiles(){
   }
 
   // Single stable search input — not recreated on filter updates
-  const _fsInp=el('input',{class:'inp',placeholder:'🔍 Search files…',style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});
+  const _fsInp=el('input',{class:'inp',placeholder:'🔍 '+T('files_search'),style:{marginBottom:'12px',width:'100%',boxSizing:'border-box'}});
   _fsInp.value=S._fileSearch||'';
   if(_dbFolders.length>0)sec.appendChild(_fsInp);
   // Results wrapper — only this is rebuilt on each search keystroke; input stays untouched above
@@ -9289,9 +9419,9 @@ function renderTeam(){
     connBanner.appendChild(el('div',{style:{fontSize:'1.8rem'}},'🔗'));
     const ci=el('div',{style:{flex:1}});
     ci.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'2px'}},
-      ['Invite a specialist to join my team.']));
+      [T('team_invite_desc')]));
     ci.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:500}},
-      ['Generate a connection code or send an email invitation to bring a therapist onto the care team.']));
+      [T('team_invite_long')]));
     connBanner.appendChild(ci);
     const bannerBtns=el('div',{style:{display:'flex',gap:'8px',flexDirection:'column',alignItems:'flex-end'}});
     bannerBtns.appendChild(mkBtn(T('team_invite'),'btn-sm btn-primary',()=>showInviteModal()));
@@ -10005,7 +10135,7 @@ function renderCalendar(){
   calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">${calNow.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
   calCard.appendChild(calHd2);
   const cg=el('div',{class:'cal-grid'});
-  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
+  [T('cal_day_su'),T('cal_day_mo'),T('cal_day_tu'),T('cal_day_we'),T('cal_day_th'),T('cal_day_fr'),T('cal_day_sa')].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
   for(let i=0;i<calFirstDay;i++)cg.appendChild(el('div',{class:'cal-day'}));
   for(let day=1;day<=calDaysInMonth;day++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -10387,13 +10517,13 @@ function renderChat(){
   hd.appendChild(titleRow);
   const hdRight=el('div',{style:{display:'flex',gap:'6px'}});
   if(role==='parent'){
-    hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>_showParentNewChatModal()));
-    hdRight.appendChild(mkBtn('👥 Group','btn-sm btn-ghost',()=>showCreateGroupChatModal()));
+    hdRight.appendChild(mkBtn('✏️ '+T('chat_new_btn'),'btn-sm btn-primary',()=>_showParentNewChatModal()));
+    hdRight.appendChild(mkBtn('👥 '+T('chat_group_btn'),'btn-sm btn-ghost',()=>showCreateGroupChatModal()));
   }
-  if(role==='specialist')hdRight.appendChild(mkBtn('✏️ New','btn-sm btn-primary',()=>showNewMessageModal()));
+  if(role==='specialist')hdRight.appendChild(mkBtn('✏️ '+T('chat_new_btn'),'btn-sm btn-primary',()=>showNewMessageModal()));
   hd.appendChild(hdRight);
   listWrap.appendChild(hd);
-  const _si=el('input',{class:'inp',placeholder:'🔍 Search conversations…',style:{margin:'0 16px 12px',width:'calc(100% - 32px)',boxSizing:'border-box'}});
+  const _si=el('input',{class:'inp',placeholder:'🔍 '+T('chat_search_placeholder'),style:{margin:'0 16px 12px',width:'calc(100% - 32px)',boxSizing:'border-box'}});
   if(S._chatSearch)_si.value=S._chatSearch;
   _si.oninput=e=>{S._chatSearch=e.target.value;const _q=(e.target.value||'').toLowerCase();Array.from(listWrap.querySelectorAll('[data-chatname]')).forEach(item=>{const _n=(item.dataset.chatname||'').toLowerCase();const _c=(item.dataset.childname||'').toLowerCase();item.style.display=(!_q||_n.includes(_q)||_c.includes(_q))?'':'none';});};
   listWrap.appendChild(_si);
@@ -10526,7 +10656,7 @@ function renderChat(){
   } else {
     win.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--slate)',fontWeight:600,flexDirection:'column',gap:'12px'}},[
       el('span',{style:{fontSize:'2.5rem'}},['💬']),
-      el('span',{},[visChats.length?'Select a conversation':T('chat_no_chats')])
+      el('span',{},[visChats.length?T('chat_select_convo'):T('chat_no_chats')])
     ]));
   }
   wrap.appendChild(win);
@@ -11806,7 +11936,7 @@ function renderTodoList(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('ptodo_title')]),
-    el('p',{class:'page-sub'},['Family tasks, reminders, and follow-ups'])
+    el('p',{class:'page-sub'},[T('ptodo_subtitle')])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn(T('ptodo_new_task'),'btn-md btn-primary',()=>showParentTaskModal())
@@ -11856,14 +11986,14 @@ function renderTodoList(){
 
   // Pill 1 — Assigned to (hide if no co-parent)
   if(coParent){
-    filterBar.appendChild(_mkFilterPill('Assigned to',assignFilter,[['all','All'],['mine','Mine'],[coParent.id,coParent.name||'Co-Parent']],'_parentTaskAssigneeFilter'));
+    filterBar.appendChild(_mkFilterPill(T('ptodo_filter_assigned'),assignFilter,[['all','All'],['mine','Mine'],[coParent.id,coParent.name||'Co-Parent']],'_parentTaskAssigneeFilter'));
   }
   // Pill 2 — Priority
-  filterBar.appendChild(_mkFilterPill('Priority',priFilter,[['all','All'],['urgent','Urgent'],['normal','Normal'],['low','Low']],'_parentTaskPriorityFilter'));
+  filterBar.appendChild(_mkFilterPill(T('ptodo_filter_priority'),priFilter,[['all','All'],['urgent','Urgent'],['normal','Normal'],['low','Low']],'_parentTaskPriorityFilter'));
   // Pill 3 — Category
-  filterBar.appendChild(_mkFilterPill('Category',catFilter,[['All','All'],['Appointment','Appointment'],['Insurance','Insurance'],['School','School'],['Therapy','Therapy'],['Admin','Admin'],['Other','Other']],'_parentTaskFilter'));
+  filterBar.appendChild(_mkFilterPill(T('ptodo_filter_category'),catFilter,[['All','All'],['Appointment','Appointment'],['Insurance','Insurance'],['School','School'],['Therapy','Therapy'],['Admin','Admin'],['Other','Other']],'_parentTaskFilter'));
   // Pill 4 — Due date
-  filterBar.appendChild(_mkFilterPill('Due date',dateFilter,[['all','All'],['today','Today'],['week','This week'],['overdue','Overdue']],'_parentTaskDateFilter'));
+  filterBar.appendChild(_mkFilterPill(T('ptodo_filter_due'),dateFilter,[['all','All'],['today','Today'],['week','This week'],['overdue','Overdue']],'_parentTaskDateFilter'));
   sec.appendChild(filterBar);
 
   // ─── APPLY ALL FILTERS ───
@@ -11904,7 +12034,7 @@ function renderTodoList(){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['✅']),
       el('div',{class:'empty-state-title'},[T('ptodo_no_tasks')]),
-      el('div',{class:'empty-state-body'},['Add tasks to stay on top of appointments, insurance, school forms, and more.']),
+      el('div',{class:'empty-state-body'},[T('ptodo_empty_sub')]),
       el('div',{class:'empty-state-actions'},[mkBtn(T('ptodo_new_task'),'btn-md btn-primary',()=>showParentTaskModal())])
     ]));
     return sec;
@@ -12165,7 +12295,7 @@ function showParentTaskModal(existing=null){
         try{const{error}=await _supa.from('parent_tasks').insert(newTask);if(error)console.error('❌ insert task:',error);}catch(e){console.error('create parent task:',e);}
         // Notify co-parent if assigned to them
         if(assignState.v&&assignState.v!==session.id&&coParent&&session.id!=='demo'){
-          try{const{error:nErr}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+assignState.v,user_id:assignState.v,child_id:childSel.value||null,type:'todo',message:'📋 '+(session.displayName||session.name||'Your co-parent')+' assigned you a task: "'+taskTitle+'"',read:false,link_tab:'todo'});if(nErr)console.error('❌ notify co-parent:',nErr);}catch(e){}
+          try{const{error:nErr}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+assignState.v,user_id:assignState.v,child_id:childSel.value||null,type:'todo',message:T('notif_coparent_task',{name:session.displayName||session.name||'',title:taskTitle}),read:false,link_tab:'todo'});if(nErr)console.error('❌ notify co-parent:',nErr);}catch(e){}
         }
       }
       // Re-fetch from Supabase to ensure cache is fully in sync
@@ -13212,7 +13342,7 @@ function renderHomeworkParent(){
     backBar.appendChild(backBtn);sec.appendChild(backBar);
   }
   sec.appendChild(el('h2',{class:'page-title'},[T('hw_title')]));
-  sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s assigned tasks"]));
+  sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+T('hw_child_tasks',{child:child?.name||''})]));
   // Tabs
   const tab=S._hwParentTab||'active';
   const _today3=new Date().toISOString().split('T')[0];
@@ -14295,8 +14425,8 @@ function sendPush(title,body){
 ----------------------------------------------- */
 function renderSpecialistRequests(){
   const sec=el('div',{class:'section'});
-  sec.appendChild(el('h2',{class:'page-title'},['📨 Specialist Requests']));
-  sec.appendChild(el('p',{class:'page-sub'},['Specialists who want to join your care team']));
+  sec.appendChild(el('h2',{class:'page-title'},['📨 '+T('sr_title')]));
+  sec.appendChild(el('p',{class:'page-sub'},[T('sr_subtitle')]));
   const children=DB.children||[];
   const allSpecs=DB.specialists||[];
 
@@ -14305,7 +14435,7 @@ function renderSpecialistRequests(){
   if(pendingReqs.length===0){
     sec.appendChild(el('div',{style:{textAlign:'center',padding:'32px 16px',color:'var(--slate)'}},
       [el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['📭']),
-       el('div',{style:{fontWeight:600,fontSize:'.9rem'}},['No pending requests'])]));
+       el('div',{style:{fontWeight:600,fontSize:'.9rem'}},[T('sr_no_pending')])]));
   } else {
     sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Pending ('+pendingReqs.length+')']));
     pendingReqs.forEach(r=>{
@@ -14399,7 +14529,7 @@ function renderSpecialistRequests(){
         .or(hid?'household_id.eq.'+String(hid)+',parent_id.eq.'+session.id:'parent_id.eq.'+session.id)
         .order('requested_at',{ascending:false}).limit(10);
       if(error||!recent||recent.length===0)return;
-      _recentWrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Recent']));
+      _recentWrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('sr_recent')]));
       recent.forEach(r2=>{
         const child2=DB.children.find(c=>c.id===r2.child_id);
         const card2=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',background:'#fff',borderRadius:'10px',border:'1px solid var(--mint-l)',marginBottom:'6px'}});
@@ -14668,8 +14798,8 @@ function renderSessionSummaries(){
       backBtn.style.marginBottom='16px';
       sec.appendChild(backBtn);
     }
-    sec.appendChild(el('h2',{class:'page-title'},['📄 Session Summaries']));
-    sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+' · Select a provider to view their summaries']));
+    sec.appendChild(el('h2',{class:'page-title'},['📄 '+T('ss_title')]));
+    sec.appendChild(el('p',{class:'page-sub'},[child?.avatar+' '+(child?.name||'')+' · '+T('ss_select_provider')]));
 
     if(!published.length){
       sec.appendChild(el('div',{class:'empty-state'},[
@@ -15207,11 +15337,11 @@ function renderSpecialistSettings(){
   const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
   const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
   editBtn.onclick=()=>{
-    const newName=prompt('Enter your display name:',session?.name||'');
+    const newName=prompt(T('settings_name_prompt'),session?.name||'');
     if(newName&&newName.trim()){
       _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
-        .then(()=>{session.name=newName.trim();nameDisplay.textContent='👤 '+newName.trim();toast('Name updated!','success');})
-        .catch(()=>toast('Could not save name.','error'));
+        .then(()=>{session.name=newName.trim();nameDisplay.textContent='👤 '+newName.trim();toast(T('settings_name_updated'),'success');})
+        .catch(()=>toast(T('settings_name_failed'),'error'));
     }
   };
   nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
@@ -15708,7 +15838,7 @@ function renderAdminDashboard(){
       frag.appendChild(sectionHead('🔔 Pending Specialist Requests ('+(lists.pendingList||[]).length+')'));
       const pendCard=el('div',{class:'card',style:{padding:'16px',marginBottom:'16px'}});
       if(!(lists.pendingList||[]).length){
-        pendCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['✅ No pending requests']));
+        pendCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem',fontWeight:600}},['✅ '+T('sr_no_pending')]));
       } else {
         (lists.pendingList||[]).forEach(r=>{
           const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)',flexWrap:'wrap'}});
@@ -16008,13 +16138,13 @@ function renderSettings(){
 
   // Notif prefs
   const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['🔔 Notification Preferences']));
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},[T('settings_notif_prefs')]));
   const prefs=DB.notifPrefs;
   Object.entries(prefs).forEach(([key,val])=>{
     const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
     row.appendChild(el('div',{},[
-      el('div',{style:{fontWeight:700,color:'var(--navy)',textTransform:'capitalize'}},[key+' notifications']),
-      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},['Alerts for '+key+' activity'])
+      el('div',{style:{fontWeight:700,color:'var(--navy)',textTransform:'capitalize'}},[T('settings_notif_for',{key})]),
+      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[T('settings_notif_alerts',{key})])
     ]));
     const tog=el('button',{class:'toggle'+(val?' on':'')});
     tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
@@ -16024,17 +16154,17 @@ function renderSettings(){
 
   // Push status
   const pc2=el('div',{class:'card',style:{marginBottom:'16px'}});
-  pc2.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['📱 Push Notifications']));
+  pc2.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_push')]));
   const pushStatus=typeof Notification!=='undefined'?Notification.permission:'not-supported';
   const statusColors={granted:'#166534',denied:'#be123c',default:'var(--slate)'};
   pc2.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'14px',background:'var(--mint-ll)'}},[
     el('span',{style:{fontSize:'1.3rem'}},['📱']),
     el('div',{style:{flex:1}},[
-      el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?'Push notifications enabled ✅':pushStatus==='denied'?'Push notifications blocked':'Push notifications not yet enabled']),
-      el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},['Browser status: '+pushStatus])
+      el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?T('settings_push_enabled'):pushStatus==='denied'?T('settings_push_blocked'):T('settings_push_not_enabled')]),
+      el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},[T('settings_push_status',{status:pushStatus})])
     ]),
-    pushStatus==='default'?mkBtn('Enable','btn-sm btn-primary',()=>{
-      Notification.requestPermission().then(p=>{if(p==='granted'){DB.pushEnabled=true;re();toast('🔔 Push notifications enabled!');}});
+    pushStatus==='default'?mkBtn(T('settings_push_enable_btn'),'btn-sm btn-primary',()=>{
+      Notification.requestPermission().then(p=>{if(p==='granted'){DB.pushEnabled=true;re();toast(T('settings_push_toast'));}});
     }):el('span')
   ]));
   sec.appendChild(pc2);
@@ -16047,20 +16177,20 @@ function renderSettings(){
   const nameDisplay=el('div',{style:{color:'var(--navy)',fontSize:'.9rem',fontWeight:700,flex:1}},['👤 '+(session?.name||'')]);
   const editBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1rem',padding:'4px'}},['✏️']);
   editBtn.onclick=()=>{
-    const newName=prompt('Enter your display name:',session?.name||'');
+    const newName=prompt(T('settings_name_prompt'),session?.name||'');
     if(newName&&newName.trim()){
       _supa.from('profiles').update({display_name:newName.trim()}).eq('id',session.id)
         .then(()=>{
           session.name=newName.trim();
           nameDisplay.textContent='👤 '+newName.trim();
-          toast('Name updated!','success');
-        }).catch(()=>toast('Could not save name.','error'));
+          toast(T('settings_name_updated'),'success');
+        }).catch(()=>toast(T('settings_name_failed'),'error'));
     }
   };
   nameRow.appendChild(nameDisplay);nameRow.appendChild(editBtn);
   ac.appendChild(nameRow);
-  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
-  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: '+(session?.role==='parent'?'Parent / Guardian':'Specialist / Therapist')]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},[T('settings_email_label',{email:session?.email||''})]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},[session?.role==='parent'?T('settings_role_parent'):T('settings_role_specialist')]));
   const acBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
   acBtns.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
   acBtns.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
@@ -16078,8 +16208,8 @@ function renderSettings(){
   // Shared Household (parent only)
   if(session?.role==='parent'){
     const hhPlaceholder=el('div',{class:'card',style:{marginBottom:'16px'}});
-    hhPlaceholder.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👨‍👩‍👧 Shared Household']));
-    hhPlaceholder.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},['Loading household info...']));
+    hhPlaceholder.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('settings_household')]));
+    hhPlaceholder.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},[T('settings_household_loading')]));
     sec.appendChild(hhPlaceholder);
     renderHouseholdCard().then(card=>{hhPlaceholder.replaceWith(card);});
   }
@@ -16087,7 +16217,7 @@ function renderSettings(){
   // Manage Children (parent only — photo + delete)
   if(session?.role==='parent'){
     const mc=el('div',{class:'card',style:{marginBottom:'16px'}});
-    mc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['👶 Manage Children']));
+    mc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('settings_manage_children')]));
     DB.children.forEach(child=>{
       const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
       if(child.photo){
@@ -16096,12 +16226,12 @@ function renderSettings(){
         row.appendChild(el('span',{style:{fontSize:'1.6rem'}},[child.avatar]));
       }
       row.appendChild(el('div',{style:{flex:1,fontWeight:700,color:'var(--navy)'}},[child.name]));
-      row.appendChild(mkBtn('✏️ Edit','btn-sm btn-slate',()=>showEditChildModal(child)));
-      row.appendChild(mkBtn('📷 Photo','btn-sm btn-slate',()=>showChildPhotoModal(child)));
-      row.appendChild(mkBtn('🗑️ Delete','btn-sm btn-danger',()=>showDeleteChildModal(child)));
+      row.appendChild(mkBtn(T('settings_edit_btn'),'btn-sm btn-slate',()=>showEditChildModal(child)));
+      row.appendChild(mkBtn(T('settings_photo_btn'),'btn-sm btn-slate',()=>showChildPhotoModal(child)));
+      row.appendChild(mkBtn(T('settings_delete_btn'),'btn-sm btn-danger',()=>showDeleteChildModal(child)));
       mc.appendChild(row);
     });
-    mc.appendChild(el('div',{style:{marginTop:'12px'}},[mkBtn('➕ Add Child','btn-md btn-secondary btn-full',()=>showAddChildModal())]));
+    mc.appendChild(el('div',{style:{marginTop:'12px'}},[mkBtn(T('settings_add_child_btn'),'btn-md btn-secondary btn-full',()=>showAddChildModal())]));
     sec.appendChild(mc);
   }
 
