@@ -2607,7 +2607,7 @@ function showVerificationPendingScreen(email){
   });
   if(session)_seedHistory();
   if(session)_appLoading=true;
-  _detectGeoLanguage().then(()=>re()); // detect geo for lang picker, then render
+  _detectGeoLanguage().then(()=>{if(_availableLangs.length>1)re();}); // re-render only if geo changed picker visibility
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
   if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);});}
@@ -2768,7 +2768,7 @@ function renderLangPicker(style){
   });
   return wrap;
 }
-const T=(key,vars)=>{let str=_STRINGS[_lang]?.[key]||_STRINGS.en[key]||key;if(vars){Object.entries(vars).forEach(([k,v])=>{str=str.replace(new RegExp('\\{'+k+'}','g'),v);});}return str;};
+const T=(key,vars)=>{if(_lang!=='en'&&!_STRINGS[_lang])_ensureHebrew();const d=_STRINGS[_lang]||_STRINGS.en;const str=d[key]||_STRINGS.en[key]||key;if(!vars)return str;let r=str;for(const k in vars)r=r.split('{'+k+'}').join(vars[k]);return r;};
 const _STRINGS={
 en:{
 // ── Nav & Header ──
@@ -3934,8 +3934,10 @@ patients_sub:'Click a patient to view their vault & files',patients_search:'\uD8
 vc_goals:'Goals',vc_observations:'Observations',vc_progress:'Progress',vc_plan:'Plan',vc_recommendations:'Recommendations',vc_summary:'Summary',vc_background:'Background',
 vc_speech_lang:'Dictation language',vc_cheat_title:'Voice Commands',
 vc_cmd_period:'period',vc_cmd_comma:'comma',vc_cmd_question:'question mark',vc_cmd_colon:'colon',vc_cmd_dash:'dash',vc_cmd_newline:'new line',vc_cmd_paragraph:'new paragraph',vc_cmd_scratch:'scratch that',vc_cmd_stop:'stop recording',vc_cmd_list:'start list',vc_cmd_bullet:'bullet list',vc_cmd_endlist:'end list',
-},
-he:{
+}
+};
+// Hebrew dictionary — lazy-loaded on first use to save parse time for English users
+function _ensureHebrew(){if(_STRINGS.he)return;_STRINGS.he={
 // ── Nav & Header ──
 nav_home:'\u05D1\u05D9\u05EA',
 nav_calendar:'\u05D9\u05D5\u05DE\u05DF',
@@ -5061,8 +5063,9 @@ team_which_areas:'לאילו אזורים ל-{name} תהיה גישה?',
 vc_goals:'\u05DE\u05D8\u05E8\u05D5\u05EA',vc_observations:'\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA',vc_progress:'\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA',vc_plan:'\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA',vc_recommendations:'\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA',vc_summary:'\u05E1\u05D9\u05DB\u05D5\u05DD',vc_background:'\u05E8\u05E7\u05E2',
 vc_speech_lang:'\u05E9\u05E4\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cheat_title:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA \u05E7\u05D5\u05DC\u05D9\u05D5\u05EA',
 vc_cmd_period:'\u05E0\u05E7\u05D5\u05D3\u05D4',vc_cmd_comma:'\u05E4\u05E1\u05D9\u05E7',vc_cmd_question:'\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4',vc_cmd_colon:'\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD',vc_cmd_dash:'\u05DE\u05E7\u05E3',vc_cmd_newline:'\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_paragraph:'\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_scratch:'\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4',vc_cmd_stop:'\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cmd_list:'\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA',vc_cmd_bullet:'\u05E8\u05E9\u05D9\u05DE\u05D4',vc_cmd_endlist:'\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4',
-}
-};
+};}
+// If user is already in Hebrew, load immediately
+if(_lang==='he')_ensureHebrew();
 
 /* -----------------------------------------------
    ONBOARDING TOUR ENGINE
@@ -17360,6 +17363,7 @@ function re(){
   if(_reTimer)cancelAnimationFrame(_reTimer);
   _reTimer=requestAnimationFrame(()=>{
     _reTimer=null;
+    const _t0=performance.now();
     const root=document.getElementById('root');
     if(!root)return;
     // Clean up stale modal overlays left in document.body — prevents "stuck" UI
@@ -17367,6 +17371,8 @@ function re(){
     root.innerHTML='';
     if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
     root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+    const _t1=performance.now();
+    if(_t1-_t0>80)console.warn('re() slow:',(_t1-_t0).toFixed(0)+'ms');
   });
 }
 // Immediate re() — use only when timing is critical (e.g. after modal close)
