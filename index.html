@@ -13,7 +13,7 @@
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Huddledin — Collaborative Care Platform</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <!-- -- SUPABASE SDK -- -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- -- CROPPER.JS -- -->
@@ -164,16 +164,16 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 .child-pill.active{border-color:var(--teal);background:var(--teal);color:#fff;box-shadow:0 4px 14px rgba(13,148,136,.35)}
 .child-avatar-img{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.6)}
 .child-avatar-emoji{font-size:.95rem}
-#header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+#header-right{margin-inline-start:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 
 /* -- BODY + SIDEBAR -- */
 #body{display:flex;flex:1;padding-top:calc(var(--header-h) + var(--safe-top))}
-#sidenav{width:205px;min-width:205px;background:var(--white);border-right:1px solid var(--mint-l);display:flex;flex-direction:column;padding:16px 10px;gap:2px;overflow-y:auto;position:fixed;left:0;top:calc(var(--header-h) + var(--safe-top));height:calc(100vh - var(--header-h) - var(--safe-top));z-index:100}
+#sidenav{width:205px;min-width:205px;background:var(--white);border-inline-end:1px solid var(--mint-l);display:flex;flex-direction:column;padding:16px 10px;gap:2px;overflow-y:auto;position:fixed;inset-inline-start:0;top:calc(var(--header-h) + var(--safe-top));height:calc(100vh - var(--header-h) - var(--safe-top));z-index:100}
 @media(max-width:767px){#sidenav{display:none}}
 .sidenav-profile{margin-bottom:10px;padding:12px 13px;border-radius:var(--r);background:var(--mint-ll);border:1px solid var(--mint-l)}
 .sp-label{font-size:.64rem;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
 .sp-name{font-weight:800;color:var(--navy);font-size:.86rem;margin:2px 0 5px}
-.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:16px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.85rem;color:var(--slate);text-align:left;transition:all .15s;width:100%;min-height:44px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:16px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.85rem;color:var(--slate);text-align:start;transition:all .15s;width:100%;min-height:44px}
 .nav-btn:hover{background:var(--mint-ll);color:var(--navy)}
 .nav-btn:active{background:var(--mint-l);transform:scale(.98)}
 .nav-btn.active{background:linear-gradient(135deg,var(--mint-l),var(--lav-l));color:var(--teal-d);font-weight:800;box-shadow:0 2px 10px rgba(13,148,136,.12)}
@@ -1379,6 +1379,68 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-db-nrow:hover{background:var(--mint-ll)}
 }
 @keyframes _ldSpin{to{transform:rotate(360deg)}}@keyframes _ldBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}
+
+/* ── RTL (Hebrew) Support ──────────────────────────────────── */
+[dir="rtl"] body,
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select,
+[dir="rtl"] button{font-family:'Heebo','Segoe UI','Arial Hebrew',system-ui,-apple-system,sans-serif}
+[dir="rtl"] .ff{font-family:'Heebo','Segoe UI',serif}
+
+/* Sidebar */
+/* #sidenav uses logical properties — auto-flips */
+
+/* Drawer */
+[dir="rtl"] .drawer{left:auto;right:0;transform:translateX(100%)}
+[dir="rtl"] .drawer.open{transform:translateX(0)}
+
+/* Text alignment */
+[dir="rtl"] .nav-btn{text-align:right}
+[dir="rtl"] .drawer-item{text-align:right}
+
+/* Notification dropdown */
+[dir="rtl"] .notif-dropdown{left:0;right:auto}
+
+/* Unread indicator */
+[dir="rtl"] .notif-item.unread{border-left:none;border-right:3px solid #10b981}
+
+/* Dropdown arrow padding */
+[dir="rtl"] .inp[is="select"],
+[dir="rtl"] select.inp{padding-left:40px;padding-right:14px}
+
+/* Badge positioning */
+[dir="rtl"] .bnav-badge{right:auto;left:calc(50% - 18px)}
+
+/* Specialist sidebar */
+[dir="rtl"] .spec-dt-sidebar{left:auto;right:0;border-right:none;border-left:1.5px solid var(--mint-l)}
+[dir="rtl"] .spec-dt-nav-item{text-align:right}
+[dir="rtl"] .spec-dt-nav-badge{margin-left:0;margin-right:auto}
+
+/* Specialist patient panel */
+[dir="rtl"] .spec-dt-pl{left:auto;right:260px;border-right:none;border-left:1.5px solid var(--mint-l);transform:translateX(100%)}
+[dir="rtl"] .spec-dt-pl.open{transform:translateX(0)}
+
+/* Specialist detail */
+[dir="rtl"] .spec-dt-detail{margin-left:0}
+[dir="rtl"] .spec-dt-main{margin-left:0;margin-right:260px}
+
+/* Specialist patient list text */
+[dir="rtl"] .spec-dt-pl-act{text-align:left}
+
+/* Chat bubble time */
+[dir="rtl"] .bubble-time{text-align:left}
+[dir="rtl"] .bubble-tick{margin-left:0;margin-right:3px}
+
+/* Email unread indicator */
+[dir="rtl"] .email-item.unread{border-left:none;border-right:3px solid var(--teal)}
+
+/* Language picker */
+.lang-picker{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
+.lang-picker button{background:none;border:none;cursor:pointer;padding:3px 8px;border-radius:6px;font-size:13px;color:var(--slate);font-weight:500;transition:all .15s}
+.lang-picker button.active{color:var(--teal);font-weight:700;background:var(--mint-ll)}
+.lang-picker button:hover{color:var(--teal)}
+.lang-picker-sep{color:var(--slate-ll);font-weight:300}
 </style>
 </head>
 <body>
@@ -2549,6 +2611,7 @@ function showVerificationPendingScreen(email){
   });
   if(session)_seedHistory();
   if(session)_appLoading=true;
+  _detectGeoLanguage().then(()=>re()); // detect geo for lang picker, then render
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
   if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);});}
@@ -2669,6 +2732,40 @@ const _setLang=(lang)=>{localStorage.setItem('hud_lang',lang);_lang=lang;documen
 let _lang=_getLang();
 document.documentElement.dir=_lang==='he'?'rtl':'ltr';
 document.documentElement.lang=_lang;
+
+// Available languages — geo-gated. Only Israel gets Hebrew option.
+let _availableLangs=[{code:'en',label:'English'}];
+const _isRtl=()=>_lang==='he';
+const _startSide=()=>_isRtl()?'right':'left';
+const _endSide=()=>_isRtl()?'left':'right';
+
+const _detectGeoLanguage=async()=>{
+  // If country already cached, use it
+  const cached=localStorage.getItem('hud_country');
+  if(cached){
+    if(cached==='IL')_availableLangs=[{code:'en',label:'English'},{code:'he',label:'\u05E2\u05D1\u05E8\u05D9\u05EA'}];
+    return;
+  }
+  try{
+    const res=await fetch('/api/geo');
+    const{country}=await res.json();
+    localStorage.setItem('hud_country',country);
+    if(country==='IL')_availableLangs=[{code:'en',label:'English'},{code:'he',label:'\u05E2\u05D1\u05E8\u05D9\u05EA'}];
+  }catch(e){/* Fallback: English only */}
+};
+
+// Language picker component — returns null if only 1 lang available
+function renderLangPicker(style){
+  if(_availableLangs.length<=1)return null;
+  const wrap=el('div',{class:'lang-picker',style:style||{}});
+  _availableLangs.forEach((lang,i)=>{
+    if(i>0)wrap.appendChild(el('span',{class:'lang-picker-sep'},['|']));
+    const btn=el('button',{class:lang.code===_lang?'active':''},[lang.label]);
+    btn.onclick=(e)=>{e.stopPropagation();_setLang(lang.code);};
+    wrap.appendChild(btn);
+  });
+  return wrap;
+}
 const T=(key,vars)=>{let str=_STRINGS[_lang]?.[key]||_STRINGS.en[key]||key;if(vars){Object.entries(vars).forEach(([k,v])=>{str=str.replace(new RegExp('\\{'+k+'}','g'),v);});}return str;};
 const _STRINGS={
 en:{
@@ -3334,7 +3431,7 @@ spec_nav_search:'\u05D7\u05D9\u05E4\u05D5\u05E9',
 spec_nav_alerts:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',
 // ── Breadcrumbs ──
 bc_home:'\u05D1\u05D9\u05EA',
-bc_back_home:'\u2190 \u05D1\u05D9\u05EA',
+bc_back_home:'→ \u05D1\u05D9\u05EA',
 // ── Child Profile Tabs ──
 tab_calendar:'\u05D9\u05D5\u05DE\u05DF',
 tab_notes:'\u05D4\u05E2\u05E8\u05D5\u05EA',
@@ -5050,6 +5147,7 @@ _lp.innerHTML=`<style>
     <a class="lp-nav-link" href="#" data-action="spec-modal">${T('lp_for_specialists')}</a>
     <button class="lp-nav-link" data-auth="signin">${T('lp_sign_in')}</button>
     <button class="lp-nav-cta" data-auth="signup">${T('lp_get_started_free')}</button>
+    <div id="lp-lang-slot"></div>
   </div>
 </div></nav>
 
@@ -5203,6 +5301,9 @@ function _tog(){if(_yr){_pill?.classList.remove('mo');_la?.classList.add('on');_
 if(_pill)_pill.onclick=()=>{_yr=!_yr;_tog();};
 if(_la)_la.onclick=()=>{_yr=true;_tog();};
 if(_lm)_lm.onclick=()=>{_yr=false;_tog();};
+// Language picker in nav
+const _lpLangSlot=_lp.querySelector('#lp-lang-slot');
+if(_lpLangSlot){const _lpPicker=renderLangPicker();if(_lpPicker)_lpLangSlot.appendChild(_lpPicker);}
 return _lp;
 }
 
@@ -5735,7 +5836,7 @@ function renderParentDesktop(){
     // Toggle dropdown
     const existing=avWrap.querySelector('.av-dropdown');
     if(existing){existing.remove();return;}
-    const dd=el('div',{class:'av-dropdown',style:{position:'absolute',top:'42px',right:0,background:'#fff',borderRadius:'10px',boxShadow:'0 4px 20px rgba(0,0,0,.12)',border:'1px solid #e8f4f2',minWidth:'180px',zIndex:200,overflow:'hidden',animation:'fadeIn .15s ease'}});
+    const dd=el('div',{class:'av-dropdown',style:{position:'absolute',top:'42px',[_endSide()]:0,background:'#fff',borderRadius:'10px',boxShadow:'0 4px 20px rgba(0,0,0,.12)',border:'1px solid #e8f4f2',minWidth:'180px',zIndex:200,overflow:'hidden',animation:'fadeIn .15s ease'}});
     // Display name
     dd.appendChild(el('div',{style:{padding:'12px 16px 8px',fontSize:'13px',fontWeight:600,color:'#7aaba5',borderBottom:'1px solid #f0f7f6'}},[(session?.displayName||session?.name||session?.email||'User')]));
     // Settings
@@ -5903,7 +6004,7 @@ function renderParentDesktop(){
       card.onmouseenter=()=>{card.style.borderColor='#0d9488';card.style.boxShadow='0 4px 16px rgba(13,148,136,.1)';};
       card.onmouseleave=()=>{card.style.borderColor='#e8f4f2';card.style.boxShadow='none';};
       // Badge
-      if(badge>0){card.appendChild(el('div',{style:{position:'absolute',top:'10px',right:'12px',background:'#0d9488',color:'#fff',borderRadius:'99px',minWidth:'20px',height:'20px',fontSize:'11px',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 6px'}},[badge>9?'9+':String(badge)]));}
+      if(badge>0){card.appendChild(el('div',{style:{position:'absolute',top:'10px',[_endSide()]:'12px',background:'#0d9488',color:'#fff',borderRadius:'99px',minWidth:'20px',height:'20px',fontSize:'11px',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 6px'}},[badge>9?'9+':String(badge)]));}
       // Avatar
       const avSize=childCount===1?56:48;
       const avEl=el('div',{style:{width:avSize+'px',height:avSize+'px',borderRadius:'50%',background:(c.color||'#0d9488')+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:(avSize*.45)+'px',flexShrink:0,overflow:'hidden',margin:childCount===1?'0':'0 auto 12px'}});
@@ -6258,7 +6359,7 @@ function renderSpecDesktop(){
   const plPanel=el('div',{class:'spec-dt-pl'+(S._patientDrawerOpen?' open':'')});
 
   // Close button at top of drawer
-  const _plClose=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',zIndex:2,minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
+  const _plClose=el('button',{style:{position:'absolute',top:'10px',[_endSide()]:'10px',background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',zIndex:2,minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
   _plClose.onclick=()=>{S._patientDrawerOpen=false;re();};
   plPanel.appendChild(_plClose);
 
@@ -6464,7 +6565,7 @@ function _renderSpecDtPatientDetail(child,specId){
     // Show badge dot for tabs with unread activity (web view only)
     const _bc=_tabBadges[t.id]||0;
     if(_bc>0&&!isAct&&window.innerWidth>=768){
-      const dot=el('span',{style:{position:'absolute',top:'6px',right:'4px',width:'8px',height:'8px',borderRadius:'50%',background:'var(--teal)',display:'block'}});
+      const dot=el('span',{style:{position:'absolute',top:'6px',[_endSide()]:'4px',width:'8px',height:'8px',borderRadius:'50%',background:'var(--teal)',display:'block'}});
       btn.appendChild(dot);
     }
     btn.onclick=()=>{
@@ -6683,7 +6784,7 @@ function renderHeader(){
           else{av2.textContent=ch.avatar;}
           item.appendChild(av2);
           item.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[ch.name]));
-          if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginLeft:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
+          if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginInlineStart:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
           item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
           item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).then(()=>re()).catch(()=>{});S.chatsLoaded=false;re();};
@@ -6742,7 +6843,7 @@ function renderNotifBell(){
     (notifs.slice(0,6)).forEach(n=>{
       const _bnc=DB.children.find(c=>c.id===n.childId);
       const _bnColor=_bnc?.color||null;
-      const ni=el('div',{class:'notif-item'+(n.read?'':' unread'),style:_bnColor?{borderLeft:`3px solid ${_bnColor}`}:{}});
+      const ni=el('div',{class:'notif-item'+(n.read?'':' unread'),style:_bnColor?{[_isRtl()?'borderRight':'borderLeft']:`3px solid ${_bnColor}`}:{}});
       ni.appendChild(el('span',{style:{fontSize:'1.25rem'}},[notifIcon[n.type]||'📢']));
       const niBody=el('div',{});
       niBody.appendChild(el('div',{style:{fontSize:'.79rem',fontWeight:700,color:'var(--navy)',lineHeight:'1.4'}},[_stripEmoji(n.msg)]));
@@ -7525,7 +7626,7 @@ function renderMiniCalendar(children,allApts){
         openModal('📅 '+dateLabel,(mb,mclose)=>{
           dayApts.forEach(apt=>{
             const ch=children.find(c=>c.id===apt.childId);
-            const chip=el('div',{class:'card',style:{marginBottom:'10px',padding:'14px 16px',borderLeft:'4px solid '+(ch?.color||'var(--teal)'),cursor:'pointer'}});
+            const chip=el('div',{class:'card',style:{marginBottom:'10px',padding:'14px 16px',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+(ch?.color||'var(--teal)'),cursor:'pointer'}});
             chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'3px'}},[aptDisplayTitle(apt)]));
             chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[apt.time+(apt.endTime?' – '+apt.endTime:'')+(ch?' · '+ch.avatar+' '+ch.name.split(' ')[0]:'')]));
             if(apt.location)chip.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)',marginTop:'3px'}},['📍 '+apt.location]));
@@ -7700,7 +7801,7 @@ function renderCalFullscreen(){
       selApts.forEach(a=>{
         const ch=children.find(c=>c.id===a.childId);
         const color=ch?.color||'var(--teal)';
-        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',borderLeft:'4px solid '+color}});
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+color}});
         const info=el('div',{style:{flex:1}});
         info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
         info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
@@ -7954,7 +8055,7 @@ function renderParentDashboard(){
     [T('spec_dt_age')+' '+(calcAge(child.dob)||'—')+' · '+T('spec_dt_dob')+' '+(child.dob||'—')]);
   welcome.appendChild(wc1);welcome.appendChild(wc2);welcome.appendChild(wc3);
   welcome.style.position='relative';
-  const editBtn=el('button',{style:{position:'absolute',top:'10px',right:'10px',background:'rgba(255,255,255,.2)',border:'none',borderRadius:'50%',width:'34px',height:'34px',fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}},['✏️']);
+  const editBtn=el('button',{style:{position:'absolute',top:'10px',[_endSide()]:'10px',background:'rgba(255,255,255,.2)',border:'none',borderRadius:'50%',width:'34px',height:'34px',fontSize:'1rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'}},['✏️']);
   editBtn.onclick=()=>showEditChildModal(child);
   welcome.appendChild(editBtn);
   sec.appendChild(welcome);
@@ -9068,7 +9169,7 @@ function buildTeamList(child){
       const perms=child?(s.permissions[child.id]||[]):[];
       const card=el('div',{class:'card'+(isPending?' ghost-card':''),style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
       if(isPending){
-        const pb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+        const pb=el('div',{style:{position:'absolute',top:'-10px',[_endSide()]:'13px'}});
         pb.appendChild(badge('⏳ '+T('team_pending'),'amber'));card.appendChild(pb);
       }
       card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
@@ -9106,7 +9207,7 @@ function buildTeamList(child){
     // ── Invited specialists — invite sent, not yet accepted ────────────────────
     _childInvites.forEach(inv=>{
       const icard=el('div',{class:'card ghost-card',style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
-      const ipb=el('div',{style:{position:'absolute',top:'-10px',right:'13px'}});
+      const ipb=el('div',{style:{position:'absolute',top:'-10px',[_endSide()]:'13px'}});
       ipb.appendChild(badge('📧 Invited','amber'));
       icard.appendChild(ipb);
       icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
@@ -10333,7 +10434,7 @@ function renderChat(){
     const timeLabel=lastMsgDate?(lastMsgDate===todayStr?lastMsg.time:new Date(lastMsgDate+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
 
     const item=el('div',{'data-chatname':(chatName||'').toLowerCase(),'data-childname':(childName||'').toLowerCase(),class:'chat-list-item'+(isActive?' active':'')});
-    item.style.borderLeft=S.activeChatChildId?'none':`4px solid ${childColor}`;
+    item.style[_isRtl()?'borderRight':'borderLeft']=S.activeChatChildId?'none':`4px solid ${childColor}`;
     if(isUnread)item.style.background='#f0fdf4';
 
     // Avatar circle
@@ -11506,7 +11607,7 @@ function _renderSpecTaskCard(task,container,specId,children){
 
   const card=el('div',{class:'card',style:{
     display:'flex',gap:'12px',alignItems:'flex-start',
-    borderLeft:'4px solid '+(task.completed?'var(--mint-l)':isOverdue?'var(--coral)':isDueToday?'#f59e0b':priorityColor),
+    [_isRtl()?'borderRight':'borderLeft']:'4px solid '+(task.completed?'var(--mint-l)':isOverdue?'var(--coral)':isDueToday?'#f59e0b':priorityColor),
     opacity:task.completed?'0.6':'1',padding:'12px 14px'
   }});
 
@@ -11878,7 +11979,7 @@ function _renderParentTaskCard(task,container,children,coParent){
   if(!_web){
     // ─── MOBILE: compact row with expand/collapse ───
     const isExpanded=S._parentTaskExpandedId===task.id;
-    const card=el('div',{style:{background:'#fff',borderRadius:'12px',border:'1px solid var(--mint-l)',borderLeft:'4px solid '+borderColor,opacity:task.completed?'0.6':'1',overflow:'hidden'}});
+    const card=el('div',{style:{background:'#fff',borderRadius:'12px',border:'1px solid var(--mint-l)',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+borderColor,opacity:task.completed?'0.6':'1',overflow:'hidden'}});
     // Header row (always visible)
     const hdr=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'10px 12px',cursor:'pointer'}});
     hdr.appendChild(chk);
@@ -11941,7 +12042,7 @@ function _renderParentTaskCard(task,container,children,coParent){
     container.appendChild(card);
   } else {
     // ─── WEB: full card (existing layout + bin icon) ───
-    const card=el('div',{class:'card',style:{display:'flex',gap:'12px',alignItems:'flex-start',borderLeft:'4px solid '+borderColor,opacity:task.completed?'0.6':'1',padding:'12px 14px'}});
+    const card=el('div',{class:'card',style:{display:'flex',gap:'12px',alignItems:'flex-start',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+borderColor,opacity:task.completed?'0.6':'1',padding:'12px 14px'}});
     card.appendChild(chk);
     const info=el('div',{style:{flex:1,minWidth:0}});
     info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.87rem',lineHeight:'1.4',marginBottom:'5px',color:task.completed?'var(--slate-l)':'var(--navy)',textDecoration:task.completed?'line-through':'none'}},[task.title||'Task']));
@@ -12081,7 +12182,7 @@ function renderTodoCard(todo,today){
   const card=el('div',{class:'card',style:{
     display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'10px',
     opacity:todo.completed?'0.6':'1',
-    borderLeft:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
+    [_isRtl()?'borderRight':'borderLeft']:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
   }});
 
   // Checkbox
@@ -13164,7 +13265,7 @@ function renderHomeworkParent(){
     const todayOccs=taskOccs.filter(o=>o.date===today||(task.recurrence==='once'&&o.status!=='completed')).sort((a,b)=>(_TOrd[a.timeOfDay]||0)-(_TOrd[b.timeOfDay]||0));
     const isExpanded=S._hwExpandedId===task.id;
     const isNew=taskOccs.some(o=>!o.acknowledgedByParent);
-    const card=el('div',{class:'card',style:{marginBottom:'12px',borderLeft:'4px solid '+childColor,opacity:task.isPaused?'.65':'1'}});
+    const card=el('div',{class:'card',style:{marginBottom:'12px',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+childColor,opacity:task.isPaused?'.65':'1'}});
     // Header row
     const hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'11px',padding:'2px 0'}});
     // Today's checkbox(es) — one per time-of-day slot
@@ -13623,7 +13724,7 @@ function renderPatientDashboard(){
     border:'1.5px solid var(--lav)',
     display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
   }});
-  hdrCard.style.borderLeft='5px solid '+(child.color||'var(--teal)');
+  hdrCard.style[_isRtl()?'borderRight':'borderLeft']='5px solid '+(child.color||'var(--teal)');
   hdrCard.appendChild(mkChildAvatar(child,56,'16px'));
   const hInfo=el('div',{style:{flex:1}});
   hInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
@@ -13673,7 +13774,7 @@ function renderPatientDashboard(){
     }});
     const _bc=_snb[tab]||0;
     if(_bc>0)sq.appendChild(el('div',{class:'sq-badge'},[ _bc>9?'9+':String(_bc) ]));
-    if(locked)sq.appendChild(el('div',{style:{position:'absolute',top:'6px',right:'8px',fontSize:'.75rem',color:'#94a3b8'}},['🔒']));
+    if(locked)sq.appendChild(el('div',{style:{position:'absolute',top:'6px',[_endSide()]:'8px',fontSize:'.75rem',color:'#94a3b8'}},['🔒']));
     sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
     sq.onclick=()=>{
@@ -13796,7 +13897,7 @@ function renderNotifications(){
       display:'flex',gap:'13px',alignItems:'flex-start',cursor:'pointer',
       background:n.read?'#fff':(_nColor?_nColor+'0d':'#e8faf5'),
       border:n.read?'1.5px solid var(--mint-l)':'1.5px solid var(--mint-l)',
-      borderLeft:_nColor?`4px solid ${_nColor}`:(n.read?'1.5px solid var(--mint-l)':'2px solid #34d399'),
+      [_isRtl()?'borderRight':'borderLeft']:_nColor?`4px solid ${_nColor}`:(n.read?'1.5px solid var(--mint-l)':'2px solid #34d399'),
       transition:'background .25s,border .25s'
     }});
     card.appendChild(el('span',{style:{fontSize:'1.45rem',flexShrink:0}},[notifIcon[n.type]||'📢']));
@@ -15208,6 +15309,15 @@ function renderSpecialistSettings(){
   ac.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   sec.appendChild(ac);
 
+  // Language picker (only visible if multiple langs, e.g. Israel)
+  const _specLpCard=renderLangPicker({fontSize:'15px',gap:'10px'});
+  if(_specLpCard){
+    const specLangCard=el('div',{class:'card',style:{marginBottom:'16px'}});
+    specLangCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['\uD83C\uDF10 '+T('settings_language')]));
+    specLangCard.appendChild(_specLpCard);
+    sec.appendChild(specLangCard);
+  }
+
   const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
   _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
   const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
@@ -15253,7 +15363,7 @@ function renderAdminDashboard(){
 
   function statCard(icon,label,value,sub,color,warn){
     const c=el('div',{class:'card',style:{padding:'16px',borderTop:'3px solid '+(color||'var(--teal)'),position:'relative'}});
-    if(warn)c.appendChild(el('div',{style:{position:'absolute',top:'10px',right:'12px',fontSize:'.7rem',background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[warn]));
+    if(warn)c.appendChild(el('div',{style:{position:'absolute',top:'10px',[_endSide()]:'12px',fontSize:'.7rem',background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[warn]));
     c.appendChild(el('div',{style:{fontSize:'1.4rem',marginBottom:'4px'}},[icon]));
     c.appendChild(el('div',{style:{fontSize:'1.6rem',fontWeight:900,color:'var(--navy)',lineHeight:1}},[String(value)]));
     c.appendChild(el('div',{style:{fontSize:'.76rem',fontWeight:700,color:'var(--slate)',marginTop:'4px'}},[label]));
@@ -15955,6 +16065,15 @@ function renderSettings(){
   acBtns.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
   acBtns.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Language picker (only visible if multiple langs available, e.g. Israel)
+  const _lpCard=renderLangPicker({fontSize:'15px',gap:'10px'});
+  if(_lpCard){
+    const langCard=el('div',{class:'card',style:{marginBottom:'16px'}});
+    langCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['\uD83C\uDF10 '+T('settings_language')]));
+    langCard.appendChild(_lpCard);
+    sec.appendChild(langCard);
+  }
 
   // Shared Household (parent only)
   if(session?.role==='parent'){
