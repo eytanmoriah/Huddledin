@@ -2728,7 +2728,11 @@ document.documentElement.dir=_lang==='he'?'rtl':'ltr';
 document.documentElement.lang=_lang;
 
 // Available languages — geo-gated. Only Israel gets Hebrew option.
+// Sync init from cache so picker shows on first render
 let _availableLangs=[{code:'en',label:'English'}];
+if(localStorage.getItem('hud_country')==='IL'||localStorage.getItem('hud_lang')==='he'){
+  _availableLangs=[{code:'en',label:'English'},{code:'he',label:'\u05E2\u05D1\u05E8\u05D9\u05EA'}];
+}
 const _isRtl=()=>_lang==='he';
 const _startSide=()=>_isRtl()?'right':'left';
 const _endSide=()=>_isRtl()?'left':'right';
@@ -7044,7 +7048,7 @@ function renderParentDesktop(){
         chips.appendChild(chip);
       });
       if(childCount===1){info.appendChild(chips);}else{card.appendChild(chips);}
-      card.onclick=()=>{S.activeChild=c.id;S.navLevel=1;S.activeTab='calendar';re();};
+      card.onclick=()=>{S.activeChild=c.id;S.navLevel=1;S.activeTab='calendar';S.calendarMode='child';re();};
       cg.appendChild(card);
     });
     childCol.appendChild(cg);
@@ -7078,7 +7082,7 @@ function renderParentDesktop(){
     const ds=new Date(a.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     ri.appendChild(el('div',{style:{fontSize:'12px',color:'#7aaba5'}},[(child?.name?.split(' ')[0]||'')+' · '+ds+(a.time?' · '+a.time:'')]));
     row.appendChild(ri);
-    row.onclick=()=>{S.activeChild=a.childId;S.navLevel=1;S.activeTab='calendar';re();};
+    row.onclick=()=>{S.activeChild=a.childId;S.navLevel=1;S.activeTab='calendar';S.calendarMode='child';re();};
     aptCard.appendChild(row);
   });}
   side.appendChild(aptCard);
@@ -7465,7 +7469,7 @@ function renderSpecDesktop(){
       }
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
-        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S._patientDrawerOpen=false;
+        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';S._patientDrawerOpen=false;
         re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});
       };
       plList.appendChild(row);
@@ -7717,7 +7721,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   // Mini calendar
   right.appendChild(el('div',{class:'spec-dt-db-stitle'},[T('spec_dt_upcoming')]));
   const calCard=el('div',{class:'spec-dt-db-card',style:{padding:'4px'}});
-  const specId2=session?.specialistId;
+  const specId2=session?.specialistId||session?.id;
   calCard.appendChild(renderMiniCalendar(sorted,
     DB.appointments.filter(a=>a.specialistId===specId2||a.sharedWith?.includes(specId2))));
   right.appendChild(calCard);
@@ -7883,6 +7887,7 @@ function renderNotifBell(){
         S.navLevel=1;
         if(tab==='chat'){
           S.calFullscreen=false;S.activeTab='chat';
+          if(n.childId)S.activeChatChildId=n.childId;
           if(ld?.chatId){
             S.pendingChatId=ld.chatId;
             if(!S.chatsLoaded){
@@ -8163,6 +8168,7 @@ function switchTab(id){
   }
   _pushNav();
   S.calFullscreen=false; // always exit fullscreen when switching tabs
+  S.calMonth=0; // reset per-child calendar month offset
   if(id==='calendar'){
     S.calendarMode='joint';S.calFullscreen=false;
     if(session?.role==='specialist'){
@@ -10857,8 +10863,10 @@ function showHandshakeModal(spec){
 /* -- Appointment Detail Modal with Permission Logic -- */
 function showAptDetailModal(apt,child){
   const isParent=session?.role==='parent';
+  // Parents always own their household appointments (can edit/delete).
+  // Specialists own appointments they created (matched by specialistId).
   const isCreator=isParent
-    ?(!apt.specialistId)  // parent created if no specialistId
+    ?true
     :(apt.specialistId===session.specialistId||apt.specialistId===session.id);
   const dateLabel=new Date(apt.date+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const typeLabel={speech:'🗣 Speech Therapy',ot:'🖐 Occupational Therapy',pt:'🏃 Physical Therapy',psychology:'🧠 Psychology',general:'📋 General'}[apt.type]||'📋 Session';
@@ -10994,7 +11002,7 @@ function renderCalendar(){
     ?(S.calendarMode==='joint'
       ?_allApts
       :_allApts.filter(a=>a.childId===S.activeChild))
-    :_allApts.filter(a=>(S.activeChild?a.childId===S.activeChild:_myPatientIds.includes(a.childId))&&(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id))));
+    :_allApts.filter(a=>((S.calendarMode==='joint'||!S.activeChild)?_myPatientIds.includes(a.childId):a.childId===S.activeChild)&&(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id))));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const _isWebCal=window.innerWidth>=1024;
@@ -11008,7 +11016,7 @@ function renderCalendar(){
     const hd=el('div',{class:'sec-hd'});
     hd.appendChild(el('div',{class:'sec-hd-left'},[
       el('h2',{class:'page-title'},['Calendar']),
-      el('p',{class:'page-sub'},[`My Schedule — ${new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
+      el('p',{class:'page-sub'},[`My Schedule — ${new Date(new Date().getFullYear(),new Date().getMonth()+(S.calMonth||0),1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}`])
     ]));
     const _calRemoved=(child?.connectionStatus||'approved')==='removed';
     hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -11019,9 +11027,11 @@ function renderCalendar(){
   }
 
   // FIX B4/B9/F1: compute dynamic year/month/firstDay and today
+  const _calMonthOffset=S.calMonth||0;
   const calNow=new Date();
-  const calYear=calNow.getFullYear();
-  const calMonth=calNow.getMonth();
+  const _calBase=new Date(calNow.getFullYear(),calNow.getMonth()+_calMonthOffset,1);
+  const calYear=_calBase.getFullYear();
+  const calMonth=_calBase.getMonth();
   const calDaysInMonth=new Date(calYear,calMonth+1,0).getDate();
   const calFirstDay=new Date(calYear,calMonth,1).getDay();
   const calTodayStr=calNow.toISOString().split('T')[0];
@@ -11029,8 +11039,20 @@ function renderCalendar(){
 
   const _isWeb=window.innerWidth>=1024;
   const calCard=el('div',{class:'card',style:{padding:0,overflow:'hidden',marginBottom:'22px',width:_isWeb?'100%':'auto'}});
-  const calHd2=el('div',{class:'cal-hd'});
-  calHd2.innerHTML=`<span class="ff" style="font-size:1.08rem;font-weight:800">${calNow.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><span style="font-size:.8rem;opacity:.8;margin-left:10px">${childApts.length} events</span>`;
+  const calHd2=el('div',{class:'cal-hd',style:{display:'flex',alignItems:'center',justifyContent:'space-between'}});
+  const _calMonthLabel=_calBase.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const _calPrevChev=_isRtl()?'›':'‹';
+  const _calNextChev=_isRtl()?'‹':'›';
+  const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
+  _calNavLeft.onclick=()=>{S.calMonth=(S.calMonth||0)-1;re();};
+  const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
+  _calNavRight.onclick=()=>{S.calMonth=(S.calMonth||0)+1;re();};
+  const _calMonthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+  _calMonthNav.appendChild(_calNavLeft);
+  _calMonthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center'}},[_calMonthLabel]));
+  _calMonthNav.appendChild(_calNavRight);
+  calHd2.appendChild(_calMonthNav);
+  calHd2.appendChild(el('span',{style:{fontSize:'.8rem',opacity:'.8'}},[childApts.length+' events']));
   calCard.appendChild(calHd2);
   const cg=el('div',{class:'cal-grid'});
   [T('cal_day_su'),T('cal_day_mo'),T('cal_day_tu'),T('cal_day_we'),T('cal_day_th'),T('cal_day_fr'),T('cal_day_sa')].forEach(d2=>cg.appendChild(el('div',{class:'cal-dl'},[d2])));
@@ -11252,7 +11274,7 @@ function showAddEventModal(prefilledDate=null){
       const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
       const newApt={id:'a_'+Date.now(),childId,
-        title:ti.value,specialist:si.value||session?.name||'TBD',
+        title:ti.value,specialist:si.value||(session?.role==='specialist'?session?.name:'')||'',
         specialistId:specId2,date:di.value,time:timeStr,
         endTime:endTmi.value||null,location:loci.value||null,
         notes:notesI.value||null,recurrence:recurSel.value,
@@ -11268,12 +11290,19 @@ function showAddEventModal(prefilledDate=null){
             end_time:newApt.endTime,location:newApt.location,
             notes:newApt.notes,recurrence:newApt.recurrence,
             type:newApt.type,shared_with:newApt.sharedWith,
-            specialist_name:si.value||session?.name||null
+            specialist_name:si.value||(session?.role==='specialist'?session?.name:null)||null
           });
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
-          // Notify only when specialist books — parents booking their own child's appointment skip notification
+          // Notify only when specialist books — parents booking their own child's appointment skip notification to other parents
           if(session?.role==='specialist'){
             await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+          }
+          // Notify shared specialists when parent creates an appointment
+          if(session?.role==='parent'&&sharedWith.length>0&&session?.id!=='demo'){
+            const _childName2=childRec?.name||'';
+            for(const _swId of sharedWith){
+              try{await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+_swId,user_id:_swId,child_id:childId,type:'appointments',message:T('notif_new_apt',{child:_childName2,title:ti.value+' '+di.value}),read:false,link_tab:'calendar'});}catch(e){}
+            }
           }
           // Push to Google Calendar (server decides if connected)
           if(session?.id&&session.id!=='demo'){
@@ -14957,6 +14986,7 @@ function renderNotifications(){
         S.navLevel=1;
         if(tab==='chat'){
           S.calFullscreen=false;S.activeTab='chat';
+          if(n.childId)S.activeChatChildId=n.childId;
           if(ld?.chatId){
             S.pendingChatId=ld.chatId;
             if(!S.chatsLoaded){
