@@ -143,6 +143,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 /* -- GLASSMORPHISM HEADER (sticky) -- */
 #header{
   position:fixed;top:0;left:0;right:0;z-index:300;
+  pointer-events:auto;touch-action:manipulation;
   background:rgba(240,253,249,.88);
   -webkit-backdrop-filter:saturate(180%) blur(24px);
   backdrop-filter:saturate(180%) blur(24px);
@@ -185,7 +186,7 @@ body{min-height:100%;min-height:100dvh;font-family:'Nunito',sans-serif;backgroun
 #bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(200%) blur(28px);backdrop-filter:saturate(200%) blur(28px);border-top:1px solid rgba(0,0,0,.06);box-shadow:0 -1px 0 rgba(255,255,255,.8),0 -8px 32px rgba(0,0,0,.08);padding-bottom:var(--safe-bottom)}
 @media(max-width:767px){#bottom-nav{display:block}}
 .bnav-inner{display:flex;height:64px}
-.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:700;transition:color .15s;position:relative;padding:8px 2px 4px;-webkit-user-select:none;user-select:none;min-height:44px}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;color:var(--slate-l);font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:700;transition:color .15s;position:relative;padding:8px 2px 4px;-webkit-user-select:none;user-select:none;min-height:44px;touch-action:manipulation}
 .bnav-btn.active{color:var(--teal)}
 .bnav-icon{font-size:1.4rem;line-height:1;transition:transform var(--spring);display:block}
 .bnav-btn.active .bnav-icon{transform:scale(1.15) translateY(-1px)}
@@ -530,6 +531,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Hamburger trigger */
 .hamburger{
   width:40px;height:40px;border-radius:14px;border:none;cursor:pointer;
+  position:relative;z-index:301;touch-action:manipulation;
   background:rgba(255,255,255,.72);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
   border:1px solid rgba(167,243,208,.5);
@@ -9020,9 +9022,11 @@ function aptDisplayTitle(apt){
     const child=DB.children.find(c=>c.id===apt.childId)||(LS.get('children',[])||[]).find(c=>c.id===apt.childId);
     return (child?.avatar?child.avatar+' ':'')+( child?.name||apt.title);
   }
-  // Parent: show type + specialist name
-  const specPart=apt.specialist&&apt.specialist!=='TBD'?typeLabel+' · '+apt.specialist:apt.title;
-  return specPart;
+  // Parent: show title. If a specialist is associated, append their name.
+  if(apt.specialistId&&apt.specialist&&apt.specialist!=='TBD'){
+    return typeLabel+' · '+apt.specialist;
+  }
+  return apt.title||typeLabel;
 }
 function aptDisplaySub(apt){
   if(session?.role==='specialist'){
@@ -11245,33 +11249,6 @@ function showAddEventModal(prefilledDate=null){
     mb.appendChild(recurSel);
 
     const sharedWith=[];
-    if(session?.role==='parent'){
-      mb.appendChild(el('div',{class:'inp-label'},['Share with specialists']));
-      const shrWrap=el('div',{class:'inp-group',style:{marginBottom:'12px'}});
-      const _buildSpecList=(childId)=>{
-        shrWrap.innerHTML='';sharedWith.length=0;
-        if(!childId){shrWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontStyle:'italic',padding:'8px 0'}},['Select a child to see their specialists.']));return;}
-        // Deduplicate by specialist id — one entry per specialist for THIS child
-        const _seen=new Set();
-        const team=getChildTeam(childId).filter(s=>s.status==='active'&&(s.childId===childId||s.child_id===childId)).filter(s=>{if(_seen.has(s.id))return false;_seen.add(s.id);return true;});
-        if(!team.length){shrWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',fontStyle:'italic',padding:'8px 0'}},['No specialists connected to this child.']));return;}
-        team.forEach(s=>{
-          const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',padding:'8px 12px',borderRadius:'11px',background:'var(--mint-ll)'}});
-          const cb=el('input',{type:'checkbox'});
-          cb.onchange=e=>{if(e.target.checked)sharedWith.push(s.id);else{const i=sharedWith.indexOf(s.id);if(i>-1)sharedWith.splice(i,1);}};
-          lbl.appendChild(cb);lbl.appendChild(el('span',{},[s.avatar+' '+s.name+(s.role&&s.role!=='Specialist'?' · '+s.role:'')]));
-          shrWrap.appendChild(lbl);
-        });
-      };
-      _buildSpecList(S.activeChild);
-      // Re-build when child picker changes
-      if(children.length>1){
-        const _origOnChange=mb.querySelector('select')?.onchange;
-        const childSel=mb.querySelector('select');
-        if(childSel){childSel.onchange=e=>{S.activeChild=e.target.value;_buildSpecList(e.target.value);};}
-      }
-      mb.appendChild(shrWrap);
-    }
 
     const _aptSaveBtn=mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
       if(!ti.value||!di.value){toast('⚠️ Title and date required.','error');return;}
@@ -11304,13 +11281,7 @@ function showAddEventModal(prefilledDate=null){
           if(session?.role==='specialist'){
             await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
           }
-          // Notify shared specialists when parent creates an appointment
-          if(session?.role==='parent'&&sharedWith.length>0&&session?.id!=='demo'){
-            const _childName2=childRec?.name||'';
-            for(const _swId of sharedWith){
-              try{await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+_swId,user_id:_swId,child_id:childId,type:'appointments',message:T('notif_new_apt',{child:_childName2,title:ti.value+' '+di.value}),read:false,link_tab:'calendar',link_data:JSON.stringify({aptId:newApt.id,aptDate:di.value})});}catch(e){}
-            }
-          }
+          // (Specialist sharing removed — parent appointments are private)
           // Push to Google Calendar (server decides if connected)
           if(session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
