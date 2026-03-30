@@ -2736,6 +2736,8 @@ if(localStorage.getItem('hud_country')==='IL'||localStorage.getItem('hud_lang')=
   _availableLangs=[{code:'en',label:'English'},{code:'he',label:'\u05E2\u05D1\u05E8\u05D9\u05EA'}];
 }
 const _isRtl=()=>_lang==='he';
+// Speech recognition language — independent of app language
+let _speechLang=localStorage.getItem('hud_country')==='IL'&&_lang==='he'?'he-IL':'en-US';
 const _startSide=()=>_isRtl()?'right':'left';
 const _endSide=()=>_isRtl()?'left':'right';
 
@@ -3928,6 +3930,10 @@ hw_mark_done:'Mark as Done',hw_not_due_yet:'This task isn\'t due yet.',hw_note_s
 hw_edit_task_title:'\u270F\uFE0F Edit Task',hw_add_task_title:'\u2795 Add Homework Task',hw_use_template:'\uD83D\uDCCB Use Template',hw_task_title_req:'Task Title *',hw_instructions_label:'Instructions for parent (optional)',hw_attach_files:'Attach Files (optional)',hw_attach_desc:'Add instruction sheets, images or videos for parents',hw_add_files:'+ Add Files',hw_duration_label:'Duration',hw_once_label:'Once',hw_daily_label:'Daily',hw_every_other_day_label:'Every other day',hw_specific_days_label:'Specific days',hw_open_ended:'Open-ended',hw_until_date:'Until date',hw_next_appt:'Next appt',hw_time_of_day:'Time of day (select all that apply)',hw_pin_top:'\uD83D\uDCCC Pin to top of list',hw_save_template:'\uD83D\uDCBE Save as template',hw_save_changes_btn:'\u2705 Save Changes',hw_assign_btn:'\u2705 Assign Task',hw_title_required:'\u26A0\uFE0F Task title is required.',hw_select_day:'\u26A0\uFE0F Select at least one day.',hw_select_end_date:'\u26A0\uFE0F Select an end date.',hw_task_updated:'\u2705 Task updated!',hw_task_assigned:'\u2705 Task assigned!',hw_could_not_save_task:'Could not save task.',hw_cancel_btn:'Cancel',hw_select_1_time:'Select at least one time of day.',
 hw_paused_archive:'Completed or paused tasks will appear here.',hw_all_done:'\u2713 All done',hw_next_7_days:'Next 7 Days',hw_spec_feedback:'\uD83D\uDCAC Specialist Feedback',hw_accept_task:'\u2713 Accept this task',hw_task_accepted:'Task accepted!',hw_could_not_ack:'Could not acknowledge.',hw_pause_task:'\u23F8 Pause Task',hw_resume_task:'\u25B6 Resume Task',hw_paused_toast:'Task paused.',hw_resumed_toast:'Task resumed.',hw_could_not_update:'Could not update task.',hw_set_reminder:'\uD83D\uDD14 Set a Reminder',hw_reminder_saved:'\uD83D\uDD14 Reminder saved!',hw_could_not_save_reminder:'Could not save reminder.',hw_add_to_calendar:'\uD83D\uDCC5 Add to Calendar',hw_spec_tasks_sub:'\'s tasks',hw_not_connected_no_tasks:'Not connected \u2014 cannot add new tasks',hw_archived_here:'Archived tasks will appear here.',hw_pinned_label:'\uD83D\uDCCC Pinned',hw_other_tasks:'Other Tasks',hw_new_tasks_assigned:'New task{s} assigned!',
 patients_sub:'Click a patient to view their vault & files',patients_search:'\uD83D\uDD0D Search by name\u2026',patients_pending_approval:'Pending approval',patients_not_connected_badge:'Not connected',patients_waiting:'Waiting for parent approval',patients_age_label:'Age',patients_dob_label:'DOB',patients_pending_title:'Pending Approval',patients_back_btn:'\u2190 Patients',patients_relationship_ended:'Patient relationship ended',patients_ended_desc:'This patient relationship has ended. You can view your records only.',patients_my_notes:'\uD83D\uDCCB My Clinical Notes',patients_no_notes:'No notes recorded for this patient.',patients_my_tasks:'\uD83D\uDCCB My Tasks',patients_not_connected_banner:'Not connected \u2014 view history and add your own notes and files',patients_clinical_notes:'Clinical Notes',patients_files_label:'Files',patients_tasks_label:'Tasks',patients_chat_dash:'Chat',
+// ── Voice Commands ──
+vc_goals:'Goals',vc_observations:'Observations',vc_progress:'Progress',vc_plan:'Plan',vc_recommendations:'Recommendations',vc_summary:'Summary',vc_background:'Background',
+vc_speech_lang:'Dictation language',vc_cheat_title:'Voice Commands',
+vc_cmd_period:'period',vc_cmd_comma:'comma',vc_cmd_question:'question mark',vc_cmd_colon:'colon',vc_cmd_dash:'dash',vc_cmd_newline:'new line',vc_cmd_paragraph:'new paragraph',vc_cmd_scratch:'scratch that',vc_cmd_stop:'stop recording',vc_cmd_list:'start list',vc_cmd_bullet:'bullet list',vc_cmd_endlist:'end list',
 },
 he:{
 // ── Nav & Header ──
@@ -5051,6 +5057,10 @@ team_removed_notes:'\u2705 {name} הוסר/ה. ההערות נשמרות באר�
 team_requested_label:'הוגשה בקשה {date}',
 team_requesting_access:'מבקש/ת גישה ל: {folder}',
 team_which_areas:'לאילו אזורים ל-{name} תהיה גישה?',
+// ── Voice Commands ──
+vc_goals:'\u05DE\u05D8\u05E8\u05D5\u05EA',vc_observations:'\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA',vc_progress:'\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA',vc_plan:'\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA',vc_recommendations:'\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA',vc_summary:'\u05E1\u05D9\u05DB\u05D5\u05DD',vc_background:'\u05E8\u05E7\u05E2',
+vc_speech_lang:'\u05E9\u05E4\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cheat_title:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA \u05E7\u05D5\u05DC\u05D9\u05D5\u05EA',
+vc_cmd_period:'\u05E0\u05E7\u05D5\u05D3\u05D4',vc_cmd_comma:'\u05E4\u05E1\u05D9\u05E7',vc_cmd_question:'\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4',vc_cmd_colon:'\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD',vc_cmd_dash:'\u05DE\u05E7\u05E3',vc_cmd_newline:'\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_paragraph:'\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_scratch:'\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4',vc_cmd_stop:'\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cmd_list:'\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA',vc_cmd_bullet:'\u05E8\u05E9\u05D9\u05DE\u05D4',vc_cmd_endlist:'\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4',
 }
 };
 
@@ -7159,11 +7169,12 @@ function renderShell(){
       shell.appendChild(_trialBanner);
     }
   }
+  let _specTrialBanner=null;
   if(session?.role==='specialist'){
-    const _specBanner=renderSpecTrialBanner();
-    if(_specBanner){
-      _specBanner.style.marginTop='calc(var(--header-h) + var(--safe-top))';
-      shell.appendChild(_specBanner);
+    _specTrialBanner=renderSpecTrialBanner();
+    if(_specTrialBanner){
+      _specTrialBanner.style.marginTop='calc(var(--header-h) + var(--safe-top))';
+      shell.appendChild(_specTrialBanner);
     }
   }
 
@@ -7175,7 +7186,8 @@ function renderShell(){
   }
   shell.appendChild(renderDrawer());
 
-  const body=el('div',{id:'body',style:_trialBanner?{paddingTop:'0'}:{}});
+  const _anyBanner=_trialBanner||_specTrialBanner;
+  const body=el('div',{id:'body',style:_anyBanner?{paddingTop:'0'}:{}});
 
   if(session?.role==='parent'){
     if(S.navLevel===0){
@@ -12202,26 +12214,26 @@ function renderVault(){
         if(_SpeechRec){
           // Voice commands definition
           const _vcmds=[
-            {phrases:['period','full stop'],insert:'.'},
-            {phrases:['comma'],insert:','},
-            {phrases:['question mark'],insert:'?'},
-            {phrases:['colon'],insert:':'},
-            {phrases:['dash'],insert:' - '},
-            {phrases:['new line','next line'],insert:'__NEWLINE__'},
-            {phrases:['new paragraph'],insert:'\n\n'},
-            {phrases:['next section'],insert:'\n---\n'},
-            {phrases:['goals'],insert:'\nGoals:\n'},
-            {phrases:['observations'],insert:'\nObservations:\n'},
-            {phrases:['progress'],insert:'\nProgress:\n'},
-            {phrases:['plan'],insert:'\nPlan:\n'},
-            {phrases:['recommendations'],insert:'\nRecommendations:\n'},
-            {phrases:['summary'],insert:'\nSummary:\n'},
-            {phrases:['background'],insert:'\nBackground:\n'},
-            {phrases:['start list'],insert:'__START_NUM_LIST__'},
-            {phrases:['bullet list'],insert:'__START_BULLET_LIST__'},
-            {phrases:['end list'],insert:'__END_LIST__'},
-            {phrases:['scratch that'],insert:'__SCRATCH__'},
-            {phrases:['stop recording','stop dictation'],insert:'__STOP__'}
+            {phrases:['period','full stop','\u05E0\u05E7\u05D5\u05D3\u05D4'],insert:'.'},
+            {phrases:['comma','\u05E4\u05E1\u05D9\u05E7'],insert:','},
+            {phrases:['question mark','\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4'],insert:'?'},
+            {phrases:['colon','\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD'],insert:':'},
+            {phrases:['dash','\u05DE\u05E7\u05E3'],insert:' - '},
+            {phrases:['new line','next line','\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4'],insert:'__NEWLINE__'},
+            {phrases:['new paragraph','\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4'],insert:'\n\n'},
+            {phrases:['next section','\u05D7\u05DC\u05E7 \u05D4\u05D1\u05D0'],insert:'\n---\n'},
+            {phrases:['goals','\u05DE\u05D8\u05E8\u05D5\u05EA'],insert:'\n'+T('vc_goals')+':\n'},
+            {phrases:['observations','\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA'],insert:'\n'+T('vc_observations')+':\n'},
+            {phrases:['progress','\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA'],insert:'\n'+T('vc_progress')+':\n'},
+            {phrases:['plan','\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA'],insert:'\n'+T('vc_plan')+':\n'},
+            {phrases:['recommendations','\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA'],insert:'\n'+T('vc_recommendations')+':\n'},
+            {phrases:['summary','\u05E1\u05D9\u05DB\u05D5\u05DD'],insert:'\n'+T('vc_summary')+':\n'},
+            {phrases:['background','\u05E8\u05E7\u05E2'],insert:'\n'+T('vc_background')+':\n'},
+            {phrases:['start list','\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA'],insert:'__START_NUM_LIST__'},
+            {phrases:['bullet list','\u05E8\u05E9\u05D9\u05DE\u05D4'],insert:'__START_BULLET_LIST__'},
+            {phrases:['end list','\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4'],insert:'__END_LIST__'},
+            {phrases:['scratch that','\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4'],insert:'__SCRATCH__'},
+            {phrases:['stop recording','stop dictation','\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4'],insert:'__STOP__'}
           ];
           // List mode state (reset per recording session)
           let _listMode=null; // null | 'numbered' | 'bullet'
@@ -12266,7 +12278,7 @@ function renderVault(){
             };
             if(_ta2)_ta2.addEventListener('input',_onManualEdit);
             const _startRecog=()=>{
-              _recog=new _SpeechRec();_recog.continuous=false;_recog.interimResults=true;_recog.lang='en-US';
+              _recog=new _SpeechRec();_recog.continuous=false;_recog.interimResults=true;_recog.lang=_speechLang;
               _recog.onresult=ev=>{
                 let _interim='';
                 for(let i=ev.resultIndex;i<ev.results.length;i++){
@@ -12311,6 +12323,18 @@ function renderVault(){
             _startRecog();
           };
           _notesLabel.appendChild(micBtn);
+          // Speech language toggle (Israel only)
+          if(_availableLangs.length>1){
+            const _slWrap=el('div',{style:{display:'inline-flex',gap:'2px',marginLeft:'4px'}});
+            const _mkSlBtn=(code,label)=>{
+              const b=el('button',{style:{padding:'2px 7px',borderRadius:'6px',border:'1px solid var(--teal)',fontSize:'.65rem',fontWeight:700,cursor:'pointer',background:_speechLang===code?'var(--teal)':'transparent',color:_speechLang===code?'#fff':'var(--teal)'}},[label]);
+              b.onclick=(e)=>{e.stopPropagation();_speechLang=code;if(_isRec&&_recog){_shouldContinue=true;_recog.stop();}re();};
+              return b;
+            };
+            _slWrap.appendChild(_mkSlBtn('en-US','EN'));
+            _slWrap.appendChild(_mkSlBtn('he-IL','\u05E2\u05D1'));
+            _notesLabel.appendChild(_slWrap);
+          }
           // Commands cheat sheet button
           const cmdBtn=el('button',{style:{background:'none',border:'1px solid var(--mint-l)',borderRadius:'8px',padding:'3px 8px',fontSize:'.68rem',fontWeight:600,color:'var(--slate)',cursor:'pointer'}},[T('vault_voice_commands')]);
           cmdBtn.onclick=()=>{
@@ -12325,11 +12349,33 @@ function renderVault(){
                   mb.appendChild(row);
                 });
               };
-              _sec('Punctuation',[['period','inserts .'],['comma','inserts ,'],['question mark','inserts ?'],['colon','inserts :'],['dash','inserts -']]);
-              _sec('Formatting',[['new line','line break'],['new paragraph','double line break'],['next section','horizontal divider']]);
-              _sec('Structure Headings',[['goals','Goals:'],['observations','Observations:'],['progress','Progress:'],['plan','Plan:'],['recommendations','Recommendations:'],['summary','Summary:'],['background','Background:']]);
-              _sec('Lists',[['start list','begins a numbered list'],['bullet list','begins a bullet list'],['end list','ends the list']]);
-              _sec('Editing',[['scratch that','removes last word'],['stop recording','stops the microphone']]);
+              const _he=_isRtl();
+              const _hl=(en,he)=>_he?he+' / '+en:en;
+              _sec(_he?'\u05E4\u05D9\u05E1\u05D5\u05E7':'Punctuation',[
+                [_hl('period','\u05E0\u05E7\u05D5\u05D3\u05D4'),'.'],
+                [_hl('comma','\u05E4\u05E1\u05D9\u05E7'),','],
+                [_hl('question mark','\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4'),'?'],
+                [_hl('colon','\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD'),':'],
+                [_hl('dash','\u05DE\u05E7\u05E3'),'-']]);
+              _sec(_he?'\u05E2\u05D9\u05E6\u05D5\u05D1':'Formatting',[
+                [_hl('new line','\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4'),_he?'\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4':'line break'],
+                [_hl('new paragraph','\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4'),_he?'\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4':'double line break'],
+                [_hl('next section','\u05D7\u05DC\u05E7 \u05D4\u05D1\u05D0'),_he?'\u05DE\u05E4\u05E8\u05D9\u05D3':'divider']]);
+              _sec(_he?'\u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05DE\u05D1\u05E0\u05D4':'Structure Headings',[
+                [_hl('goals','\u05DE\u05D8\u05E8\u05D5\u05EA'),T('vc_goals')+':'],
+                [_hl('observations','\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA'),T('vc_observations')+':'],
+                [_hl('progress','\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA'),T('vc_progress')+':'],
+                [_hl('plan','\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA'),T('vc_plan')+':'],
+                [_hl('recommendations','\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA'),T('vc_recommendations')+':'],
+                [_hl('summary','\u05E1\u05D9\u05DB\u05D5\u05DD'),T('vc_summary')+':'],
+                [_hl('background','\u05E8\u05E7\u05E2'),T('vc_background')+':']]);
+              _sec(_he?'\u05E8\u05E9\u05D9\u05DE\u05D5\u05EA':'Lists',[
+                [_hl('start list','\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA'),_he?'\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA':'numbered list'],
+                [_hl('bullet list','\u05E8\u05E9\u05D9\u05DE\u05D4'),_he?'\u05E8\u05E9\u05D9\u05DE\u05EA \u05EA\u05D1\u05DC\u05D9\u05D8\u05D9\u05DD':'bullet list'],
+                [_hl('end list','\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4'),_he?'\u05E1\u05D9\u05D5\u05DD \u05E8\u05E9\u05D9\u05DE\u05D4':'ends list']]);
+              _sec(_he?'\u05E2\u05E8\u05D9\u05DB\u05D4':'Editing',[
+                [_hl('scratch that','\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4'),_he?'\u05DE\u05D5\u05D7\u05E7 \u05DE\u05D9\u05DC\u05D4 \u05D0\u05D7\u05E8\u05D5\u05E0\u05D4':'removes last word'],
+                [_hl('stop recording','\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4'),_he?'\u05E2\u05D5\u05E6\u05E8 \u05D4\u05E7\u05DC\u05D8\u05D4':'stops mic']]);
             },380);
           };
           _notesLabel.appendChild(cmdBtn);
