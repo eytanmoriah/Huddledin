@@ -16,7 +16,8 @@ export default async function handler(req, res) {
   const systemPrompt = `You are a specialist writing a brief parent-friendly summary of a therapy/clinical session.
 Write 2-4 sentences that are warm, encouraging, and free of clinical jargon.
 Focus on what the child worked on, any progress observed, and what parents can do at home.
-Use the child's name naturally. Do not include greetings, sign-offs, or bullet points — just the summary paragraph.`;
+Use the child's name naturally. Do not include greetings, sign-offs, or bullet points — just the summary paragraph.
+IMPORTANT: Write your summary in the SAME LANGUAGE as the session notes. If the notes are in Hebrew, write the summary in Hebrew. If in English, write in English. Keep the tone warm and accessible regardless of language.`;
 
   const userPrompt = `Here are the session notes for ${childName || 'the child'}. Write a parent-friendly summary:\n\n${notes}`;
 
