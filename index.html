@@ -1266,7 +1266,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#f4fcf9}
 
   /* ── Sidebar 240px */
-  .spec-dt-sidebar{width:240px;min-width:240px;height:100%;display:flex;flex-direction:column;background:linear-gradient(180deg,#e6f8f2 0%,#f4fcf9 45%,#fff 100%);border-right:1.5px solid var(--mint-l);overflow:hidden;flex-shrink:0;box-shadow:2px 0 14px rgba(13,148,136,.07)}
+  .spec-dt-sidebar{width:240px;min-width:240px;height:100%;display:flex;flex-direction:column;background:linear-gradient(180deg,#e6f8f2 0%,#f4fcf9 45%,#fff 100%);border-inline-end:1.5px solid var(--mint-l);overflow:hidden;flex-shrink:0;box-shadow:2px 0 14px rgba(13,148,136,.07)}
   .spec-dt-logo{padding:18px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--mint-l);flex-shrink:0;cursor:pointer;transition:background .15s;-webkit-user-select:none;user-select:none}
   .spec-dt-logo:hover{background:rgba(13,148,136,.06)}
   .spec-dt-info-card{margin:14px 12px 4px;padding:14px 15px;border-radius:16px;background:linear-gradient(135deg,var(--teal-d) 0%,var(--teal) 65%,var(--teal-l) 100%);flex-shrink:0;box-shadow:0 4px 16px rgba(13,148,136,.28)}
@@ -1274,12 +1274,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-info-role{font-size:.72rem;color:rgba(255,255,255,.8);font-weight:600;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .spec-dt-info-count{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:99px;padding:3px 11px;font-size:.7rem;color:rgba(255,255,255,.95);font-weight:700;border:1px solid rgba(255,255,255,.15)}
   .spec-dt-nav{flex:1;overflow-y:auto;padding:10px 10px 4px;display:flex;flex-direction:column;gap:3px}
-  .spec-dt-nav-item{display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.86rem;color:var(--slate);text-align:left;transition:all .15s;width:100%;flex-shrink:0}
+  .spec-dt-nav-item{display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border-radius:12px;border:none;background:transparent;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:600;font-size:.86rem;color:var(--slate);text-align:start;transition:all .15s;width:100%;flex-shrink:0}
   .spec-dt-nav-item:hover{background:var(--mint-ll);color:var(--navy)}
   .spec-dt-nav-item.active{background:var(--teal);color:#fff;font-weight:800;box-shadow:0 3px 10px rgba(13,148,136,.28)}
   .spec-dt-nav-item.active:hover{background:var(--teal-d)}
   .spec-dt-nav-icon{font-size:1.05rem;width:22px;text-align:center;flex-shrink:0}
-  .spec-dt-nav-badge{margin-left:auto;background:var(--coral);color:#fff;border-radius:99px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;padding:0 5px;flex-shrink:0}
+  .spec-dt-nav-badge{margin-inline-start:auto;background:var(--coral);color:#fff;border-radius:99px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;padding:0 5px;flex-shrink:0}
   .spec-dt-nav-item.active .spec-dt-nav-badge{background:rgba(255,255,255,.3)}
   .spec-dt-sidebar-footer{flex-shrink:0;border-top:1.5px solid var(--mint-l);padding:11px 14px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.75)}
   .spec-dt-footer-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal-l));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.8rem;color:#fff;flex-shrink:0;border:2px solid rgba(255,255,255,.5)}
@@ -1306,7 +1306,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-body{flex:1;display:flex;overflow:hidden;position:relative}
 
   /* ── Patient list panel 260px */
-  .spec-dt-pl{width:300px;max-width:85vw;position:absolute;top:0;left:0;bottom:0;z-index:50;border-right:1.5px solid var(--mint-l);background:#fff;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.12)}
+  .spec-dt-pl{width:300px;max-width:85vw;position:absolute;top:0;inset-inline-start:0;bottom:0;z-index:50;border-inline-end:1.5px solid var(--mint-l);background:#fff;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.12)}
   .spec-dt-pl.open{transform:translateX(0)}
   .spec-dt-pl-top{padding:12px 12px 0;flex-shrink:0}
   .spec-dt-pl-search{width:100%;padding:8px 12px;border-radius:10px;border:1.5px solid var(--mint-l);background:var(--mint-ll);font-family:'Nunito',sans-serif;font-size:.82rem;color:var(--navy);outline:none;transition:border-color .15s;box-sizing:border-box;display:block}
@@ -1326,8 +1326,8 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-pl-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;min-width:44px}
   .spec-dt-pl-tasks{font-size:.66rem;font-weight:800;color:var(--teal-d);background:var(--teal-ll);border-radius:6px;padding:2px 6px;text-align:center}
   .spec-dt-pl-tasks.overdue{color:#be123c;background:#fef2f2}
-  .spec-dt-pl-act{font-size:.64rem;color:var(--slate-l);font-weight:500;text-align:right;line-height:1.3;max-width:64px}
-  .spec-dt-pl-dot{position:absolute;top:10px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--coral);box-shadow:0 0 0 2px #fff}
+  .spec-dt-pl-act{font-size:.64rem;color:var(--slate-l);font-weight:500;text-align:end;line-height:1.3;max-width:64px}
+  .spec-dt-pl-dot{position:absolute;top:10px;inset-inline-end:10px;width:7px;height:7px;border-radius:50%;background:var(--coral);box-shadow:0 0 0 2px #fff}
 
   /* ── Detail panel */
   .spec-dt-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:#f4fcf9}
@@ -1412,21 +1412,13 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Badge positioning */
 [dir="rtl"] .bnav-badge{right:auto;left:calc(50% - 18px)}
 
-/* Specialist sidebar */
-[dir="rtl"] .spec-dt-sidebar{left:auto;right:0;border-right:none;border-left:1.5px solid var(--mint-l)}
-[dir="rtl"] .spec-dt-nav-item{text-align:right}
-[dir="rtl"] .spec-dt-nav-badge{margin-left:0;margin-right:auto}
+/* Specialist sidebar — uses logical properties, flex auto-flips */
 
-/* Specialist patient panel */
-[dir="rtl"] .spec-dt-pl{left:auto;right:260px;border-right:none;border-left:1.5px solid var(--mint-l);transform:translateX(100%)}
+/* Specialist patient panel — slides from inline-start, flip translateX */
+[dir="rtl"] .spec-dt-pl{transform:translateX(100%)}
 [dir="rtl"] .spec-dt-pl.open{transform:translateX(0)}
 
-/* Specialist detail */
-[dir="rtl"] .spec-dt-detail{margin-left:0}
-[dir="rtl"] .spec-dt-main{margin-left:0;margin-right:260px}
-
-/* Specialist patient list text */
-[dir="rtl"] .spec-dt-pl-act{text-align:left}
+/* Specialist patient list — uses logical text-align:end */
 
 /* Chat bubble time */
 [dir="rtl"] .bubble-time{text-align:left}
@@ -1435,10 +1427,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* Email unread indicator */
 [dir="rtl"] .email-item.unread{border-left:none;border-right:3px solid var(--teal)}
 
-/* Pricing toggle — force LTR so pill doesn't flip */
-[dir="rtl"] .lp-ptoggle{direction:ltr}
-[dir="rtl"] .lp-ptoggle-pill::after{left:auto;right:3px}
-[dir="rtl"] .lp-ptoggle-pill.mo::after{transform:translateX(-20px)}
+/* Pricing toggle — pill position uses logical inset so it auto-flips */
 
 /* Language picker */
 .lang-picker{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
@@ -3466,6 +3455,473 @@ settings_name_failed:'Could not save name.',
 settings_email_label:'Email: {email}',
 settings_role_parent:'Role: Parent / Guardian',
 settings_role_specialist:'Role: Specialist / Therapist',
+// ── Auth extras (checkbox, consent) ──
+auth_tc_agree:'I agree to the ',
+auth_and:' and ',
+// ── Spec AI Upgrade Modal ──
+spec_ai_desc:'This is an AI-powered feature. Start a free trial or subscribe to unlock.',
+spec_ai_per_month:'/ month',
+spec_ai_billed_annually:'Billed annually',
+spec_ai_billed_monthly:'Billed monthly',
+spec_ai_start_trial:'\uD83C\uDF81 Start 7-Day Free Trial',
+spec_ai_starting:'Starting\u2026',
+spec_ai_annual_btn:'$9/mo (annual)',
+spec_ai_monthly_btn:'$11/mo',
+spec_ai_cancel_note:'Cancel anytime. All base features remain free.',
+// ── Specialist desktop extras ──
+spec_dt_note_days_ago:'{d}d ago',
+spec_dt_note_prefix:'Note \u00B7 ',
+spec_dt_age_fallback:'Age \u2014',
+spec_dt_task_fallback:'Task',
+// ── Home child card extras ──
+home_specialist_count:'{count} specialist{s}',
+// ── Header fallback ──
+hdr_specialist_fallback:'Specialist',
+// ── Patient list toggle ──
+spec_dt_move_active:'Move back to active',
+spec_dt_move_inactive:'Move to inactive',
+// ── Calendar extras (lines 7000-10000) ──
+cal_add_appointment:'Add Appointment',
+cal_no_events_day:'No events on this day.',
+cal_upcoming_label:'Upcoming Events',
+cal_events_count:'{n} events',
+cal_repeats:'Repeats',
+cal_repeats_weekly:'Weekly',
+cal_repeats_biweekly:'Every 2 weeks',
+cal_repeats_monthly:'Monthly',
+cal_date_required:'Title and date required.',
+cal_sync_title:'Calendar Sync',
+cal_sync_desc:'Sync Huddledin appointments with your external calendar. Choose a provider:',
+cal_sync_google:'Google Calendar',
+cal_sync_apple:'Apple iCal',
+cal_sync_outlook:'Outlook',
+cal_sync_all:'Sync all appointments to {name}',
+cal_sync_coming_soon:'\uD83D\uDD17 {name} sync \u2014 coming soon!',
+cal_for_which_child:'For which child?',
+cal_session_type:'Session type',
+cal_session_type_placeholder:'Search or type a session type\u2026',
+cal_repeat_label:'Repeat',
+cal_does_not_repeat:'Does not repeat',
+cal_share_with_specs:'Share with specialists',
+cal_select_child_specs:'Select a child to see their specialists.',
+cal_no_specs_child:'No specialists connected to this child.',
+cal_add_child_first_long:'Add a child profile first.',
+cal_specialist_schedule:'My Schedule \u2014 {month}',
+cal_sync_google_btn:'\uD83D\uDCC5 Sync Google',
+cal_add_event_btn:'\u2795 Add Event',
+cal_start_label:'Start',
+cal_end_label:'End',
+// ── Appointment detail extras ──
+apt_title_label:'\uD83D\uDCC5 Appointment',
+apt_session_with:'Session with',
+apt_parent_confirmed:'Parent confirmed attending',
+apt_parent_not_attending:'Parent marked as not attending',
+apt_edit:'\u270F\uFE0F Edit',
+apt_attending:'\u2705 Attending',
+apt_not_attending:'\u274C Not Attending',
+apt_marked_attending:'Marked as Attending \u2705',
+apt_marked_not_attending:'Marked as Not Attending.',
+apt_edit_title:'\u270F\uFE0F Edit Appointment',
+apt_date_label:'Date',
+apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
+apt_title_date_required:'Title and date required.',
+apt_could_not_save:'Could not save.',
+apt_add_title:'\u2795 Add Appointment',
+apt_title_placeholder:'e.g. Speech Therapy Session',
+apt_spec_placeholder:'e.g. Dr. Sarah Cohen',
+apt_loc_placeholder_full:'e.g. Clinic, Zoom, Home visit',
+apt_notes_placeholder:'Preparation notes, goals, what to bring\u2026',
+apt_type_speech:'Speech Therapy',apt_type_ot:'Occupational Therapy',apt_type_pt:'Physical Therapy',apt_type_psychology:'Psychology',apt_type_general:'Session',
+// ── Files extras (lines 7000-10000) ──
+files_back_profile:'\u2190 Profile',
+files_file:'file',files_files_pl:'files',
+files_grid:'\u229E Grid',files_list:'\u2630 List',
+files_setting_up:'Setting up folders\u2026',
+files_setting_up_desc:'Your folders are being created. Pull down to refresh.',
+files_no_matching:'No matching files',
+files_no_matching_desc:'Try a different search term',
+files_matching_query:'Files matching "{q}"',
+files_in_folder:'\u2192 in {folder}',
+files_no_access:'No access',
+files_open_folder:'Open Folder',
+files_hold_hint:'Hold a folder to rename, upload, or delete',
+files_personal_vaults:'Personal Vaults',files_personal_vault:'Personal Vault',
+files_your_vault:'Your Vault',files_private_vault:'Private Vault',
+files_owner_grant:'Owner must grant access',
+files_vault_private_desc:'This is your private vault. Files uploaded here are not visible to other specialists.',
+files_authorize_view:'Authorize another specialist to view:',
+files_auth_updated:'Authorization updated for {name}!',
+files_upload_to_folder:'\uD83D\uDCE4 Upload to This Folder',
+files_uploading:'\u23F3 Uploading\u2026',
+files_uploaded:'\u2705 "{name}" uploaded!',
+files_upload_failed:'\u274C Upload failed. Please try again.',
+files_no_folders_avail:'No folders available yet. Please wait a moment and try again.',
+files_save_to_folder:'Save to folder',
+files_visible_to:'\uD83D\uDC41 Visible to: {names}',
+files_only_you:'\uD83D\uDC41 Only visible to you (no specialists have access to this folder yet)',
+files_preview_unavail:'Preview not available',
+files_download:'\u2B07 Download',
+files_view_btn:'\uD83D\uDC41 Preview',
+files_rename_title:'Rename File',files_new_name:'New name',
+files_file_renamed:'File renamed!',
+files_rename_failed:'\u274C Rename failed. Please try again.',
+files_delete_confirm_long:'This permanently removes the file.',
+files_delete_confirm_undo:'This permanently removes the file. This cannot be undone.',
+files_manage:'\u2699\uFE0F Manage',
+files_rename_prompt:'Rename file:',
+files_delete_folder_q:'Delete "{name}"?',
+files_delete_folder_msg:'This will permanently delete the folder and all its files. This cannot be undone.',
+files_folder_deleted:'\uD83D\uDDD1\uFE0F Folder deleted.',
+files_delete_failed:'\u274C Could not delete folder. Please try again.',
+files_manage_perms:'\u2699\uFE0F Manage Permissions',
+files_select_spec_perms:'Select a specialist to manage folder access:',
+files_no_specs_connected:'No specialists connected yet.',
+files_choose_spec_access:'Choose which specialists can access this folder:',
+files_granted_access:'\u2705 {name} granted access.',
+files_could_not_grant:'Could not grant access.',
+files_access_removed:'{name} access removed.',
+files_could_not_revoke:'Could not revoke access.',
+files_delete_folder_btn:'\uD83D\uDDD1\uFE0F Delete Folder',
+files_choose_spec_file:'Choose which specialists can access this file:',
+files_save_perms:'\u2705 Save Permissions',
+files_saving_perms:'Saving\u2026',
+files_perms_updated:'\u2705 Permissions updated!',
+files_could_not_save_perms:'\u274C Could not save: {msg}',
+files_send_request:'\uD83D\uDCE8 Send Request',
+files_session_error:'Session error \u2014 please reload.',
+files_already_pending:'\u26A0\uFE0F You already have a pending request for this folder.',
+files_request_failed:'\u274C Could not send request. Please try again.',
+files_select_child_first:'Select a child first.',
+files_folder_name_label:'Folder name',
+files_folder_name_placeholder:'e.g. Speech Therapy',
+files_icon_label:'Icon',
+files_who_can_see:'Who can see this folder?',
+files_create_folder:'Create Folder',
+files_enter_name:'Please enter a folder name.',
+files_folder_created:'\uD83D\uDCC1 "{name}" folder created!',
+files_create_failed:'\u274C Could not create folder. Please try again.',
+// ── Care Team extras (lines 7000-10000) ──
+team_care_team_label:'Care Team',
+team_no_access_child:'No access for this child',
+team_invited_badge:'\uD83D\uDCE7 Invited',
+team_invited_awaiting:'Invited \u2014 awaiting response',
+team_cancel_invite:'Cancel Invite',
+team_cancel_invite_msg:'Cancel invite to {name}? They won\'t be able to join {child}\'s team with this link.',
+team_invite_cancelled:'\u2705 Invite cancelled.',
+team_cancel_failed:'\u274C Could not cancel invite.',
+team_folder_access_reqs:'\uD83D\uDCC1 Folder Access Requests',
+team_requesting_access:'Requesting access to: {folder}',
+team_grant_access:'\u2705 Grant Access',
+team_decline:'Decline',
+team_consult_reqs:'\uD83E\uDD1D Consultation Requests',
+team_consult_desc:'{spec} has requested to consult with {target} regarding {child}.',
+team_consult_approved:'\u2705 Consultation approved! Chat created.',
+team_consult_error:'Error approving. Try again.',
+team_pending_team_reqs:'\uD83D\uDC65 Pending Team Requests',
+team_requested_label:'Requested {date}',
+team_choose_folders:'Choose which folders to share:',
+team_no_folders_yet:'No folders created yet \u2014 specialist will get access when folders are added.',
+team_approve_grant:'Approve & Grant Access',
+team_which_areas:'Which areas can {name} access?',
+team_no_folders_child:'No folders found for this child.',
+team_perms_updated:'\u2705 Permissions updated for {name}!',
+team_perms_save_failed:'\u274C Could not save: {msg}',
+team_legacy_archives:'\uD83D\uDDC4\uFE0F Legacy Archives',
+team_archived_info:'{child} \u00B7 Archived {date} \u00B7 {count} note(s) retained',
+team_legacy_badge:'Legacy',
+team_past_specs:'Past Specialists ({n})',
+team_past_badge:'Past',
+team_connected_label:'Connected {date}',
+team_reconnect:'Reconnect',
+team_removed_notes:'\u2705 {name} removed. Their notes are in the Legacy Archive.',
+team_reconnected:'\u2705 {name} has been reconnected to {child}\'s care team',
+team_reconnect_failed:'\u274C Could not reconnect. Please try again.',
+team_invite_title:'\u2795 Invite a Specialist',
+team_invite_name_placeholder:'Specialist\'s full name',
+team_invite_email_placeholder:'Specialist\'s email address',
+team_invite_explainer:'An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.',
+team_invite_send:'\uD83D\uDCE8 Send Invitation',
+team_invite_email_required:'\u26A0\uFE0F Email required.',
+team_invite_child_first:'\u26A0\uFE0F Please open a child profile first, then send the invite.',
+team_invite_link_label:'\uD83D\uDD17 Magic Invite Link (click to copy)',
+team_invite_link_copied:'\u2705 Link copied to clipboard!',
+team_invite_email_sent:'\uD83D\uDCE7 An invite email has been sent automatically to {email}',
+team_invite_failed:'\u274C Failed to send invite \u2014 please try again',
+team_invite_delivery_fail:'\u26A0\uFE0F Email delivery failed. Share the link manually.',
+team_invite_sending:'\u2705 Sending invite to {email}\u2026',
+team_consult_stub:'Consultations are requested by specialists \u2014 check your Care Team page for pending requests.',
+sd_profile_coming_soon:'Profile link copied \u2014 coming soon!',
+sd_locked_badge:'\uD83D\uDD12 Locked',sd_draft_badge:'Draft',sd_published_badge:'Published',
+gv_moved_to:'\uD83D\uDCC2 Moved to {folder}!',
+gv_shared_with:'\uD83D\uDCE4 Shared with {name}!',
+gv_process_title:'\uD83D\uDCCE Process: {name}',
+content_coming_soon:'Coming soon\u2026',
+// ── Credentials (render) ──
+creds_secure_title:'Secure Personal Storage',
+creds_only_you:'Only you can see these documents',
+creds_uploading:'Uploading: {name}',
+creds_upload_btn:'\uD83D\uDCE4 Upload',
+creds_uploaded:'\u2705 Credential uploaded to your private folder!',
+creds_doc_categories:'Document Categories',
+creds_delete_doc:'Delete Document',
+creds_delete_doc_confirm:'Remove this document permanently?',
+creds_doc_removed:'\u2705 Document removed.',
+// ── Notifications page ──
+notif_page_title:'Notifications',
+// ── Email Inbox ──
+email_title:'\uD83D\uDCE7 Email Inbox',
+email_subtitle:'Simulated notification emails from Huddledin \u00B7 {count} unread',
+email_mark_all:'Mark All Read',
+email_no_emails:'No emails yet.',
+email_back:'\u2190 Back to Inbox',
+email_from:'From: {from}',
+email_to:'To: {to} \u00B7 {date}',
+email_magic_link:'\uD83D\uDD17 Invite Magic Link',
+email_copied:'\u2705 Copied!',
+email_production_note:'In production these emails would be delivered to real inboxes via SendGrid / Mailgun.',
+// ── Edit Child Modal ──
+child_edit_prefix:'\u270F\uFE0F Edit {name}',
+child_name_label:'Name',
+child_dob_label:'Date of birth',
+child_name_dob_required:'Name and date of birth are required.',
+child_save_failed:'Save failed: {error}',
+child_updated:'\u2705 {name} updated!',
+// ── Add Child Modal ──
+child_name_placeholder:"Child's full name",
+child_choose_avatar:'Choose Avatar',
+child_upload_photo:'Or Upload Photo (optional)',
+child_click_upload:'Click to upload a photo',
+child_camera_hint:'Or use camera on mobile',
+child_photo_selected:'Photo selected \u2713',
+child_name_dob_warn:'\u26A0\uFE0F Name and date of birth required.',
+child_save_error:'\u274C Could not save. Please try again.',
+child_added_family:'\uD83C\uDF89 {name} added to your family!',
+// ── Child Photo Modal ──
+child_photo_title_full:'\uD83D\uDCF7 Update {name}\u2019s Photo',
+child_click_change:'Current photo \u2014 click to change',
+child_click_upload_take:'Click to upload / take a photo',
+child_drag_crop:'Drag & pinch to crop',
+child_cancel:'Cancel',
+child_use_crop:'\u2705 Use This Crop',
+child_photo_cropped:'Photo cropped \u2713',
+child_photo_removed:'\u2705 Photo removed.',
+child_photo_updated:'\u2705 Photo updated!',
+// ── Delete Child Modal ──
+child_delete_title_full:'\u26A0\uFE0F Delete {name}\u2019s Profile',
+child_delete_warning:'\u26A0\uFE0F This action cannot be undone',
+child_delete_detail:'Deleting {name}\u2019s profile will:\n\n\u2022 Remove all their appointments and tasks from your dashboard\n\u2022 Revoke all specialist access for this child\n\u2022 Specialist-authored notes will be archived in each specialist\u2019s Legacy Archive\n\u2022 The child will be removed from the child switcher\n\nThis does NOT delete the specialists\u2019 Huddledin accounts.',
+child_delete_confirm_label:'Type the child\'s name to confirm',
+child_delete_name_mismatch:'\u26A0\uFE0F Name does not match.',
+child_deleted_msg:'\u2705 {name}\u2019s profile has been deleted.',
+// ── Push Banner ──
+push_title:'Enable push notifications',
+push_desc:'Get instant alerts for new reports, messages and tasks',
+push_enable:'Enable',
+push_enabled_body:'Push notifications enabled! You\'ll now get real-time alerts.',
+push_blocked_msg:'Notifications blocked. You can change this in browser settings.',
+push_not_now:'Not now',
+// ── Specialist Requests (parent view) ──
+sr_pending_count:'Pending ({count})',
+sr_specialist_fallback:'Specialist',
+sr_requested_for:'Requested for: {hint}',
+sr_select_child:'Select a child:',
+sr_select_child_option:'Select a child...',
+sr_already_connected:' \u2014 already connected',
+sr_add_new_child:'+ Add a new child',
+sr_approve:'\u2705 Approve',
+sr_approving:'\u23F3\u2026',
+sr_decline:'\u2717 Decline',
+sr_declined:'Request declined.',
+sr_select_first:'Please select a child first.',
+sr_already_connected_msg:'This specialist is already connected to this child.',
+sr_approve_failed:'Failed to approve.',
+sr_approve_toast:'\u2705 {spec} added to {child}\u2019s care team!',
+sr_something_wrong:'Something went wrong.',
+sr_approved_badge:'Approved',
+sr_declined_badge:'Declined',
+sr_removed_badge:'Removed',
+// ── Specialist Request Popup ──
+sr_popup_title:'\uD83E\uDE7A New Specialist Request',
+sr_wants_join:'Wants to join care team for: "{hint}"',
+sr_which_child:'Which child is this specialist for?',
+sr_approving_full:'\u23F3 Approving\u2026',
+sr_already_connected_child:'Already connected to this child.',
+sr_add_child_first:'Add a child first to approve this request.',
+sr_later:'Later',
+sr_more_pending:'+{count} more pending request',
+sr_more_pending_plural:'+{count} more pending requests',
+// ── Specialist-initiated request form ──
+sr_join_title:'\uD83D\uDCE8 Join a Care Team',
+sr_join_subtitle:'Send a request to a parent to join their child\'s care team.',
+sr_no_requests:'No requests sent yet.',
+sr_my_requests:'My Requests',
+sr_pending_badge:'\u23F3 Pending',
+sr_approved_badge_full:'\u2705 Approved',
+sr_removed_badge_full:'Removed',
+sr_send_new:'\u2795 Send New Request',
+sr_parent_email:'Parent\'s email',
+sr_child_hint:'Child\'s name (hint for the parent)',
+sr_child_hint_placeholder:'e.g. Erez, Shalev\u2026',
+sr_child_hint_note:'The parent\'s name for the child takes priority.',
+sr_your_specialty:'Your specialty',
+sr_send_info:'The parent will receive an email with a link to approve your request. Once approved, the child will appear in your Patients list.',
+sr_send_btn:'\uD83D\uDCE8 Send Request',
+sr_valid_email:'Please enter a valid email address.',
+sr_enter_child_name:'Please enter the child\'s name.',
+sr_demo_mode:'Demo mode \u2014 request not sent.',
+sr_sending:'\u23F3 Sending\u2026',
+sr_already_sent:'You already sent a request to this parent. Wait for their response.',
+sr_send_failed:'Failed to send request. Please try again.',
+sr_sent_to:'\u2705 Request sent to {email}!',
+sr_send_error:'Something went wrong. Please try again.',
+// ── Session Summaries ──
+ss_back:'\u2190 Back',
+ss_no_summaries_title:'No summaries yet',
+ss_no_summaries_desc:'When a specialist publishes a session summary, it will appear here.',
+ss_count_single:'{count} summary \u00B7 Latest: {latest}',
+ss_count_plural:'{count} summaries \u00B7 Latest: {latest}',
+ss_all_providers:'\u2190 All Providers',
+ss_no_summaries_spec:'This specialist hasn\u2019t published any summaries yet.',
+ss_minimise:'\u25B2 Minimise',
+// ── Chat modals ──
+chat_new_convo:'\uD83D\uDCAC New Conversation',
+chat_select_spec_msg:'Select a specialist to message:',
+chat_open_existing:'Opening existing conversation.',
+chat_could_not_create:'Could not create chat.',
+chat_created:'\u2705 Chat created!',
+chat_create_group:'\uD83D\uDC65 Create Group Chat',
+chat_group_desc:'Create a group conversation. As the parent, you\'re included automatically.',
+chat_group_name_label:'Chat name',
+chat_group_name_placeholder:'e.g. Lily\'s Full Care Team',
+chat_select_participants:'Select participants',
+chat_create_group_btn:'\u2705 Create Group Chat',
+chat_select_one_spec:'\u26A0\uFE0F Select at least one specialist.',
+chat_already_convo:'You already have a conversation with {name}.',
+chat_already_chat:'You already have a chat with these participants.',
+chat_group_created:'\u2705 Group chat "{name}" created!',
+// ── Household card ──
+hh_shared_title:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 Shared Household',
+hh_no_coparent:'No co-parent connected yet. Invite a partner or guardian to share access to this family account.',
+hh_connected:'\u2705 Connected \u00B7 Full access',
+hh_remove:'Remove',
+hh_remove_confirm:'Remove access for {name}? They will no longer see this family account.',
+hh_access_removed:'Access removed.',
+hh_remove_failed:'Could not remove access. Please try again.',
+hh_pending_title:'\u23F3 Pending Invitations',
+hh_cancel:'Cancel',
+hh_cancelled:'Invitation cancelled.',
+hh_invite_btn:'+ Invite Co-Parent',
+hh_do_not_show:'Do not show this again',
+// ── Specialist Settings ──
+settings_spec_notif:'\uD83D\uDD14 Notifications',
+settings_spec_hw_label:'New tasks / completions',
+settings_spec_apt_label:'Appointments',
+settings_spec_chat_label:'New messages',
+settings_spec_report_label:'Session summaries',
+settings_spec_hours:'\uD83D\uDD50 Working Hours',
+settings_spec_hours_desc:'Set your availability so families know when to reach you.',
+settings_spec_license:'\uD83E\uDEAA License Number',
+settings_spec_license_placeholder:'License or registration number (optional)',
+settings_spec_save_license:'Save License',
+settings_spec_phone:'\uD83D\uDCDE Work Phone',
+settings_spec_phone_placeholder:'Work phone (optional)',
+settings_spec_save_phone:'Save Phone',
+settings_spec_saved:'Saved!',
+settings_spec_edit_specialty:'Edit Specialty',
+settings_spec_specialty_label:'Your specialty / profession',
+settings_spec_save:'Save',
+settings_spec_specialty_updated:'Specialty updated!',
+settings_spec_save_failed:'Could not save.',
+settings_spec_specialty:'\uD83C\uDF93 Specialty: {role}',
+// ── Parent Settings extras ──
+settings_privacy:'\uD83D\uDD12 Privacy & Security',
+settings_privacy_desc:'All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.',
+settings_onboarding:'\uD83D\uDDFA\uFE0F Onboarding & Demo',
+settings_tour_title:'Guided Tour',
+settings_tour_desc_dismissed:'Tour dismissed. Click to restart it.',
+settings_tour_desc:'Restart the step-by-step onboarding tour.',
+settings_tour_btn:'Restart Tour',
+settings_demo_title:'Load Demo Data',
+settings_demo_desc:'Populate with sample data for Lily & Noah Carter to explore all features.',
+settings_demo_btn:'Load Demo',
+settings_demo_confirm_title:'Load Demo Data',
+settings_demo_confirm:'This replaces your current data with demo data. Are you sure?',
+settings_clear_apts_title:'Clear All Appointments',
+settings_clear_apts_desc:'Delete all appointments from this device and Supabase.',
+settings_clear_apts_btn:'Clear Appointments',
+settings_clear_apts_confirm:'Permanently delete ALL appointments? This cannot be undone.',
+settings_apts_cleared:'\u2705 All appointments cleared.',
+settings_apts_clear_fail:'\u274C Could not clear remote data. Please try again.',
+settings_clear_data_title:'Clear All Data',
+settings_clear_data_desc:'Reset everything to a clean slate. This cannot be undone.',
+settings_clear_data_btn:'Clear Data',
+settings_clear_data_confirm_title:'Clear All Data',
+settings_clear_data_confirm:'This will permanently delete all your data including children, files, and connections. Are you sure?',
+settings_data_cleared:'All data cleared.',
+settings_gcal_title:'\uD83D\uDCC5 Google Calendar',
+settings_gcal_connected:'\u2705 Connected \u2014 appointments sync automatically',
+settings_gcal_disconnect:'Disconnect',
+settings_gcal_disconnected:'Google Calendar disconnected.',
+settings_gcal_disconnect_fail:'Could not disconnect. Try again.',
+settings_gcal_desc:'Connect your Google Calendar and every appointment you add will appear there automatically.',
+settings_gcal_connect:'\uD83D\uDD17 Connect Google Calendar',
+settings_legal:'\uD83D\uDCCB Legal',
+settings_privacy_policy:'Privacy Policy',
+settings_terms:'Terms of Service',
+settings_cookies:'Cookie Policy',
+settings_contact:'Contact Us',
+// ── Removed connection popup ──
+removed_title:'Family Disconnected',
+removed_msg:'This family has disconnected you from {name}. You can still view your own notes and files. Would you like to move them to your Inactive list?',
+removed_yes:'Yes, move to Inactive',
+removed_no:'No, keep in Active',
+removed_moved:'{name} moved to Inactive.',
+// ── Inline add child form ──
+sr_new_child:'New child',
+sr_save_select:'Save & Select',
+sr_name_dob_required:'Name and date of birth required.',
+sr_add_child_failed:'Failed to add child.',
+sr_child_added:'\u2705 {name} added!',
+// ── Process specialist request link ──
+sr_request_unavailable:'This request is no longer available.',
+sr_already_approved:'This specialist is already connected.',
+sr_request_status:'This request has been {status}.',
+sr_add_child_prompt:'\uD83E\uDE7A {name} wants to join your care team. Add a child first to approve.',
+sr_modal_title:'\uD83E\uDE7A Specialist Request',
+sr_wants_join_msg:'{name} ({role}) wants to join your care team.',
+sr_mentioned:'They mentioned: "{hint}"',
+sr_which_child_for:'Which child is this specialist for?',
+sr_select_child_prompt:'Please select a child.',
+sr_approve_fail:'Failed to approve. Please try again.',
+// ── Loading screen ──
+loading_patients:'Getting your patients ready\u2026',
+loading_tasks:'Loading tasks\u2026',
+loading_almost:'Almost there\u2026',
+// ── Invite processing ──
+invite_expired:'\u26A0\uFE0F This invite has expired. Ask the family for a new one.',
+invite_welcome:'\uD83C\uDF89 Welcome! You have joined {child} care team!',
+invite_could_not:'\u26A0\uFE0F Could not process invite. Please ask the family to send a new one.',
+invite_invalid_hh:'\u26A0\uFE0F Invalid or expired household invite.',
+invite_hh_expired:'\u26A0\uFE0F This invite has expired.',
+invite_hh_used:'\u26A0\uFE0F This invite has already been used.',
+invite_hh_link_fail:'\u26A0\uFE0F Could not link to family account. Please try again.',
+invite_hh_connected:'\uD83C\uDF89 You are now connected to the shared family account!',
+invite_hh_sign_in:'\uD83C\uDFE0 Please sign in to join the shared family account.',
+invite_sign_in:'\uD83E\uDD1D Please sign in or create an account to join the care team.',
+invite_spec_review:'\uD83E\uDE7A A specialist wants to join your care team. Please sign in to review.',
+// ── Google Calendar callback ──
+gcal_connected:'\u2705 Google Calendar connected!',
+gcal_failed:'Could not connect Google Calendar. Try again.',
+// ── Chat, Vault, Homework, Todo, Patients (lines 10k–14k) ──
+chat_loading:'Loading messages\u2026',chat_not_connected_readonly:'Not connected \u2014 messages are read only',chat_patients_back:'Patients',chat_back_btn:'\u2190 Back',chat_tap_to_open:'Tap to open',chat_specialist_consult_label:'Specialist Consult',chat_group_default:'Group Chat',chat_chat_default:'Chat',chat_mark_read:'Mark as Read',chat_mark_unread:'Mark as Unread',chat_private_consult:'Private specialist conversation',chat_private_toast:'This is a private specialist consultation \u2014 you can see it exists for transparency, but the messages are not accessible.',chat_secure_label:'\uD83D\uDD12 Secure chat',chat_spec_consult_sub:'\uD83D\uDD17 Specialist consult',chat_msg_failed:'\u274C Message failed to send. Please try again.',chat_start_desc:'Open a direct chat with the family \u2014 no approval required.',chat_open_patient_first:'Please open a patient first, then start a new message.',chat_could_not_create_chat:'Could not create chat.',chat_consult_desc:'Request a professional consultation with another specialist. Requires parent approval.',chat_open_patient_consult:'Please open a patient first to request a consultation.',chat_consult_regarding:'Regarding: ',chat_consult_parent_notify:'. The parent will be notified and must approve before the chat begins.',chat_no_other_specs:'The parent needs to add another specialist to this child\'s care team before you can request a consultation.',chat_parent_access:'Parent access to this chat:',chat_private_label:'Private',chat_specs_only:'Specialists only',chat_include_parent:'Include Parent',chat_parent_joins:'Parent joins chat',chat_send_consult:'\uD83D\uDCE4 Send Consultation Request',chat_sending:'Sending\u2026',chat_dup_exists:'A conversation with these exact participants already exists.',chat_dup_pending:'A pending request with these participants already exists.',chat_consult_sent:'\u2705 Request sent \u2014 awaiting parent approval.',chat_consult_fail:'Could not send request. Please try again.',
+vault_private_notes:'\uD83D\uDD12 Private notes \u2014 publish summaries to share with parents',vault_not_connected:'Not connected \u2014 notes are yours only \u00B7 publishing disabled',vault_draft_label:'Draft',vault_unsaved_changes:'Unsaved Changes',vault_switch_note:'Switch note without saving?',vault_unsaved_note:'\u26A0\uFE0F Unsaved changes in this note.',vault_locked_readonly:'\uD83D\uDD12 Permanently locked \u2014 read-only',vault_minimise:'\u25B2 Minimise',vault_minimise_unsaved:'Minimise without saving?',vault_clinical_notes:'\uD83D\uDCCB Clinical Notes (Private)',vault_mic_error:'Microphone error: ',vault_dictate_locked:'\uD83D\uDD12 \uD83C\uDF99 Dictate',vault_ai_notes_title:'AI-Powered Session Notes',vault_ai_notes_desc:'Write detailed clinical notes with voice dictation and AI-generated parent summaries.',vault_unlock_trial:'Unlock with AI Trial',vault_draft_saved:'\uD83D\uDCBE Draft saved!',vault_could_not_save_draft:'\u274C Could not save draft. Please try again.',vault_write_first:'Write session notes first so AI can summarize them.',vault_could_not_generate:'Could not generate summary.',vault_could_not_reach_ai:'Could not reach AI service.',vault_lock_notes:'\uD83D\uDD12 Lock Session Notes',vault_no_summary_warn:'\u26A0\uFE0F No Parent Summary',vault_no_summary_msg:'You haven\'t written a parent summary for this note. Parents won\'t be able to see a summary. Continue locking anyway?',vault_lock_confirm:'Lock Session Notes?',vault_lock_msg:'This will permanently lock these notes and make them a read-only record. This cannot be undone.',vault_locked_toast:'\uD83D\uDD12 Session notes locked!',vault_delete_draft:'Delete Note?',vault_delete_draft_msg:'Permanently delete this draft? This cannot be undone.',vault_summary_placeholder:'Write a parent-friendly summary here. This will be published to the parent when you\'re ready.',vault_write_summary_first:'Write a summary before publishing',vault_publish_confirm:'Publish Summary?',vault_publish_msg:'Send this summary to the parent\'s profile and notify them?',vault_could_not_publish:'\u274C Could not publish summary. Please try again.',vault_vc_punctuation:'Punctuation',vault_vc_formatting:'Formatting',vault_vc_headings:'Structure Headings',vault_vc_lists:'Lists',vault_vc_editing:'Editing',
+stodo_sub:'Follow-ups, reports, referrals and reminders',stodo_pending_label:'Pending',stodo_completed_label:'Completed',stodo_task_fallback:'Task',stodo_edit_title:'Edit Clinical Task',stodo_new_title:'New Clinical Task',stodo_task_required:'Task *',stodo_notes_optional:'Notes (optional)',stodo_category_label:'Category',stodo_priority_label:'Priority',stodo_related_patient:'Related Patient (optional)',stodo_no_patient:'\u2014 No specific patient \u2014',stodo_due_date_label:'Due Date (optional)',stodo_reminder_label:'Reminder (optional)',stodo_no_reminder:'No reminder',stodo_on_due:'On due date',stodo_1day:'1 day before',stodo_1week:'1 week before',stodo_save_changes:'Save Changes',stodo_add_task_btn:'Add Task',stodo_enter_title:'Enter a task title',
+ptodo_pending_label:'Pending',ptodo_completed_label:'Completed',ptodo_delete_confirm:'Delete this task?',ptodo_delete_msg:'This will permanently remove',ptodo_task_deleted:'Task deleted',ptodo_task_fallback:'Task',ptodo_mine_label:'Mine',ptodo_shared_label:'Shared',ptodo_no_date:'No date',ptodo_done_by:'\u2713 Done by',ptodo_edit_title:'Edit Task',ptodo_new_title_modal:'New Task',ptodo_task_required:'Task *',ptodo_notes_modal:'Notes (optional)',ptodo_category_modal:'Category',ptodo_priority_modal:'Priority',ptodo_assign_to:'Assign to',ptodo_related_child:'Related Child (optional)',ptodo_no_child:'\u2014 No specific child \u2014',ptodo_due_date_modal:'Due Date (optional)',ptodo_reminder_modal:'Reminder (optional)',ptodo_saving:'Saving\u2026',ptodo_enter_title:'Enter a task title',
+todo_edit_title:'Edit Task',todo_new_title:'New Task',todo_task_title_required:'Task title *',todo_notes_optional:'Notes (optional)',todo_for_which_child:'For which child?',todo_select_child:' \u2014 select child \u2014',todo_reminders_optional:'Reminders (optional)',todo_save_changes:'\uD83D\uDCBE Save Changes',todo_add_task:'\u2795 Add Task',todo_task_title_err:'Please enter a task title.',todo_updated:'\u2705 Task updated!',todo_added:'\u2705 Task added!',todo_delete_title:'Delete Task',todo_delete_msg:'Remove this task?',todo_removed:'Task removed.',
+hw_mark_done:'Mark as Done',hw_not_due_yet:'This task isn\'t due yet.',hw_note_specialist:'Note for specialist (optional)',hw_photo_optional:'Photo (optional)',hw_take_photo:'\uD83D\uDCF7 Take Photo',hw_gallery:'\uD83D\uDDBC\uFE0F Gallery',hw_mark_done_btn:'\u2705 Mark as Done',hw_marked_done:'\u2705 Marked as done!',hw_could_not_save_check:'Could not save. Please try again.',hw_task_details:'Task Details',hw_details_btn:'\uD83D\uDCCA Details',hw_edit_btn:'\u270F\uFE0F Edit',hw_unpin:'\uD83D\uDCCC Unpin',hw_pin:'\uD83D\uDCCD Pin',hw_archive_btn:'\uD83D\uDDC4 Archive',hw_archive_confirm:'Archive Task',hw_archive_msg:'Move to archive? You can restore it later.',hw_archived_toast:'Task archived.',hw_restore_btn:'\u267B\uFE0F Restore',hw_restore_confirm:'Restore Task',hw_restore_msg:'Move back to active tasks?',hw_restored_toast:'Task restored.',hw_delete_btn:'\uD83D\uDDD1 Delete',hw_delete_confirm:'Delete Task',hw_delete_msg:'Permanently delete this task and all its history?',hw_deleted_toast:'Task deleted.',hw_description_label:'Description',hw_difficulty_label:'Difficulty',hw_frequency_label:'Frequency',hw_status_label:'Status',hw_paused_label:'Paused',hw_assigned_to_label:'Assigned to',hw_date_assigned:'Date assigned',hw_due_date_label:'Due date',hw_attachments:'\uD83D\uDCCE Attachments',hw_back_overview:'\u2190 Back to Overview',hw_last7_today_next7:'Last 7 \u00B7 Today \u00B7 Next 7',hw_completions_label:'Completions',hw_no_completions:'No completions yet.',hw_add_comment:'Add Comment',hw_add_another_comment:'Add Another Comment',hw_feedback_for:'Feedback for: ',hw_send_comment:'Send Comment',hw_write_comment_first:'Write a comment first.',hw_comment_sent:'Comment sent!',hw_could_not_comment:'Could not send comment.',hw_loading_data:'Loading completion data\u2026',hw_could_not_load:'Could not load completion data.',hw_done_stat:'Done',hw_total_stat:'Total',hw_rate_stat:'Rate',hw_task_not_found:'Task not found.',hw_back_list:'Back to Task List',
+hw_edit_task_title:'\u270F\uFE0F Edit Task',hw_add_task_title:'\u2795 Add Homework Task',hw_use_template:'\uD83D\uDCCB Use Template',hw_task_title_req:'Task Title *',hw_instructions_label:'Instructions for parent (optional)',hw_attach_files:'Attach Files (optional)',hw_attach_desc:'Add instruction sheets, images or videos for parents',hw_add_files:'+ Add Files',hw_duration_label:'Duration',hw_once_label:'Once',hw_daily_label:'Daily',hw_every_other_day_label:'Every other day',hw_specific_days_label:'Specific days',hw_open_ended:'Open-ended',hw_until_date:'Until date',hw_next_appt:'Next appt',hw_time_of_day:'Time of day (select all that apply)',hw_pin_top:'\uD83D\uDCCC Pin to top of list',hw_save_template:'\uD83D\uDCBE Save as template',hw_save_changes_btn:'\u2705 Save Changes',hw_assign_btn:'\u2705 Assign Task',hw_title_required:'\u26A0\uFE0F Task title is required.',hw_select_day:'\u26A0\uFE0F Select at least one day.',hw_select_end_date:'\u26A0\uFE0F Select an end date.',hw_task_updated:'\u2705 Task updated!',hw_task_assigned:'\u2705 Task assigned!',hw_could_not_save_task:'Could not save task.',hw_cancel_btn:'Cancel',hw_select_1_time:'Select at least one time of day.',
+hw_paused_archive:'Completed or paused tasks will appear here.',hw_all_done:'\u2713 All done',hw_next_7_days:'Next 7 Days',hw_spec_feedback:'\uD83D\uDCAC Specialist Feedback',hw_accept_task:'\u2713 Accept this task',hw_task_accepted:'Task accepted!',hw_could_not_ack:'Could not acknowledge.',hw_pause_task:'\u23F8 Pause Task',hw_resume_task:'\u25B6 Resume Task',hw_paused_toast:'Task paused.',hw_resumed_toast:'Task resumed.',hw_could_not_update:'Could not update task.',hw_set_reminder:'\uD83D\uDD14 Set a Reminder',hw_reminder_saved:'\uD83D\uDD14 Reminder saved!',hw_could_not_save_reminder:'Could not save reminder.',hw_add_to_calendar:'\uD83D\uDCC5 Add to Calendar',hw_spec_tasks_sub:'\'s tasks',hw_not_connected_no_tasks:'Not connected \u2014 cannot add new tasks',hw_archived_here:'Archived tasks will appear here.',hw_pinned_label:'\uD83D\uDCCC Pinned',hw_other_tasks:'Other Tasks',hw_new_tasks_assigned:'New task{s} assigned!',
+patients_sub:'Click a patient to view their vault & files',patients_search:'\uD83D\uDD0D Search by name\u2026',patients_pending_approval:'Pending approval',patients_not_connected_badge:'Not connected',patients_waiting:'Waiting for parent approval',patients_age_label:'Age',patients_dob_label:'DOB',patients_pending_title:'Pending Approval',patients_back_btn:'\u2190 Patients',patients_relationship_ended:'Patient relationship ended',patients_ended_desc:'This patient relationship has ended. You can view your records only.',patients_my_notes:'\uD83D\uDCCB My Clinical Notes',patients_no_notes:'No notes recorded for this patient.',patients_my_tasks:'\uD83D\uDCCB My Tasks',patients_not_connected_banner:'Not connected \u2014 view history and add your own notes and files',patients_clinical_notes:'Clinical Notes',patients_files_label:'Files',patients_tasks_label:'Tasks',patients_chat_dash:'Chat',
 },
 he:{
 // ── Nav & Header ──
@@ -4148,6 +4604,447 @@ settings_name_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u
 settings_email_label:'\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC: {email}',
 settings_role_parent:'\u05EA\u05E4\u05E7\u05D9\u05D3: \u05D4\u05D5\u05E8\u05D4 / \u05D0\u05E4\u05D5\u05D8\u05E8\u05D5\u05E4\u05D5\u05E1',
 settings_role_specialist:'\u05EA\u05E4\u05E7\u05D9\u05D3: \u05DE\u05D8\u05E4\u05DC/\u05EA',
+// ── Auth extras (checkbox, consent) ──
+auth_tc_agree:'\u05D0\u05E0\u05D9 \u05DE\u05E1\u05DB\u05D9\u05DD/\u05D4 \u05DC',
+auth_and:' \u05D5',
+// ── Spec AI Upgrade Modal ──
+spec_ai_desc:'\u05D6\u05D5 \u05EA\u05DB\u05D5\u05E0\u05D4 \u05DE\u05D1\u05D5\u05E1\u05E1\u05EA AI. \u05D4\u05EA\u05D7\u05D9\u05DC\u05D5 \u05E0\u05D9\u05E1\u05D9\u05D5\u05DF \u05D7\u05D9\u05E0\u05DD \u05D0\u05D5 \u05D4\u05D9\u05E8\u05E9\u05DE\u05D5 \u05DC\u05DE\u05E0\u05D5\u05D9.',
+spec_ai_per_month:'/ \u05D7\u05D5\u05D3\u05E9',
+spec_ai_billed_annually:'\u05D7\u05D9\u05D5\u05D1 \u05E9\u05E0\u05EA\u05D9',
+spec_ai_billed_monthly:'\u05D7\u05D9\u05D5\u05D1 \u05D7\u05D5\u05D3\u05E9\u05D9',
+spec_ai_start_trial:'\uD83C\uDF81 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D5 \u05E0\u05D9\u05E1\u05D9\u05D5\u05DF \u05E9\u05DC 7 \u05D9\u05DE\u05D9\u05DD',
+spec_ai_starting:'\u05DE\u05EA\u05D7\u05D9\u05DC\u2026',
+spec_ai_annual_btn:'$9/\u05D7\u05D5\u05D3\u05E9 (\u05E9\u05E0\u05EA\u05D9)',
+spec_ai_monthly_btn:'$11/\u05D7\u05D5\u05D3\u05E9',
+spec_ai_cancel_note:'\u05D1\u05D9\u05D8\u05D5\u05DC \u05D1\u05DB\u05DC \u05E2\u05EA. \u05DB\u05DC \u05D4\u05EA\u05DB\u05D5\u05E0\u05D5\u05EA \u05D4\u05D1\u05E1\u05D9\u05E1\u05D9\u05D5\u05EA \u05E0\u05E9\u05D0\u05E8\u05D5\u05EA \u05D7\u05D9\u05E0\u05DD.',
+// ── Specialist desktop extras ──
+spec_dt_note_days_ago:'\u05DC\u05E4\u05E0\u05D9 {d} \u05D9\u05DE\u05D9\u05DD',
+spec_dt_note_prefix:'\u05D4\u05E2\u05E8\u05D4 \u00B7 ',
+spec_dt_age_fallback:'\u05D2\u05D9\u05DC \u2014',
+spec_dt_task_fallback:'\u05DE\u05E9\u05D9\u05DE\u05D4',
+// ── Home child card extras ──
+home_specialist_count:'{count} \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
+// ── Header fallback ──
+hdr_specialist_fallback:'\u05DE\u05D8\u05E4\u05DC/\u05EA',
+// ── Patient list toggle ──
+spec_dt_move_active:'\u05D4\u05E2\u05D1\u05E8 \u05D1\u05D7\u05D6\u05E8\u05D4 \u05DC\u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
+spec_dt_move_inactive:'\u05D4\u05E2\u05D1\u05E8 \u05DC\u05DC\u05D0 \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
+// ── Chat, Vault, Homework, Todo, Patients (lines 10k–14k) ──
+chat_loading:'\u05D8\u05D5\u05E2\u05DF \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA\u2026',chat_not_connected_readonly:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05D4\u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DC\u05D1\u05D3',chat_patients_back:'\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD',chat_back_btn:'\u2190 \u05D7\u05D6\u05E8\u05D4',chat_tap_to_open:'\u05DC\u05D7\u05E6\u05D5 \u05DC\u05E4\u05EA\u05D9\u05D7\u05D4',chat_specialist_consult_label:'\u05D9\u05D9\u05E2\u05D5\u05E5 \u05D1\u05D9\u05DF \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',chat_group_default:'\u05E6\u05F3\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9',chat_chat_default:'\u05E6\u05F3\u05D0\u05D8',chat_mark_read:'\u05E1\u05DE\u05DF \u05DB\u05E0\u05E7\u05E8\u05D0',chat_mark_unread:'\u05E1\u05DE\u05DF \u05DB\u05DC\u05D0 \u05E0\u05E7\u05E8\u05D0',chat_private_consult:'\u05E9\u05D9\u05D7\u05D4 \u05E4\u05E8\u05D8\u05D9\u05EA \u05D1\u05D9\u05DF \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',chat_private_toast:'\u05D6\u05D4\u05D5 \u05D9\u05D9\u05E2\u05D5\u05E5 \u05E4\u05E8\u05D8\u05D9 \u05D1\u05D9\u05DF \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u2014 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E8\u05D0\u05D5\u05EA \u05E9\u05D4\u05D5\u05D0 \u05E7\u05D9\u05D9\u05DD \u05DC\u05E6\u05D5\u05E8\u05DA \u05E9\u05E7\u05D9\u05E4\u05D5\u05EA, \u05D0\u05DA \u05D4\u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D0\u05D9\u05E0\u05DF \u05E0\u05D2\u05D9\u05E9\u05D5\u05EA.',chat_secure_label:'\uD83D\uDD12 \u05E6\u05F3\u05D0\u05D8 \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7',chat_spec_consult_sub:'\uD83D\uDD17 \u05D9\u05D9\u05E2\u05D5\u05E5 \u05D1\u05D9\u05DF \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',chat_msg_failed:'\u274C \u05D4\u05D4\u05D5\u05D3\u05E2\u05D4 \u05DC\u05D0 \u05E0\u05E9\u05DC\u05D7\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',chat_start_desc:'\u05E4\u05EA\u05D7\u05D5 \u05E6\u05F3\u05D0\u05D8 \u05D9\u05E9\u05D9\u05E8 \u05E2\u05DD \u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u2014 \u05DC\u05DC\u05D0 \u05E6\u05D5\u05E8\u05DA \u05D1\u05D0\u05D9\u05E9\u05D5\u05E8.',chat_open_patient_first:'\u05D0\u05E0\u05D0 \u05E4\u05EA\u05D7\u05D5 \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E7\u05D5\u05D3\u05DD, \u05D5\u05D0\u05D6 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D5 \u05D4\u05D5\u05D3\u05E2\u05D4 \u05D7\u05D3\u05E9\u05D4.',chat_could_not_create_chat:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D9\u05E6\u05D5\u05E8 \u05E6\u05F3\u05D0\u05D8.',chat_consult_desc:'\u05D1\u05E7\u05E9\u05D5 \u05D9\u05D9\u05E2\u05D5\u05E5 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05E2\u05DD \u05DE\u05D8\u05E4\u05DC/\u05EA \u05D0\u05D7\u05E8/\u05EA. \u05D3\u05E8\u05D5\u05E9 \u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D5\u05E8\u05D4.',chat_open_patient_consult:'\u05D0\u05E0\u05D0 \u05E4\u05EA\u05D7\u05D5 \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E7\u05D5\u05D3\u05DD \u05DB\u05D3\u05D9 \u05DC\u05D1\u05E7\u05E9 \u05D9\u05D9\u05E2\u05D5\u05E5.',chat_consult_regarding:'\u05D1\u05E0\u05D5\u05D2\u05E2 \u05DC: ',chat_consult_parent_notify:'. \u05D4\u05D4\u05D5\u05E8\u05D4 \u05D9\u05E7\u05D1\u05DC \u05D4\u05D5\u05D3\u05E2\u05D4 \u05D5\u05D9\u05E6\u05D8\u05E8\u05DA \u05DC\u05D0\u05E9\u05E8 \u05DC\u05E4\u05E0\u05D9 \u05EA\u05D7\u05D9\u05DC\u05EA \u05D4\u05E6\u05F3\u05D0\u05D8.',chat_no_other_specs:'\u05D4\u05D4\u05D5\u05E8\u05D4 \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D5\u05E1\u05D9\u05E3 \u05DE\u05D8\u05E4\u05DC/\u05EA \u05E0\u05D5\u05E1\u05E3/\u05EA \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05E9\u05DC \u05D4\u05D9\u05DC\u05D3/\u05D4 \u05DC\u05E4\u05E0\u05D9 \u05E9\u05EA\u05D5\u05DB\u05DC\u05D5 \u05DC\u05D1\u05E7\u05E9 \u05D9\u05D9\u05E2\u05D5\u05E5.',chat_parent_access:'\u05D2\u05D9\u05E9\u05EA \u05D4\u05D4\u05D5\u05E8\u05D4 \u05DC\u05E6\u05F3\u05D0\u05D8 \u05D6\u05D4:',chat_private_label:'\u05E4\u05E8\u05D8\u05D9',chat_specs_only:'\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05D1\u05DC\u05D1\u05D3',chat_include_parent:'\u05DB\u05DC\u05D5\u05DC \u05D4\u05D5\u05E8\u05D4',chat_parent_joins:'\u05D4\u05D4\u05D5\u05E8\u05D4 \u05DE\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05F3\u05D0\u05D8',chat_send_consult:'\uD83D\uDCE4 \u05E9\u05DC\u05D7 \u05D1\u05E7\u05E9\u05EA \u05D9\u05D9\u05E2\u05D5\u05E5',chat_sending:'\u05E9\u05D5\u05DC\u05D7\u2026',chat_dup_exists:'\u05E9\u05D9\u05D7\u05D4 \u05E2\u05DD \u05D0\u05D5\u05EA\u05DD \u05DE\u05E9\u05EA\u05EA\u05E4\u05D9\u05DD \u05DB\u05D1\u05E8 \u05E7\u05D9\u05D9\u05DE\u05EA.',chat_dup_pending:'\u05D1\u05E7\u05E9\u05D4 \u05DE\u05DE\u05EA\u05D9\u05E0\u05D4 \u05E2\u05DD \u05D0\u05D5\u05EA\u05DD \u05DE\u05E9\u05EA\u05EA\u05E4\u05D9\u05DD \u05DB\u05D1\u05E8 \u05E7\u05D9\u05D9\u05DE\u05EA.',chat_consult_sent:'\u2705 \u05D4\u05D1\u05E7\u05E9\u05D4 \u05E0\u05E9\u05DC\u05D7\u05D4 \u2014 \u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D4\u05D5\u05E8\u05D4.',chat_consult_fail:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DC\u05D5\u05D7 \u05D1\u05E7\u05E9\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',
+vault_private_notes:'\uD83D\uDD12 \u05D4\u05E2\u05E8\u05D5\u05EA \u05E4\u05E8\u05D8\u05D9\u05D5\u05EA \u2014 \u05E4\u05E8\u05E1\u05DE\u05D5 \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05DC\u05E9\u05D9\u05EA\u05D5\u05E3 \u05E2\u05DD \u05D4\u05D4\u05D5\u05E8\u05D9\u05DD',vault_not_connected:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA \u05E9\u05DC\u05DB\u05DD \u05D1\u05DC\u05D1\u05D3 \u00B7 \u05E4\u05E8\u05E1\u05D5\u05DD \u05DE\u05D5\u05E9\u05D1\u05EA',vault_draft_label:'\u05D8\u05D9\u05D5\u05D8\u05D4',vault_unsaved_changes:'\u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD \u05DC\u05D0 \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD',vault_switch_note:'\u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D4\u05E2\u05E8\u05D4 \u05D1\u05DC\u05D9 \u05DC\u05E9\u05DE\u05D5\u05E8?',vault_unsaved_note:'\u26A0\uFE0F \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD \u05DC\u05D0 \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD \u05D1\u05D4\u05E2\u05E8\u05D4 \u05D6\u05D5.',vault_locked_readonly:'\uD83D\uDD12 \u05E0\u05E2\u05D5\u05DC \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u2014 \u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DC\u05D1\u05D3',vault_minimise:'\u25B2 \u05DE\u05D6\u05E2\u05E8',vault_minimise_unsaved:'\u05DC\u05DE\u05D6\u05E2\u05E8 \u05D1\u05DC\u05D9 \u05DC\u05E9\u05DE\u05D5\u05E8?',vault_clinical_notes:'\uD83D\uDCCB \u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA (\u05E4\u05E8\u05D8\u05D9\u05D5\u05EA)',vault_mic_error:'\u05E9\u05D2\u05D9\u05D0\u05EA \u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF: ',vault_dictate_locked:'\uD83D\uDD12 \uD83C\uDF99 \u05D4\u05DB\u05EA\u05D1\u05D4',vault_ai_notes_title:'\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9 \u05DE\u05E4\u05D2\u05E9 \u05DE\u05D1\u05D5\u05E1\u05E1\u05D9 AI',vault_ai_notes_desc:'\u05DB\u05EA\u05D1\u05D5 \u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA \u05DE\u05E4\u05D5\u05E8\u05D8\u05D5\u05EA \u05E2\u05DD \u05D4\u05DB\u05EA\u05D1\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05D5\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD \u05DE\u05D1\u05D5\u05E1\u05E1\u05D9 AI.',vault_unlock_trial:'\u05E4\u05EA\u05D7\u05D5 \u05E2\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05DF AI',vault_draft_saved:'\uD83D\uDCBE \u05D8\u05D9\u05D5\u05D8\u05D4 \u05E0\u05E9\u05DE\u05E8\u05D4!',vault_could_not_save_draft:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05D8\u05D9\u05D5\u05D8\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',vault_write_first:'\u05DB\u05EA\u05D1\u05D5 \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9 \u05E7\u05D5\u05D3\u05DD \u05DB\u05D3\u05D9 \u05E9-AI \u05D9\u05D5\u05DB\u05DC \u05DC\u05E1\u05DB\u05DD.',vault_could_not_generate:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D9\u05E6\u05D5\u05E8 \u05E1\u05D9\u05DB\u05D5\u05DD.',vault_could_not_reach_ai:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05EA\u05D7\u05D1\u05E8 \u05DC\u05E9\u05D9\u05E8\u05D5\u05EA \u05D4-AI.',vault_lock_notes:'\uD83D\uDD12 \u05E0\u05E2\u05DC \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9',vault_no_summary_warn:'\u26A0\uFE0F \u05D0\u05D9\u05DF \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD',vault_no_summary_msg:'\u05DC\u05D0 \u05DB\u05EA\u05D1\u05EA\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD \u05E2\u05D1\u05D5\u05E8 \u05D4\u05E2\u05E8\u05D4 \u05D6\u05D5. \u05D4\u05D4\u05D5\u05E8\u05D9\u05DD \u05DC\u05D0 \u05D9\u05D5\u05DB\u05DC\u05D5 \u05DC\u05E8\u05D0\u05D5\u05EA \u05E1\u05D9\u05DB\u05D5\u05DD. \u05DC\u05D4\u05DE\u05E9\u05D9\u05DA \u05DC\u05E0\u05E2\u05D5\u05DC \u05D1\u05DB\u05DC \u05D6\u05D0\u05EA?',vault_lock_confirm:'\u05DC\u05E0\u05E2\u05D5\u05DC \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9?',vault_lock_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05E0\u05E2\u05DC \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u05D0\u05EA \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA \u05D5\u05EA\u05D4\u05E4\u05D5\u05DA \u05D0\u05D5\u05EA\u05DF \u05DC\u05E8\u05E9\u05D5\u05DE\u05D4 \u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DC\u05D1\u05D3. \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',vault_locked_toast:'\uD83D\uDD12 \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9 \u05E0\u05E0\u05E2\u05DC\u05D5!',vault_delete_draft:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D4\u05E2\u05E8\u05D4?',vault_delete_draft_msg:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D8\u05D9\u05D5\u05D8\u05D4 \u05D6\u05D5 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA? \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',vault_summary_placeholder:'\u05DB\u05EA\u05D1\u05D5 \u05DB\u05D0\u05DF \u05E1\u05D9\u05DB\u05D5\u05DD \u05D9\u05D3\u05D9\u05D3\u05D5\u05EA\u05D9 \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD. \u05D4\u05E1\u05D9\u05DB\u05D5\u05DD \u05D9\u05E4\u05D5\u05E8\u05E1\u05DD \u05DC\u05D4\u05D5\u05E8\u05D4 \u05DB\u05E9\u05EA\u05D4\u05D9\u05D5 \u05DE\u05D5\u05DB\u05E0\u05D9\u05DD.',vault_write_summary_first:'\u05DB\u05EA\u05D1\u05D5 \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05E4\u05E0\u05D9 \u05E4\u05E8\u05E1\u05D5\u05DD',vault_publish_confirm:'\u05DC\u05E4\u05E8\u05E1\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD?',vault_publish_msg:'\u05DC\u05E9\u05DC\u05D5\u05D7 \u05E1\u05D9\u05DB\u05D5\u05DD \u05D6\u05D4 \u05DC\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05D4\u05D4\u05D5\u05E8\u05D4 \u05D5\u05DC\u05D4\u05D5\u05D3\u05D9\u05E2 \u05DC\u05D4\u05DD?',vault_could_not_publish:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E4\u05E8\u05E1\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',vault_vc_punctuation:'\u05E4\u05D9\u05E1\u05D5\u05E7',vault_vc_formatting:'\u05E2\u05D9\u05E6\u05D5\u05D1',vault_vc_headings:'\u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05DE\u05D1\u05E0\u05D4',vault_vc_lists:'\u05E8\u05E9\u05D9\u05DE\u05D5\u05EA',vault_vc_editing:'\u05E2\u05E8\u05D9\u05DB\u05D4',
+stodo_sub:'\u05DE\u05E2\u05E7\u05D1\u05D9\u05DD, \u05D3\u05D5\u05D7\u05D5\u05EA, \u05D4\u05E4\u05E0\u05D9\u05D5\u05EA \u05D5\u05EA\u05D6\u05DB\u05D5\u05E8\u05D5\u05EA',stodo_pending_label:'\u05DE\u05DE\u05EA\u05D9\u05DF',stodo_completed_label:'\u05D4\u05D5\u05E9\u05DC\u05DD',stodo_task_fallback:'\u05DE\u05E9\u05D9\u05DE\u05D4',stodo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4 \u05E7\u05DC\u05D9\u05E0\u05D9\u05EA',stodo_new_title:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E7\u05DC\u05D9\u05E0\u05D9\u05EA \u05D7\u05D3\u05E9\u05D4',stodo_task_required:'\u05DE\u05E9\u05D9\u05DE\u05D4 *',stodo_notes_optional:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_category_label:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D4',stodo_priority_label:'\u05E2\u05D3\u05D9\u05E4\u05D5\u05EA',stodo_related_patient:'\u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E7\u05E9\u05D5\u05E8/\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_no_patient:'\u2014 \u05DC\u05DC\u05D0 \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9/\u05EA \u2014',stodo_due_date_label:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_reminder_label:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_no_reminder:'\u05DC\u05DC\u05D0 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA',stodo_on_due:'\u05D1\u05D9\u05D5\u05DD \u05D4\u05D9\u05E2\u05D3',stodo_1day:'\u05D9\u05D5\u05DD \u05DC\u05E4\u05E0\u05D9',stodo_1week:'\u05E9\u05D1\u05D5\u05E2 \u05DC\u05E4\u05E0\u05D9',stodo_save_changes:'\u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',stodo_add_task_btn:'\u05D4\u05D5\u05E1\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D4',stodo_enter_title:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',
+ptodo_pending_label:'\u05DE\u05DE\u05EA\u05D9\u05DF',ptodo_completed_label:'\u05D4\u05D5\u05E9\u05DC\u05DD',ptodo_delete_confirm:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5?',ptodo_delete_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05DE\u05D7\u05E7 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA',ptodo_task_deleted:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05DE\u05D7\u05E7\u05D4',ptodo_task_fallback:'\u05DE\u05E9\u05D9\u05DE\u05D4',ptodo_mine_label:'\u05E9\u05DC\u05D9',ptodo_shared_label:'\u05DE\u05E9\u05D5\u05EA\u05E3',ptodo_no_date:'\u05DC\u05DC\u05D0 \u05EA\u05D0\u05E8\u05D9\u05DA',ptodo_done_by:'\u2713 \u05D1\u05D5\u05E6\u05E2 \u05E2"\u05D9',ptodo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',ptodo_new_title_modal:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4',ptodo_task_required:'\u05DE\u05E9\u05D9\u05DE\u05D4 *',ptodo_notes_modal:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_category_modal:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D4',ptodo_priority_modal:'\u05E2\u05D3\u05D9\u05E4\u05D5\u05EA',ptodo_assign_to:'\u05D4\u05E7\u05E6\u05D4 \u05DC',ptodo_related_child:'\u05D9\u05DC\u05D3/\u05D4 \u05E7\u05E9\u05D5\u05E8/\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_no_child:'\u2014 \u05DC\u05DC\u05D0 \u05D9\u05DC\u05D3/\u05D4 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9/\u05EA \u2014',ptodo_due_date_modal:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_reminder_modal:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_saving:'\u05E9\u05D5\u05DE\u05E8\u2026',ptodo_enter_title:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',
+todo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',todo_new_title:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4',todo_task_title_required:'\u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4 *',todo_notes_optional:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',todo_for_which_child:'\u05E2\u05D1\u05D5\u05E8 \u05D0\u05D9\u05D6\u05D4 \u05D9\u05DC\u05D3/\u05D4?',todo_select_child:' \u2014 \u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4 \u2014',todo_reminders_optional:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',todo_save_changes:'\uD83D\uDCBE \u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',todo_add_task:'\u2795 \u05D4\u05D5\u05E1\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D4',todo_task_title_err:'\u05D0\u05E0\u05D0 \u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4.',todo_updated:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',todo_added:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05D5\u05E1\u05E4\u05D4!',todo_delete_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',todo_delete_msg:'\u05DC\u05D4\u05E1\u05D9\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5?',todo_removed:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E1\u05E8\u05D4.',
+hw_mark_done:'\u05E1\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2',hw_not_due_yet:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3 \u05DC\u05D0 \u05D4\u05D2\u05D9\u05E2\u05D4.',hw_note_specialist:'\u05D4\u05E2\u05E8\u05D4 \u05DC\u05DE\u05D8\u05E4\u05DC/\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_photo_optional:'\u05EA\u05DE\u05D5\u05E0\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_take_photo:'\uD83D\uDCF7 \u05E6\u05DC\u05DD',hw_gallery:'\uD83D\uDDBC\uFE0F \u05D2\u05DC\u05E8\u05D9\u05D4',hw_mark_done_btn:'\u2705 \u05E1\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2',hw_marked_done:'\u2705 \u05E1\u05D5\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2!',hw_could_not_save_check:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',hw_task_details:'\u05E4\u05E8\u05D8\u05D9 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_details_btn:'\uD83D\uDCCA \u05E4\u05E8\u05D8\u05D9\u05DD',hw_edit_btn:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05D4',hw_unpin:'\uD83D\uDCCC \u05D1\u05D8\u05DC \u05D4\u05E6\u05DE\u05D3\u05D4',hw_pin:'\uD83D\uDCCD \u05D4\u05E6\u05DE\u05D3',hw_archive_btn:'\uD83D\uDDC4 \u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',hw_archive_confirm:'\u05D4\u05E2\u05D1\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',hw_archive_msg:'\u05DC\u05D4\u05E2\u05D1\u05D9\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF? \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05D7\u05D6\u05E8 \u05DE\u05D0\u05D5\u05D7\u05E8 \u05D9\u05D5\u05EA\u05E8.',hw_archived_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E2\u05D1\u05E8\u05D4 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',hw_restore_btn:'\u267B\uFE0F \u05E9\u05D7\u05D6\u05E8',hw_restore_confirm:'\u05E9\u05D7\u05D6\u05D5\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_restore_msg:'\u05DC\u05D4\u05D7\u05D6\u05D9\u05E8 \u05DC\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA?',hw_restored_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E9\u05D5\u05D7\u05D6\u05E8\u05D4.',hw_delete_btn:'\uD83D\uDDD1 \u05DE\u05D7\u05E7',hw_delete_confirm:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',hw_delete_msg:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5 \u05D5\u05D0\u05EA \u05DB\u05DC \u05D4\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4 \u05E9\u05DC\u05D4 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA?',hw_deleted_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05DE\u05D7\u05E7\u05D4.',hw_description_label:'\u05EA\u05D9\u05D0\u05D5\u05E8',hw_difficulty_label:'\u05E8\u05DE\u05EA \u05E7\u05D5\u05E9\u05D9',hw_frequency_label:'\u05EA\u05D3\u05D9\u05E8\u05D5\u05EA',hw_status_label:'\u05E1\u05D8\u05D8\u05D5\u05E1',hw_paused_label:'\u05DE\u05D5\u05E9\u05D4\u05D4',hw_assigned_to_label:'\u05D4\u05D5\u05E7\u05E6\u05D4 \u05DC',hw_date_assigned:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D4\u05E7\u05E6\u05D0\u05D4',hw_due_date_label:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3',hw_attachments:'\uD83D\uDCCE \u05E7\u05D1\u05E6\u05D9\u05DD \u05DE\u05E6\u05D5\u05E8\u05E4\u05D9\u05DD',hw_back_overview:'\u2190 \u05D7\u05D6\u05E8\u05D4 \u05DC\u05E1\u05E7\u05D9\u05E8\u05D4',hw_last7_today_next7:'7 \u05D0\u05D7\u05E8\u05D5\u05E0\u05D9\u05DD \u00B7 \u05D4\u05D9\u05D5\u05DD \u00B7 7 \u05D4\u05D1\u05D0\u05D9\u05DD',hw_completions_label:'\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9\u05DD',hw_no_completions:'\u05D0\u05D9\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2\u05D9\u05DD \u05E2\u05D3\u05D9\u05D9\u05DF.',hw_add_comment:'\u05D4\u05D5\u05E1\u05E3 \u05EA\u05D2\u05D5\u05D1\u05D4',hw_add_another_comment:'\u05D4\u05D5\u05E1\u05E3 \u05EA\u05D2\u05D5\u05D1\u05D4 \u05E0\u05D5\u05E1\u05E4\u05EA',hw_feedback_for:'\u05DE\u05E9\u05D5\u05D1 \u05E2\u05D1\u05D5\u05E8: ',hw_send_comment:'\u05E9\u05DC\u05D7 \u05EA\u05D2\u05D5\u05D1\u05D4',hw_write_comment_first:'\u05DB\u05EA\u05D1\u05D5 \u05EA\u05D2\u05D5\u05D1\u05D4 \u05E7\u05D5\u05D3\u05DD.',hw_comment_sent:'\u05D4\u05EA\u05D2\u05D5\u05D1\u05D4 \u05E0\u05E9\u05DC\u05D7\u05D4!',hw_could_not_comment:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DC\u05D5\u05D7 \u05EA\u05D2\u05D5\u05D1\u05D4.',hw_loading_data:'\u05D8\u05D5\u05E2\u05DF \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D1\u05D9\u05E6\u05D5\u05E2\u2026',hw_could_not_load:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D8\u05E2\u05D5\u05DF \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D1\u05D9\u05E6\u05D5\u05E2.',hw_done_stat:'\u05D1\u05D5\u05E6\u05E2',hw_total_stat:'\u05E1\u05D4"\u05DB',hw_rate_stat:'\u05E9\u05D9\u05E2\u05D5\u05E8',hw_task_not_found:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D4.',hw_back_list:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05E8\u05E9\u05D9\u05DE\u05EA \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA',
+hw_edit_task_title:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',hw_add_task_title:'\u2795 \u05D4\u05D5\u05E1\u05E3 \u05EA\u05E8\u05D2\u05D9\u05DC \u05D1\u05D9\u05EA',hw_use_template:'\uD83D\uDCCB \u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05EA\u05D1\u05E0\u05D9\u05EA',hw_task_title_req:'\u05DB\u05D5\u05EA\u05E8\u05EA \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 *',hw_instructions_label:'\u05D4\u05E0\u05D7\u05D9\u05D5\u05EA \u05DC\u05D4\u05D5\u05E8\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_attach_files:'\u05E6\u05E8\u05E4\u05D5 \u05E7\u05D1\u05E6\u05D9\u05DD (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_attach_desc:'\u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D3\u05E4\u05D9 \u05D4\u05E0\u05D7\u05D9\u05D5\u05EA, \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05D0\u05D5 \u05E1\u05E8\u05D8\u05D5\u05E0\u05D9\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD',hw_add_files:'+ \u05D4\u05D5\u05E1\u05E3 \u05E7\u05D1\u05E6\u05D9\u05DD',hw_duration_label:'\u05DE\u05E9\u05DA',hw_once_label:'\u05E4\u05E2\u05DD \u05D0\u05D7\u05EA',hw_daily_label:'\u05D9\u05D5\u05DE\u05D9',hw_every_other_day_label:'\u05D9\u05D5\u05DD \u05DC\u05E1\u05D9\u05E8\u05D5\u05D2\u05D9\u05DF',hw_specific_days_label:'\u05D9\u05DE\u05D9\u05DD \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9\u05D9\u05DD',hw_open_ended:'\u05DC\u05DC\u05D0 \u05D4\u05D2\u05D1\u05DC\u05D4',hw_until_date:'\u05E2\u05D3 \u05EA\u05D0\u05E8\u05D9\u05DA',hw_next_appt:'\u05EA\u05D5\u05E8 \u05D4\u05D1\u05D0',hw_time_of_day:'\u05D6\u05DE\u05DF \u05D1\u05D9\u05D5\u05DD (\u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05DB\u05DC \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD)',hw_pin_top:'\uD83D\uDCCC \u05D4\u05E6\u05DE\u05D3 \u05DC\u05E8\u05D0\u05E9 \u05D4\u05E8\u05E9\u05D9\u05DE\u05D4',hw_save_template:'\uD83D\uDCBE \u05E9\u05DE\u05D5\u05E8 \u05DB\u05EA\u05D1\u05E0\u05D9\u05EA',hw_save_changes_btn:'\u2705 \u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',hw_assign_btn:'\u2705 \u05D4\u05E7\u05E6\u05D4 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_title_required:'\u26A0\uFE0F \u05E0\u05D3\u05E8\u05E9\u05EA \u05DB\u05D5\u05EA\u05E8\u05EA \u05DC\u05DE\u05E9\u05D9\u05DE\u05D4.',hw_select_day:'\u26A0\uFE0F \u05D1\u05D7\u05E8\u05D5 \u05DC\u05E4\u05D7\u05D5\u05EA \u05D9\u05D5\u05DD \u05D0\u05D7\u05D3.',hw_select_end_date:'\u26A0\uFE0F \u05D1\u05D7\u05E8\u05D5 \u05EA\u05D0\u05E8\u05D9\u05DA \u05E1\u05D9\u05D5\u05DD.',hw_task_updated:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',hw_task_assigned:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E7\u05E6\u05EA\u05D4!',hw_could_not_save_task:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4.',hw_cancel_btn:'\u05D1\u05D9\u05D8\u05D5\u05DC',hw_select_1_time:'\u05D1\u05D7\u05E8\u05D5 \u05DC\u05E4\u05D7\u05D5\u05EA \u05D6\u05DE\u05DF \u05D0\u05D7\u05D3 \u05D1\u05D9\u05D5\u05DD.',
+hw_paused_archive:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05D4\u05D5\u05E9\u05DC\u05DE\u05D5 \u05D0\u05D5 \u05D4\u05D5\u05E9\u05D4\u05D5 \u05D9\u05D5\u05E4\u05D9\u05E2\u05D5 \u05DB\u05D0\u05DF.',hw_all_done:'\u2713 \u05D4\u05DB\u05DC \u05D1\u05D5\u05E6\u05E2',hw_next_7_days:'7 \u05D4\u05D9\u05DE\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD',hw_spec_feedback:'\uD83D\uDCAC \u05DE\u05E9\u05D5\u05D1 \u05DE\u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA',hw_accept_task:'\u2713 \u05E7\u05D1\u05DC\u05D5 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5',hw_task_accepted:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D0\u05D5\u05E9\u05E8\u05D4!',hw_could_not_ack:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D0\u05E9\u05E8.',hw_pause_task:'\u23F8 \u05D4\u05E9\u05D4\u05D4 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_resume_task:'\u25B6 \u05D7\u05D3\u05E9 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_paused_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E9\u05D4\u05EA\u05D4.',hw_resumed_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D5\u05D3\u05E9\u05D4.',hw_could_not_update:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E2\u05D3\u05DB\u05DF \u05DE\u05E9\u05D9\u05DE\u05D4.',hw_set_reminder:'\uD83D\uDD14 \u05D4\u05D2\u05D3\u05D9\u05E8\u05D5 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA',hw_reminder_saved:'\uD83D\uDD14 \u05D4\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA \u05E0\u05E9\u05DE\u05E8\u05D4!',hw_could_not_save_reminder:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA.',hw_add_to_calendar:'\uD83D\uDCC5 \u05D4\u05D5\u05E1\u05E3 \u05DC\u05D9\u05D5\u05DE\u05DF',hw_spec_tasks_sub:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05DC',hw_not_connected_no_tasks:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05D5\u05E1\u05D9\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D7\u05D3\u05E9\u05D5\u05EA',hw_archived_here:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF \u05D9\u05D5\u05E4\u05D9\u05E2\u05D5 \u05DB\u05D0\u05DF.',hw_pinned_label:'\uD83D\uDCCC \u05DE\u05D5\u05E6\u05DE\u05D3',hw_other_tasks:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D5\u05EA',hw_new_tasks_assigned:'\u05DE\u05E9\u05D9\u05DE\u05D4/\u05D5\u05EA \u05D7\u05D3\u05E9\u05D4/\u05D5\u05EA \u05D4\u05D5\u05E7\u05E6\u05D5!',
+patients_sub:'\u05DC\u05D7\u05E6\u05D5 \u05E2\u05DC \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05DC\u05E6\u05E4\u05D9\u05D9\u05D4 \u05D1\u05DB\u05E1\u05E4\u05EA \u05D5\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD',patients_search:'\uD83D\uDD0D \u05D7\u05D9\u05E4\u05D5\u05E9 \u05DC\u05E4\u05D9 \u05E9\u05DD\u2026',patients_pending_approval:'\u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8',patients_not_connected_badge:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA',patients_waiting:'\u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D4\u05D5\u05E8\u05D4',patients_age_label:'\u05D2\u05D9\u05DC',patients_dob_label:'\u05EA. \u05DC\u05D9\u05D3\u05D4',patients_pending_title:'\u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8',patients_back_btn:'\u2190 \u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD',patients_relationship_ended:'\u05E7\u05E9\u05E8 \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05D4\u05E1\u05EA\u05D9\u05D9\u05DD',patients_ended_desc:'\u05E7\u05E9\u05E8 \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05D4\u05E1\u05EA\u05D9\u05D9\u05DD. \u05E0\u05D9\u05EA\u05DF \u05DC\u05E6\u05E4\u05D5\u05EA \u05D1\u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05E9\u05DC\u05DB\u05DD \u05D1\u05DC\u05D1\u05D3.',patients_my_notes:'\uD83D\uDCCB \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA \u05D4\u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA \u05E9\u05DC\u05D9',patients_no_notes:'\u05D0\u05D9\u05DF \u05D4\u05E2\u05E8\u05D5\u05EA \u05E9\u05E0\u05E8\u05E9\u05DE\u05D5 \u05DC\u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05D6\u05D4.',patients_my_tasks:'\uD83D\uDCCB \u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05DC\u05D9',patients_not_connected_banner:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05E6\u05E4\u05D5 \u05D1\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4 \u05D5\u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D4\u05E2\u05E8\u05D5\u05EA \u05D5\u05E7\u05D1\u05E6\u05D9\u05DD \u05DE\u05E9\u05DC\u05DB\u05DD',patients_clinical_notes:'\u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA',patients_files_label:'\u05E7\u05D1\u05E6\u05D9\u05DD',patients_tasks_label:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA',patients_chat_dash:'\u05E6\u05F3\u05D0\u05D8',
+creds_secure_title:'\u05D0\u05D7\u05E1\u05D5\u05DF \u05D0\u05D9\u05E9\u05D9 \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7',creds_only_you:'\u05E8\u05E7 \u05D0\u05EA/\u05D4 \u05D9\u05DB\u05D5\u05DC/\u05D4 \u05DC\u05E8\u05D0\u05D5\u05EA \u05D0\u05EA \u05D4\u05DE\u05E1\u05DE\u05DB\u05D9\u05DD \u05D4\u05D0\u05DC\u05D4',creds_uploading:'\u05DE\u05E2\u05DC\u05D4: {name}',creds_upload_btn:'\uD83D\uDCE4 \u05D4\u05E2\u05DC\u05D0\u05D4',creds_uploaded:'\u2705 \u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D5\u05E2\u05DC\u05D4 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05D4\u05E4\u05E8\u05D8\u05D9\u05EA \u05E9\u05DC\u05DA!',creds_doc_categories:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D5\u05EA \u05DE\u05E1\u05DE\u05DB\u05D9\u05DD',creds_delete_doc:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DE\u05E1\u05DE\u05DA',creds_delete_doc_confirm:'\u05DC\u05D4\u05E1\u05D9\u05E8 \u05D0\u05EA \u05D4\u05DE\u05E1\u05DE\u05DA \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA?',creds_doc_removed:'\u2705 \u05D4\u05DE\u05E1\u05DE\u05DA \u05D4\u05D5\u05E1\u05E8.',notif_page_title:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',email_title:'\uD83D\uDCE7 \u05EA\u05D9\u05D1\u05EA \u05D3\u05D5\u05D0\u05E8',email_subtitle:'\u05D4\u05D3\u05DE\u05D9\u05D9\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC\u05D9\u05DD \u05DE-Huddledin \u00B7 {count} \u05DC\u05D0 \u05E0\u05E7\u05E8\u05D0\u05D5',email_mark_all:'\u05E1\u05DE\u05DF \u05D4\u05DB\u05DC \u05DB\u05E0\u05E7\u05E8\u05D0',email_no_emails:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC\u05D9\u05DD \u05E2\u05D3\u05D9\u05D9\u05DF.',email_back:'\u2190 \u05D7\u05D6\u05E8\u05D4 \u05DC\u05EA\u05D9\u05D1\u05EA \u05D3\u05D5\u05D0\u05E8',email_from:'\u05DE\u05D0\u05EA: {from}',email_to:'\u05D0\u05DC: {to} \u00B7 {date}',email_magic_link:'\uD83D\uDD17 \u05E7\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D6\u05DE\u05E0\u05D4',email_copied:'\u2705 \u05D4\u05D5\u05E2\u05EA\u05E7!',email_production_note:'\u05D1\u05D2\u05E8\u05E1\u05D4 \u05D4\u05D7\u05D9\u05D4 \u05D4\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC\u05D9\u05DD \u05D9\u05D9\u05E9\u05DC\u05D7\u05D5 \u05DC\u05EA\u05D9\u05D1\u05D5\u05EA \u05D3\u05D5\u05D0\u05E8 \u05D0\u05DE\u05D9\u05EA\u05D9\u05D5\u05EA.',child_edit_prefix:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05EA {name}',child_name_label:'\u05E9\u05DD',child_dob_label:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05DC\u05D9\u05D3\u05D4',child_name_dob_required:'\u05E9\u05DD \u05D5\u05EA\u05D0\u05E8\u05D9\u05DA \u05DC\u05D9\u05D3\u05D4 \u05D4\u05DD \u05E9\u05D3\u05D5\u05EA \u05D7\u05D5\u05D1\u05D4.',child_save_failed:'\u05D4\u05E9\u05DE\u05D9\u05E8\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4: {error}',child_updated:'\u2705 {name} \u05E2\u05D5\u05D3\u05DB\u05DF/\u05D4!',child_name_placeholder:'\u05E9\u05DD \u05DE\u05DC\u05D0 \u05E9\u05DC \u05D4\u05D9\u05DC\u05D3/\u05D4',child_choose_avatar:'\u05D1\u05D7\u05E8\u05D5 \u05D0\u05D5\u05D5\u05D8\u05D0\u05E8',child_upload_photo:'\u05D0\u05D5 \u05D4\u05E2\u05DC\u05D0\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',child_click_upload:'\u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05E2\u05DC\u05D0\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',child_camera_hint:'\u05D0\u05D5 \u05D4\u05E9\u05EA\u05DE\u05E9\u05D5 \u05D1\u05DE\u05E6\u05DC\u05DE\u05D4 \u05D1\u05E0\u05D9\u05D9\u05D3',child_photo_selected:'\u05EA\u05DE\u05D5\u05E0\u05D4 \u05E0\u05D1\u05D7\u05E8\u05D4 \u2713',child_name_dob_warn:'\u26A0\uFE0F \u05E9\u05DD \u05D5\u05EA\u05D0\u05E8\u05D9\u05DA \u05DC\u05D9\u05D3\u05D4 \u05E0\u05D3\u05E8\u05E9\u05D9\u05DD.',child_save_error:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',child_added_family:'\uD83C\uDF89 {name} \u05E0\u05D5\u05E1\u05E3/\u05D4 \u05DC\u05DE\u05E9\u05E4\u05D7\u05D4!',child_photo_title_full:'\uD83D\uDCF7 \u05E2\u05D3\u05DB\u05D5\u05DF \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E9\u05DC {name}',child_click_change:'\u05EA\u05DE\u05D5\u05E0\u05D4 \u05E0\u05D5\u05DB\u05D7\u05D9\u05EA \u2014 \u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05D7\u05DC\u05E4\u05D4',child_click_upload_take:'\u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05E2\u05DC\u05D0\u05D4 / \u05E6\u05D9\u05DC\u05D5\u05DD',child_drag_crop:'\u05D2\u05E8\u05E8\u05D5 \u05D5\u05E6\u05D1\u05D8\u05D5 \u05DC\u05D7\u05D9\u05EA\u05D5\u05DA',child_cancel:'\u05D1\u05D9\u05D8\u05D5\u05DC',child_use_crop:'\u2705 \u05D4\u05E9\u05EA\u05DE\u05E9\u05D5 \u05D1\u05D7\u05D9\u05EA\u05D5\u05DA \u05D4\u05D6\u05D4',child_photo_cropped:'\u05D4\u05EA\u05DE\u05D5\u05E0\u05D4 \u05E0\u05D7\u05EA\u05DB\u05D4 \u2713',child_photo_removed:'\u2705 \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4 \u05D4\u05D5\u05E1\u05E8\u05D4.',child_photo_updated:'\u2705 \u05D4\u05EA\u05DE\u05D5\u05E0\u05D4 \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',child_delete_title_full:'\u26A0\uFE0F \u05DE\u05D7\u05D9\u05E7\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05E9\u05DC {name}',child_delete_warning:'\u26A0\uFE0F \u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D4\u05D6\u05D0\u05EA \u05D0\u05D9\u05E0\u05D4 \u05E0\u05D9\u05EA\u05E0\u05EA \u05DC\u05D1\u05D9\u05D8\u05D5\u05DC',child_delete_detail:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05E9\u05DC {name}:\n\n\u2022 \u05EA\u05E1\u05D9\u05E8 \u05D0\u05EA \u05DB\u05DC \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD \u05D5\u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05DE\u05D4\u05DC\u05D5\u05D7\n\u2022 \u05EA\u05D1\u05D8\u05DC \u05D2\u05D9\u05E9\u05EA \u05DB\u05DC \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05DC\u05D9\u05DC\u05D3 \u05D6\u05D4\n\u2022 \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05E9\u05E0\u05DB\u05EA\u05D1\u05D5 \u05E2\u05DC \u05D9\u05D3\u05D9 \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05D9\u05D5\u05E2\u05D1\u05E8\u05D5 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF\n\u2022 \u05D4\u05D9\u05DC\u05D3/\u05D4 \u05D9\u05D5\u05E1\u05E8/\u05EA \u05DE\u05DE\u05D7\u05DC\u05E3 \u05D4\u05D9\u05DC\u05D3\u05D9\u05DD\n\n\u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05DC\u05D0 \u05DE\u05D5\u05D7\u05E7\u05EA \u05D0\u05EA \u05D7\u05E9\u05D1\u05D5\u05E0\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD.',child_delete_confirm_label:'\u05D4\u05E7\u05DC\u05D9\u05D3\u05D5 \u05D0\u05EA \u05E9\u05DD \u05D4\u05D9\u05DC\u05D3/\u05D4 \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8',child_delete_name_mismatch:'\u26A0\uFE0F \u05D4\u05E9\u05DD \u05DC\u05D0 \u05EA\u05D5\u05D0\u05DD.',child_deleted_msg:'\u2705 \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05E9\u05DC {name} \u05E0\u05DE\u05D7\u05E7.',push_title:'\u05D4\u05E4\u05E2\u05DC\u05EA \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4',push_desc:'\u05E7\u05D1\u05DC\u05D5 \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05DE\u05D9\u05D9\u05D3\u05D9\u05D5\u05EA \u05E2\u05DC \u05D3\u05D5\u05D7\u05D5\u05EA, \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D5\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA',push_enable:'\u05D4\u05E4\u05E2\u05DC\u05D4',push_enabled_body:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05D4\u05D5\u05E4\u05E2\u05DC\u05D5! \u05EA\u05E7\u05D1\u05DC\u05D5 \u05E2\u05D3\u05DB\u05D5\u05E0\u05D9\u05DD \u05D1\u05D6\u05DE\u05DF \u05D0\u05DE\u05EA.',push_blocked_msg:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D7\u05E1\u05D5\u05DE\u05D5\u05EA. \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05E0\u05D5\u05EA \u05D1\u05D4\u05D2\u05D3\u05E8\u05D5\u05EA \u05D4\u05D3\u05E4\u05D3\u05E4\u05DF.',push_not_now:'\u05DC\u05D0 \u05E2\u05DB\u05E9\u05D9\u05D5',sr_pending_count:'\u05DE\u05DE\u05EA\u05D9\u05E0\u05D9\u05DD ({count})',sr_specialist_fallback:'\u05DE\u05D8\u05E4\u05DC/\u05EA',sr_requested_for:'\u05D1\u05E7\u05E9\u05D4 \u05E2\u05D1\u05D5\u05E8: {hint}',sr_select_child:'\u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4:',sr_select_child_option:'\u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4...',sr_already_connected:' \u2014 \u05DB\u05D1\u05E8 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA',sr_add_new_child:'+ \u05D4\u05D5\u05E1\u05E4\u05EA \u05D9\u05DC\u05D3/\u05D4 \u05D7\u05D3\u05E9',sr_approve:'\u2705 \u05D0\u05D9\u05E9\u05D5\u05E8',sr_approving:'\u23F3\u2026',sr_decline:'\u2717 \u05D3\u05D7\u05D9\u05D9\u05D4',sr_declined:'\u05D4\u05D1\u05E7\u05E9\u05D4 \u05E0\u05D3\u05D7\u05EA\u05D4.',sr_select_first:'\u05D0\u05E0\u05D0 \u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4 \u05E7\u05D5\u05D3\u05DD.',sr_already_connected_msg:'\u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05DB\u05D1\u05E8 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u05DC\u05D9\u05DC\u05D3/\u05D4 \u05D6\u05D4.',sr_approve_failed:'\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05E0\u05DB\u05E9\u05DC.',sr_approve_toast:'\u2705 {spec} \u05E0\u05D5\u05E1\u05E3/\u05D4 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC {child}!',sr_something_wrong:'\u05DE\u05E9\u05D4\u05D5 \u05D4\u05E9\u05EA\u05D1\u05E9.',sr_approved_badge:'\u05D0\u05D5\u05E9\u05E8',sr_declined_badge:'\u05E0\u05D3\u05D7\u05D4',sr_removed_badge:'\u05D4\u05D5\u05E1\u05E8',sr_popup_title:'\uD83E\uDE7A \u05D1\u05E7\u05E9\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA \u05D7\u05D3\u05E9\u05D4',sr_wants_join:'\u05E8\u05D5\u05E6\u05D4 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC: "{hint}"',sr_which_child:'\u05D0\u05D9\u05D6\u05D4 \u05D9\u05DC\u05D3/\u05D4 \u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05D4\u05D6\u05D4?',sr_approving_full:'\u23F3 \u05DE\u05D0\u05E9\u05E8\u05D9\u05DD\u2026',sr_already_connected_child:'\u05DB\u05D1\u05E8 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u05DC\u05D9\u05DC\u05D3/\u05D4 \u05D6\u05D4.',sr_add_child_first:'\u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D9\u05DC\u05D3/\u05D4 \u05E7\u05D5\u05D3\u05DD \u05DB\u05D3\u05D9 \u05DC\u05D0\u05E9\u05E8 \u05D0\u05EA \u05D4\u05D1\u05E7\u05E9\u05D4.',sr_later:'\u05DE\u05D0\u05D5\u05D7\u05E8 \u05D9\u05D5\u05EA\u05E8',sr_more_pending:'+{count} \u05D1\u05E7\u05E9\u05D4 \u05DE\u05DE\u05EA\u05D9\u05E0\u05D4 \u05E0\u05D5\u05E1\u05E4\u05EA',sr_more_pending_plural:'+{count} \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA \u05E0\u05D5\u05E1\u05E4\u05D5\u05EA',sr_join_title:'\uD83D\uDCE8 \u05D4\u05E6\u05D8\u05E8\u05E4\u05D5\u05EA \u05DC\u05E6\u05D5\u05D5\u05EA \u05D8\u05D9\u05E4\u05D5\u05DC',sr_join_subtitle:'\u05E9\u05DC\u05D7\u05D5 \u05D1\u05E7\u05E9\u05D4 \u05DC\u05D4\u05D5\u05E8\u05D4 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05E9\u05DC \u05D9\u05DC\u05D3\u05DD.',sr_no_requests:'\u05DC\u05D0 \u05E0\u05E9\u05DC\u05D7\u05D5 \u05D1\u05E7\u05E9\u05D5\u05EA \u05E2\u05D3\u05D9\u05D9\u05DF.',sr_my_requests:'\u05D4\u05D1\u05E7\u05E9\u05D5\u05EA \u05E9\u05DC\u05D9',sr_pending_badge:'\u23F3 \u05DE\u05DE\u05EA\u05D9\u05DF',sr_approved_badge_full:'\u2705 \u05D0\u05D5\u05E9\u05E8',sr_removed_badge_full:'\u05D4\u05D5\u05E1\u05E8',sr_send_new:'\u2795 \u05E9\u05DC\u05D9\u05D7\u05EA \u05D1\u05E7\u05E9\u05D4 \u05D7\u05D3\u05E9\u05D4',sr_parent_email:'\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC \u05D4\u05D4\u05D5\u05E8\u05D4',sr_child_hint:'\u05E9\u05DD \u05D4\u05D9\u05DC\u05D3/\u05D4 (\u05E8\u05DE\u05D6 \u05DC\u05D4\u05D5\u05E8\u05D4)',sr_child_hint_placeholder:'\u05DC\u05DE\u05E9\u05DC: \u05D0\u05E8\u05D6, \u05E9\u05DC\u05D5\u2026',sr_child_hint_note:'\u05D4\u05E9\u05DD \u05E9\u05D4\u05D4\u05D5\u05E8\u05D4 \u05D1\u05D7\u05E8/\u05D4 \u05DC\u05D9\u05DC\u05D3 \u05DE\u05E7\u05D1\u05DC \u05E2\u05D3\u05D9\u05E4\u05D5\u05EA.',sr_your_specialty:'\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u05E9\u05DC\u05DA',sr_send_info:'\u05D4\u05D4\u05D5\u05E8\u05D4 \u05D9\u05E7\u05D1\u05DC/\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC \u05E2\u05DD \u05E7\u05D9\u05E9\u05D5\u05E8 \u05DC\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D1\u05E7\u05E9\u05D4. \u05DC\u05D0\u05D7\u05E8 \u05D4\u05D0\u05D9\u05E9\u05D5\u05E8, \u05D4\u05D9\u05DC\u05D3/\u05D4 \u05D9\u05D5\u05E4\u05D9\u05E2/\u05EA\u05D5\u05E4\u05D9\u05E2 \u05D1\u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD \u05E9\u05DC\u05DA.',sr_send_btn:'\uD83D\uDCE8 \u05E9\u05DC\u05D9\u05D7\u05EA \u05D1\u05E7\u05E9\u05D4',sr_valid_email:'\u05D0\u05E0\u05D0 \u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05EA\u05D5\u05D1\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC \u05EA\u05E7\u05D9\u05E0\u05D4.',sr_enter_child_name:'\u05D0\u05E0\u05D0 \u05D4\u05D6\u05D9\u05E0\u05D5 \u05D0\u05EA \u05E9\u05DD \u05D4\u05D9\u05DC\u05D3/\u05D4.',sr_demo_mode:'\u05DE\u05E6\u05D1 \u05D3\u05DE\u05D5 \u2014 \u05D4\u05D1\u05E7\u05E9\u05D4 \u05DC\u05D0 \u05E0\u05E9\u05DC\u05D7\u05D4.',sr_sending:'\u23F3 \u05E9\u05D5\u05DC\u05D7\u05D9\u05DD\u2026',sr_already_sent:'\u05DB\u05D1\u05E8 \u05E9\u05DC\u05D7\u05EA\u05DD \u05D1\u05E7\u05E9\u05D4 \u05DC\u05D4\u05D5\u05E8\u05D4 \u05D4\u05D6\u05D5. \u05D4\u05DE\u05EA\u05D9\u05E0\u05D5 \u05DC\u05EA\u05E9\u05D5\u05D1\u05D4.',sr_send_failed:'\u05E9\u05DC\u05D9\u05D7\u05EA \u05D4\u05D1\u05E7\u05E9\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',sr_sent_to:'\u2705 \u05D4\u05D1\u05E7\u05E9\u05D4 \u05E0\u05E9\u05DC\u05D7\u05D4 \u05D0\u05DC {email}!',sr_send_error:'\u05DE\u05E9\u05D4\u05D5 \u05D4\u05E9\u05EA\u05D1\u05E9. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',ss_back:'\u2190 \u05D7\u05D6\u05E8\u05D4',ss_no_summaries_title:'\u05D0\u05D9\u05DF \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05E2\u05D3\u05D9\u05D9\u05DF',ss_no_summaries_desc:'\u05DB\u05E9\u05DE\u05D8\u05E4\u05DC/\u05EA \u05D9\u05E4\u05E8\u05E1\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD \u05DE\u05E4\u05D2\u05E9, \u05D4\u05D5\u05D0 \u05D9\u05D5\u05E4\u05D9\u05E2 \u05DB\u05D0\u05DF.',ss_count_single:'{count} \u05E1\u05D9\u05DB\u05D5\u05DD \u00B7 \u05D0\u05D7\u05E8\u05D5\u05DF: {latest}',ss_count_plural:'{count} \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u00B7 \u05D0\u05D7\u05E8\u05D5\u05DF: {latest}',ss_all_providers:'\u2190 \u05DB\u05DC \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',ss_no_summaries_spec:'\u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05E4\u05E8\u05E1\u05DD/\u05D4 \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD.',ss_minimise:'\u25B2 \u05DE\u05D6\u05E2\u05E8',chat_new_convo:'\uD83D\uDCAC \u05E9\u05D9\u05D7\u05D4 \u05D7\u05D3\u05E9\u05D4',chat_select_spec_msg:'\u05D1\u05D7\u05E8\u05D5 \u05DE\u05D8\u05E4\u05DC/\u05EA \u05DC\u05E9\u05DC\u05D9\u05D7\u05EA \u05D4\u05D5\u05D3\u05E2\u05D4:',chat_open_existing:'\u05E4\u05D5\u05EA\u05D7\u05D9\u05DD \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D9\u05D9\u05DE\u05EA.',chat_could_not_create:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D9\u05E6\u05D5\u05E8 \u05E6\u05D0\u05D8.',chat_created:'\u2705 \u05E6\u05D0\u05D8 \u05E0\u05D5\u05E6\u05E8!',chat_create_group:'\uD83D\uDC65 \u05D9\u05E6\u05D9\u05E8\u05EA \u05E6\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05D4',chat_group_desc:'\u05E6\u05E8\u05D5 \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D1\u05D5\u05E6\u05D9\u05EA. \u05D0\u05EA\u05DD \u05DB\u05D4\u05D5\u05E8\u05D9\u05DD \u05DB\u05DC\u05D5\u05DC\u05D9\u05DD \u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9\u05EA.',chat_group_name_label:'\u05E9\u05DD \u05D4\u05E6\u05D0\u05D8',chat_group_name_placeholder:'\u05DC\u05DE\u05E9\u05DC: \u05E6\u05D5\u05D5\u05EA \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05E9\u05DC \u05DC\u05D9\u05DC\u05D9',chat_select_participants:'\u05D1\u05D7\u05E8\u05D5 \u05DE\u05E9\u05EA\u05EA\u05E4\u05D9\u05DD',chat_create_group_btn:'\u2705 \u05D9\u05E6\u05D9\u05E8\u05EA \u05E6\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05D4',chat_select_one_spec:'\u26A0\uFE0F \u05D1\u05D7\u05E8\u05D5 \u05DC\u05E4\u05D7\u05D5\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA \u05D0\u05D7\u05D3.',chat_already_convo:'\u05DB\u05D1\u05E8 \u05D9\u05E9 \u05DC\u05DA \u05E9\u05D9\u05D7\u05D4 \u05E2\u05DD {name}.',chat_already_chat:'\u05DB\u05D1\u05E8 \u05D9\u05E9 \u05DC\u05DA \u05E6\u05D0\u05D8 \u05E2\u05DD \u05DE\u05E9\u05EA\u05EA\u05E4\u05D9\u05DD \u05D0\u05DC\u05D4.',chat_group_created:'\u2705 \u05E6\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05D4 "{name}" \u05E0\u05D5\u05E6\u05E8!',hh_shared_title:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \u05DE\u05E9\u05E7 \u05D1\u05D9\u05EA \u05DE\u05E9\u05D5\u05EA\u05E3',hh_no_coparent:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8 \u05D4\u05D5\u05E8\u05D4 \u05E0\u05D5\u05E1\u05E3. \u05D4\u05D6\u05DE\u05D9\u05E0\u05D5 \u05D1\u05DF/\u05D1\u05EA \u05D6\u05D5\u05D2 \u05D0\u05D5 \u05D0\u05E4\u05D5\u05D8\u05E8\u05D5\u05E4\u05D5\u05E1 \u05DC\u05E9\u05D9\u05EA\u05D5\u05E3 \u05D2\u05D9\u05E9\u05D4 \u05DC\u05D7\u05E9\u05D1\u05D5\u05DF.',hh_connected:'\u2705 \u05DE\u05D7\u05D5\u05D1\u05E8 \u00B7 \u05D2\u05D9\u05E9\u05D4 \u05DE\u05DC\u05D0\u05D4',hh_remove:'\u05D4\u05E1\u05E8\u05D4',hh_remove_confirm:'\u05DC\u05D4\u05E1\u05D9\u05E8 \u05D2\u05D9\u05E9\u05D4 \u05DC-{name}? \u05DC\u05D0 \u05D9\u05E8\u05D0\u05D5 \u05E2\u05D5\u05D3 \u05D0\u05EA \u05D7\u05E9\u05D1\u05D5\u05DF \u05D4\u05DE\u05E9\u05E4\u05D7\u05D4.',hh_access_removed:'\u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D5\u05E1\u05E8\u05D4.',hh_remove_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05E1\u05D9\u05E8 \u05D2\u05D9\u05E9\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',hh_pending_title:'\u23F3 \u05D4\u05D6\u05DE\u05E0\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA',hh_cancel:'\u05D1\u05D9\u05D8\u05D5\u05DC',hh_cancelled:'\u05D4\u05D4\u05D6\u05DE\u05E0\u05D4 \u05D1\u05D5\u05D8\u05DC\u05D4.',hh_invite_btn:'+ \u05D4\u05D6\u05DE\u05E0\u05EA \u05D4\u05D5\u05E8\u05D4 \u05E0\u05D5\u05E1\u05E3',hh_do_not_show:'\u05DC\u05D0 \u05DC\u05D4\u05E6\u05D9\u05D2 \u05E9\u05D5\u05D1',settings_spec_notif:'\uD83D\uDD14 \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',settings_spec_hw_label:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA / \u05D4\u05E9\u05DC\u05DE\u05D5\u05EA',settings_spec_apt_label:'\u05EA\u05D5\u05E8\u05D9\u05DD',settings_spec_chat_label:'\u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D7\u05D3\u05E9\u05D5\u05EA',settings_spec_report_label:'\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9 \u05DE\u05E4\u05D2\u05E9\u05D9\u05DD',settings_spec_hours:'\uD83D\uDD50 \u05E9\u05E2\u05D5\u05EA \u05E2\u05D1\u05D5\u05D3\u05D4',settings_spec_hours_desc:'\u05D4\u05D2\u05D3\u05D9\u05E8\u05D5 \u05D0\u05EA \u05D6\u05DE\u05D9\u05E0\u05D5\u05EA\u05DB\u05DD \u05DB\u05D3\u05D9 \u05E9\u05DE\u05E9\u05E4\u05D7\u05D5\u05EA \u05D9\u05D3\u05E2\u05D5 \u05DE\u05EA\u05D9 \u05DC\u05E4\u05E0\u05D5\u05EA \u05D0\u05DC\u05D9\u05DB\u05DD.',settings_spec_license:'\uD83E\uDEAA \u05DE\u05E1\u05E4\u05E8 \u05E8\u05D9\u05E9\u05D9\u05D5\u05DF',settings_spec_license_placeholder:'\u05DE\u05E1\u05E4\u05E8 \u05E8\u05D9\u05E9\u05D9\u05D5\u05DF \u05D0\u05D5 \u05E8\u05D9\u05E9\u05D5\u05DD (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',settings_spec_save_license:'\u05E9\u05DE\u05D9\u05E8\u05EA \u05E8\u05D9\u05E9\u05D9\u05D5\u05DF',settings_spec_phone:'\uD83D\uDCDE \u05D8\u05DC\u05E4\u05D5\u05DF \u05E2\u05D1\u05D5\u05D3\u05D4',settings_spec_phone_placeholder:'\u05D8\u05DC\u05E4\u05D5\u05DF \u05E2\u05D1\u05D5\u05D3\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',settings_spec_save_phone:'\u05E9\u05DE\u05D9\u05E8\u05EA \u05D8\u05DC\u05E4\u05D5\u05DF',settings_spec_saved:'\u05E0\u05E9\u05DE\u05E8!',settings_spec_edit_specialty:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05D4\u05EA\u05DE\u05D7\u05D5\u05EA',settings_spec_specialty_label:'\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA / \u05DE\u05E7\u05E6\u05D5\u05E2',settings_spec_save:'\u05E9\u05DE\u05D9\u05E8\u05D4',settings_spec_specialty_updated:'\u05D4\u05EA\u05DE\u05D7\u05D5\u05EA \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',settings_spec_save_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8.',settings_spec_specialty:'\uD83C\uDF93 \u05EA\u05DE\u05D7\u05D5\u05EA: {role}',settings_privacy:'\uD83D\uDD12 \u05E4\u05E8\u05D8\u05D9\u05D5\u05EA \u05D5\u05D0\u05D1\u05D8\u05D7\u05D4',settings_privacy_desc:'\u05DB\u05DC \u05D4\u05DE\u05D9\u05D3\u05E2 \u05E0\u05E9\u05DE\u05E8 \u05D1\u05D3\u05E4\u05D3\u05E4\u05DF \u05D5\u05D1-Supabase. \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E8\u05D5\u05D0\u05D9\u05DD \u05E8\u05E7 \u05E7\u05D1\u05E6\u05D9\u05DD \u05D5\u05EA\u05D5\u05E8\u05D9\u05DD \u05E9\u05E9\u05D5\u05EA\u05E4\u05D5 \u05D0\u05D9\u05EA\u05DD. \u05DB\u05E9\u05DE\u05D8\u05E4\u05DC \u05DE\u05D5\u05E1\u05E8 \u05D0\u05D5 \u05D9\u05DC\u05D3 \u05E0\u05DE\u05D7\u05E7, \u05D4\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05E9\u05DC\u05D4\u05DD \u05E0\u05E9\u05DE\u05E8\u05D9\u05DD \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',settings_onboarding:'\uD83D\uDDFA\uFE0F \u05D4\u05D3\u05E8\u05DB\u05D4 \u05D5\u05D4\u05D3\u05D2\u05DE\u05D4',settings_tour_title:'\u05E1\u05D9\u05D5\u05E8 \u05DE\u05D5\u05D3\u05E8\u05DA',settings_tour_desc_dismissed:'\u05D4\u05E1\u05D9\u05D5\u05E8 \u05D1\u05D5\u05D8\u05DC. \u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05E4\u05E2\u05DC\u05D4 \u05DE\u05D7\u05D3\u05E9.',settings_tour_desc:'\u05D4\u05E4\u05E2\u05DC\u05D5 \u05DE\u05D7\u05D3\u05E9 \u05D0\u05EA \u05D4\u05E1\u05D9\u05D5\u05E8 \u05D4\u05DE\u05D5\u05D3\u05E8\u05DA.',settings_tour_btn:'\u05D4\u05E4\u05E2\u05DC\u05EA \u05E1\u05D9\u05D5\u05E8',settings_demo_title:'\u05D8\u05E2\u05D9\u05E0\u05EA \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D3\u05DE\u05D5',settings_demo_desc:'\u05DE\u05DC\u05D0\u05D5 \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D3\u05D5\u05D2\u05DE\u05D4 \u05DC\u05DC\u05D9\u05DC\u05D9 \u05D5\u05E0\u05D5\u05D7 \u05DC\u05D7\u05E7\u05D9\u05E8\u05EA \u05DB\u05DC \u05D4\u05EA\u05DB\u05D5\u05E0\u05D5\u05EA.',settings_demo_btn:'\u05D8\u05E2\u05D9\u05E0\u05EA \u05D3\u05DE\u05D5',settings_demo_confirm_title:'\u05D8\u05E2\u05D9\u05E0\u05EA \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D3\u05DE\u05D5',settings_demo_confirm:'\u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05EA\u05D7\u05DC\u05D9\u05E3 \u05D0\u05EA \u05D4\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD \u05E9\u05DC\u05DA \u05D1\u05E0\u05EA\u05D5\u05E0\u05D9 \u05D3\u05DE\u05D5. \u05D1\u05D8\u05D5\u05D7\u05D9\u05DD?',settings_clear_apts_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DB\u05DC \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD',settings_clear_apts_desc:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DB\u05DC \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD \u05DE\u05D4\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D5\u05DE-Supabase.',settings_clear_apts_btn:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05EA\u05D5\u05E8\u05D9\u05DD',settings_clear_apts_confirm:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u05D0\u05EA \u05DB\u05DC \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD? \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',settings_apts_cleared:'\u2705 \u05DB\u05DC \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD \u05E0\u05DE\u05D7\u05E7\u05D5.',settings_apts_clear_fail:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05DE\u05D7\u05D5\u05E7 \u05E0\u05EA\u05D5\u05E0\u05D9\u05DD \u05DE\u05E8\u05D5\u05D7\u05E7\u05D9\u05DD. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',settings_clear_data_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DB\u05DC \u05D4\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD',settings_clear_data_desc:'\u05D0\u05D9\u05E4\u05D5\u05E1 \u05D4\u05DB\u05DC \u05DE\u05D7\u05D3\u05E9. \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',settings_clear_data_btn:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05E0\u05EA\u05D5\u05E0\u05D9\u05DD',settings_clear_data_confirm_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DB\u05DC \u05D4\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD',settings_clear_data_confirm:'\u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05EA\u05DE\u05D7\u05E7 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u05D0\u05EA \u05DB\u05DC \u05D4\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD \u05DB\u05D5\u05DC\u05DC \u05D9\u05DC\u05D3\u05D9\u05DD, \u05E7\u05D1\u05E6\u05D9\u05DD \u05D5\u05D7\u05D9\u05D1\u05D5\u05E8\u05D9\u05DD. \u05D1\u05D8\u05D5\u05D7\u05D9\u05DD?',settings_data_cleared:'\u05DB\u05DC \u05D4\u05E0\u05EA\u05D5\u05E0\u05D9\u05DD \u05E0\u05DE\u05D7\u05E7\u05D5.',settings_gcal_title:'\uD83D\uDCC5 Google Calendar',settings_gcal_connected:'\u2705 \u05DE\u05D7\u05D5\u05D1\u05E8 \u2014 \u05D4\u05EA\u05D5\u05E8\u05D9\u05DD \u05DE\u05E1\u05EA\u05E0\u05DB\u05E8\u05E0\u05D9\u05DD \u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9\u05EA',settings_gcal_disconnect:'\u05E0\u05D9\u05EA\u05D5\u05E7',settings_gcal_disconnected:'Google Calendar \u05E0\u05D5\u05EA\u05E7.',settings_gcal_disconnect_fail:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E0\u05EA\u05E7. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',settings_gcal_desc:'\u05D7\u05D1\u05E8\u05D5 \u05D0\u05EA Google Calendar \u05D5\u05DB\u05DC \u05EA\u05D5\u05E8 \u05E9\u05EA\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D9\u05D5\u05E4\u05D9\u05E2 \u05E9\u05DD \u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9\u05EA.',settings_gcal_connect:'\uD83D\uDD17 \u05D7\u05D9\u05D1\u05D5\u05E8 Google Calendar',settings_legal:'\uD83D\uDCCB \u05DE\u05E9\u05E4\u05D8\u05D9',settings_privacy_policy:'\u05DE\u05D3\u05D9\u05E0\u05D9\u05D5\u05EA \u05E4\u05E8\u05D8\u05D9\u05D5\u05EA',settings_terms:'\u05EA\u05E0\u05D0\u05D9 \u05E9\u05D9\u05DE\u05D5\u05E9',settings_cookies:'\u05DE\u05D3\u05D9\u05E0\u05D9\u05D5\u05EA \u05E2\u05D5\u05D2\u05D9\u05D5\u05EA',settings_contact:'\u05E6\u05D5\u05E8 \u05E7\u05E9\u05E8',removed_title:'\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05D4\u05EA\u05E0\u05EA\u05E7\u05D4',removed_msg:'\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05E0\u05D9\u05EA\u05E7\u05D4 \u05D0\u05D5\u05EA\u05DA \u05DE-{name}. \u05E2\u05D3\u05D9\u05D9\u05DF \u05EA\u05D5\u05DB\u05DC\u05D5 \u05DC\u05E8\u05D0\u05D5\u05EA \u05D0\u05EA \u05D4\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05D5\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05E9\u05DC\u05DB\u05DD. \u05DC\u05D4\u05E2\u05D1\u05D9\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF?',removed_yes:'\u05DB\u05DF, \u05D4\u05E2\u05D1\u05D9\u05E8\u05D5 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',removed_no:'\u05DC\u05D0, \u05D4\u05E9\u05D0\u05D9\u05E8\u05D5 \u05D1\u05E4\u05E2\u05D9\u05DC',removed_moved:'{name} \u05D4\u05D5\u05E2\u05D1\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',sr_new_child:'\u05D9\u05DC\u05D3/\u05D4 \u05D7\u05D3\u05E9',sr_save_select:'\u05E9\u05DE\u05D9\u05E8\u05D4 \u05D5\u05D1\u05D7\u05D9\u05E8\u05D4',sr_name_dob_required:'\u05E9\u05DD \u05D5\u05EA\u05D0\u05E8\u05D9\u05DA \u05DC\u05D9\u05D3\u05D4 \u05E0\u05D3\u05E8\u05E9\u05D9\u05DD.',sr_add_child_failed:'\u05D4\u05D5\u05E1\u05E4\u05EA \u05D4\u05D9\u05DC\u05D3/\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4.',sr_child_added:'\u2705 {name} \u05E0\u05D5\u05E1\u05E3/\u05D4!',sr_request_unavailable:'\u05D4\u05D1\u05E7\u05E9\u05D4 \u05D0\u05D9\u05E0\u05D4 \u05D6\u05DE\u05D9\u05E0\u05D4 \u05D9\u05D5\u05EA\u05E8.',sr_already_approved:'\u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05DB\u05D1\u05E8 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA.',sr_request_status:'\u05D4\u05D1\u05E7\u05E9\u05D4 \u05D4\u05D6\u05D0\u05EA {status}.',sr_add_child_prompt:'\uD83E\uDE7A {name} \u05E8\u05D5\u05E6\u05D4 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA. \u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D9\u05DC\u05D3/\u05D4 \u05E7\u05D5\u05D3\u05DD.',sr_modal_title:'\uD83E\uDE7A \u05D1\u05E7\u05E9\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA',sr_wants_join_msg:'{name} ({role}) \u05E8\u05D5\u05E6\u05D4 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC\u05DB\u05DD.',sr_mentioned:'\u05D4\u05DD \u05E6\u05D9\u05D9\u05E0\u05D5: "{hint}"',sr_which_child_for:'\u05D0\u05D9\u05D6\u05D4 \u05D9\u05DC\u05D3/\u05D4 \u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05D4\u05D6\u05D4?',sr_select_child_prompt:'\u05D0\u05E0\u05D0 \u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4.',sr_approve_fail:'\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05E0\u05DB\u05E9\u05DC. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',loading_patients:'\u05DE\u05DB\u05D9\u05E0\u05D9\u05DD \u05D0\u05EA \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD\u2026',loading_tasks:'\u05D8\u05D5\u05E2\u05E0\u05D9\u05DD \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA\u2026',loading_almost:'\u05DB\u05DE\u05E2\u05D8 \u05E9\u05DD\u2026',invite_expired:'\u26A0\uFE0F \u05D4\u05D4\u05D6\u05DE\u05E0\u05D4 \u05E4\u05D2\u05D4 \u05EA\u05D5\u05E7\u05E3. \u05D1\u05E7\u05E9\u05D5 \u05DE\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05D4\u05D6\u05DE\u05E0\u05D4 \u05D7\u05D3\u05E9\u05D4.',invite_welcome:'\uD83C\uDF89 \u05D1\u05E8\u05D5\u05DB\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD! \u05D4\u05E6\u05D8\u05E8\u05E4\u05EA\u05DD \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC {child}!',invite_could_not:'\u26A0\uFE0F \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E2\u05D1\u05D3 \u05D0\u05EA \u05D4\u05D4\u05D6\u05DE\u05E0\u05D4. \u05D1\u05E7\u05E9\u05D5 \u05DE\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05D4\u05D6\u05DE\u05E0\u05D4 \u05D7\u05D3\u05E9\u05D4.',invite_invalid_hh:'\u26A0\uFE0F \u05D4\u05D6\u05DE\u05E0\u05EA \u05DE\u05E9\u05E7 \u05D1\u05D9\u05EA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05E0\u05D4 \u05D0\u05D5 \u05E4\u05D2\u05EA \u05EA\u05D5\u05E7\u05E3.',invite_hh_expired:'\u26A0\uFE0F \u05D4\u05D4\u05D6\u05DE\u05E0\u05D4 \u05E4\u05D2\u05D4 \u05EA\u05D5\u05E7\u05E3.',invite_hh_used:'\u26A0\uFE0F \u05D4\u05D4\u05D6\u05DE\u05E0\u05D4 \u05DB\u05D1\u05E8 \u05E0\u05D5\u05E6\u05DC\u05D4.',invite_hh_link_fail:'\u26A0\uFE0F \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05EA\u05D7\u05D1\u05E8 \u05DC\u05D7\u05E9\u05D1\u05D5\u05DF \u05D4\u05DE\u05E9\u05E4\u05D7\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',invite_hh_connected:'\uD83C\uDF89 \u05D4\u05EA\u05D7\u05D1\u05E8\u05EA\u05DD \u05DC\u05D7\u05E9\u05D1\u05D5\u05DF \u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05D4\u05DE\u05E9\u05D5\u05EA\u05E3!',invite_hh_sign_in:'\uD83C\uDFE0 \u05D4\u05EA\u05D7\u05D1\u05E8\u05D5 \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05D7\u05E9\u05D1\u05D5\u05DF \u05D4\u05DE\u05E9\u05E4\u05D7\u05D4.',invite_sign_in:'\uD83E\uDD1D \u05D4\u05EA\u05D7\u05D1\u05E8\u05D5 \u05D0\u05D5 \u05E6\u05E8\u05D5 \u05D7\u05E9\u05D1\u05D5\u05DF \u05DB\u05D3\u05D9 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA.',invite_spec_review:'\uD83E\uDE7A \u05DE\u05D8\u05E4\u05DC/\u05EA \u05E8\u05D5\u05E6\u05D4 \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA. \u05D4\u05EA\u05D7\u05D1\u05E8\u05D5 \u05DC\u05D1\u05D3\u05D9\u05E7\u05D4.',gcal_connected:'\u2705 Google Calendar \u05DE\u05D7\u05D5\u05D1\u05E8!',gcal_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D7\u05D1\u05E8 \u05D0\u05EA Google Calendar. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',
+apt_add_title:'\u2795 הוספת תור',
+apt_attending:'\u2705 מגיעים',
+apt_could_not_save:'לא ניתן לשמור.',
+apt_date_label:'תאריך',
+apt_edit:'\u270F\uFE0F עריכה',
+apt_edit_title:'\u270F\uFE0F עריכת תור',
+apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
+apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
+apt_marked_attending:'סומן כמגיעים \u2705',
+apt_marked_not_attending:'סומן כלא מגיעים.',
+apt_not_attending:'\u274C לא מגיעים',
+apt_notes_placeholder:'הערות הכנה, מטרות, מה להביא\u2026',
+apt_parent_confirmed:'ההורה אישר/ה הגעה',
+apt_parent_not_attending:'ההורה סימן/ה כלא מגיעים',
+apt_session_with:'מפגש עם',
+apt_spec_placeholder:'לדוגמה: ד"ר שרה כהן',
+apt_title_date_required:'יש למלא כותרת ותאריך.',
+apt_title_label:'\uD83D\uDCC5 תור',
+apt_title_placeholder:'לדוגמה: מפגש קלינאית תקשורת',
+apt_type_speech:'קלינאות תקשורת',apt_type_ot:'ריפוי בעיסוק',apt_type_pt:'פיזיותרפיה',apt_type_psychology:'פסיכולוגיה',apt_type_general:'מפגש',
+cal_add_appointment:'הוספת תור',
+cal_add_child_first_long:'יש להוסיף פרופיל ילד/ה קודם.',
+cal_add_event_btn:'\u2795 הוספת אירוע',
+cal_date_required:'יש למלא כותרת ותאריך.',
+cal_does_not_repeat:'לא חוזר',
+cal_end_label:'סיום',
+cal_events_count:'{n} אירועים',
+cal_for_which_child:'עבור איזה ילד/ה?',
+cal_no_events_day:'אין אירועים ביום הזה.',
+cal_no_specs_child:'אין מטפלים מחוברים לילד/ה.',
+cal_repeat_label:'חזרה',
+cal_repeats:'חוזר',
+cal_repeats_biweekly:'כל שבועיים',
+cal_repeats_monthly:'חודשי',
+cal_repeats_weekly:'שבועי',
+cal_select_child_specs:'בחרי ילד/ה כדי לראות את המטפלים.',
+cal_session_type:'סוג מפגש',
+cal_session_type_placeholder:'חפשי או הקלידי סוג מפגש\u2026',
+cal_share_with_specs:'שיתוף עם מטפלים',
+cal_specialist_schedule:'לוח הזמנים שלי \u2014 {month}',
+cal_start_label:'התחלה',
+cal_sync_all:'סנכרון כל התורים ל-{name}',
+cal_sync_apple:'Apple iCal',
+cal_sync_coming_soon:'\uD83D\uDD17 סנכרון {name} \u2014 בקרוב!',
+cal_sync_desc:'סנכרני את התורים של Huddledin עם היומן החיצוני שלך. בחרי ספק:',
+cal_sync_google:'Google Calendar',
+cal_sync_google_btn:'\uD83D\uDCC5 סנכרון Google',
+cal_sync_outlook:'Outlook',
+cal_sync_title:'סנכרון יומן',
+cal_upcoming_label:'אירועים קרובים',
+chat_already_chat:'כבר יש לך צ\'אט עם המשתתפים האלה.',
+chat_already_convo:'כבר יש לך שיחה עם {name}.',
+chat_could_not_create:'לא ניתן ליצור צ\'אט.',
+chat_create_group:'\uD83D\uDC65 יצירת צ\'אט קבוצתי',
+chat_create_group_btn:'\u2705 יצירת צ\'אט קבוצתי',
+chat_created:'\u2705 הצ\'אט נוצר!',
+chat_group_created:'\u2705 צ\'אט קבוצתי "{name}" נוצר!',
+chat_group_desc:'יצירת שיחה קבוצתית. כהורה, את/ה נכלל/ת אוטומטית.',
+chat_group_name_label:'שם הצ\'אט',
+chat_group_name_placeholder:'לדוגמה: צוות המטפלים של לילי',
+chat_new_convo:'\uD83D\uDCAC שיחה חדשה',
+chat_open_existing:'פותח שיחה קיימת.',
+chat_select_one_spec:'\u26A0\uFE0F יש לבחור לפחות מטפל/ת אחד/ת.',
+chat_select_participants:'בחירת משתתפים',
+chat_select_spec_msg:'בחרי מטפל/ת לשליחת הודעה:',
+child_added_family:'\uD83C\uDF89 {name} נוסף/ה למשפחה!',
+child_camera_hint:'או השתמשי במצלמה בנייד',
+child_cancel:'ביטול',
+child_choose_avatar:'בחירת אווטאר',
+child_click_change:'תמונה נוכחית \u2014 לחצי לשינוי',
+child_click_upload:'לחצי להעלאת תמונה',
+child_click_upload_take:'לחצי להעלאה / צילום תמונה',
+child_delete_confirm_label:'הקלידי את שם הילד/ה לאישור',
+child_delete_detail:'מחיקת הפרופיל של {name} תגרום ל:\n\n\u2022 הסרת כל התורים והמשימות מלוח הבקרה\n\u2022 ביטול גישת כל המטפלים לילד/ה\n\u2022 הערות שנכתבו על ידי מטפלים יועברו לארכיון\n\u2022 הילד/ה יוסר/תוסר ממחליף הילדים\n\nפעולה זו לא מוחקת את חשבונות המטפלים ב-Huddledin.',
+child_delete_name_mismatch:'\u26A0\uFE0F השם לא תואם.',
+child_delete_title_full:'\u26A0\uFE0F מחיקת הפרופיל של {name}',
+child_delete_warning:'\u26A0\uFE0F לא ניתן לבטל פעולה זו',
+child_deleted_msg:'\u2705 הפרופיל של {name} נמחק.',
+child_dob_label:'תאריך לידה',
+child_drag_crop:'גררי וצבטי לחיתוך',
+child_edit_prefix:'\u270F\uFE0F עריכת {name}',
+child_name_dob_required:'יש למלא שם ותאריך לידה.',
+child_name_dob_warn:'\u26A0\uFE0F נדרשים שם ותאריך לידה.',
+child_name_label:'שם',
+child_name_placeholder:'שם מלא של הילד/ה',
+child_photo_cropped:'התמונה נחתכה \u2713',
+child_photo_removed:'\u2705 התמונה הוסרה.',
+child_photo_selected:'תמונה נבחרה \u2713',
+child_photo_title_full:'\uD83D\uDCF7 עדכון תמונה של {name}',
+child_photo_updated:'\u2705 התמונה עודכנה!',
+child_save_error:'\u274C לא ניתן לשמור. נסי שוב.',
+child_save_failed:'השמירה נכשלה: {error}',
+child_updated:'\u2705 {name} עודכן/ה!',
+child_upload_photo:'או העלאת תמונה (אופציונלי)',
+child_use_crop:'\u2705 שימוש בחיתוך הזה',
+content_coming_soon:'בקרוב\u2026',
+creds_delete_doc:'מחיקת מסמך',
+creds_delete_doc_confirm:'להסיר את המסמך הזה לצמיתות?',
+creds_doc_categories:'קטגוריות מסמכים',
+creds_doc_removed:'\u2705 המסמך הוסר.',
+creds_only_you:'רק את/ה יכול/ה לראות את המסמכים האלה',
+creds_upload_btn:'\uD83D\uDCE4 העלאה',
+creds_uploaded:'\u2705 המסמך הועלה לתיקייה הפרטית שלך!',
+creds_uploading:'מעלה: {name}',
+email_back:'\u2190 חזרה לתיבת הדואר',
+email_copied:'\u2705 הועתק!',
+email_from:'מאת: {from}',
+email_magic_link:'\uD83D\uDD17 קישור הזמנה',
+email_mark_all:'סימון הכל כנקרא',
+email_no_emails:'אין הודעות דוא"ל עדיין.',
+email_production_note:'בסביבת ייצור הודעות אלו יישלחו לתיבות דואר אמיתיות דרך SendGrid / Mailgun.',
+email_subtitle:'הודעות דוא"ל מדומות מ-Huddledin \u00B7 {count} לא נקראו',
+email_title:'\uD83D\uDCE7 תיבת דואר',
+email_to:'אל: {to} \u00B7 {date}',
+files_access_removed:'הגישה של {name} הוסרה.',
+files_already_pending:'\u26A0\uFE0F כבר יש לך בקשה ממתינה לתיקייה זו.',
+files_auth_updated:'ההרשאות עודכנו עבור {name}!',
+files_authorize_view:'אשרי למטפל/ת נוסף/ת צפייה:',
+files_back_profile:'\u2190 פרופיל',
+files_choose_spec_access:'בחרי אילו מטפלים יכולים לגשת לתיקייה זו:',
+files_choose_spec_file:'בחרי אילו מטפלים יכולים לגשת לקובץ זה:',
+files_could_not_grant:'לא ניתן להעניק גישה.',
+files_could_not_revoke:'לא ניתן לבטל גישה.',
+files_could_not_save_perms:'\u274C לא ניתן לשמור: {msg}',
+files_create_failed:'\u274C לא ניתן ליצור תיקייה. נסי שוב.',
+files_create_folder:'יצירת תיקייה',
+files_delete_confirm_long:'פעולה זו מסירה את הקובץ לצמיתות.',
+files_delete_confirm_undo:'פעולה זו מסירה את הקובץ לצמיתות. לא ניתן לבטל.',
+files_delete_failed:'\u274C לא ניתן למחוק תיקייה. נסי שוב.',
+files_delete_folder_btn:'\uD83D\uDDD1\uFE0F מחיקת תיקייה',
+files_delete_folder_msg:'פעולה זו תמחק את התיקייה וכל הקבצים בה לצמיתות. לא ניתן לבטל.',
+files_delete_folder_q:'למחוק את "{name}"?',
+files_download:'\u2B07 הורדה',
+files_enter_name:'יש להזין שם תיקייה.',
+files_file:'קובץ',files_files_pl:'קבצים',
+files_file_renamed:'שם הקובץ שונה!',
+files_folder_created:'\uD83D\uDCC1 התיקייה "{name}" נוצרה!',
+files_folder_deleted:'\uD83D\uDDD1\uFE0F התיקייה נמחקה.',
+files_folder_name_label:'שם התיקייה',
+files_folder_name_placeholder:'לדוגמה: קלינאות תקשורת',
+files_granted_access:'\u2705 ניתנה גישה ל-{name}.',
+files_grid:'\u229E תצוגת רשת',files_list:'\u2630 רשימה',
+files_hold_hint:'לחצי ארוך על תיקייה לשינוי שם, העלאה או מחיקה',
+files_icon_label:'אייקון',
+files_in_folder:'\u2192 ב-{folder}',
+files_manage:'\u2699\uFE0F ניהול',
+files_manage_perms:'\u2699\uFE0F ניהול הרשאות',
+files_matching_query:'קבצים התואמים ל-"{q}"',
+files_no_access:'אין גישה',
+files_no_folders_avail:'אין תיקיות זמינות עדיין. המתיני רגע ונסי שוב.',
+files_no_matching:'אין קבצים תואמים',
+files_no_matching_desc:'נסי מונח חיפוש אחר',
+files_no_specs_connected:'אין מטפלים מחוברים עדיין.',
+files_only_you:'\uD83D\uDC41 גלוי רק לך (אין למטפלים גישה לתיקייה זו עדיין)',
+files_open_folder:'פתיחת תיקייה',
+files_owner_grant:'הבעלים צריך/כה להעניק גישה',
+files_perms_updated:'\u2705 ההרשאות עודכנו!',
+files_personal_vaults:'כספות אישיות',files_personal_vault:'כספת אישית',
+files_preview_unavail:'תצוגה מקדימה לא זמינה',
+files_rename_failed:'\u274C שינוי השם נכשל. נסי שוב.',
+files_rename_prompt:'שינוי שם קובץ:',
+files_rename_title:'שינוי שם קובץ',files_new_name:'שם חדש',
+files_request_failed:'\u274C לא ניתן לשלוח בקשה. נסי שוב.',
+files_save_perms:'\u2705 שמירת הרשאות',
+files_save_to_folder:'שמירה בתיקייה',
+files_saving_perms:'שומר\u2026',
+files_select_child_first:'יש לבחור ילד/ה קודם.',
+files_select_spec_perms:'בחרי מטפל/ת לניהול גישה לתיקיות:',
+files_send_request:'\uD83D\uDCE8 שליחת בקשה',
+files_session_error:'שגיאת חיבור \u2014 יש לרענן את הדף.',
+files_setting_up:'מכין תיקיות\u2026',
+files_setting_up_desc:'התיקיות שלך נוצרות. משכי למטה לרענון.',
+files_upload_failed:'\u274C ההעלאה נכשלה. נסי שוב.',
+files_upload_to_folder:'\uD83D\uDCE4 העלאה לתיקייה זו',
+files_uploaded:'\u2705 "{name}" הועלה!',
+files_uploading:'\u23F3 מעלה\u2026',
+files_vault_private_desc:'זוהי הכספת הפרטית שלך. קבצים שמועלים לכאן אינם גלויים למטפלים אחרים.',
+files_view_btn:'\uD83D\uDC41 תצוגה מקדימה',
+files_visible_to:'\uD83D\uDC41 גלוי ל: {names}',
+files_who_can_see:'מי יכול לראות תיקייה זו?',
+files_your_vault:'הכספת שלך',files_private_vault:'כספת פרטית',
+gcal_connected:'\u2705 Google Calendar מחובר!',
+gcal_failed:'לא ניתן לחבר את Google Calendar. נסי שוב.',
+gv_moved_to:'\uD83D\uDCC2 הועבר ל-{folder}!',
+gv_process_title:'\uD83D\uDCCE עיבוד: {name}',
+gv_shared_with:'\uD83D\uDCE4 שותף עם {name}!',
+hh_access_removed:'הגישה הוסרה.',
+hh_cancel:'ביטול',
+hh_cancelled:'ההזמנה בוטלה.',
+hh_connected:'\u2705 מחובר/ת \u00B7 גישה מלאה',
+hh_do_not_show:'לא להציג שוב',
+hh_invite_btn:'+ הזמנת הורה נוסף',
+hh_no_coparent:'אין הורה נוסף מחובר עדיין. הזמיני שותף/ה או אפוטרופוס לשיתוף גישה לחשבון המשפחתי.',
+hh_pending_title:'\u23F3 הזמנות ממתינות',
+hh_remove:'הסרה',
+hh_remove_confirm:'להסיר את הגישה של {name}? לא יוכל/תוכל לראות את החשבון המשפחתי יותר.',
+hh_remove_failed:'לא ניתן להסיר גישה. נסי שוב.',
+hh_shared_title:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 משק בית משותף',
+invite_could_not:'\u26A0\uFE0F לא ניתן לעבד את ההזמנה. בקשי מהמשפחה לשלוח הזמנה חדשה.',
+invite_expired:'\u26A0\uFE0F ההזמנה פגה. בקשי מהמשפחה הזמנה חדשה.',
+invite_hh_connected:'\uD83C\uDF89 את/ה מחובר/ת כעת לחשבון המשפחתי המשותף!',
+invite_hh_expired:'\u26A0\uFE0F ההזמנה פגה.',
+invite_hh_link_fail:'\u26A0\uFE0F לא ניתן להתחבר לחשבון המשפחתי. נסי שוב.',
+invite_hh_sign_in:'\uD83C\uDFE0 יש להתחבר כדי להצטרף לחשבון המשפחתי המשותף.',
+invite_hh_used:'\u26A0\uFE0F ההזמנה כבר נוצלה.',
+invite_invalid_hh:'\u26A0\uFE0F הזמנה לא תקינה או שפג תוקפה.',
+invite_sign_in:'\uD83E\uDD1D יש להתחבר או ליצור חשבון כדי להצטרף לצוות המטפלים.',
+invite_spec_review:'\uD83E\uDE7A מטפל/ת רוצה להצטרף לצוות המטפלים שלך. התחברי כדי לבדוק.',
+invite_welcome:'\uD83C\uDF89 ברוכים הבאים! הצטרפת לצוות המטפלים של {child}!',
+loading_almost:'כמעט שם\u2026',
+loading_patients:'מכין את רשימת המטופלים\u2026',
+loading_tasks:'טוען משימות\u2026',
+notif_page_title:'התראות',
+push_blocked_msg:'ההתראות חסומות. ניתן לשנות זאת בהגדרות הדפדפן.',
+push_desc:'קבלי התראות מיידיות על דוחות, הודעות ומשימות חדשות',
+push_enable:'הפעלה',
+push_enabled_body:'התראות פוש הופעלו! תקבלי עדכונים בזמן אמת.',
+push_not_now:'לא עכשיו',
+push_title:'הפעלת התראות פוש',
+removed_moved:'{name} הועבר/ה ללא פעילים.',
+removed_msg:'המשפחה ניתקה אותך מ-{name}. עדיין תוכל/י לצפות בהערות ובקבצים שלך. להעביר לרשימה הלא פעילה?',
+removed_no:'לא, להשאיר בפעילים',
+removed_title:'המשפחה התנתקה',
+removed_yes:'כן, להעביר ללא פעילים',
+sd_locked_badge:'\uD83D\uDD12 נעול',sd_draft_badge:'טיוטה',sd_published_badge:'פורסם',
+sd_profile_coming_soon:'קישור הפרופיל הועתק \u2014 בקרוב!',
+settings_apts_clear_fail:'\u274C לא ניתן לנקות נתונים. נסי שוב.',
+settings_apts_cleared:'\u2705 כל התורים נמחקו.',
+settings_clear_apts_btn:'ניקוי תורים',
+settings_clear_apts_confirm:'למחוק את כל התורים לצמיתות? לא ניתן לבטל.',
+settings_clear_apts_desc:'מחיקת כל התורים מהמכשיר ומ-Supabase.',
+settings_clear_apts_title:'ניקוי כל התורים',
+settings_clear_data_btn:'ניקוי נתונים',
+settings_clear_data_confirm:'פעולה זו תמחק לצמיתות את כל הנתונים כולל ילדים, קבצים וחיבורים. בטוחה?',
+settings_clear_data_confirm_title:'ניקוי כל הנתונים',
+settings_clear_data_desc:'איפוס הכל. לא ניתן לבטל.',
+settings_clear_data_title:'ניקוי כל הנתונים',
+settings_contact:'צרי קשר',
+settings_cookies:'מדיניות עוגיות',
+settings_data_cleared:'כל הנתונים נוקו.',
+settings_demo_btn:'טעינת דמו',
+settings_demo_confirm:'פעולה זו מחליפה את הנתונים הנוכחיים בנתוני דמו. בטוחה?',
+settings_demo_confirm_title:'טעינת נתוני דמו',
+settings_demo_desc:'מילוי בנתונים לדוגמה של לילי ונח כדי לחקור את כל הפיצ\'רים.',
+settings_demo_title:'טעינת נתוני דמו',
+settings_gcal_connect:'\uD83D\uDD17 חיבור Google Calendar',
+settings_gcal_connected:'\u2705 מחובר \u2014 התורים מסתנכרנים אוטומטית',
+settings_gcal_desc:'חברי את Google Calendar שלך וכל תור שתוסיפי יופיע שם אוטומטית.',
+settings_gcal_disconnect:'ניתוק',
+settings_gcal_disconnect_fail:'לא ניתן לנתק. נסי שוב.',
+settings_gcal_disconnected:'Google Calendar נותק.',
+settings_gcal_title:'\uD83D\uDCC5 Google Calendar',
+settings_legal:'\uD83D\uDCCB משפטי',
+settings_onboarding:'\uD83D\uDDFA\uFE0F הדרכה ודמו',
+settings_privacy:'\uD83D\uDD12 פרטיות ואבטחה',
+settings_privacy_desc:'כל נתוני המפגשים נשמרים באחסון המקומי של הדפדפן וב-Dropbox (לקבצים שהועלו). מטפלים רואים רק קבצים ותורים ששותפו איתם. כשמטפל/ת מוסר/ת או ילד/ה נמחק/ת, ההערות שנכתבו נשמרות בארכיון.',
+settings_privacy_policy:'מדיניות פרטיות',
+settings_spec_apt_label:'תורים',
+settings_spec_chat_label:'הודעות חדשות',
+settings_spec_edit_specialty:'עריכת התמחות',
+settings_spec_hours:'\uD83D\uDD50 שעות עבודה',
+settings_spec_hours_desc:'הגדירי את הזמינות שלך כדי שמשפחות ידעו מתי ניתן לפנות אלייך.',
+settings_spec_hw_label:'משימות / השלמות חדשות',
+settings_spec_license:'\uD83E\uDEAA מספר רישיון',
+settings_spec_license_placeholder:'מספר רישיון או רישום (אופציונלי)',
+settings_spec_notif:'\uD83D\uDD14 התראות',
+settings_spec_phone:'\uD83D\uDCDE טלפון עבודה',
+settings_spec_phone_placeholder:'טלפון עבודה (אופציונלי)',
+settings_spec_report_label:'סיכומי מפגשים',
+settings_spec_save:'שמירה',
+settings_spec_save_failed:'לא ניתן לשמור.',
+settings_spec_save_license:'שמירת רישיון',
+settings_spec_save_phone:'שמירת טלפון',
+settings_spec_saved:'נשמר!',
+settings_spec_specialty:'\uD83C\uDF93 התמחות: {role}',
+settings_spec_specialty_label:'ההתמחות / מקצוע שלך',
+settings_spec_specialty_updated:'ההתמחות עודכנה!',
+settings_terms:'תנאי שימוש',
+settings_tour_btn:'הפעלת סיור מחדש',
+settings_tour_desc:'הפעלה מחדש של סיור ההדרכה.',
+settings_tour_desc_dismissed:'הסיור נסגר. לחצי להפעלה מחדש.',
+settings_tour_title:'סיור מודרך',
+sr_add_child_failed:'הוספת הילד/ה נכשלה.',
+sr_add_child_first:'יש להוסיף ילד/ה קודם כדי לאשר בקשה זו.',
+sr_add_child_prompt:'\uD83E\uDE7A {name} רוצה להצטרף לצוות המטפלים. הוסיפי ילד/ה קודם כדי לאשר.',
+sr_add_new_child:'+ הוספת ילד/ה חדש/ה',
+sr_already_approved:'המטפל/ת כבר מחובר/ת.',
+sr_already_connected:' \u2014 כבר מחובר/ת',
+sr_already_connected_child:'כבר מחובר/ת לילד/ה.',
+sr_already_connected_msg:'המטפל/ת כבר מחובר/ת לילד/ה.',
+sr_already_sent:'כבר שלחת בקשה להורה. המתיני לתשובה.',
+sr_approve:'\u2705 אישור',
+sr_approve_fail:'האישור נכשל. נסי שוב.',
+sr_approve_failed:'האישור נכשל.',
+sr_approve_toast:'\u2705 {spec} נוסף/ה לצוות המטפלים של {child}!',
+sr_approved_badge:'אושר',
+sr_approved_badge_full:'\u2705 אושר',
+sr_approving:'\u23F3\u2026',
+sr_approving_full:'\u23F3 מאשר\u2026',
+sr_child_added:'\u2705 {name} נוסף/ה!',
+sr_child_hint:'שם הילד/ה (רמז להורה)',
+sr_child_hint_note:'השם שההורה נתן/ה לילד/ה מקבל עדיפות.',
+sr_child_hint_placeholder:'לדוגמה: ארז, שלו\u2026',
+sr_decline:'\u2717 דחייה',
+sr_declined:'הבקשה נדחתה.',
+sr_declined_badge:'נדחה',
+sr_demo_mode:'מצב דמו \u2014 הבקשה לא נשלחה.',
+sr_enter_child_name:'יש להזין את שם הילד/ה.',
+sr_join_subtitle:'שלחי בקשה להורה להצטרף לצוות המטפלים של ילדם.',
+sr_join_title:'\uD83D\uDCE8 הצטרפות לצוות מטפלים',
+sr_later:'אחר כך',
+sr_mentioned:'הם ציינו: "{hint}"',
+sr_modal_title:'\uD83E\uDE7A בקשת מטפל/ת',
+sr_more_pending:'+{count} בקשה ממתינה נוספת',
+sr_more_pending_plural:'+{count} בקשות ממתינות נוספות',
+sr_my_requests:'הבקשות שלי',
+sr_name_dob_required:'נדרשים שם ותאריך לידה.',
+sr_new_child:'ילד/ה חדש/ה',
+sr_no_requests:'לא נשלחו בקשות עדיין.',
+sr_parent_email:'דוא"ל ההורה',
+sr_pending_badge:'\u23F3 ממתין',
+sr_pending_count:'ממתינים ({count})',
+sr_popup_title:'\uD83E\uDE7A בקשת מטפל/ת חדשה',
+sr_removed_badge:'הוסר/ה',
+sr_removed_badge_full:'הוסר/ה',
+sr_request_status:'הבקשה הזו {status}.',
+sr_request_unavailable:'הבקשה כבר לא זמינה.',
+sr_requested_for:'הבקשה עבור: {hint}',
+sr_save_select:'שמירה ובחירה',
+sr_select_child:'בחרי ילד/ה:',
+sr_select_child_option:'בחרי ילד/ה...',
+sr_select_child_prompt:'יש לבחור ילד/ה.',
+sr_select_first:'יש לבחור ילד/ה קודם.',
+sr_send_btn:'\uD83D\uDCE8 שליחת בקשה',
+sr_send_error:'משהו השתבש. נסי שוב.',
+sr_send_failed:'שליחת הבקשה נכשלה. נסי שוב.',
+sr_send_info:'ההורה יקבל דוא"ל עם קישור לאישור הבקשה. לאחר האישור, הילד/ה יופיע/תופיע ברשימת המטופלים שלך.',
+sr_send_new:'\u2795 שליחת בקשה חדשה',
+sr_sending:'\u23F3 שולח\u2026',
+sr_sent_to:'\u2705 הבקשה נשלחה ל-{email}!',
+sr_something_wrong:'משהו השתבש.',
+sr_specialist_fallback:'מטפל/ת',
+sr_valid_email:'יש להזין כתובת דוא"ל תקינה.',
+sr_wants_join:'רוצה להצטרף לצוות המטפלים עבור: "{hint}"',
+sr_wants_join_msg:'{name} ({role}) רוצה להצטרף לצוות המטפלים שלך.',
+sr_which_child:'עבור איזה ילד/ה המטפל/ת?',
+sr_which_child_for:'עבור איזה ילד/ה המטפל/ת?',
+sr_your_specialty:'ההתמחות שלך',
+ss_all_providers:'\u2190 כל המטפלים',
+ss_back:'\u2190 חזרה',
+ss_count_plural:'{count} סיכומים \u00B7 אחרון: {latest}',
+ss_count_single:'{count} סיכום \u00B7 אחרון: {latest}',
+ss_minimise:'\u25B2 מזעור',
+ss_no_summaries_desc:'כשמטפל/ת יפרסם/תפרסם סיכום מפגש, הוא יופיע כאן.',
+ss_no_summaries_spec:'המטפל/ת עדיין לא פרסם/ה סיכומים.',
+ss_no_summaries_title:'אין סיכומים עדיין',
+team_approve_grant:'אישור והענקת גישה',
+team_archived_info:'{child} \u00B7 בארכיון {date} \u00B7 {count} הערה/ות נשמרו',
+team_cancel_failed:'\u274C לא ניתן לבטל הזמנה.',
+team_cancel_invite:'ביטול הזמנה',
+team_cancel_invite_msg:'לבטל את ההזמנה ל-{name}? לא יוכל/תוכל להצטרף לצוות של {child} עם קישור זה.',
+team_care_team_label:'צוות המטפלים',
+team_choose_folders:'בחרי אילו תיקיות לשתף:',
+team_connected_label:'מחובר/ת {date}',
+team_consult_approved:'\u2705 הייעוץ אושר! צ\'אט נוצר.',
+team_consult_desc:'{spec} ביקש/ה להתייעץ עם {target} בנוגע ל-{child}.',
+team_consult_error:'שגיאה באישור. נסי שוב.',
+team_consult_reqs:'\uD83E\uDD1D בקשות ייעוץ',
+team_consult_stub:'ייעוצים מתבקשים על ידי מטפלים \u2014 בדקי בדף צוות המטפלים אם יש בקשות ממתינות.',
+team_decline:'דחייה',
+team_folder_access_reqs:'\uD83D\uDCC1 בקשות גישה לתיקיות',
+team_grant_access:'\u2705 הענקת גישה',
+team_invite_cancelled:'\u2705 ההזמנה בוטלה.',
+team_invite_child_first:'\u26A0\uFE0F יש לפתוח פרופיל ילד/ה קודם, ואז לשלוח הזמנה.',
+team_invite_delivery_fail:'\u26A0\uFE0F שליחת הדוא"ל נכשלה. שתפי את הקישור ידנית.',
+team_invite_email_placeholder:'כתובת הדוא"ל של המטפל/ת',
+team_invite_email_required:'\u26A0\uFE0F נדרשת כתובת דוא"ל.',
+team_invite_email_sent:'\uD83D\uDCE7 הודעת הזמנה נשלחה אוטומטית ל-{email}',
+team_invite_explainer:'הודעת הזמנה עם קישור תישלח בדוא"ל. אם הם חדשים ב-Huddledin, הקישור ינחה אותם להירשם ולהצטרף אוטומטית לצוות המטפלים.',
+team_invite_failed:'\u274C שליחת ההזמנה נכשלה \u2014 נסי שוב',
+team_invite_link_copied:'\u2705 הקישור הועתק!',
+team_invite_link_label:'\uD83D\uDD17 קישור הזמנה (לחצי להעתקה)',
+team_invite_name_placeholder:'שם מלא של המטפל/ת',
+team_invite_send:'\uD83D\uDCE8 שליחת הזמנה',
+team_invite_sending:'\u2705 שולח הזמנה ל-{email}\u2026',
+team_invite_title:'\u2795 הזמנת מטפל/ת',
+team_invited_awaiting:'הוזמן/ה \u2014 ממתין/ה לתשובה',
+team_invited_badge:'\uD83D\uDCE7 הוזמן/ה',
+team_legacy_archives:'\uD83D\uDDC4\uFE0F ארכיון',
+team_legacy_badge:'ארכיון',
+team_no_access_child:'אין גישה לילד/ה',
+team_no_folders_child:'לא נמצאו תיקיות לילד/ה.',
+team_no_folders_yet:'עדיין לא נוצרו תיקיות \u2014 המטפל/ת יקבל/תקבל גישה כשתיווצרנה תיקיות.',
+team_past_badge:'עבר',
+team_past_specs:'מטפלים קודמים ({n})',
+team_pending_team_reqs:'\uD83D\uDC65 בקשות צוות ממתינות',
+team_perms_save_failed:'\u274C לא ניתן לשמור: {msg}',
+team_perms_updated:'\u2705 ההרשאות עודכנו עבור {name}!',
+team_reconnect:'חיבור מחדש',
+team_reconnect_failed:'\u274C לא ניתן לחבר מחדש. נסי שוב.',
+team_reconnected:'\u2705 {name} חובר/ה מחדש לצוות המטפלים של {child}',
+team_removed_notes:'\u2705 {name} הוסר/ה. ההערות נשמרות בארכיון.',
+team_requested_label:'הוגשה בקשה {date}',
+team_requesting_access:'מבקש/ת גישה ל: {folder}',
+team_which_areas:'לאילו אזורים ל-{name} תהיה גישה?',
 }
 };
 
@@ -5220,8 +6117,9 @@ _lp.innerHTML=`<style>
 .lp-ptoggle span{font-size:13px;font-weight:500;opacity:.6;cursor:pointer;transition:opacity .15s}
 .lp-ptoggle span.on{opacity:1;font-weight:600}
 .lp-ptoggle-pill{width:44px;height:24px;background:rgba(255,255,255,.3);border-radius:12px;position:relative;cursor:pointer}
-.lp-ptoggle-pill::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+.lp-ptoggle-pill::after{content:'';position:absolute;top:3px;inset-inline-start:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
 .lp-ptoggle-pill.mo::after{transform:translateX(20px)}
+[dir="rtl"] .lp-ptoggle-pill.mo::after{transform:translateX(-20px)}
 .lp-pprice{font-size:48px;font-weight:700;line-height:1}
 .lp-pper{font-size:14px;opacity:.7;margin-bottom:6px}
 .lp-pbill{font-size:12px;opacity:.5;margin-bottom:24px}
@@ -5458,7 +6356,7 @@ function renderAuth(){
   function buildForm(){
     formArea.innerHTML='';
     const rp=el('div',{class:'role-pick'});
-    [{r:'parent',e:'👨‍👩‍👧',l:'Parent'},{r:'specialist',e:'🩺',l:'Specialist'}].forEach(({r,e,l})=>{
+    [{r:'parent',e:'👨‍👩‍👧',l:T('auth_role_parent')},{r:'specialist',e:'🩺',l:T('auth_role_specialist')}].forEach(({r,e,l})=>{
       const o=el('div',{class:'role-opt'+(selRole===r?' sel':'')});
       o.innerHTML=`<div class="re">${e}</div><div class="rl">${l}</div>`;
       o.onclick=()=>{selRole=r;buildForm();};
@@ -5470,36 +6368,36 @@ function renderAuth(){
     const ig=el('div',{class:'inp-group'});
 
     if(mode==='signup'){
-      const ni=el('input',{class:'inp',placeholder:'Your full name',type:'text'});ni.id='auth-name';ig.appendChild(ni);
+      const ni=el('input',{class:'inp',placeholder:T('auth_name_placeholder'),type:'text'});ni.id='auth-name';ig.appendChild(ni);
       if(selRole==='specialist'){
         const pi2=el('select',{class:'inp'});pi2.id='auth-profession';PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;pi2.appendChild(o);});ig.appendChild(pi2);
       }
     }
-    const ei=el('input',{class:'inp',placeholder:'Email address',type:'email'});ei.id='auth-email';
-    const pi=el('input',{class:'inp',placeholder:'Password',type:'password'});pi.id='auth-pass';
+    const ei=el('input',{class:'inp',placeholder:T('auth_email_placeholder'),type:'email'});ei.id='auth-email';
+    const pi=el('input',{class:'inp',placeholder:T('auth_password_placeholder'),type:'password'});pi.id='auth-pass';
     ig.appendChild(ei);ig.appendChild(pi);
     if(mode==='signup'){
       const _tcRow=el('div',{style:{display:'flex',alignItems:'flex-start',gap:'10px',margin:'12px 0 4px',padding:'12px',background:'var(--mint-ll)',borderRadius:'12px',border:'1.5px solid var(--mint-l)'}});
       const _tcCb=el('input',{type:'checkbox',id:'auth-terms',style:{marginTop:'2px',flexShrink:0,width:'16px',height:'16px',cursor:'pointer',accentColor:'var(--teal)'}});
       const _tcLbl=el('label',{'for':'auth-terms',style:{fontSize:'.8rem',color:'var(--navy)',lineHeight:'1.5',cursor:'pointer'}});
-      _tcLbl.appendChild(document.createTextNode('I agree to the '));
-      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Terms of Service']));
-      _tcLbl.appendChild(document.createTextNode(' and '));
-      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},['Privacy Policy']));
+      _tcLbl.appendChild(document.createTextNode(T('auth_tc_agree')));
+      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},[T('auth_terms')]));
+      _tcLbl.appendChild(document.createTextNode(T('auth_and')));
+      _tcLbl.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontWeight:600,textDecoration:'underline'}},[T('auth_privacy')]));
       _tcRow.appendChild(_tcCb);_tcRow.appendChild(_tcLbl);ig.appendChild(_tcRow);
     }
 
-    const sb=mkBtn(mode==='signin'?'Sign In ✨':'Create Account 🎉','btn-lg btn-primary btn-full',async()=>{
+    const sb=mkBtn(mode==='signin'?T('auth_sign_in_btn'):T('auth_create_btn'),'btn-lg btn-primary btn-full',async()=>{
       const email=ei.value.trim(),pass=pi.value.trim();
       const name=mode==='signup'?(formArea.querySelector('#auth-name')?.value.trim()||''):'';
       const profession=mode==='signup'&&selRole==='specialist'?(formArea.querySelector('#auth-profession')?.value.trim()||''):'';
       errBox.innerHTML='';
-      if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},['Please fill in all fields.']));return;}
-      if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},['Please enter your profession.']));return;}
-      if(mode==='signup'){const _tc=formArea.querySelector('#auth-terms');if(!_tc||!_tc.checked){errBox.appendChild(el('div',{class:'auth-error'},['Please agree to the Terms of Service and Privacy Policy to continue.']));return;}}
-      sb.disabled=true;sb.textContent=mode==='signin'?'Signing in…':'Creating account…';
+      if(!email||!pass){errBox.appendChild(el('div',{class:'auth-error'},[T('auth_fill_fields')]));return;}
+      if(mode==='signup'&&selRole==='specialist'&&!profession){errBox.appendChild(el('div',{class:'auth-error'},[T('auth_enter_profession')]));return;}
+      if(mode==='signup'){const _tc=formArea.querySelector('#auth-terms');if(!_tc||!_tc.checked){errBox.appendChild(el('div',{class:'auth-error'},[T('auth_agree_terms')]));return;}}
+      sb.disabled=true;sb.textContent=mode==='signin'?T('auth_signing_in'):T('auth_creating');
       const res=await doLogin(email,pass,selRole,name,profession,mode);
-      sb.disabled=false;sb.textContent=mode==='signin'?'Sign In ✨':'Create Account 🎉';
+      sb.disabled=false;sb.textContent=mode==='signin'?T('auth_sign_in_btn'):T('auth_create_btn');
       if(res.error){errBox.appendChild(el('div',{class:'auth-error'},[res.error]));return;}
       track(mode==='signin'?'Login':'Signup',{role:selRole});
       // Parents land on Global Home (Level 0); specialists go straight to dashboard
@@ -5535,24 +6433,24 @@ function renderAuth(){
     ig.appendChild(sb);
     formArea.appendChild(ig);
     formArea.appendChild(el('p',{class:'auth-hint'},[
-      mode==='signin'?'No account? ':'Have an account? ',
+      mode==='signin'?T('auth_no_account'):T('auth_have_account'),
       el('span',{class:'auth-link',onclick:()=>setMode(mode==='signin'?'signup':'signin')},
-        [mode==='signin'?'Create one free':'Sign in instead'])
+        [mode==='signin'?T('auth_create_free'):T('auth_sign_in_instead')])
     ]));
     // Google SSO
     const orDiv=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',margin:'14px 0 10px'}});
     orDiv.appendChild(el('div',{style:{flex:1,height:'1px',background:'var(--mint-l)'}}));
-    orDiv.appendChild(el('span',{style:{fontSize:'.74rem',color:'var(--slate-l)',fontWeight:600}},['or']));
+    orDiv.appendChild(el('span',{style:{fontSize:'.74rem',color:'var(--slate-l)',fontWeight:600}},[T('auth_or')]));
     orDiv.appendChild(el('div',{style:{flex:1,height:'1px',background:'var(--mint-l)'}}));
     formArea.appendChild(orDiv);
     const gBtn=el('button',{class:'btn btn-lg btn-white btn-full',style:{gap:'10px',justifyContent:'center',border:'1.5px solid var(--mint-l)'}});
-    gBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google';
+    gBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+T('auth_google');
     gBtn.onclick=()=>doGoogleSignIn(selRole);
     formArea.appendChild(gBtn);
     // Demo mode quick button
     const demoDiv=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)',textAlign:'center'}});
-    demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},['Or explore with sample data:']));
-    const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},['👀 Try Demo Mode']);
+    demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},[T('auth_demo')]));
+    const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},[T('auth_demo_btn')]);
     demoBtn2.onclick=async()=>{
       // Quick demo login + load data
       const r=await doLogin('demo@huddledin.com','demo','parent','Demo Parent');
@@ -5574,14 +6472,14 @@ function renderAuth(){
   // Privacy & Terms footer
   const authFooter=el('div',{style:{textAlign:'center',marginTop:'18px',padding:'0 8px'}});
   authFooter.appendChild(el('p',{style:{fontSize:'.72rem',color:'var(--slate-l)',lineHeight:'1.7'}}, [
-    'By using Huddledin you agree to our ',
-    el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline',display:'inline-block',padding:'12px 4px'}},['Privacy Policy']),
-    ' and ',
-    el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline',display:'inline-block',padding:'12px 4px'}},['Terms of Service']),
+    T('auth_agree_prefix'),
+    el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline',display:'inline-block',padding:'12px 4px'}},[T('auth_privacy')]),
+    T('auth_and'),
+    el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'underline',display:'inline-block',padding:'12px 4px'}},[T('auth_terms')]),
     '.'
   ]));
   authFooter.appendChild(el('div',{style:{marginTop:'8px'}}, [
-    el('a',{href:'https://www.huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'none',opacity:.8,display:'inline-block',padding:'12px 6px'}},['Contact Us'])
+    el('a',{href:'https://www.huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{fontSize:'.72rem',color:'var(--slate-l)',textDecoration:'none',opacity:.8,display:'inline-block',padding:'12px 6px'}},[T('auth_contact')])
   ]));
   card.appendChild(authFooter);
   root.appendChild(card);
@@ -5749,32 +6647,32 @@ function _showSpecAiUpgradeModal(featureName){
     mb.appendChild(el('div',{style:{textAlign:'center',marginBottom:'16px'}},
       [el('div',{style:{fontSize:'2.2rem',marginBottom:'8px'}},['✨']),
        el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1.05rem',marginBottom:'6px'}},[featureName]),
-       el('p',{style:{color:'var(--slate)',fontSize:'.88rem',lineHeight:'1.6'}},['This is an AI-powered feature. Start a free trial or subscribe to unlock.'])]));
+       el('p',{style:{color:'var(--slate)',fontSize:'.88rem',lineHeight:'1.6'}},[T('spec_ai_desc')])]));
     // Pricing
     mb.appendChild(el('div',{style:{display:'flex',gap:'12px',marginBottom:'16px',justifyContent:'center'}},
       [el('div',{style:{textAlign:'center',padding:'12px 16px',background:'var(--mint-ll)',borderRadius:'12px',flex:1}},
         [el('div',{style:{fontWeight:900,fontSize:'1.3rem',color:'var(--navy)'}},['$9']),
-         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['/ month']),
-         el('div',{style:{fontSize:'.68rem',color:'var(--teal)',fontWeight:700}},['Billed annually'])]),
+         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]),
+         el('div',{style:{fontSize:'.68rem',color:'var(--teal)',fontWeight:700}},[T('spec_ai_billed_annually')])]),
        el('div',{style:{textAlign:'center',padding:'12px 16px',background:'#fff',border:'1.5px solid var(--mint-l)',borderRadius:'12px',flex:1}},
         [el('div',{style:{fontWeight:900,fontSize:'1.3rem',color:'var(--navy)'}},['$11']),
-         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},['/ month']),
-         el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},['Billed monthly'])])]));
+         el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]),
+         el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},[T('spec_ai_billed_monthly')])])]));
     // Trial button
-    const trialBtn=mkBtn('🎁 Start 7-Day Free Trial','btn-lg btn-primary btn-full',async()=>{
-      trialBtn.disabled=true;trialBtn.textContent='Starting…';
+    const trialBtn=mkBtn(T('spec_ai_start_trial'),'btn-lg btn-primary btn-full',async()=>{
+      trialBtn.disabled=true;trialBtn.textContent=T('spec_ai_starting');
       await _startSpecAiTrial();close();
     });
     mb.appendChild(trialBtn);
     mb.appendChild(el('div',{style:{height:'8px'}}));
     // Subscribe buttons
     const subRow=el('div',{style:{display:'flex',gap:'8px'}});
-    subRow.appendChild(mkBtn('$9/mo (annual)','btn-md btn-slate',()=>{close();_handleSpecAiPlanSelect('yearly');}));
-    subRow.appendChild(mkBtn('$11/mo','btn-md btn-ghost',()=>{close();_handleSpecAiPlanSelect('monthly');}));
+    subRow.appendChild(mkBtn(T('spec_ai_annual_btn'),'btn-md btn-slate',()=>{close();_handleSpecAiPlanSelect('yearly');}));
+    subRow.appendChild(mkBtn(T('spec_ai_monthly_btn'),'btn-md btn-ghost',()=>{close();_handleSpecAiPlanSelect('monthly');}));
     subRow.style.cssText='display:flex;gap:8px;';
     subRow.querySelectorAll('button').forEach(b=>{b.style.flex='1';});
     mb.appendChild(subRow);
-    mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.74rem',color:'var(--slate-l)',marginTop:'12px'}},['Cancel anytime. All base features remain free.']));
+    mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.74rem',color:'var(--slate-l)',marginTop:'12px'}},[T('spec_ai_cancel_note')]));
   },420);
 }
 
@@ -6134,7 +7032,7 @@ function renderParentDesktop(){
       // Info
       const info=el('div',{style:{flex:childCount===1?'1':'none',textAlign:childCount===1?'left':'center'}});
       info.appendChild(el('div',{style:{fontWeight:600,color:'#0f1a18',fontSize:'15px',marginBottom:'3px'}},[c.name]));
-      info.appendChild(el('div',{style:{fontSize:'13px',color:'#7aaba5',marginBottom:childCount===1?'0':'10px'}},[calcAge(c.dob)+(specCount?' · '+specCount+' specialist'+(specCount!==1?'s':''):'')]));
+      info.appendChild(el('div',{style:{fontSize:'13px',color:'#7aaba5',marginBottom:childCount===1?'0':'10px'}},[calcAge(c.dob)+(specCount?' · '+T('home_specialist_count',{count:specCount,s:specCount!==1?'s':''}):'')]));
       card.appendChild(info);
       // Chips
       const chips=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:childCount===1?'10px':'0',justifyContent:childCount===1?'flex-start':'center'}});
@@ -6525,7 +7423,7 @@ function renderSpecDesktop(){
       if(myNotes.length){
         const last=[...myNotes].sort((a,b)=>b.date.localeCompare(a.date))[0];
         const days=Math.floor((Date.now()-new Date(last.date))/(864e5));
-        lastAct='Note · '+(days===0?T('spec_dt_note_today'):days===1?T('spec_dt_note_yesterday'):days+'d ago');
+        lastAct=T('spec_dt_note_prefix')+(days===0?T('spec_dt_note_today'):days===1?T('spec_dt_note_yesterday'):T('spec_dt_note_days_ago',{d:days}));
       }
 
       const row=el('div',{class:'spec-dt-pl-row'+(isAct?' active':'')});
@@ -6538,7 +7436,7 @@ function renderSpecDesktop(){
       row.appendChild(_dtAvWrap);
       const ri=el('div',{class:'spec-dt-pl-ri'});
       const rn=el('div',{class:'spec-dt-pl-name'}); rn.textContent=c.name;
-      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent=calcAge(c.dob)||'Age —';
+      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent=calcAge(c.dob)||T('spec_dt_age_fallback');
       ri.appendChild(rn); ri.appendChild(ra);
       row.appendChild(ri);
       const rr=el('div',{class:'spec-dt-pl-right'});
@@ -6552,7 +7450,7 @@ function renderSpecDesktop(){
       const _dtIsPending=(c.connectionStatus||'approved')==='pending';
       if(!_dtIsPending){
         const _dtIsInact=_rmInactSet.has(c.id);
-        const dtToggle=el('div',{class:'toggle'+(_dtIsInact?'':' on'),style:{flexShrink:0,marginLeft:'4px'},title:_dtIsInact?'Move back to active':'Move to inactive'});
+        const dtToggle=el('div',{class:'toggle'+(_dtIsInact?'':' on'),style:{flexShrink:0,marginLeft:'4px'},title:_dtIsInact?T('spec_dt_move_active'):T('spec_dt_move_inactive')});
         dtToggle.onclick=e=>{
           e.stopPropagation();
           if(_dtIsInact){
@@ -6757,7 +7655,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
         row.appendChild(ti);
         const pb=el('span',{style:{fontSize:'.68rem',fontWeight:700,padding:'2px 8px',borderRadius:'6px',
           background:od?'#fef2f2':'var(--mint-ll)',color:od?'#be123c':'var(--teal)',flexShrink:0}});
-        pb.textContent=t.category||'Task';
+        pb.textContent=t.category||T('spec_dt_task_fallback');
         row.appendChild(pb);
         tCard.appendChild(row);
       });
@@ -6935,7 +7833,7 @@ function renderHeader(){
     const spec=getMySpecialistRecord();
     const nameTag=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}});
     nameTag.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:800,color:'var(--slate)'}},
-      [spec?.role||'Specialist']));
+      [spec?.role||T('hdr_specialist_fallback')]));
     inner.appendChild(nameTag);
   }
 
@@ -7028,9 +7926,9 @@ function renderDrawer(){
   // -- Profile header inside drawer --
   const spec=getMySpecialistRecord();
   const displayName=session?.role==='parent'
-    ?`${session?.name||'Parent'}`
-    :(spec?.name||session?.name||'Specialist');
-  const displayRole=session?.role==='parent'?T('parent_label')+' · '+T('managing_care'):'🩺 '+(session?.profession||spec?.role||'Specialist');
+    ?`${session?.name||T('auth_role_parent')}`
+    :(spec?.name||session?.name||T('hdr_specialist_fallback'));
+  const displayRole=session?.role==='parent'?T('parent_label')+' · '+T('managing_care'):'🩺 '+(session?.profession||spec?.role||T('hdr_specialist_fallback'));
   const avatar=session?.role==='parent'?'👨‍👩‍👧':'🩺';
 
   const prof=el('div',{class:'drawer-profile'});
@@ -7183,9 +8081,9 @@ function renderSidenav(){
   const prof=el('div',{class:'sidenav-profile'});
   // FIX F9/QA-SEC-2: avoid innerHTML with user-controlled data to prevent XSS
   prof.appendChild(el('div',{class:'sp-label'},[T('signed_in_as')]));
-  const profName=session?.role==='parent'?(session?.name||'Parent'):(spec?.name||session?.name||'Specialist');
+  const profName=session?.role==='parent'?(session?.name||T('auth_role_parent')):(spec?.name||session?.name||T('hdr_specialist_fallback'));
   prof.appendChild(el('div',{class:'sp-name'},[profName]));
-  prof.appendChild(badge(session?.role==='parent'?T('sidenav_parent_badge'):'🩺 '+(session?.profession||'Specialist'),'teal'));
+  prof.appendChild(badge(session?.role==='parent'?T('sidenav_parent_badge'):'🩺 '+(session?.profession||T('hdr_specialist_fallback')),'teal'));
   nav.appendChild(prof);
   const tourTargets={files:'tour-target-files',team:'tour-target-team',vault:'tour-target-vault',credentials:'tour-target-creds',patients:'tour-target-patients',settings:'tour-target-settings'};
   tabs.forEach(t=>{
@@ -13931,7 +14829,7 @@ function renderCredentials(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('creds_title')]),
-    el('p',{class:'page-sub'},['Private storage for your licenses and professional documents — not visible to parents or other specialists'])
+    el('p',{class:'page-sub'},[T('creds_only_you')])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn(T('creds_upload'),'btn-md btn-primary',()=>showCredentialUpload(spec,specId))]));
   sec.appendChild(hd);
@@ -13939,8 +14837,8 @@ function renderCredentials(){
   const card=el('div',{class:'card personal-folder'});
   card.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'11px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'2px solid var(--lav-l)'}},
     [el('span',{style:{fontSize:'1.6rem'}},['🔐']),el('div',{},[
-      el('div',{style:{fontWeight:800,color:'var(--navy)'}},['Secure Personal Storage']),
-      el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},['Only you can see these documents'])
+      el('div',{style:{fontWeight:800,color:'var(--navy)'}},[T('creds_secure_title')]),
+      el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'2px'}},[T('creds_only_you')])
     ])]));
 
   const creds=LS.get('my_credentials',spec.credentials||[]);
@@ -13957,11 +14855,11 @@ function renderCredentials(){
       _crMeta.textContent=(cr.date||'')+' · '+(cr.type||'');
       _crInfo.appendChild(_crName);_crInfo.appendChild(_crMeta);
       fi.appendChild(_crIcon);fi.appendChild(_crInfo);
-      fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Document','Remove this document permanently?',true,()=>{
+      fi.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm(T('creds_delete_doc'),T('creds_delete_doc_confirm'),true,()=>{
         const mySpec=getMySpecialistRecord();
         const updatedCreds=(mySpec.credentials||[]).filter(c=>c.id!==cr.id);
         LS.set('my_credentials',updatedCreds);
-        re();toast('✅ Document removed.');
+        re();toast(T('creds_doc_removed'));
       })));
       card.appendChild(fi);
     });
@@ -13970,7 +14868,7 @@ function renderCredentials(){
 
   // Categories
   const cats=['Professional License','CPD Certificate','Insurance','Registration','Other'];
-  sec.appendChild(el('div',{style:{marginTop:'20px'}},[el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Document Categories']),
+  sec.appendChild(el('div',{style:{marginTop:'20px'}},[el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('creds_doc_categories')]),
     el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}},cats.map(c=>badge(c,'lav')))]));
   return sec;
 }
@@ -13980,18 +14878,18 @@ function showCredentialUpload(spec,specId){
   fi.onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
     openModal('📤 Upload Credential',(mb,close)=>{
-      mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:600}},['Uploading: '+file.name]));
+      mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:600}},[T('creds_uploading',{name:file.name})]));
       const typeSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
       ['Professional License','CPD Certificate','Insurance','Registration','Other'].forEach(v=>{const o=el('option');o.value=v;o.textContent=v;typeSel.appendChild(o);});
       mb.appendChild(typeSel);
-      const upBtn=mkBtn('📤 Upload','btn-lg btn-primary btn-full',async()=>{
+      const upBtn=mkBtn(T('creds_upload_btn'),'btn-lg btn-primary btn-full',async()=>{
         upBtn.innerHTML='<span class="spinner"></span> Uploading…';upBtn.disabled=true;
         try{
           const {path,url}=await SB.uploadFile('specialists/'+specId,file);
           const existingCreds=LS.get('my_credentials',[]);
           existingCreds.push({id:'cr_'+Date.now(),name:file.name,date:new Date().toISOString().split('T')[0],type:typeSel.value,url});
           LS.set('my_credentials',existingCreds);
-          close();re();toast('✅ Credential uploaded to your private folder!');
+          close();re();toast(T('creds_uploaded'));
         }catch(e){close();console.error('upload failed:',e);toast('❌ Upload failed. Please try again.','error');}
       });
       mb.appendChild(upBtn);
@@ -14007,7 +14905,7 @@ function renderNotifications(){
   const sec=el('div',{class:'section'});
   const unreadCount=DB.notifications.filter(n=>!n.read).length;
   const hd=el('div',{class:'sec-hd',style:{marginBottom:'16px'}});
-  hd.appendChild(el('h2',{class:'page-title',style:{margin:0}},['Notifications']));
+  hd.appendChild(el('h2',{class:'page-title',style:{margin:0}},[T('notif_page_title')]));
   if(unreadCount>0){
     hd.appendChild(mkBtn(T('notif_mark_all_read'),'btn-sm btn-ghost',async()=>{
       const ns=DB.notifications;ns.forEach(n=>n.read=true);DB.notifications=ns;
@@ -14101,17 +14999,17 @@ function renderEmailInbox(){
 
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},['📧 Email Inbox']),
-    el('p',{class:'page-sub'},['Simulated notification emails from Huddledin · '+unread+' unread'])
+    el('h2',{class:'page-title'},[T('email_title')]),
+    el('p',{class:'page-sub'},[T('email_subtitle',{count:unread})])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
-    mkBtn('Mark All Read','btn-sm btn-slate',()=>{
+    mkBtn(T('email_mark_all'),'btn-sm btn-slate',()=>{
       const em=DB.emailInbox;em.forEach(e=>e.read=true);DB.emailInbox=em;re();
     })
   ]));
   sec.appendChild(hd);
 
-  if(!emails.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},['No emails yet.']));return sec;}
+  if(!emails.length){sec.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600}},[T('email_no_emails')]));return sec;}
 
   // If viewing a specific email
   if(S.activeEmailId){
@@ -14121,20 +15019,20 @@ function renderEmailInbox(){
       const em=DB.emailInbox,i=em.findIndex(e=>e.id===email.id);
       if(i>-1&&!em[i].read){em[i].read=true;DB.emailInbox=em;}
       const vc=el('div',{class:'card',style:{marginBottom:'14px'}});
-      vc.appendChild(mkBtn('← Back to Inbox','btn-sm btn-slate',()=>{S.activeEmailId=null;re();}));
+      vc.appendChild(mkBtn(T('email_back'),'btn-sm btn-slate',()=>{S.activeEmailId=null;re();}));
       vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'14px 0'}}));
       vc.appendChild(el('div',{style:{fontFamily:"'Fraunces',serif",fontSize:'1.15rem',fontWeight:800,color:'var(--navy)',marginBottom:'8px'}},[email.subject]));
-      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px',fontWeight:600}},['From: '+email.from]));
-      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['To: '+email.to+' · '+email.date]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px',fontWeight:600}},[T('email_from',{from:email.from})]));
+      vc.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[T('email_to',{to:email.to,date:email.date})]));
       vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'0 0 16px'}}));
       const body=el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.75',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[email.body]);
       vc.appendChild(body);
       // If it has a magic link, show copy button
       if(email.magicLink){
         vc.appendChild(el('hr',{style:{border:'none',borderTop:'2px solid var(--mint-ll)',margin:'16px 0'}}));
-        vc.appendChild(el('div',{class:'inp-label'},['🔗 Invite Magic Link']));
+        vc.appendChild(el('div',{class:'inp-label'},[T('email_magic_link')]));
         const lb=el('div',{class:'invite-link-box'},[email.magicLink]);
-        lb.onclick=()=>navigator.clipboard?.writeText(email.magicLink).then(()=>toast('✅ Copied!'));
+        lb.onclick=()=>navigator.clipboard?.writeText(email.magicLink).then(()=>toast(T('email_copied')));
         vc.appendChild(lb);
       }
       sec.appendChild(vc);
@@ -14159,7 +15057,7 @@ function renderEmailInbox(){
   });
   sec.appendChild(inbox);
   sec.appendChild(el('p',{style:{color:'var(--slate-l)',fontSize:'.76rem',textAlign:'center',marginTop:'12px',fontWeight:500}},
-    ['In production these emails would be delivered to real inboxes via SendGrid / Mailgun.']));
+    [T('email_production_note')]));
   return sec;
 }
 
@@ -14169,7 +15067,7 @@ function renderProgress(){return renderSessionSummaries();}
    3. CHILD PHOTO UPLOAD + ADD CHILD + DELETE CHILD
 ----------------------------------------------- */
 function showEditChildModal(child){
-  openModal('✏️ Edit '+child.name,(mb,close)=>{
+  openModal(T('child_edit_prefix',{name:child.name}),(mb,close)=>{
     // Avatar / photo tappable button
     const avatarWrap=el('div',{style:{display:'flex',justifyContent:'center',marginBottom:'18px'}});
     const avatarBtn=el('button',{style:{position:'relative',background:'none',border:'none',cursor:'pointer',padding:'0'}});
@@ -14185,13 +15083,13 @@ function showEditChildModal(child){
     mb.appendChild(avatarWrap);
 
     // Name input
-    mb.appendChild(el('div',{class:'inp-label'},['Name']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('child_name_label')]));
     const ni=el('input',{class:'inp',type:'text',style:{marginBottom:'14px'}});
     ni.value=child.name;
     mb.appendChild(ni);
 
     // DOB input
-    const dob=makeDateInput('Date of birth',{style:{marginBottom:'18px'}});
+    const dob=makeDateInput(T('child_dob_label'),{style:{marginBottom:'18px'}});
     dob.value=child.dob||'';
     mb.appendChild(dob);
 
@@ -14201,11 +15099,11 @@ function showEditChildModal(child){
     mb.appendChild(mkBtn(T('child_save'),'btn-lg btn-primary btn-full',async()=>{
       const name=ni.value.trim();
       const dobVal=dob.value;
-      if(!name||!dobVal){errDiv.textContent='Name and date of birth are required.';return;}
+      if(!name||!dobVal){errDiv.textContent=T('child_name_dob_required');return;}
       if(session&&session.id!=='demo'){
         try{
           await _supa.from('children').update({name,dob:dobVal}).eq('id',child.id);
-        }catch(e){errDiv.textContent='Save failed: '+e.message;return;}
+        }catch(e){errDiv.textContent=T('child_save_failed',{error:e.message});return;}
       }
       // Update local cache
       const idx=DB.children.findIndex(c=>c.id===child.id);
@@ -14216,7 +15114,7 @@ function showEditChildModal(child){
         DB.children[idx].age=new Date().getFullYear()-dobDate.getFullYear();
         DB.children=DB.children;
       }
-      close();re();toast('✅ '+name+' updated!');
+      close();re();toast(T('child_updated',{name}));
     }));
   },420);
 }
@@ -14224,11 +15122,11 @@ function showEditChildModal(child){
 function showAddChildModal(){
   openModal(T('child_add_title'),(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
-    const ni=el('input',{class:'inp',placeholder:"Child's full name",type:'text'});
-    const dob=makeDateInput('Date of birth',{style:{marginBottom:'16px'}});
+    const ni=el('input',{class:'inp',placeholder:T('child_name_placeholder'),type:'text'});
+    const dob=makeDateInput(T('child_dob_label'),{style:{marginBottom:'16px'}});
 
     // Emoji avatar picker
-    mb.appendChild(el('div',{class:'inp-label'},['Choose Avatar']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('child_choose_avatar')]));
     const emojis=['🌸','🚀','⭐','🦋','🐻','🦁','🐬','🌈','🎈','🦄'];
     let selEmoji=emojis[0];
     const emoRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'});
@@ -14242,10 +15140,10 @@ function showAddChildModal(){
     mb.appendChild(emoRow);
 
     // Photo upload
-    mb.appendChild(el('div',{class:'inp-label'},['Or Upload Photo (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('child_upload_photo')]));
     let photoData=null;
     const photoWrap=el('div',{class:'photo-upload-area'});
-    photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload a photo</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">Or use camera on mobile</div>';
+    photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">'+T('child_click_upload')+'</div><div style="font-size:.74rem;color:var(--slate-l);margin-top:4px">'+T('child_camera_hint')+'</div>';
     const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
       const f=e.target.files[0];if(!f)return;
@@ -14253,7 +15151,7 @@ function showAddChildModal(){
       reader.onload=ev=>{
         photoData=ev.target.result;
         photoWrap.innerHTML='';const _pImg2=el('img',{class:'photo-preview',src:photoData||''});photoWrap.appendChild(_pImg2);
-        photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700}},['Photo selected ✓']));
+        photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700}},[T('child_photo_selected')]));
       };
       reader.readAsDataURL(f);
     };
@@ -14264,33 +15162,33 @@ function showAddChildModal(){
     [ni,dob].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
     mb.appendChild(mkBtn(T('child_add_btn'),'btn-lg btn-primary btn-full',async()=>{
-      if(!ni.value.trim()||!dob.value){toast('⚠️ Name and date of birth required.','error');return;}
+      if(!ni.value.trim()||!dob.value){toast(T('child_name_dob_warn'),'error');return;}
       const dobDate=new Date(dob.value);
       const age=new Date().getFullYear()-dobDate.getFullYear();
       const childName=ni.value.trim();
       let newChildId='c_'+Date.now();
       const _takenColors=(DB.children||[]).map(c=>c.color);
       const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast('❌ Could not save. Please try again.','error');return;}}
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast(T('child_save_error'),'error');return;}}
       const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null,householdId:session.householdId||null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
-      S.activeChild=newChild.id;close();re();toast('🎉 '+childName+' added to your family!');
+      S.activeChild=newChild.id;close();re();toast(T('child_added_family',{name:childName}));
       track('Child Added');
     }));
   },500);
 }
 
 function showChildPhotoModal(child){
-  openModal('📷 Update '+child.name+"'s Photo",(mb,close)=>{
+  openModal(T('child_photo_title_full',{name:child.name}),(mb,close)=>{
     let photoData=child.photo||null;
     const photoWrap=el('div',{class:'photo-upload-area',style:{marginBottom:'16px'}});
     if(child.photo){
       const _pImg=el('img',{class:'photo-preview',src:child.photo||''});
       photoWrap.appendChild(_pImg);
-      photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['Current photo — click to change']));
+      photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},[T('child_click_change')]));
     } else {
-      photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">Click to upload / take a photo</div>';
+      photoWrap.innerHTML='<div style="font-size:2rem;margin-bottom:8px">📷</div><div style="font-weight:700;color:var(--slate);font-size:.84rem">'+T('child_click_upload_take')+'</div>';
     }
     const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
     photoInput.onchange=e=>{
@@ -14300,8 +15198,8 @@ function showChildPhotoModal(child){
         // Show fullscreen crop overlay
         const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
         const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
-        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},['Drag & pinch to crop']));
-        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},['Cancel']);
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},[T('child_drag_crop')]));
+        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},[T('child_cancel')]);
         cancelBtn.onclick=()=>ov.remove();
         bar.appendChild(cancelBtn);
         ov.appendChild(bar);
@@ -14310,12 +15208,12 @@ function showChildPhotoModal(child){
         imgWrap.appendChild(img);
         ov.appendChild(imgWrap);
         const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
-        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},['✅ Use This Crop']);
+        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},[T('child_use_crop')]);
         useBtn.onclick=()=>{
           const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
           photoData=canvas.toDataURL('image/jpeg',0.88);
           photoWrap.innerHTML='';const _pImg3=el('img',{class:'photo-preview',src:photoData||''});photoWrap.appendChild(_pImg3);
-          photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},['Photo cropped ✓']));
+          photoWrap.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:700,marginTop:'6px'}},[T('child_photo_cropped')]));
           cropper.destroy();ov.remove();
         };
         foot.appendChild(useBtn);
@@ -14331,32 +15229,32 @@ function showChildPhotoModal(child){
     if(child.photo){
       row.appendChild(mkBtn(T('child_photo_remove'),'btn-md btn-danger',async()=>{
         const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
-        if(i>-1){ch[i].photo=null;DB.children=ch;}close();re();toast('✅ Photo removed.');
+        if(i>-1){ch[i].photo=null;DB.children=ch;}close();re();toast(T('child_photo_removed'));
       }));
     }
     row.appendChild(mkBtn(T('child_photo_upload'),'btn-md btn-primary',async()=>{
       const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
       if(i>-1){ch[i].photo=photoData;DB.children=ch;}
       if(session&&session.id!=='demo'){try{await SB.updateChild(child.id,{photo_url:photoData});}catch(e){}}
-      close();re();toast('✅ Photo updated!');
+      close();re();toast(T('child_photo_updated'));
     }));
     mb.appendChild(row);
   },420);
 }
 
 function showDeleteChildModal(child){
-  openModal('⚠️ Delete '+child.name+"'s Profile",(mb,close)=>{
+  openModal(T('child_delete_title_full',{name:child.name}),(mb,close)=>{
     const warn=el('div',{class:'danger-zone'});
-    warn.appendChild(el('div',{style:{fontWeight:800,color:'#be123c',fontSize:'1rem',marginBottom:'8px'}},['⚠️ This action cannot be undone']));
+    warn.appendChild(el('div',{style:{fontWeight:800,color:'#be123c',fontSize:'1rem',marginBottom:'8px'}},[T('child_delete_warning')]));
     warn.appendChild(el('p',{style:{color:'#be123c',fontSize:'.86rem',lineHeight:'1.7',fontWeight:500}},
-      [`Deleting ${child.name}'s profile will:\n\n• Remove all their appointments and tasks from your dashboard\n• Revoke all specialist access for this child\n• Specialist-authored notes will be archived in each specialist\'s Legacy Archive\n• The child will be removed from the child switcher\n\nThis does NOT delete the specialists' Huddledin accounts.`]));
+      [T('child_delete_detail',{name:child.name})]));
     mb.appendChild(warn);
     mb.appendChild(el('div',{style:{height:'16px'}}));
-    mb.appendChild(el('div',{class:'inp-label'},['Type the child\'s name to confirm']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('child_delete_confirm_label')]));
     const conf=el('input',{class:'inp',placeholder:child.name,style:{marginBottom:'14px'}});
     mb.appendChild(conf);
     const delBtn=mkBtn(T('child_delete_btn'),'btn-lg btn-danger btn-full',async()=>{
-      if(conf.value.trim()!==child.name){toast('⚠️ Name does not match.','error');return;}
+      if(conf.value.trim()!==child.name){toast(T('child_delete_name_mismatch'),'error');return;}
       // Archive all specialist notes for this child
       const archive=DB.legacyArchive;
       DB.specialists.filter(s=>s.status==='active').forEach(spec=>{
@@ -14376,7 +15274,7 @@ function showDeleteChildModal(child){
       DB.milestones=(DB.milestones||[]).filter(m=>m.childId!==child.id);
       // Switch to first remaining child or null
       S.activeChild=ch[0]?.id||null;
-      close();re();toast('✅ '+child.name+"'s profile has been deleted.");
+      close();re();toast(T('child_deleted_msg',{name:child.name}));
     });
     mb.appendChild(delBtn);
   },480);
@@ -14396,20 +15294,20 @@ function renderPushBanner(){
   }
   if(Notification.permission==='denied')return null;
   const banner=el('div',{class:'push-banner'});
-  banner.innerHTML='<span style="font-size:1.6rem">🔔</span><div style="flex:1"><div style="font-weight:800;color:var(--navy)">Enable push notifications</div><div style="font-size:.78rem;color:var(--slate);margin-top:2px">Get instant alerts for new reports, messages and tasks</div></div>';
-  banner.appendChild(mkBtn('Enable','btn-sm btn-primary',()=>{
+  banner.innerHTML='<span style="font-size:1.6rem">🔔</span><div style="flex:1"><div style="font-weight:800;color:var(--navy)">'+T('push_title')+'</div><div style="font-size:.78rem;color:var(--slate);margin-top:2px">'+T('push_desc')+'</div></div>';
+  banner.appendChild(mkBtn(T('push_enable'),'btn-sm btn-primary',()=>{
     Notification.requestPermission().then(perm=>{
       if(perm==='granted'){
         DB.pushEnabled=true;
-        new Notification('Huddledin 🤝',{body:'Push notifications enabled! You\'ll now get real-time alerts.',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});
+        new Notification('Huddledin 🤝',{body:T('push_enabled_body'),icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});
         re();
       } else {
-        toast('Notifications blocked. You can change this in browser settings.','info');
+        toast(T('push_blocked_msg'),'info');
       }
     });
   }));
   // FIX B7: store dismissed state separately, keep pushEnabled as boolean
-  banner.appendChild(mkBtn('Not now','btn-sm btn-slate',()=>{LS.set('pushDismissed',true);re();}));
+  banner.appendChild(mkBtn(T('push_not_now'),'btn-sm btn-slate',()=>{LS.set('pushDismissed',true);re();}));
   return banner;
 }
 
@@ -14437,7 +15335,7 @@ function renderSpecialistRequests(){
       [el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['📭']),
        el('div',{style:{fontWeight:600,fontSize:'.9rem'}},[T('sr_no_pending')])]));
   } else {
-    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['Pending ('+pendingReqs.length+')']));
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('sr_pending_count',{count:pendingReqs.length})]));
     pendingReqs.forEach(r=>{
       const card=el('div',{class:'card',style:{marginBottom:'14px',padding:'16px'}});
       // Top row: avatar + info
@@ -14445,9 +15343,9 @@ function renderSpecialistRequests(){
       const initials=(r.specialistName||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
       top.appendChild(el('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.82rem',fontWeight:700,flexShrink:0}},[initials]));
       const info=el('div',{style:{flex:1,minWidth:0}});
-      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.92rem'}},[r.specialistName||'Specialist']));
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.92rem'}},[r.specialistName||T('sr_specialist_fallback')]));
       info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},[_resolveSpecRole(r)]));
-      if(r.childNameHint)info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}},['Requested for: '+r.childNameHint]));
+      if(r.childNameHint)info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}},[T('sr_requested_for',{hint:r.childNameHint})]));
       if(r.requestedAt)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'2px'}},[new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})]));
       top.appendChild(info);card.appendChild(top);
       // Child selector
@@ -14794,7 +15692,7 @@ function renderSessionSummaries(){
   const selectedSpec=S._summarySpecFilter||null;
   if(!selectedSpec){
     if(!(window.innerWidth>=1024&&session?.role==='parent')){
-      const backBtn=mkBtn('← Back','btn-sm btn-ghost',()=>{switchTab('dashboard');});
+      const backBtn=mkBtn(T('ss_back'),'btn-sm btn-ghost',()=>{switchTab('dashboard');});
       backBtn.style.marginBottom='16px';
       sec.appendChild(backBtn);
     }
@@ -14804,8 +15702,8 @@ function renderSessionSummaries(){
     if(!published.length){
       sec.appendChild(el('div',{class:'empty-state'},[
         el('span',{class:'empty-state-icon'},['📄']),
-        el('div',{class:'empty-state-title'},['No summaries yet']),
-        el('div',{class:'empty-state-body'},['When a specialist publishes a session summary, it will appear here.'])
+        el('div',{class:'empty-state-title'},[T('ss_no_summaries_title')]),
+        el('div',{class:'empty-state-body'},[T('ss_no_summaries_desc')])
       ]));
       return sec;
     }
@@ -14834,7 +15732,7 @@ function renderSessionSummaries(){
       info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.92rem',color:'var(--navy)',marginBottom:'3px'}},[spec.name]));
       info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:600,marginBottom:'4px'}},[spec.role||'Specialist']));
       info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--teal)',fontWeight:700}},
-        [count+' summar'+(count===1?'y':'ies')+' · Latest: '+_displayNoteTitle(latest?.title||latest?.date||'—')]));
+        [T(count===1?'ss_count_single':'ss_count_plural',{count,latest:_displayNoteTitle(latest?.title||latest?.date||'—')})]));
       card.appendChild(info);
       // Unread badge per specialist
       const _specUnread=_unreadNotes(S.activeChild,sid);
@@ -14853,7 +15751,7 @@ function renderSessionSummaries(){
   const specNotes=published.filter(n=>n.specialistId===selectedSpec); // already newest-first
 
   // Mark all viewed specialist's notes as read when navigating BACK (not on entry — parent needs to see dots first)
-  const backBtn=mkBtn('← All Providers','btn-sm btn-ghost',()=>{
+  const backBtn=mkBtn(T('ss_all_providers'),'btn-sm btn-ghost',()=>{
     const _allNotes=DB.vaultNotes||[];
     const _toMark=_allNotes.filter(n=>n.childId===S.activeChild&&n.specialistId===selectedSpec&&n.published&&!n.parentReadAt);
     if(_toMark.length){
@@ -14887,8 +15785,8 @@ function renderSessionSummaries(){
   if(!specNotes.length){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📄']),
-      el('div',{class:'empty-state-title'},['No summaries yet']),
-      el('div',{class:'empty-state-body'},['This specialist hasn\'t published any summaries yet.'])
+      el('div',{class:'empty-state-title'},[T('ss_no_summaries_title')]),
+      el('div',{class:'empty-state-body'},[T('ss_no_summaries_spec')])
     ]));
     return sec;
   }
@@ -14931,7 +15829,7 @@ function renderSessionSummaries(){
     if(isOpen){
       const body=el('div',{style:{padding:'14px 15px',borderTop:'1.5px solid var(--mint-l)'}});
       body.appendChild(el('div',{style:{whiteSpace:'pre-wrap',lineHeight:'1.75',fontSize:'.88rem',color:'var(--navy)',fontWeight:500}},[note.summary]));
-      const minBtn=mkBtn('▲ Minimise','btn-sm btn-ghost',()=>{S._summaryOpen=null;re();});
+      const minBtn=mkBtn(T('ss_minimise'),'btn-sm btn-ghost',()=>{S._summaryOpen=null;re();});
       minBtn.style.marginTop='14px';
       body.appendChild(minBtn);
       wrapper.appendChild(body);
@@ -14953,8 +15851,8 @@ function _showParentNewChatModal(){
   if(!specs.length){toast('No specialists connected to this child yet.','error');return;}
   // If only one specialist, skip the picker and create/open directly
   if(specs.length===1){_openOrCreateDirectChat(_cid,specs[0].id,specs[0].name,specs[0].role);return;}
-  openModal('💬 New Conversation',(mb,close)=>{
-    mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},['Select a specialist to message:']));
+  openModal(T('chat_new_convo'),(mb,close)=>{
+    mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},[T('chat_select_spec_msg')]));
     specs.forEach(s=>{
       const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px',cursor:'pointer'}});
       row.appendChild(mkAvatar(s.avatar||'🩺',36,'#d1fae5'));
@@ -14977,7 +15875,7 @@ async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
   }
   if(chat){
     S.activeChatId=chat.id;S.chatsLoaded=true;S.activeTab='chat';re();
-    toast('Opening existing conversation.','info');return;
+    toast(T('chat_open_existing'),'info');return;
   }
   // Fetch specialist display_name + profession from profiles for accurate naming
   let _sName=specName||'Specialist';
@@ -14993,22 +15891,22 @@ async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
   const _newId='ch_'+Date.now();
   try{
     const{error}=await _supa.from('chats').insert({id:_newId,child_id:_cid,household_id:session.householdId||null,type:'direct',name:_chatName,participants:_parts,approved:true,unread_for:_allParents});
-    if(error){console.error('create direct chat:',error);toast('Could not create chat.','error');return;}
+    if(error){console.error('create direct chat:',error);toast(T('chat_could_not_create'),'error');return;}
     const allChats=DB.chats||[];allChats.push({id:_newId,childId:_cid,type:'direct',name:_chatName,participants:_parts,approved:true,messages:[],unreadFor:_allParents,unreadCount:0});DB.chats=allChats;
     await notifyOtherParty('chat','💬 '+session.name+' started a new chat',_cid,'chat',{chatId:_newId});
   }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
   S.activeChatId=_newId;S.chatsLoaded=true;S.activeTab='chat';re();
-  toast('✅ Chat created!');
+  toast(T('chat_created'));
 }
 
 function showCreateGroupChatModal(){
-  openModal('👥 Create Group Chat',(mb,close)=>{
+  openModal(T('chat_create_group'),(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',lineHeight:'1.65',fontWeight:500}},
-      ['Create a group conversation. As the parent, you\'re included automatically.']));
-    mb.appendChild(el('div',{class:'inp-label'},['Chat name']));
-    const ni=el('input',{class:'inp',placeholder:'e.g. Lily\'s Full Care Team',style:{marginBottom:'14px'}});
+      [T('chat_group_desc')]));
+    mb.appendChild(el('div',{class:'inp-label'},[T('chat_group_name_label')]));
+    const ni=el('input',{class:'inp',placeholder:T('chat_group_name_placeholder'),style:{marginBottom:'14px'}});
     mb.appendChild(ni);
-    mb.appendChild(el('div',{class:'inp-label'},['Select participants']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('chat_select_participants')]));
     const selected=new Set();
     // Deduplicate specialists by UUID — a specialist may have entries for multiple children
     const _seenSpecIds=new Set();
@@ -15022,8 +15920,8 @@ function showCreateGroupChatModal(){
       mb.appendChild(lbl);
     });
     mb.appendChild(el('div',{style:{height:'12px'}}));
-    mb.appendChild(mkBtn('✅ Create Group Chat','btn-lg btn-primary btn-full',()=>{
-      if(selected.size===0){toast('⚠️ Select at least one specialist.','error');return;}
+    mb.appendChild(mkBtn(T('chat_create_group_btn'),'btn-lg btn-primary btn-full',()=>{
+      if(selected.size===0){toast(T('chat_select_one_spec'),'error');return;}
       // If only 1 specialist selected, check for existing direct chat first
       if(selected.size===1){
         const _soloSpecId=[...selected][0];
@@ -15032,7 +15930,7 @@ function showCreateGroupChatModal(){
         const _existDirect=(DB.chats||[]).find(c=>c.type==='direct'&&(c.participants||[]).includes(_soloSpecId)&&(c.childId||c.child_id)===_cid);
         if(_existDirect){
           S.activeChatId=_existDirect.id;S.chatsLoaded=true;S.activeTab='chat';
-          close();re();toast('You already have a conversation with '+(_soloSpec?.name||'this specialist')+'.','info');return;
+          close();re();toast(T('chat_already_convo',{name:_soloSpec?.name||T('sr_specialist_fallback')}),'info');return;
         }
       }
       const name=ni.value.trim()||'Care Team Group Chat';
@@ -15042,7 +15940,7 @@ function showCreateGroupChatModal(){
       const existingChat=(DB.chats||[]).find(c=>c.childId===S.activeChild&&c.type==='group'&&[...(c.participants||[])].sort().join(',')===_sortedParts);
       if(existingChat){
         S.activeChatId=existingChat.id;S.activeTab='chat';S.chatsLoaded=true;
-        close();re();toast('You already have a chat with these participants.','info');return;
+        close();re();toast(T('chat_already_chat'),'info');return;
       }
       const _dedupParts3=[...new Set(participants)];
       const newChat={id:'ch_'+Date.now(),type:'group',participants:_dedupParts3,childId:S.activeChild,approved:true,name,messages:[],unreadFor:_dedupParts3.filter(p=>p!==session?.id)};
@@ -15052,9 +15950,9 @@ function showCreateGroupChatModal(){
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
           // Notify all participants about the new group chat
           try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
-        }catch(e){console.error('create group chat:',e);toast('Could not create chat.','error');return;}
+        }catch(e){console.error('create group chat:',e);toast(T('chat_could_not_create'),'error');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
-        close();re();toast('✅ Group chat "'+name+'" created!');
+        close();re();toast(T('chat_group_created',{name}));
       })();
     }));
   },480);
