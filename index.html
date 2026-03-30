@@ -7138,6 +7138,13 @@ function renderShell(){
     S.calendarMode='joint';
     const shell=el('div',{id:'app-shell'});
     shell.appendChild(renderHeader());
+    // Drawer — must be present so hamburger menu works
+    if(S.isDrawerOpen){
+      const bd=el('div',{class:'drawer-backdrop'});
+      bd.onclick=()=>{S.isDrawerOpen=false;re();};
+      shell.appendChild(bd);
+    }
+    shell.appendChild(renderDrawer());
     const calBody=el('div',{id:'body'});
     const calMain=el('main',{id:'main'});
     calMain.appendChild(renderCalendar());
