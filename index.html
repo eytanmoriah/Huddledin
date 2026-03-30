@@ -7903,6 +7903,13 @@ function renderNotifBell(){
         } else if(tab==='calendar'){
           S.calFullscreen=session?.role!=='specialist';S.activeTab='calendar';
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
+          // Open specific appointment detail modal after render
+          if(ld?.aptId){
+            setTimeout(()=>{
+              const _apt=(DB.appointments||[]).find(a=>a.id===ld.aptId);
+              if(_apt){const _ch=(DB.children||[]).find(c=>c.id===_apt.childId);showAptDetailModal(_apt,_ch);}
+            },300);
+          }
         } else if(tab){
           S.calFullscreen=false;S.activeTab=tab;
           // Refresh data when deep-linking to team (so consult requests are loaded)
@@ -11043,13 +11050,13 @@ function renderCalendar(){
   const _calMonthLabel=_calBase.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const _calPrevChev=_isRtl()?'›':'‹';
   const _calNextChev=_isRtl()?'‹':'›';
-  const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
+  const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
   _calNavLeft.onclick=()=>{S.calMonth=(S.calMonth||0)-1;re();};
-  const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
+  const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
   _calNavRight.onclick=()=>{S.calMonth=(S.calMonth||0)+1;re();};
   const _calMonthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
   _calMonthNav.appendChild(_calNavLeft);
-  _calMonthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center'}},[_calMonthLabel]));
+  _calMonthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center',color:'#fff'}},[_calMonthLabel]));
   _calMonthNav.appendChild(_calNavRight);
   calHd2.appendChild(_calMonthNav);
   calHd2.appendChild(el('span',{style:{fontSize:'.8rem',opacity:'.8'}},[childApts.length+' events']));
@@ -11301,7 +11308,7 @@ function showAddEventModal(prefilledDate=null){
           if(session?.role==='parent'&&sharedWith.length>0&&session?.id!=='demo'){
             const _childName2=childRec?.name||'';
             for(const _swId of sharedWith){
-              try{await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+_swId,user_id:_swId,child_id:childId,type:'appointments',message:T('notif_new_apt',{child:_childName2,title:ti.value+' '+di.value}),read:false,link_tab:'calendar'});}catch(e){}
+              try{await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+_swId,user_id:_swId,child_id:childId,type:'appointments',message:T('notif_new_apt',{child:_childName2,title:ti.value+' '+di.value}),read:false,link_tab:'calendar',link_data:JSON.stringify({aptId:newApt.id,aptDate:di.value})});}catch(e){}
             }
           }
           // Push to Google Calendar (server decides if connected)
@@ -15000,6 +15007,12 @@ function renderNotifications(){
         } else if(tab==='calendar'){
           S.calFullscreen=session?.role!=='specialist';S.activeTab='calendar';
           if(ld?.aptDate)S.calJumpDate=ld.aptDate;
+          if(ld?.aptId){
+            setTimeout(()=>{
+              const _apt2=(DB.appointments||[]).find(a=>a.id===ld.aptId);
+              if(_apt2){const _ch2=(DB.children||[]).find(c=>c.id===_apt2.childId);showAptDetailModal(_apt2,_ch2);}
+            },300);
+          }
         } else {
           S.calFullscreen=false;S.activeTab=tab;
           // Refresh data when deep-linking to team (so consult requests are loaded)
@@ -17286,6 +17299,8 @@ function re(){
     _reTimer=null;
     const root=document.getElementById('root');
     if(!root)return;
+    // Clean up stale modal overlays left in document.body — prevents "stuck" UI
+    document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
     root.innerHTML='';
     if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
     root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
@@ -17296,6 +17311,7 @@ function reNow(){
   if(_reTimer){cancelAnimationFrame(_reTimer);_reTimer=null;}
   const root=document.getElementById('root');
   if(!root)return;
+  document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
   root.innerHTML='';
   root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
 }
