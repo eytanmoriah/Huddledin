@@ -2117,7 +2117,7 @@ async function refreshFromSupabase(){
           .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);})
           .catch(()=>{}),
         // Vault notes
-        _supa.from('vault_notes').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
+        _supa.from('vault_notes').select('*').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
           .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
           .catch(e=>console.error('refresh vaultNotes:',e)),
         // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
@@ -12550,12 +12550,20 @@ function renderVault(){
         actRow.appendChild(lockBtn);
         if(!note.published){
           const delBtn=mkBtn('🗑️ Delete','btn-sm btn-ghost',()=>{
-            openConfirm('Delete Note?','Permanently delete this draft? This cannot be undone.',true,async()=>{
+            openConfirm(T('vault_delete_note'),T('vault_delete_note_msg'),true,async()=>{
               if(session&&session.id!=='demo'){
-                try{await _supa.from('vault_notes').delete().eq('id',note.id);}catch(e){console.error('delete note:',e);}
+                try{
+                  // Try hard delete first (requires RLS policy for unpublished drafts)
+                  const{error}=await _supa.from('vault_notes').delete().eq('id',note.id);
+                  if(error){
+                    // Fallback: soft-delete by clearing content and marking title
+                    console.warn('Hard delete blocked by RLS, using soft delete:',error.message);
+                    await _supa.from('vault_notes').update({title:'__DELETED__',content:'',summary:'',published:false}).eq('id',note.id);
+                  }
+                }catch(e){console.error('delete note:',e);}
               }
               const ns=DB.vaultNotes.filter(n=>n.id!==note.id);DB.vaultNotes=ns;
-              S.activeVaultId=null;S.vaultHasUnsaved=false;re();
+              S.activeVaultId=null;S.vaultHasUnsaved=false;re();toast(T('vault_note_deleted'));
             });
           });
           delBtn.style.marginLeft='auto';
