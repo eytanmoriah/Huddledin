@@ -12271,71 +12271,110 @@ function renderVault(){
           };
           const micBtn=el('button',{style:{background:'none',border:'1.5px solid var(--teal)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},[T('vault_voice_start')]);
           let _recog=null;let _isRec=false;let _shouldContinue=false;
-          const _stopRec=()=>{_shouldContinue=false;if(_recog)_recog.stop();};
+          const _ta2=document.getElementById('vault-notes-'+note.id);
+          let _prefix=_ta2?_ta2.value:'';
+          let _finalTranscript='';
+          let _fromSpeech=false;
+          const _onManualEdit=()=>{
+            if(_fromSpeech)return;
+            _prefix=_ta2.value;_finalTranscript='';
+          };
+          const _setMicUI=(recording)=>{
+            micBtn.textContent=recording?T('vault_voice_stop'):T('vault_voice_start');
+            micBtn.style.borderColor=recording?'var(--coral)':'var(--teal)';
+            micBtn.style.color=recording?'var(--coral)':'var(--teal)';
+            // Update language toggle highlight without re()
+            const _slBtns=micBtn.parentElement?.querySelectorAll('[data-speech-lang]');
+            if(_slBtns)_slBtns.forEach(b=>{
+              const isActive=b.dataset.speechLang===_speechLang;
+              b.style.background=isActive?'var(--teal)':'transparent';
+              b.style.color=isActive?'#fff':'var(--teal)';
+            });
+          };
+          const _cleanupRec=()=>{
+            _isRec=false;_listMode=null;_listCounter=1;
+            _setMicUI(false);
+            if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
+          };
+          // Create a fresh recognition instance (needed for reliable restart on mobile)
+          const _makeRecog=()=>{
+            const r=new _SpeechRec();r.continuous=false;r.interimResults=true;r.lang=_speechLang;
+            r.onresult=ev=>{
+              let _interim='';
+              for(let i=ev.resultIndex;i<ev.results.length;i++){
+                if(ev.results[i].isFinal){
+                  let seg=ev.results[i][0].transcript;
+                  seg=_processVoiceCommands(seg,r);
+                  _finalTranscript+=seg;
+                } else {_interim+=ev.results[i][0].transcript;}
+              }
+              if(_ta2){
+                _fromSpeech=true;
+                _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
+                _ta2.dispatchEvent(new Event('input'));
+                _fromSpeech=false;
+              }
+            };
+            r.onend=()=>{
+              if(_shouldContinue){
+                if(_ta2)_prefix=_ta2.value;
+                _finalTranscript='';
+                // Create fresh instance for restart (avoids stale state on mobile browsers)
+                setTimeout(()=>{
+                  if(!_shouldContinue)return;
+                  try{_recog=_makeRecog();_recog.start();}
+                  catch(e){
+                    // Retry once after longer delay
+                    setTimeout(()=>{
+                      if(!_shouldContinue)return;
+                      try{_recog=_makeRecog();_recog.start();}
+                      catch(e2){console.error('Voice restart failed:',e2);_shouldContinue=false;_cleanupRec();}
+                    },500);
+                  }
+                },100);
+                return;
+              }
+              _cleanupRec();
+            };
+            r.onerror=e=>{
+              if(e.error==='aborted')return; // expected during stop/restart
+              if(e.error==='no-speech'&&_shouldContinue)return; // silence — onend restarts
+              if(e.error==='not-allowed'||e.error==='service-not-available'){
+                _shouldContinue=false;_cleanupRec();
+                toast('Microphone error: '+e.error,'error');
+                return;
+              }
+              // Other errors (network, etc.) — let onend handle restart
+              console.error('Speech error:',e.error);
+            };
+            return r;
+          };
+          const _stopRec=()=>{_shouldContinue=false;if(_recog)try{_recog.stop();}catch(e){}};
           micBtn.onclick=()=>{
             if(_isRec){_stopRec();return;}
-            const _ta2=document.getElementById('vault-notes-'+note.id);
-            let _prefix=_ta2?_ta2.value:'';
-            let _finalTranscript='';
-            // Sync prefix when user manually edits textarea during recording
-            let _fromSpeech=false;
-            const _onManualEdit=()=>{
-              if(_fromSpeech)return; // ignore events fired by speech updates
-              _prefix=_ta2.value;_finalTranscript='';
-            };
+            _prefix=_ta2?_ta2.value:'';
+            _finalTranscript='';
             if(_ta2)_ta2.addEventListener('input',_onManualEdit);
-            const _startRecog=()=>{
-              _recog=new _SpeechRec();_recog.continuous=false;_recog.interimResults=true;_recog.lang=_speechLang;
-              _recog.onresult=ev=>{
-                let _interim='';
-                for(let i=ev.resultIndex;i<ev.results.length;i++){
-                  if(ev.results[i].isFinal){
-                    let seg=ev.results[i][0].transcript;
-                    seg=_processVoiceCommands(seg,_recog);
-                    _finalTranscript+=seg;
-                  } else {_interim+=ev.results[i][0].transcript;}
-                }
-                if(_ta2){
-                  _fromSpeech=true;
-                  _ta2.value=_prefix+(_prefix&&_finalTranscript?' ':'')+_finalTranscript+(_interim?' '+_interim:'');
-                  _ta2.dispatchEvent(new Event('input'));
-                  _fromSpeech=false;
-                }
-              };
-              _recog.onend=()=>{
-                if(_shouldContinue){
-                  // Manual restart: current textarea becomes new prefix, reset final transcript
-                  if(_ta2)_prefix=_ta2.value;
-                  _finalTranscript='';
-                  try{_recog.start();}catch(e){_shouldContinue=false;}
-                  return;
-                }
-                // Fully stopped
-                _isRec=false;_listMode=null;_listCounter=1;
-                micBtn.textContent=T('vault_voice_start');micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';
-                if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
-              };
-              _recog.onerror=e=>{
-                if(e.error==='aborted')return;
-                if(e.error==='no-speech'&&_shouldContinue){return;} // silence timeout — onend will restart
-                _shouldContinue=false;_isRec=false;
-                micBtn.textContent=T('vault_voice_start');micBtn.style.borderColor='var(--teal)';micBtn.style.color='var(--teal)';
-                if(_ta2)_ta2.removeEventListener('input',_onManualEdit);
-                toast('Microphone error: '+e.error,'error');
-              };
-              _recog.start();
-            };
             _shouldContinue=true;_isRec=true;
-            micBtn.textContent=T('vault_voice_stop');micBtn.style.borderColor='var(--coral)';micBtn.style.color='var(--coral)';
-            _startRecog();
+            _setMicUI(true);
+            _recog=_makeRecog();
+            try{_recog.start();}catch(e){_shouldContinue=false;_cleanupRec();toast('Could not start microphone.','error');}
           };
           _notesLabel.appendChild(micBtn);
-          // Speech language toggle (Israel only)
+          // Speech language toggle (Israel only) — NO re() call, updates inline
           if(_availableLangs.length>1){
             const _slWrap=el('div',{style:{display:'inline-flex',gap:'2px',marginLeft:'4px'}});
             const _mkSlBtn=(code,label)=>{
-              const b=el('button',{style:{padding:'2px 7px',borderRadius:'6px',border:'1px solid var(--teal)',fontSize:'.65rem',fontWeight:700,cursor:'pointer',background:_speechLang===code?'var(--teal)':'transparent',color:_speechLang===code?'#fff':'var(--teal)'}},[label]);
-              b.onclick=(e)=>{e.stopPropagation();_speechLang=code;if(_isRec&&_recog){_shouldContinue=true;_recog.stop();}re();};
+              const b=el('button',{'data-speech-lang':code,style:{padding:'2px 7px',borderRadius:'6px',border:'1px solid var(--teal)',fontSize:'.65rem',fontWeight:700,cursor:'pointer',background:_speechLang===code?'var(--teal)':'transparent',color:_speechLang===code?'#fff':'var(--teal)'}},[label]);
+              b.onclick=(e)=>{
+                e.stopPropagation();
+                _speechLang=code;
+                _setMicUI(_isRec); // update toggle highlight without re()
+                if(_isRec&&_recog){
+                  // Stop current session — onend will restart with new _speechLang
+                  try{_recog.stop();}catch(ex){}
+                }
+              };
               return b;
             };
             _slWrap.appendChild(_mkSlBtn('en-US','EN'));
