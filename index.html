@@ -1630,6 +1630,11 @@ const PADDLE_PRICE_MONTHLY = 'pri_01kmxkcr56swaz1586k0h1dtgk';
 const PADDLE_PRICE_YEARLY = 'pri_01kmxkbxrxd12hq1tmb9fgs4vy';
 const PADDLE_SPEC_PRICE_MONTHLY = 'pri_01kmxk2pr30n39nypv2js4ty3z';
 const PADDLE_SPEC_PRICE_YEARLY = 'pri_01kmxjyhfz8djvt026fc41j0h2';
+const PADDLE_STORAGE_50GB_MONTHLY='pri_01kn1evfsbv2s6fxg3v8ek17sk';
+const PADDLE_STORAGE_50GB_YEARLY='pri_01kn1ey43rg2hjdntn9cm8wmdn';
+const PADDLE_STORAGE_200GB_MONTHLY='pri_01kn1ey4gcvnkyjap78nk7bygy';
+const PADDLE_STORAGE_200GB_YEARLY='pri_01kn1f0jtx49sbjbgezv5psg6v';
+const STORAGE_LIMITS={base:2*1024*1024*1024,'50gb':50*1024*1024*1024,'200gb':200*1024*1024*1024};
 
 // Initialize Paddle.js
 if(window.Paddle){
@@ -2716,7 +2721,11 @@ let S={
   _showPaywall:false,     // force paywall open (e.g. user clicks "Upgrade now")
   _trialBannerDismissed:false,  // session-scoped dismiss of trial banner
   _parentTaskExpandedId:null,  // parent to-do: expanded card id (mobile)
-  specAiSubscription:null      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
+  specAiSubscription:null,      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
+  specStoragePath:[],      // breadcrumb: [{id,name},...]
+  specStorageView:'list',  // 'list' or 'grid'
+  _specStorageSearch:'',
+  _storageUsedBytes:0
 };
 
 /* -----------------------------------------------
@@ -3935,6 +3944,39 @@ patients_sub:'Click a patient to view their vault & files',patients_search:'\uD8
 vc_goals:'Goals',vc_observations:'Observations',vc_progress:'Progress',vc_plan:'Plan',vc_recommendations:'Recommendations',vc_summary:'Summary',vc_background:'Background',
 vc_speech_lang:'Dictation language',vc_cheat_title:'Voice Commands',
 vc_cmd_period:'period',vc_cmd_comma:'comma',vc_cmd_question:'question mark',vc_cmd_colon:'colon',vc_cmd_dash:'dash',vc_cmd_newline:'new line',vc_cmd_paragraph:'new paragraph',vc_cmd_scratch:'scratch that',vc_cmd_stop:'stop recording',vc_cmd_list:'start list',vc_cmd_bullet:'bullet list',vc_cmd_endlist:'end list',
+// ── Specialist Storage ──
+storage_title:'My Storage',
+storage_empty:'Your private storage. Upload files, create folders, and organize your practice materials.',
+storage_usage:'{used} / {limit}',
+storage_new_folder:'New Folder',
+storage_upload:'Upload',
+storage_camera:'Camera',
+storage_search_ph:'Search files and folders\u2026',
+storage_no_results:'No matching files or folders.',
+storage_folder_empty:'This folder is empty.',
+storage_rename_folder:'Rename Folder',
+storage_delete_folder:'Delete Folder?',
+storage_delete_folder_msg:'This will permanently delete this folder and all its files.',
+storage_folder_deleted:'\u2705 Folder deleted.',
+storage_folder_created:'\u2705 Folder created!',
+storage_folder_name:'Folder name',
+storage_preview:'Preview',
+storage_download:'Download',
+storage_rename_file:'Rename',
+storage_move_to:'Move to\u2026',
+storage_delete_file:'Delete File?',
+storage_delete_file_msg:'Permanently delete this file?',
+storage_file_deleted:'\u2705 File deleted.',
+storage_uploading:'Uploading\u2026',
+storage_uploaded:'\u2705 Uploaded!',
+storage_upload_failed:'\u274C Upload failed.',
+storage_limit_reached:'Storage limit reached. Upgrade for more space.',
+storage_copy_to_patient:'Copy to patient folder',
+storage_copy_select_child:'Select patient',
+storage_copy_select_folder:'Select folder',
+storage_copy_confirm:'Copy "{file}" to {child}\u2019s {folder}?',
+storage_copied:'\u2705 Copied to patient folder!',
+storage_locked:'\uD83D\uDD12 My Storage',
 }
 };
 // Hebrew dictionary — lazy-loaded on first use to save parse time for English users
@@ -5064,6 +5106,39 @@ team_which_areas:'לאילו אזורים ל-{name} תהיה גישה?',
 vc_goals:'\u05DE\u05D8\u05E8\u05D5\u05EA',vc_observations:'\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA',vc_progress:'\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA',vc_plan:'\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA',vc_recommendations:'\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA',vc_summary:'\u05E1\u05D9\u05DB\u05D5\u05DD',vc_background:'\u05E8\u05E7\u05E2',
 vc_speech_lang:'\u05E9\u05E4\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cheat_title:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA \u05E7\u05D5\u05DC\u05D9\u05D5\u05EA',
 vc_cmd_period:'\u05E0\u05E7\u05D5\u05D3\u05D4',vc_cmd_comma:'\u05E4\u05E1\u05D9\u05E7',vc_cmd_question:'\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4',vc_cmd_colon:'\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD',vc_cmd_dash:'\u05DE\u05E7\u05E3',vc_cmd_newline:'\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_paragraph:'\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4',vc_cmd_scratch:'\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4',vc_cmd_stop:'\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4',vc_cmd_list:'\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA',vc_cmd_bullet:'\u05E8\u05E9\u05D9\u05DE\u05D4',vc_cmd_endlist:'\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4',
+// ── Specialist Storage ──
+storage_title:'\u05D4\u05D0\u05D7\u05E1\u05D5\u05DF \u05E9\u05DC\u05D9',
+storage_empty:'\u05D4\u05D0\u05D7\u05E1\u05D5\u05DF \u05D4\u05E4\u05E8\u05D8\u05D9 \u05E9\u05DC\u05DA. \u05D4\u05E2\u05DC\u05D4 \u05E7\u05D1\u05E6\u05D9\u05DD, \u05E6\u05E8\u05D9 \u05EA\u05D9\u05E7\u05D9\u05D5\u05EA \u05D5\u05D0\u05E8\u05D2\u05E0\u05D9 \u05D0\u05EA \u05D4\u05D7\u05D5\u05DE\u05E8\u05D9\u05DD \u05E9\u05DC\u05DA.',
+storage_usage:'{used} / {limit}',
+storage_new_folder:'\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
+storage_upload:'\u05D4\u05E2\u05DC\u05D0\u05D4',
+storage_camera:'\u05DE\u05E6\u05DC\u05DE\u05D4',
+storage_search_ph:'\u05D7\u05D9\u05E4\u05D5\u05E9 \u05E7\u05D1\u05E6\u05D9\u05DD \u05D5\u05EA\u05D9\u05E7\u05D9\u05D5\u05EA\u2026',
+storage_no_results:'\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D5 \u05E7\u05D1\u05E6\u05D9\u05DD \u05D0\u05D5 \u05EA\u05D9\u05E7\u05D9\u05D5\u05EA \u05EA\u05D5\u05D0\u05DE\u05D9\u05DD.',
+storage_folder_empty:'\u05D4\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05E8\u05D9\u05E7\u05D4.',
+storage_rename_folder:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DD \u05EA\u05D9\u05E7\u05D9\u05D9\u05D4',
+storage_delete_folder:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05EA\u05D9\u05E7\u05D9\u05D9\u05D4?',
+storage_delete_folder_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D4\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05D5\u05D0\u05EA \u05DB\u05DC \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05E9\u05D1\u05D4 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA.',
+storage_folder_deleted:'\u2705 \u05D4\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05E0\u05DE\u05D7\u05E7\u05D4.',
+storage_folder_created:'\u2705 \u05D4\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05E0\u05D5\u05E6\u05E8\u05D4!',
+storage_folder_name:'\u05E9\u05DD \u05EA\u05D9\u05E7\u05D9\u05D9\u05D4',
+storage_preview:'\u05EA\u05E6\u05D5\u05D2\u05D4 \u05DE\u05E7\u05D3\u05D9\u05DE\u05D4',
+storage_download:'\u05D4\u05D5\u05E8\u05D3\u05D4',
+storage_rename_file:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DD',
+storage_move_to:'\u05D4\u05E2\u05D1\u05E8\u05D4 \u05DC\u2026',
+storage_delete_file:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05E7\u05D5\u05D1\u05E5?',
+storage_delete_file_msg:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D1\u05E5 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA?',
+storage_file_deleted:'\u2705 \u05D4\u05E7\u05D5\u05D1\u05E5 \u05E0\u05DE\u05D7\u05E7.',
+storage_uploading:'\u05DE\u05E2\u05DC\u05D4\u2026',
+storage_uploaded:'\u2705 \u05D4\u05D5\u05E2\u05DC\u05D4!',
+storage_upload_failed:'\u274C \u05D4\u05D4\u05E2\u05DC\u05D0\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4.',
+storage_limit_reached:'\u05DE\u05D2\u05D1\u05DC\u05EA \u05D0\u05D7\u05E1\u05D5\u05DF \u05D4\u05D5\u05E9\u05D2\u05D4. \u05E9\u05D3\u05E8\u05D2\u05D9 \u05DC\u05E0\u05E4\u05D7 \u05E0\u05D5\u05E1\u05E3.',
+storage_copy_to_patient:'\u05D4\u05E2\u05EA\u05E7\u05D4 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05EA \u05DE\u05D8\u05D5\u05E4\u05DC',
+storage_copy_select_child:'\u05D1\u05D7\u05E8\u05D9 \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA',
+storage_copy_select_folder:'\u05D1\u05D7\u05E8\u05D9 \u05EA\u05D9\u05E7\u05D9\u05D9\u05D4',
+storage_copy_confirm:'\u05DC\u05D4\u05E2\u05EA\u05D9\u05E7 \u05D0\u05EA "{file}" \u05DC{folder} \u05E9\u05DC {child}?',
+storage_copied:'\u2705 \u05D4\u05D5\u05E2\u05EA\u05E7 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05EA \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC!',
+storage_locked:'\uD83D\uDD12 \u05D4\u05D0\u05D7\u05E1\u05D5\u05DF \u05E9\u05DC\u05D9',
 };}
 // If user is already in Hebrew, load immediately
 if(_lang==='he')_ensureHebrew();
@@ -7293,6 +7368,7 @@ function renderSpecDesktop(){
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
+    {id:'spec-storage',label:T('storage_title'),icon:'📁'},
     {id:'request',label:T('spec_nav_join_team'),icon:'📨'},
     {id:'settings', label:T('nav_settings'),icon:'⚙️'},
   ].forEach(item=>{
@@ -7347,7 +7423,7 @@ function renderSpecDesktop(){
   const TAB_NAMES={dashboard:T('nav_home'),patients:T('spec_nav_patients'),todo:T('nav_todo'),
     notifications:T('nav_notifications'),settings:T('nav_settings'),vault:T('tab_notes'),
     homework:T('tab_tasks'),files:T('tab_files'),chat:T('tab_chat'),calendar:T('nav_calendar'),
-    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries')};
+    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries'),'spec-storage':T('storage_title')};
 
   // Breadcrumb
   const bc=el('div',{class:'spec-dt-bc'});
@@ -8029,6 +8105,7 @@ function renderDrawer(){
       {icon:'👤',label:T('spec_nav_patients'),id:'patients'},
       {icon:'📅',label:T('nav_calendar'),id:'calendar'},
       {icon:'✅',label:T('spec_nav_my_tasks'),id:'todo'},
+      {icon:'📁',label:T('storage_title'),id:'spec-storage'},
       {icon:'🔔',label:T('nav_notifications'),id:'notifications'},
       {icon:'⚙️',label:T('nav_settings'),id:'settings'},
     ];
@@ -9074,6 +9151,7 @@ function renderContent(){
   if(t==='todo')return r==='specialist'?renderSpecTodo():renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
+  if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
   if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
   if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
@@ -14931,6 +15009,317 @@ function renderPatientDashboard(){
   sec.appendChild(renderMiniCalendar([child], patientApts));
 
   return sec;
+}
+
+/* -----------------------------------------------
+   SPECIALIST PERSONAL STORAGE
+----------------------------------------------- */
+function renderSpecStorage(){
+  // Lock gate: free specialists see upgrade prompt
+  if(!_hasSpecAiAccess()){
+    const sec=el('div',{class:'section'});
+    sec.appendChild(el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['📁']),
+      el('div',{class:'empty-state-title'},[T('storage_locked')]),
+      el('div',{class:'empty-state-body'},[T('storage_empty')]),
+      el('div',{class:'empty-state-actions'},[
+        mkBtn('✨ Unlock Storage','btn-md btn-primary',()=>_showSpecAiUpgradeModal('Storage'))
+      ])
+    ]));
+    return sec;
+  }
+
+  const sec=el('div',{class:'section'});
+  const specId=session?.id;
+  const path=S.specStoragePath||[];
+  const currentFolderId=path.length>0?path[path.length-1].id:null;
+
+  // Header
+  const hdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'8px'}});
+  hdr.appendChild(el('h2',{class:'page-title',style:{margin:0}},[T('storage_title')]));
+  // Usage bar
+  const usedBytes=S._storageUsedBytes||0;
+  const tier=session?.storageTier||'base';
+  const limitBytes=STORAGE_LIMITS[tier]||STORAGE_LIMITS.base;
+  const pct=Math.min(100,Math.round(usedBytes/limitBytes*100));
+  const usageColor=pct>95?'var(--coral)':pct>80?'var(--amber)':'var(--teal)';
+  const usageBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
+  const bar=el('div',{style:{width:'120px',height:'6px',borderRadius:'3px',background:'var(--mint-l)',overflow:'hidden'}});
+  bar.appendChild(el('div',{style:{width:pct+'%',height:'100%',borderRadius:'3px',background:usageColor}}));
+  usageBar.appendChild(bar);
+  usageBar.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},[T('storage_usage',{used:_formatBytes(usedBytes),limit:_formatBytes(limitBytes)})]));
+  hdr.appendChild(usageBar);
+  sec.appendChild(hdr);
+
+  // Toolbar
+  const toolbar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}});
+  toolbar.appendChild(mkBtn('📁 '+T('storage_new_folder'),'btn-sm btn-secondary',()=>{
+    openModal('📁 '+T('storage_new_folder'),(mb,close)=>{
+      mb.appendChild(el('div',{class:'inp-label'},[T('storage_folder_name')]));
+      const inp=el('input',{class:'inp',placeholder:T('storage_folder_name'),style:{marginBottom:'14px'}});
+      mb.appendChild(inp);
+      mb.appendChild(mkBtn(T('btn_save'),'btn-md btn-primary btn-full',async()=>{
+        if(!inp.value.trim()){toast(T('files_enter_name'),'error');return;}
+        try{
+          const{data,error}=await _supa.from('spec_vault_folders').insert({specialist_id:specId,parent_folder_id:currentFolderId,name:inp.value.trim()}).select().single();
+          if(error)throw error;
+          close();toast(T('storage_folder_created'));re();
+        }catch(e){console.error('create folder:',e);toast(T('storage_upload_failed'),'error');}
+      }));
+    },360);
+  }));
+  toolbar.appendChild(mkBtn('📎 '+T('storage_upload'),'btn-sm btn-primary',()=>{
+    const inp=el('input',{type:'file',multiple:true,style:{display:'none'}});
+    inp.onchange=async e=>{
+      const files=[...e.target.files];if(!files.length)return;
+      for(const f of files){
+        const totalAfter=usedBytes+f.size;
+        if(totalAfter>limitBytes){toast(T('storage_limit_reached'),'error');return;}
+        toast(T('storage_uploading'),'info',2000);
+        try{
+          const path2=specId+'/'+Date.now()+'_'+f.name;
+          const{error:upErr}=await _supa.storage.from('specialist-storage').upload(path2,f,{contentType:f.type,upsert:false});
+          if(upErr)throw upErr;
+          const{error:dbErr}=await _supa.from('spec_vault_files').insert({specialist_id:specId,folder_id:currentFolderId,name:f.name,file_type:f.name.split('.').pop()||'file',size_bytes:f.size,storage_path:path2});
+          if(dbErr)throw dbErr;
+          S._storageUsedBytes=(S._storageUsedBytes||0)+f.size;
+          toast(T('storage_uploaded'));
+        }catch(ex){console.error('upload:',ex);toast(T('storage_upload_failed'),'error');}
+      }
+      re();
+    };
+    document.body.appendChild(inp);inp.click();inp.remove();
+  }));
+  // Search
+  const searchWrap=el('div',{style:{flex:1,minWidth:'120px'}});
+  const searchInp=el('input',{class:'inp',placeholder:T('storage_search_ph'),style:{fontSize:'.82rem'}});
+  searchInp.value=S._specStorageSearch||'';
+  searchInp.oninput=e=>{S._specStorageSearch=e.target.value;re();};
+  searchWrap.appendChild(searchInp);
+  toolbar.appendChild(searchWrap);
+  sec.appendChild(toolbar);
+
+  // Breadcrumb
+  if(path.length>0){
+    const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px',fontSize:'.82rem',flexWrap:'wrap'}});
+    const rootBtn=el('span',{style:{color:'var(--teal)',cursor:'pointer',fontWeight:600}});
+    rootBtn.textContent=T('storage_title');
+    rootBtn.onclick=()=>{S.specStoragePath=[];re();};
+    bc.appendChild(rootBtn);
+    path.forEach((p2,i)=>{
+      bc.appendChild(el('span',{style:{color:'var(--slate-l)'}},['›']));
+      if(i<path.length-1){
+        const link=el('span',{style:{color:'var(--teal)',cursor:'pointer',fontWeight:500}});
+        link.textContent=p2.name;
+        link.onclick=()=>{S.specStoragePath=path.slice(0,i+1);re();};
+        bc.appendChild(link);
+      } else {
+        bc.appendChild(el('span',{style:{color:'var(--navy)',fontWeight:600}},[p2.name]));
+      }
+    });
+    sec.appendChild(bc);
+  }
+
+  // Load data
+  const _q=(S._specStorageSearch||'').toLowerCase();
+  (async()=>{
+    try{
+      // Load folders
+      let fQ=_supa.from('spec_vault_folders').select('*').eq('specialist_id',specId).order('name');
+      if(!_q)fQ=fQ.eq('parent_folder_id',currentFolderId||null);
+      const{data:folders}=await fQ;
+      // Load files
+      let fiQ=_supa.from('spec_vault_files').select('*').eq('specialist_id',specId).order('created_at',{ascending:false});
+      if(!_q)fiQ=fiQ.eq('folder_id',currentFolderId||null);
+      const{data:files}=await fiQ;
+
+      // Calculate total storage
+      const{data:allFiles}=await _supa.from('spec_vault_files').select('size_bytes').eq('specialist_id',specId);
+      S._storageUsedBytes=(allFiles||[]).reduce((s,f)=>s+(f.size_bytes||0),0);
+
+      const filteredFolders=_q?(folders||[]).filter(f=>f.name.toLowerCase().includes(_q)):(folders||[]);
+      const filteredFiles=_q?(files||[]).filter(f=>f.name.toLowerCase().includes(_q)):(files||[]);
+
+      // Render content area
+      const content=sec.querySelector('.spec-storage-content');
+      if(!content)return;
+      content.innerHTML='';
+
+      if(!filteredFolders.length&&!filteredFiles.length){
+        const empty=el('div',{class:'empty-state',style:{marginTop:'20px'}});
+        empty.appendChild(el('span',{class:'empty-state-icon'},[_q?'🔍':'📁']));
+        empty.appendChild(el('div',{class:'empty-state-title'},[_q?T('storage_no_results'):'']));
+        empty.appendChild(el('div',{class:'empty-state-body'},[_q?'':T('storage_empty')]));
+        content.appendChild(empty);
+        return;
+      }
+
+      // Folders
+      filteredFolders.forEach(folder=>{
+        const row=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer'}});
+        row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},['📁']));
+        const info=el('div',{style:{flex:1,minWidth:0}});
+        info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[folder.name]));
+        row.appendChild(info);
+        row.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1rem'}},['›']));
+        row.onclick=()=>{S.specStoragePath=[...path,{id:folder.id,name:folder.name}];S._specStorageSearch='';re();};
+        // Long press → rename/delete
+        let _lpt=null;
+        row.onpointerdown=()=>{_lpt=setTimeout(()=>{
+          _lpt=null;
+          openModal('📁 '+folder.name,(mb,close)=>{
+            mb.appendChild(mkBtn(T('storage_rename_folder'),'btn-md btn-secondary btn-full',()=>{
+              close();
+              const newName=prompt(T('storage_folder_name'),folder.name);
+              if(newName&&newName.trim()!==folder.name){
+                _supa.from('spec_vault_folders').update({name:newName.trim()}).eq('id',folder.id).then(()=>{re();});
+              }
+            }));
+            mb.appendChild(el('div',{style:{height:'8px'}}));
+            mb.appendChild(mkBtn('🗑️ '+T('btn_delete'),'btn-md btn-danger btn-full',()=>{
+              close();
+              openConfirm(T('storage_delete_folder'),T('storage_delete_folder_msg'),true,async()=>{
+                try{
+                  // Delete files in folder from storage
+                  const{data:fInFolder}=await _supa.from('spec_vault_files').select('storage_path').eq('folder_id',folder.id);
+                  if(fInFolder?.length){
+                    await _supa.storage.from('specialist-storage').remove(fInFolder.map(f=>f.storage_path));
+                    await _supa.from('spec_vault_files').delete().eq('folder_id',folder.id);
+                  }
+                  await _supa.from('spec_vault_folders').delete().eq('id',folder.id);
+                  toast(T('storage_folder_deleted'));re();
+                }catch(e){console.error(e);toast(T('storage_upload_failed'),'error');}
+              });
+            }));
+          },300);
+        },600);};
+        row.onpointerup=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
+        row.onpointerleave=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
+        content.appendChild(row);
+      });
+
+      // Files
+      filteredFiles.forEach(file=>{
+        const ext=(file.file_type||file.name.split('.').pop()||'').toLowerCase();
+        const tc=_fileThumbColors(ext);
+        const row=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer'}});
+        row.appendChild(el('div',{style:{width:'36px',height:'36px',borderRadius:'8px',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}},[tc.icon]));
+        const info=el('div',{style:{flex:1,minWidth:0}});
+        info.appendChild(el('div',{style:{fontWeight:600,color:'var(--navy)',fontSize:'.84rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},[file.name]));
+        info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginTop:'2px'}},[_formatBytes(file.size_bytes||0)+' · '+((file.created_at||'').split('T')[0]||'')]));
+        row.appendChild(info);
+        // Actions button
+        const actBtn=el('button',{style:{background:'none',border:'none',fontSize:'1.1rem',cursor:'pointer',color:'var(--slate)',padding:'4px'}},['⋯']);
+        actBtn.onclick=e=>{
+          e.stopPropagation();
+          openModal(file.name,(mb,close)=>{
+            // Preview
+            mb.appendChild(mkBtn('👁 '+T('storage_preview'),'btn-md btn-secondary btn-full',async()=>{
+              close();
+              const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(file.storage_path,900);
+              if(data?.signedUrl)_filePreview({name:file.name,url:data.signedUrl});
+              else toast('Could not preview.','error');
+            }));
+            mb.appendChild(el('div',{style:{height:'6px'}}));
+            // Download
+            mb.appendChild(mkBtn('⬇ '+T('storage_download'),'btn-md btn-secondary btn-full',async()=>{
+              const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(file.storage_path,900);
+              if(data?.signedUrl){const a=document.createElement('a');a.href=data.signedUrl;a.download=file.name;a.click();}
+              close();
+            }));
+            mb.appendChild(el('div',{style:{height:'6px'}}));
+            // Copy to patient folder
+            mb.appendChild(mkBtn('📋 '+T('storage_copy_to_patient'),'btn-md btn-ghost btn-full',()=>{
+              close();_showCopyToPatientModal(file);
+            }));
+            mb.appendChild(el('div',{style:{height:'6px'}}));
+            // Rename
+            mb.appendChild(mkBtn('✏️ '+T('storage_rename_file'),'btn-md btn-ghost btn-full',()=>{
+              close();
+              const newName=prompt(T('storage_rename_file'),file.name);
+              if(newName&&newName.trim()!==file.name){
+                _supa.from('spec_vault_files').update({name:newName.trim()}).eq('id',file.id).then(()=>re());
+              }
+            }));
+            mb.appendChild(el('div',{style:{height:'6px'}}));
+            // Delete
+            mb.appendChild(mkBtn('🗑️ '+T('btn_delete'),'btn-md btn-danger btn-full',()=>{
+              close();
+              openConfirm(T('storage_delete_file'),T('storage_delete_file_msg'),true,async()=>{
+                try{
+                  await _supa.storage.from('specialist-storage').remove([file.storage_path]);
+                  await _supa.from('spec_vault_files').delete().eq('id',file.id);
+                  toast(T('storage_file_deleted'));re();
+                }catch(e){console.error(e);toast(T('storage_upload_failed'),'error');}
+              });
+            }));
+          },340);
+        };
+        row.appendChild(actBtn);
+        // Tap row → preview
+        row.onclick=async()=>{
+          const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(file.storage_path,900);
+          if(data?.signedUrl)_filePreview({name:file.name,url:data.signedUrl});
+        };
+        content.appendChild(row);
+      });
+    }catch(e){console.error('load storage:',e);}
+  })();
+
+  // Content placeholder (filled async)
+  const contentArea=el('div',{class:'spec-storage-content'});
+  contentArea.appendChild(el('div',{style:{textAlign:'center',padding:'24px',color:'var(--slate)',fontSize:'.84rem'}},[T('btn_loading')]));
+  sec.appendChild(contentArea);
+  return sec;
+}
+
+// Copy file to patient folder
+function _showCopyToPatientModal(file){
+  const children=LS.get('children',[])||DB.children;
+  openModal('📋 '+T('storage_copy_to_patient'),(mb,close)=>{
+    mb.appendChild(el('div',{class:'inp-label'},[T('storage_copy_select_child')]));
+    const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
+    childSel.appendChild(el('option',{value:''},['—']));
+    children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=(c.avatar||'')+' '+c.name;childSel.appendChild(o);});
+    mb.appendChild(childSel);
+
+    mb.appendChild(el('div',{class:'inp-label'},[T('storage_copy_select_folder')]));
+    const folderSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
+    const _loadFolders=async cid=>{
+      folderSel.innerHTML='';
+      if(!cid)return;
+      const{data:folders}=await _supa.from('folders').select('id,name,icon,key').eq('child_id',cid).order('created_at');
+      (folders||[]).forEach(f=>{const o=el('option');o.value=f.id;o.dataset.key=f.key;o.textContent=(f.icon||'📁')+' '+f.name;folderSel.appendChild(o);});
+    };
+    childSel.onchange=()=>_loadFolders(childSel.value);
+    mb.appendChild(folderSel);
+
+    mb.appendChild(mkBtn(T('btn_confirm'),'btn-md btn-primary btn-full',async()=>{
+      if(!childSel.value||!folderSel.value){toast('Select a patient and folder.','error');return;}
+      try{
+        // Download from specialist storage
+        const{data:signedUrl}=await _supa.storage.from('specialist-storage').createSignedUrl(file.storage_path,300);
+        if(!signedUrl?.signedUrl)throw new Error('No URL');
+        const resp=await fetch(signedUrl.signedUrl);
+        const blob=await resp.blob();
+        // Upload copy to patient's bucket
+        const destPath=childSel.value+'/'+Date.now()+'_'+file.name;
+        const{error:upErr}=await _supa.storage.from('huddledin-files').upload(destPath,blob,{contentType:blob.type,upsert:false});
+        if(upErr)throw upErr;
+        // Insert file record
+        await _supa.from('files').insert({child_id:childSel.value,uploaded_by:session.id,name:file.name,storage_path:destPath,mime_type:blob.type,size_bytes:file.size_bytes||0,category:folderSel.options[folderSel.selectedIndex]?.dataset?.key||'general'});
+        close();toast(T('storage_copied'));
+      }catch(e){console.error('copy to patient:',e);toast(T('storage_upload_failed'),'error');}
+    }));
+  },420);
+}
+
+// Format bytes helper
+function _formatBytes(bytes){
+  if(!bytes||bytes===0)return '0 B';
+  const k=1024;const sizes=['B','KB','MB','GB'];
+  const i=Math.floor(Math.log(bytes)/Math.log(k));
+  return parseFloat((bytes/Math.pow(k,i)).toFixed(1))+' '+sizes[i];
 }
 
 /* -----------------------------------------------
