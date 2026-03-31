@@ -11704,7 +11704,7 @@ function renderChat(){
   }
 
   // -- DESKTOP: side-by-side layout --
-  const wrap=el('div',{style:{display:'flex',gap:'0',minHeight:'460px',borderTop:'1px solid var(--mint-l)'}});
+  const wrap=el('div',{style:{display:'flex',gap:'0',height:'calc(100vh - 140px)',maxHeight:'calc(100vh - 140px)',borderTop:'1px solid var(--mint-l)'}});
   const sidebar=el('div',{style:{width:'260px',minWidth:'260px',borderRight:'1.5px solid var(--mint-l)',overflowY:'auto',flexShrink:0}});
   sidebar.appendChild(listWrap);
   wrap.appendChild(sidebar);
@@ -11773,7 +11773,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
     overflow:'hidden'
   }:{
-    display:'flex',flexDirection:'column',height:'calc(100vh - 160px)',maxHeight:'calc(100vh - 160px)',overflow:'hidden'
+    display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'
   }});
 
   // iOS only: visualViewport tracks keyboard — adjust bottom so input stays visible
