@@ -2722,6 +2722,7 @@ let S={
   _trialBannerDismissed:false,  // session-scoped dismiss of trial banner
   _parentTaskExpandedId:null,  // parent to-do: expanded card id (mobile)
   specAiSubscription:null,      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
+  _infoCardOpen:false,     // specialist web: expandable patient info panel
   specStoragePath:[],      // breadcrumb: [{id,name},...]
   specStorageView:'list',  // 'list' or 'grid'
   _specStorageSearch:'',
@@ -3977,6 +3978,30 @@ storage_copy_select_folder:'Select folder',
 storage_copy_confirm:'Copy "{file}" to {child}\u2019s {folder}?',
 storage_copied:'\u2705 Copied to patient folder!',
 storage_locked:'\uD83D\uDD12 My Storage',
+// ── Parent Contact & Child Info ──
+profile_complete_title:'Complete your profile',
+profile_complete_sub:'Help your child\u2019s care team reach you.',
+profile_phone:'Phone number',
+profile_address:'Address',
+profile_address2:'Apt / Suite (optional)',
+profile_city:'City',
+profile_zip:'Zip / Postal code',
+profile_country:'Country',
+profile_skip:'Skip for now',
+profile_save_continue:'Save & Continue \u2728',
+profile_contact_info:'\uD83D\uDCDE Contact Information',
+profile_contact_saved:'\u2705 Contact info updated!',
+profile_privacy_notice:'\uD83D\uDD12 Your contact information is stored securely and only shared with specialists you\u2019ve approved.',
+child_tz_number:'ID Number',
+child_tz_placeholder:'9 digits (optional)',
+info_card_title:'Patient & Family Info',
+info_card_child_details:'\uD83E\uDDD2 Child Details',
+info_card_parents:'\uD83D\uDC69 Parents',
+info_card_address:'\uD83D\uDCCD Address',
+info_card_no_contact:'Contact information not yet provided.',
+info_card_primary:'Primary',
+info_card_id_number:'ID Number',
+info_card_info:'\u2139\uFE0F Info',
 }
 };
 // Hebrew dictionary — lazy-loaded on first use to save parse time for English users
@@ -5139,6 +5164,30 @@ storage_copy_select_folder:'\u05D1\u05D7\u05E8\u05D9 \u05EA\u05D9\u05E7\u05D9\u0
 storage_copy_confirm:'\u05DC\u05D4\u05E2\u05EA\u05D9\u05E7 \u05D0\u05EA "{file}" \u05DC{folder} \u05E9\u05DC {child}?',
 storage_copied:'\u2705 \u05D4\u05D5\u05E2\u05EA\u05E7 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05EA \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC!',
 storage_locked:'\uD83D\uDD12 \u05D4\u05D0\u05D7\u05E1\u05D5\u05DF \u05E9\u05DC\u05D9',
+// ── Parent Contact & Child Info ──
+profile_complete_title:'\u05D4\u05E9\u05DC\u05D9\u05DE\u05D5 \u05D0\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC',
+profile_complete_sub:'\u05E2\u05D6\u05E8\u05D5 \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05DC\u05D9\u05E6\u05D5\u05E8 \u05D0\u05D9\u05EA\u05DB\u05DD \u05E7\u05E9\u05E8.',
+profile_phone:'\u05D8\u05DC\u05E4\u05D5\u05DF',
+profile_address:'\u05DB\u05EA\u05D5\u05D1\u05EA',
+profile_address2:'\u05D3\u05D9\u05E8\u05D4 / \u05E7\u05D5\u05DE\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',
+profile_city:'\u05E2\u05D9\u05E8',
+profile_zip:'\u05DE\u05D9\u05E7\u05D5\u05D3',
+profile_country:'\u05DE\u05D3\u05D9\u05E0\u05D4',
+profile_skip:'\u05D3\u05DC\u05D2\u05D5 \u05DC\u05D1\u05D9\u05E0\u05EA\u05D9\u05D9\u05DD',
+profile_save_continue:'\u05E9\u05DE\u05D9\u05E8\u05D4 \u05D5\u05D4\u05DE\u05E9\u05DA \u2728',
+profile_contact_info:'\uD83D\uDCDE \u05E4\u05E8\u05D8\u05D9 \u05D4\u05EA\u05E7\u05E9\u05E8\u05D5\u05EA',
+profile_contact_saved:'\u2705 \u05E4\u05E8\u05D8\u05D9 \u05D4\u05EA\u05E7\u05E9\u05E8\u05D5\u05EA \u05E2\u05D5\u05D3\u05DB\u05E0\u05D5!',
+profile_privacy_notice:'\uD83D\uDD12 \u05E4\u05E8\u05D8\u05D9 \u05D4\u05EA\u05E7\u05E9\u05E8\u05D5\u05EA \u05E9\u05DC\u05DA \u05DE\u05D0\u05D5\u05D7\u05E1\u05E0\u05D9\u05DD \u05D1\u05D0\u05D5\u05E4\u05DF \u05DE\u05D0\u05D5\u05D1\u05D8\u05D7 \u05D5\u05DE\u05E9\u05D5\u05EA\u05E4\u05D9\u05DD \u05E8\u05E7 \u05E2\u05DD \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05D0\u05D9\u05E9\u05E8\u05EA.',
+child_tz_number:'\u05EA\u05E2\u05D5\u05D3\u05EA \u05D6\u05D4\u05D5\u05EA',
+child_tz_placeholder:'9 \u05E1\u05E4\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',
+info_card_title:'\u05E4\u05E8\u05D8\u05D9 \u05DE\u05D8\u05D5\u05E4\u05DC \u05D5\u05DE\u05E9\u05E4\u05D7\u05D4',
+info_card_child_details:'\uD83E\uDDD2 \u05E4\u05E8\u05D8\u05D9 \u05D4\u05D9\u05DC\u05D3/\u05D4',
+info_card_parents:'\uD83D\uDC69 \u05D4\u05D5\u05E8\u05D9\u05DD',
+info_card_address:'\uD83D\uDCCD \u05DB\u05EA\u05D5\u05D1\u05EA',
+info_card_no_contact:'\u05E4\u05E8\u05D8\u05D9 \u05D4\u05EA\u05E7\u05E9\u05E8\u05D5\u05EA \u05DC\u05D0 \u05D4\u05D5\u05D6\u05E0\u05D5 \u05E2\u05D3\u05D9\u05D9\u05DF.',
+info_card_primary:'\u05E8\u05D0\u05E9\u05D9/\u05EA',
+info_card_id_number:'\u05EA\u05E2\u05D5\u05D3\u05EA \u05D6\u05D4\u05D5\u05EA',
+info_card_info:'\u2139\uFE0F \u05DE\u05D9\u05D3\u05E2',
 };}
 // If user is already in Hebrew, load immediately
 if(_lang==='he')_ensureHebrew();
@@ -7661,9 +7710,71 @@ function _renderSpecDtPatientDetail(child,specId){
   nTask.onclick=()=>{S.activeTab='homework';re();};
   ha.appendChild(nNote); ha.appendChild(nTask);
 
+  // Info toggle button in header — prominent teal pill
+  const infoBtn=el('button',{style:{background:S._infoCardOpen?'var(--teal)':'var(--mint-ll)',border:'1.5px solid '+(S._infoCardOpen?'var(--teal)':'var(--mint-l)'),borderRadius:'10px',padding:'6px 14px',fontSize:'.8rem',fontWeight:800,color:S._infoCardOpen?'#fff':'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',transition:'all .15s'}});
+  infoBtn.textContent=T('info_card_info')+(S._infoCardOpen?' ▴':' ▾');
+  infoBtn.onclick=()=>{S._infoCardOpen=!S._infoCardOpen;re();};
+  ha.appendChild(infoBtn);
+
   pr.appendChild(statsWrap);
   pr.appendChild(ha);
   hdr.appendChild(pr);
+
+  // Expandable info panel
+  if(S._infoCardOpen){
+    const infoPanel=el('div',{style:{padding:'16px 20px',background:'var(--mint-ll)',borderRadius:'14px',margin:'12px 0',border:'1px solid var(--mint-l)'}});
+    infoPanel.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},[T('info_card_title')]));
+
+    // Child details
+    infoPanel.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'6px'}},[T('info_card_child_details')]));
+    if(localStorage.getItem('hud_country')==='IL'&&(child.tzNumber||child.tz_number)){
+      infoPanel.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'4px'}},[T('info_card_id_number')+': '+(child.tzNumber||child.tz_number)]));
+    }
+    infoPanel.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'12px'}},['DOB: '+(child.dob||'\u2014')]));
+
+    // Parents — load from household
+    const _loadParents=async()=>{
+      try{
+        const hid=child.householdId||child.household_id;
+        if(!hid)return;
+        const{data:members}=await _supa.from('profiles').select('id,display_name,email,phone,address_line1,address_line2,city,zip,country,is_primary,role').eq('household_id',hid);
+        const parents=(members||[]).filter(m=>m.role==='parent');
+        const parentsSec=infoPanel.querySelector('.info-parents');
+        if(!parentsSec)return;
+        parentsSec.innerHTML='';
+        if(!parents.length){parentsSec.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate-l)',fontStyle:'italic'}},[T('info_card_no_contact')]));return;}
+
+        parents.forEach(p=>{
+          const pRow=el('div',{style:{marginBottom:'12px',paddingBottom:'10px',borderBottom:'1px solid var(--mint-l)'}});
+          const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}});
+          nameRow.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem'}},[p.display_name||p.email]));
+          if(p.is_primary)nameRow.appendChild(el('span',{style:{fontSize:'.65rem',background:'var(--teal)',color:'#fff',padding:'1px 6px',borderRadius:'4px',fontWeight:700}},[T('info_card_primary')]));
+          pRow.appendChild(nameRow);
+
+          const contactRow=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap',fontSize:'.8rem'}});
+          if(p.phone){const tel=el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}});tel.textContent='\uD83D\uDCDE '+p.phone;contactRow.appendChild(tel);}
+          if(p.email){const mail=el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}});mail.textContent='\uD83D\uDCE7 '+p.email;contactRow.appendChild(mail);}
+          pRow.appendChild(contactRow);
+
+          if(p.address_line1||p.city){
+            const addr=el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}});
+            const parts=[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean);
+            addr.textContent='\uD83D\uDCCD '+parts.join(', ');
+            pRow.appendChild(addr);
+          }
+          parentsSec.appendChild(pRow);
+        });
+      }catch(e){console.error('load parents:',e);}
+    };
+
+    infoPanel.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'6px',marginTop:'8px'}},[T('info_card_parents')]));
+    const parentsSec=el('div',{class:'info-parents'});
+    parentsSec.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[T('btn_loading')]));
+    infoPanel.appendChild(parentsSec);
+    _loadParents();
+
+    hdr.appendChild(infoPanel);
+  }
 
   /* Tab bar */
   const tabbar=el('div',{class:'spec-dt-tabbar'});
@@ -14952,6 +15063,11 @@ function renderPatientDashboard(){
     ['Age '+(calcAge(child.dob)||'—')+' · DOB '+(child.dob||'—')]));
   if(_dashIsRemoved)hInfo.appendChild(el('div',{style:{display:'inline-flex',alignItems:'center',gap:'5px',background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700,marginTop:'4px'}},['Not connected']));
   hdrCard.appendChild(hInfo);
+  // Info button — opens child info modal (mobile)
+  const _infoTap=el('button',{style:{background:'var(--teal)',border:'none',borderRadius:'10px',padding:'8px 14px',fontSize:'.8rem',fontWeight:800,color:'#fff',cursor:'pointer',flexShrink:0,minHeight:'36px'}});
+  _infoTap.textContent=T('info_card_info');
+  _infoTap.onclick=e=>{e.stopPropagation();showChildInfoModal(child);};
+  hdrCard.appendChild(_infoTap);
   sec.appendChild(hdrCard);
 
   // Not connected banner
@@ -15009,6 +15125,56 @@ function renderPatientDashboard(){
   sec.appendChild(renderMiniCalendar([child], patientApts));
 
   return sec;
+}
+
+/* -----------------------------------------------
+   CHILD INFO MODAL (Specialist — mobile + web)
+----------------------------------------------- */
+async function showChildInfoModal(child){
+  openModal(child.name+' \u2014 '+T('info_card_title'),async(mb,close)=>{
+    // Child details
+    const childSec=el('div',{style:{textAlign:'center',marginBottom:'16px'}});
+    childSec.appendChild(mkChildAvatar(child,64,'50%'));
+    childSec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem',marginTop:'8px'}},[child.name]));
+    childSec.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--slate)'}},[calcAge(child.dob)||'']));
+    if(child.dob)childSec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate-l)'}},[T('spec_dt_dob')+': '+child.dob]));
+    if(localStorage.getItem('hud_country')==='IL'&&(child.tzNumber||child.tz_number)){
+      childSec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'4px'}},[T('info_card_id_number')+': '+(child.tzNumber||child.tz_number)]));
+    }
+    mb.appendChild(childSec);
+
+    // Parents
+    mb.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'8px',borderTop:'1.5px solid var(--mint-l)',paddingTop:'12px'}},[T('info_card_parents')]));
+    const parentWrap=el('div');
+    parentWrap.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.82rem'}},[T('btn_loading')]));
+    mb.appendChild(parentWrap);
+
+    try{
+      const hid=child.householdId||child.household_id;
+      if(hid){
+        const{data:members}=await _supa.from('profiles').select('id,display_name,email,phone,address_line1,address_line2,city,zip,country,is_primary,role').eq('household_id',hid);
+        const parents=(members||[]).filter(m=>m.role==='parent');
+        parentWrap.innerHTML='';
+        if(!parents.length){parentWrap.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate-l)',fontStyle:'italic'}},[T('info_card_no_contact')]));return;}
+        parents.forEach(p=>{
+          const pDiv=el('div',{style:{marginBottom:'12px'}});
+          const nm=el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem',display:'flex',alignItems:'center',gap:'6px'}});
+          nm.appendChild(document.createTextNode(p.display_name||p.email));
+          if(p.is_primary)nm.appendChild(el('span',{style:{fontSize:'.62rem',background:'var(--teal)',color:'#fff',padding:'1px 6px',borderRadius:'4px',fontWeight:700}},[T('info_card_primary')]));
+          pDiv.appendChild(nm);
+          const links=el('div',{style:{display:'flex',gap:'10px',marginTop:'4px',fontSize:'.82rem'}});
+          if(p.phone)links.appendChild(el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},['\uD83D\uDCDE '+p.phone]));
+          if(p.email)links.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},['\uD83D\uDCE7 Email']));
+          pDiv.appendChild(links);
+          if(p.address_line1||p.city){
+            pDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}},
+              ['\uD83D\uDCCD '+[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean).join(', ')]));
+          }
+          parentWrap.appendChild(pDiv);
+        });
+      }
+    }catch(e){console.error('load parents:',e);parentWrap.innerHTML='';parentWrap.appendChild(el('div',{style:{color:'var(--slate-l)',fontSize:'.82rem'}},['Could not load.']));}
+  },420);
 }
 
 /* -----------------------------------------------
@@ -15659,6 +15825,15 @@ function showEditChildModal(child){
     dob.value=child.dob||'';
     mb.appendChild(dob);
 
+    // TZ number — Israel only
+    let tzInp=null;
+    if(localStorage.getItem('hud_country')==='IL'){
+      mb.appendChild(el('div',{class:'inp-label'},[T('child_tz_number')]));
+      tzInp=el('input',{class:'inp',placeholder:T('child_tz_placeholder'),style:{marginBottom:'12px'}});
+      tzInp.value=child.tz_number||child.tzNumber||'';
+      mb.appendChild(tzInp);
+    }
+
     const errDiv=el('div',{style:{color:'var(--rose)',fontSize:'.8rem',fontWeight:700,marginBottom:'10px',minHeight:'18px'}});
     mb.appendChild(errDiv);
 
@@ -15668,7 +15843,7 @@ function showEditChildModal(child){
       if(!name||!dobVal){errDiv.textContent=T('child_name_dob_required');return;}
       if(session&&session.id!=='demo'){
         try{
-          await _supa.from('children').update({name,dob:dobVal}).eq('id',child.id);
+          await _supa.from('children').update({name,dob:dobVal,tz_number:tzInp?.value||null}).eq('id',child.id);
         }catch(e){errDiv.textContent=T('child_save_failed',{error:e.message});return;}
       }
       // Update local cache
@@ -15727,6 +15902,15 @@ function showAddChildModal(){
 
     [ni,dob].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
+
+    // TZ number — Israel only
+    let tzInp=null;
+    if(localStorage.getItem('hud_country')==='IL'){
+      mb.appendChild(el('div',{class:'inp-label'},[T('child_tz_number')]));
+      tzInp=el('input',{class:'inp',placeholder:T('child_tz_placeholder'),style:{marginBottom:'12px'}});
+      mb.appendChild(tzInp);
+    }
+
     mb.appendChild(mkBtn(T('child_add_btn'),'btn-lg btn-primary btn-full',async()=>{
       if(!ni.value.trim()||!dob.value){toast(T('child_name_dob_warn'),'error');return;}
       const dobDate=new Date(dob.value);
@@ -15735,7 +15919,7 @@ function showAddChildModal(){
       let newChildId='c_'+Date.now();
       const _takenColors=(DB.children||[]).map(c=>c.color);
       const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast(T('child_save_error'),'error');return;}}
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null,tz_number:tzInp?.value||null},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast(T('child_save_error'),'error');return;}}
       const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null,householdId:session.householdId||null};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
@@ -17667,6 +17851,41 @@ function renderSettings(){
     langCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['\uD83C\uDF10 '+T('settings_language')]));
     langCard.appendChild(_lpCard);
     sec.appendChild(langCard);
+  }
+
+  // Contact information
+  if(session?.role==='parent'){
+    const contactCard=el('div',{class:'card',style:{marginBottom:'16px'}});
+    contactCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('profile_contact_info')]));
+
+    const _cFields=[
+      {key:'phone',label:T('profile_phone'),type:'tel'},
+      {key:'address_line1',label:T('profile_address'),type:'text'},
+      {key:'address_line2',label:T('profile_address2'),type:'text'},
+      {key:'city',label:T('profile_city'),type:'text'},
+      {key:'zip',label:T('profile_zip'),type:'text'},
+    ];
+    const _cInputs={};
+    _cFields.forEach(({key,label,type})=>{
+      contactCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'4px'}},[label]));
+      const inp=el('input',{class:'inp',type,style:{marginBottom:'10px'}});
+      inp.value=session?.[key]||'';
+      _cInputs[key]=inp;
+      contactCard.appendChild(inp);
+    });
+
+    contactCard.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.5'}},[T('profile_privacy_notice')]));
+
+    contactCard.appendChild(mkBtn(T('btn_save'),'btn-md btn-primary',async()=>{
+      const updates={};
+      for(const k in _cInputs)updates[k]=_cInputs[k].value.trim()||null;
+      try{
+        await _supa.from('profiles').update(updates).eq('id',session.id);
+        for(const k in updates)session[k]=updates[k];
+        toast(T('profile_contact_saved'));
+      }catch(e){console.error(e);toast('Could not save.','error');}
+    }));
+    sec.appendChild(contactCard);
   }
 
   // Shared Household (parent only)
