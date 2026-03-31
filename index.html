@@ -1765,7 +1765,7 @@ async function _loadSpecPermissions(specs){
 const SB = {
   async getChildren(parentId){
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
-    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active'})));
+    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',tz_number:c.tz_number||null})));
   },
   async addChild(parentId,child,householdId){
     const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
@@ -2057,7 +2057,7 @@ async function refreshFromSupabase(){
         ]);
         const children=childrenRes.data||[];
         if(children.length>0){
-          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved'})));
+          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved',tz_number:c.tz_number||null})));
           // Keep ALL patients in LS.children — hd9_inactive_children controls tab visibility, not cache membership
           // This ensures removed+inactive patients remain openable from their profile view
           const _mappedVisible=mapped;
@@ -2448,7 +2448,7 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
           ? SB.getSpecialistsByHousehold(hid).catch(()=>[])
           : SB.getSpecialists(s.user.id).catch(()=>[])
       ]);
-      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id})));
+      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
       LS.set('children',children);
       if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
       try{
@@ -2477,7 +2477,8 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
                 photo:c.photo_url||null,
                 status:c.status||'active',
                 parentId:c.parent_id||null,
-                householdId:c.household_id||null
+                householdId:c.household_id||null,
+                tz_number:c.tz_number||null
               })));
               LS.set('children',mapped);
               if(!S.activeChild)S.activeChild=mapped[0].id;
@@ -2724,6 +2725,7 @@ let S={
   _parentTaskExpandedId:null,  // parent to-do: expanded card id (mobile)
   specAiSubscription:null,      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
   _infoCardOpen:false,     // specialist web: expandable patient info panel
+  _contactEditMode:false,  // parent settings: contact info edit mode
   specStoragePath:[],      // breadcrumb: [{id,name},...]
   specStorageView:'list',  // 'list' or 'grid'
   _specStorageSearch:'',
@@ -7724,7 +7726,7 @@ function _renderSpecDtPatientDetail(child,specId){
     {id:'homework', label:'✅ '+T('tab_tasks')},
     {id:'files',    label:'📁 '+T('tab_files')},
     {id:'chat',     label:'💬 '+T('tab_chat')},
-    {id:'info',     label:'ℹ️ '+T('info_card_info')},
+    {id:'info',     label:T('info_card_info')},
   ];
   // Compute per-tab badge counts for this child
   const _tabBadges={};
@@ -15007,7 +15009,7 @@ function renderPatientDashboard(){
   hdrCard.appendChild(hInfo);
   // Info button — opens child info modal (mobile)
   const _infoTap=el('button',{style:{background:'transparent',border:'1.5px solid var(--teal)',borderRadius:'99px',padding:'5px 12px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',flexShrink:0}});
-  _infoTap.textContent='ℹ️ '+T('info_card_info');
+  _infoTap.textContent=T('info_card_info');
   _infoTap.onclick=e=>{e.stopPropagation();showChildInfoModal(child);};
   hdrCard.appendChild(_infoTap);
   sec.appendChild(hdrCard);
@@ -15127,7 +15129,7 @@ function renderSpecInfoCard(){
         // Email row
         const emailRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',fontSize:'.84rem'}});
         emailRow.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'50px'}},['Email:']));
-        if(p.email){emailRow.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));}
+        if(p.email){emailRow.appendChild(el('a',{href:'mailto:'+p.email,target:'_blank',rel:'noopener',style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));}
         else{emailRow.appendChild(_na.cloneNode(true));}
         pCard.appendChild(emailRow);
 
@@ -15199,7 +15201,7 @@ async function showChildInfoModal(child){
           const em2=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'5px',fontSize:'.82rem'}});
           em2.appendChild(el('span',{},['📧']));
           if(p.email){
-            em2.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));
+            em2.appendChild(el('a',{href:'mailto:'+p.email,target:'_blank',rel:'noopener',style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));
           } else {
             em2.appendChild(el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},[_na]));
           }
@@ -17898,11 +17900,9 @@ function renderSettings(){
     sec.appendChild(langCard);
   }
 
-  // Contact information
+  // Contact information — view/edit toggle
   if(session?.role==='parent'){
     const contactCard=el('div',{class:'card',style:{marginBottom:'16px'}});
-    contactCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('profile_contact_info')]));
-
     const _cFields=[
       {key:'phone',label:T('profile_phone'),type:'tel'},
       {key:'address_line1',label:T('profile_address'),type:'text'},
@@ -17910,26 +17910,50 @@ function renderSettings(){
       {key:'city',label:T('profile_city'),type:'text'},
       {key:'zip',label:T('profile_zip'),type:'text'},
     ];
-    const _cInputs={};
-    _cFields.forEach(({key,label,type})=>{
-      contactCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'4px'}},[label]));
-      const inp=el('input',{class:'inp',type,style:{marginBottom:'10px'}});
-      inp.value=session?.[key]||'';
-      _cInputs[key]=inp;
-      contactCard.appendChild(inp);
-    });
+    const _editing=!!S._contactEditMode;
+    // Header row
+    const hdr3=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}});
+    hdr3.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},[T('profile_contact_info')]));
+    if(!_editing){
+      const editBtn3=mkBtn('\u270F\uFE0F '+T('btn_edit'),'btn-sm btn-ghost',()=>{S._contactEditMode=true;re();});
+      hdr3.appendChild(editBtn3);
+    } else {
+      const cancelBtn3=mkBtn(T('btn_cancel'),'btn-sm btn-ghost',()=>{S._contactEditMode=false;re();});
+      hdr3.appendChild(cancelBtn3);
+    }
+    contactCard.appendChild(hdr3);
 
-    contactCard.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.5'}},[T('profile_privacy_notice')]));
-
-    contactCard.appendChild(mkBtn(T('btn_save'),'btn-md btn-primary',async()=>{
-      const updates={};
-      for(const k in _cInputs)updates[k]=_cInputs[k].value.trim()||null;
-      try{
-        await _supa.from('profiles').update(updates).eq('id',session.id);
-        for(const k in updates)session[k]=updates[k];
-        toast(T('profile_contact_saved'));
-      }catch(e){console.error(e);toast('Could not save.','error');}
-    }));
+    if(!_editing){
+      // View mode — show values as text
+      _cFields.forEach(({key,label})=>{
+        const row=el('div',{style:{display:'flex',gap:'8px',padding:'6px 0',borderBottom:'1px solid var(--mint-ll)',fontSize:'.86rem'}});
+        row.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'80px'}},[label+':']));
+        const val=session?.[key];
+        row.appendChild(val?el('span',{style:{color:'var(--navy)',fontWeight:500}},[val]):el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},['—']));
+        contactCard.appendChild(row);
+      });
+      contactCard.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'10px',lineHeight:'1.5'}},[T('profile_privacy_notice')]));
+    } else {
+      // Edit mode — show inputs
+      const _cInputs={};
+      _cFields.forEach(({key,label,type})=>{
+        contactCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'4px'}},[label]));
+        const inp=el('input',{class:'inp',type,style:{marginBottom:'10px'}});
+        inp.value=session?.[key]||'';
+        _cInputs[key]=inp;
+        contactCard.appendChild(inp);
+      });
+      contactCard.appendChild(mkBtn(T('btn_save'),'btn-md btn-primary btn-full',async()=>{
+        const updates={};
+        for(const k in _cInputs)updates[k]=_cInputs[k].value.trim()||null;
+        try{
+          await _supa.from('profiles').update(updates).eq('id',session.id);
+          for(const k in updates)session[k]=updates[k];
+          S._contactEditMode=false;
+          toast(T('profile_contact_saved'));re();
+        }catch(e){console.error(e);toast('Could not save.','error');}
+      }));
+    }
     sec.appendChild(contactCard);
   }
 
