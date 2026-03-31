@@ -2738,6 +2738,8 @@ if(localStorage.getItem('hud_country')==='IL'||localStorage.getItem('hud_lang')=
 const _isRtl=()=>_lang==='he';
 // Speech recognition language — independent of app language
 let _speechLang=localStorage.getItem('hud_country')==='IL'&&_lang==='he'?'he-IL':'en-US';
+// Speech-language-aware translation: headings in notes follow speech lang, not app lang
+const _ST=(key)=>{const sl=_speechLang==='he-IL'?'he':'en';if(sl!=='en'&&!_STRINGS[sl])_ensureHebrew();const d=_STRINGS[sl]||_STRINGS.en;return d[key]||_STRINGS.en[key]||key;};
 const _startSide=()=>_isRtl()?'right':'left';
 const _endSide=()=>_isRtl()?'left':'right';
 
@@ -12231,13 +12233,13 @@ function renderVault(){
             {phrases:['new line','next line','\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4'],insert:'__NEWLINE__'},
             {phrases:['new paragraph','\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4'],insert:'\n\n'},
             {phrases:['next section','\u05D7\u05DC\u05E7 \u05D4\u05D1\u05D0'],insert:'\n---\n'},
-            {phrases:['goals','\u05DE\u05D8\u05E8\u05D5\u05EA'],insert:'\n'+T('vc_goals')+':\n'},
-            {phrases:['observations','\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA'],insert:'\n'+T('vc_observations')+':\n'},
-            {phrases:['progress','\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA'],insert:'\n'+T('vc_progress')+':\n'},
-            {phrases:['plan','\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA'],insert:'\n'+T('vc_plan')+':\n'},
-            {phrases:['recommendations','\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA'],insert:'\n'+T('vc_recommendations')+':\n'},
-            {phrases:['summary','\u05E1\u05D9\u05DB\u05D5\u05DD'],insert:'\n'+T('vc_summary')+':\n'},
-            {phrases:['background','\u05E8\u05E7\u05E2'],insert:'\n'+T('vc_background')+':\n'},
+            {phrases:['goals','\u05DE\u05D8\u05E8\u05D5\u05EA'],get insert(){return'\n'+_ST('vc_goals')+':\n';}},
+            {phrases:['observations','\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA'],get insert(){return'\n'+_ST('vc_observations')+':\n';}},
+            {phrases:['progress','\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA'],get insert(){return'\n'+_ST('vc_progress')+':\n';}},
+            {phrases:['plan','\u05EA\u05D5\u05DB\u05E0\u05D9\u05EA'],get insert(){return'\n'+_ST('vc_plan')+':\n';}},
+            {phrases:['recommendations','\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA'],get insert(){return'\n'+_ST('vc_recommendations')+':\n';}},
+            {phrases:['summary','\u05E1\u05D9\u05DB\u05D5\u05DD'],get insert(){return'\n'+_ST('vc_summary')+':\n';}},
+            {phrases:['background','\u05E8\u05E7\u05E2'],get insert(){return'\n'+_ST('vc_background')+':\n';}},
             {phrases:['start list','\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA'],insert:'__START_NUM_LIST__'},
             {phrases:['bullet list','\u05E8\u05E9\u05D9\u05DE\u05D4'],insert:'__START_BULLET_LIST__'},
             {phrases:['end list','\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4'],insert:'__END_LIST__'},
