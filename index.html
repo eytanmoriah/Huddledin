@@ -7368,7 +7368,7 @@ function renderSpecDesktop(){
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
-    {id:'spec-storage',label:T('storage_title'),icon:'📁'},
+    {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' 🔒'),icon:'📁'},
     {id:'request',label:T('spec_nav_join_team'),icon:'📨'},
     {id:'settings', label:T('nav_settings'),icon:'⚙️'},
   ].forEach(item=>{
@@ -7596,7 +7596,7 @@ function renderSpecDesktop(){
   } else if(isPatientCtx&&activeChild){
     detail.appendChild(_renderSpecDtPatientDetail(activeChild,specId));
   } else if(!isPatientCtx&&!['todo','notifications','settings','credentials','request',
-      'session-summaries','email','calendar','admin'].includes(S.activeTab)){
+      'session-summaries','email','calendar','admin','spec-storage'].includes(S.activeTab)){
     // Empty state — no patient selected
     detail.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['👤']),
