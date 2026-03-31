@@ -2433,7 +2433,8 @@ async function _loadSessionFromSupabase(s){
       name:_displayName,displayName:_fullDisplayName,specialistId:profile.id,isNew:false,
       householdId:profile.household_id,isPrimary:profile.is_primary!==false,
       profession:profile.profession||null,
-      googleCalendarEnabled:profile.google_calendar_enabled||false};
+      googleCalendarEnabled:profile.google_calendar_enabled||false,
+phone:profile.phone||null,address_line1:profile.address_line1||null,address_line2:profile.address_line2||null,city:profile.city||null,zip:profile.zip||null,country:profile.country||null};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
@@ -7384,7 +7385,7 @@ function renderSpecDesktop(){
   const activeChild=DB.children.find(c=>c.id===S.activeChild)
     ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
 
-  const PATIENT_TABS=['vault','homework','files','chat','calendar'];
+  const PATIENT_TABS=['vault','homework','files','chat','calendar','info'];
   const isPatientCtx=!!(S.activeChild&&activeChild&&
     (S.activeTab==='patient-detail'||PATIENT_TABS.includes(S.activeTab)));
 
@@ -7710,71 +7711,10 @@ function _renderSpecDtPatientDetail(child,specId){
   nTask.onclick=()=>{S.activeTab='homework';re();};
   ha.appendChild(nNote); ha.appendChild(nTask);
 
-  // Info toggle button in header — prominent teal pill
-  const infoBtn=el('button',{style:{background:S._infoCardOpen?'var(--teal)':'var(--mint-ll)',border:'1.5px solid '+(S._infoCardOpen?'var(--teal)':'var(--mint-l)'),borderRadius:'10px',padding:'6px 14px',fontSize:'.8rem',fontWeight:800,color:S._infoCardOpen?'#fff':'var(--teal)',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',transition:'all .15s'}});
-  infoBtn.textContent=T('info_card_info')+(S._infoCardOpen?' ▴':' ▾');
-  infoBtn.onclick=()=>{S._infoCardOpen=!S._infoCardOpen;re();};
-  ha.appendChild(infoBtn);
 
   pr.appendChild(statsWrap);
   pr.appendChild(ha);
   hdr.appendChild(pr);
-
-  // Expandable info panel
-  if(S._infoCardOpen){
-    const infoPanel=el('div',{style:{padding:'16px 20px',background:'var(--mint-ll)',borderRadius:'14px',margin:'12px 0',border:'1px solid var(--mint-l)'}});
-    infoPanel.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',fontSize:'.9rem'}},[T('info_card_title')]));
-
-    // Child details
-    infoPanel.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'6px'}},[T('info_card_child_details')]));
-    if(localStorage.getItem('hud_country')==='IL'&&(child.tzNumber||child.tz_number)){
-      infoPanel.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'4px'}},[T('info_card_id_number')+': '+(child.tzNumber||child.tz_number)]));
-    }
-    infoPanel.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'12px'}},['DOB: '+(child.dob||'\u2014')]));
-
-    // Parents — load from household
-    const _loadParents=async()=>{
-      try{
-        const hid=child.householdId||child.household_id;
-        if(!hid)return;
-        const{data:members}=await _supa.from('profiles').select('id,display_name,email,phone,address_line1,address_line2,city,zip,country,is_primary,role').eq('household_id',hid);
-        const parents=(members||[]).filter(m=>m.role==='parent');
-        const parentsSec=infoPanel.querySelector('.info-parents');
-        if(!parentsSec)return;
-        parentsSec.innerHTML='';
-        if(!parents.length){parentsSec.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate-l)',fontStyle:'italic'}},[T('info_card_no_contact')]));return;}
-
-        parents.forEach(p=>{
-          const pRow=el('div',{style:{marginBottom:'12px',paddingBottom:'10px',borderBottom:'1px solid var(--mint-l)'}});
-          const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}});
-          nameRow.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem'}},[p.display_name||p.email]));
-          if(p.is_primary)nameRow.appendChild(el('span',{style:{fontSize:'.65rem',background:'var(--teal)',color:'#fff',padding:'1px 6px',borderRadius:'4px',fontWeight:700}},[T('info_card_primary')]));
-          pRow.appendChild(nameRow);
-
-          const contactRow=el('div',{style:{display:'flex',gap:'12px',flexWrap:'wrap',fontSize:'.8rem'}});
-          if(p.phone){const tel=el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}});tel.textContent='\uD83D\uDCDE '+p.phone;contactRow.appendChild(tel);}
-          if(p.email){const mail=el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}});mail.textContent='\uD83D\uDCE7 '+p.email;contactRow.appendChild(mail);}
-          pRow.appendChild(contactRow);
-
-          if(p.address_line1||p.city){
-            const addr=el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}});
-            const parts=[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean);
-            addr.textContent='\uD83D\uDCCD '+parts.join(', ');
-            pRow.appendChild(addr);
-          }
-          parentsSec.appendChild(pRow);
-        });
-      }catch(e){console.error('load parents:',e);}
-    };
-
-    infoPanel.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.82rem',marginBottom:'6px',marginTop:'8px'}},[T('info_card_parents')]));
-    const parentsSec=el('div',{class:'info-parents'});
-    parentsSec.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[T('btn_loading')]));
-    infoPanel.appendChild(parentsSec);
-    _loadParents();
-
-    hdr.appendChild(infoPanel);
-  }
 
   /* Tab bar */
   const tabbar=el('div',{class:'spec-dt-tabbar'});
@@ -7784,6 +7724,7 @@ function _renderSpecDtPatientDetail(child,specId){
     {id:'homework', label:'✅ '+T('tab_tasks')},
     {id:'files',    label:'📁 '+T('tab_files')},
     {id:'chat',     label:'💬 '+T('tab_chat')},
+    {id:'info',     label:'ℹ️ '+T('info_card_info')},
   ];
   // Compute per-tab badge counts for this child
   const _tabBadges={};
@@ -9262,6 +9203,7 @@ function renderContent(){
   if(t==='todo')return r==='specialist'?renderSpecTodo():renderTodoList();
   if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
+  if(t==='info'&&r==='specialist')return renderSpecInfoCard();
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
   if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
@@ -15064,8 +15006,8 @@ function renderPatientDashboard(){
   if(_dashIsRemoved)hInfo.appendChild(el('div',{style:{display:'inline-flex',alignItems:'center',gap:'5px',background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700,marginTop:'4px'}},['Not connected']));
   hdrCard.appendChild(hInfo);
   // Info button — opens child info modal (mobile)
-  const _infoTap=el('button',{style:{background:'var(--teal)',border:'none',borderRadius:'10px',padding:'8px 14px',fontSize:'.8rem',fontWeight:800,color:'#fff',cursor:'pointer',flexShrink:0,minHeight:'36px'}});
-  _infoTap.textContent=T('info_card_info');
+  const _infoTap=el('button',{style:{background:'transparent',border:'1.5px solid var(--teal)',borderRadius:'99px',padding:'5px 12px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',flexShrink:0}});
+  _infoTap.textContent='ℹ️ '+T('info_card_info');
   _infoTap.onclick=e=>{e.stopPropagation();showChildInfoModal(child);};
   hdrCard.appendChild(_infoTap);
   sec.appendChild(hdrCard);
@@ -15130,51 +15072,154 @@ function renderPatientDashboard(){
 /* -----------------------------------------------
    CHILD INFO MODAL (Specialist — mobile + web)
 ----------------------------------------------- */
-async function showChildInfoModal(child){
-  openModal(child.name+' \u2014 '+T('info_card_title'),async(mb,close)=>{
-    // Child details
-    const childSec=el('div',{style:{textAlign:'center',marginBottom:'16px'}});
-    childSec.appendChild(mkChildAvatar(child,64,'50%'));
-    childSec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem',marginTop:'8px'}},[child.name]));
-    childSec.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--slate)'}},[calcAge(child.dob)||'']));
-    if(child.dob)childSec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate-l)'}},[T('spec_dt_dob')+': '+child.dob]));
-    if(localStorage.getItem('hud_country')==='IL'&&(child.tzNumber||child.tz_number)){
-      childSec.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'4px'}},[T('info_card_id_number')+': '+(child.tzNumber||child.tz_number)]));
-    }
-    mb.appendChild(childSec);
+function renderSpecInfoCard(){
+  const child=DB.children.find(c=>c.id===S.activeChild)||(LS.get('children',[])).find(c=>c.id===S.activeChild);
+  const sec=el('div',{class:'section'});
+  if(!child){sec.appendChild(el('div',{class:'empty-state'},[el('div',{class:'empty-state-body'},['Select a patient.'])]));return sec;}
 
-    // Parents
-    mb.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.84rem',marginBottom:'8px',borderTop:'1.5px solid var(--mint-l)',paddingTop:'12px'}},[T('info_card_parents')]));
-    const parentWrap=el('div');
-    parentWrap.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.82rem'}},[T('btn_loading')]));
-    mb.appendChild(parentWrap);
+  const _na=el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},['—']);
+  const _val=(v)=>v?el('span',{style:{color:'var(--navy)',fontWeight:500}},[v]):_na.cloneNode(true);
 
+  // Child card
+  const card=el('div',{class:'card',style:{padding:'24px',marginBottom:'16px'}});
+  const top=el('div',{style:{display:'flex',alignItems:'center',gap:'16px',marginBottom:'16px',paddingBottom:'16px',borderBottom:'1.5px solid var(--mint-l)'}});
+  top.appendChild(mkChildAvatar(child,72,'50%'));
+  const ti=el('div',{style:{flex:1}});
+  ti.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1.1rem'}},[child.name]));
+  ti.appendChild(el('div',{style:{fontSize:'.88rem',color:'var(--slate)',marginTop:'2px'}},[calcAge(child.dob)||'']));
+  ti.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate-l)',marginTop:'2px'}},[T('spec_dt_dob')+': '+(child.dob||'—')]));
+  if(localStorage.getItem('hud_country')==='IL'){
+    ti.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate)',marginTop:'4px'}},[T('info_card_id_number')+': '+(child.tz_number||child.tzNumber||'—')]));
+  }
+  top.appendChild(ti);
+  card.appendChild(top);
+
+  // Parents section (async load)
+  card.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},[T('info_card_parents')]));
+  const parentsWrap=el('div',{class:'info-parents-wrap'});
+  parentsWrap.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.84rem'}},[T('btn_loading')]));
+  card.appendChild(parentsWrap);
+
+  // Async load parents
+  (async()=>{
     try{
       const hid=child.householdId||child.household_id;
-      if(hid){
+      if(!hid){parentsWrap.innerHTML='';parentsWrap.appendChild(el('div',{style:{color:'var(--slate-l)',fontStyle:'italic',fontSize:'.84rem'}},[T('info_card_no_contact')]));return;}
+      const{data:members}=await _supa.from('profiles').select('id,display_name,email,phone,address_line1,address_line2,city,zip,country,is_primary,role').eq('household_id',hid);
+      const parents=(members||[]).filter(m=>m.role==='parent');
+      parentsWrap.innerHTML='';
+      if(!parents.length){parentsWrap.appendChild(el('div',{style:{color:'var(--slate-l)',fontStyle:'italic',fontSize:'.84rem'}},[T('info_card_no_contact')]));return;}
+
+      parents.forEach(p=>{
+        const pCard=el('div',{style:{padding:'14px',background:'var(--mint-ll)',borderRadius:'12px',marginBottom:'10px'}});
+        const nm=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}});
+        nm.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.9rem'}},[p.display_name||p.email||'—']));
+        if(p.is_primary)nm.appendChild(el('span',{style:{fontSize:'.62rem',background:'var(--teal)',color:'#fff',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('info_card_primary')]));
+        pCard.appendChild(nm);
+
+        // Phone row
+        const phoneRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',fontSize:'.84rem'}});
+        phoneRow.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'50px'}},[T('profile_phone')+':']));
+        if(p.phone){phoneRow.appendChild(el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.phone]));}
+        else{phoneRow.appendChild(_na.cloneNode(true));}
+        pCard.appendChild(phoneRow);
+
+        // Email row
+        const emailRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',fontSize:'.84rem'}});
+        emailRow.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'50px'}},['Email:']));
+        if(p.email){emailRow.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));}
+        else{emailRow.appendChild(_na.cloneNode(true));}
+        pCard.appendChild(emailRow);
+
+        // Address
+        const addrRow=el('div',{style:{fontSize:'.82rem',color:'var(--slate)',marginTop:'4px'}});
+        const parts=[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean);
+        addrRow.appendChild(el('span',{style:{fontWeight:600}},[T('info_card_address')+' ']));
+        addrRow.appendChild(parts.length?document.createTextNode(parts.join(', ')):_na.cloneNode(true));
+        pCard.appendChild(addrRow);
+
+        parentsWrap.appendChild(pCard);
+      });
+    }catch(e){console.error('load parents:',e);parentsWrap.innerHTML='';parentsWrap.appendChild(el('div',{style:{color:'var(--slate-l)'}},[T('info_card_no_contact')]));}
+  })();
+
+  sec.appendChild(card);
+  return sec;
+}
+
+async function showChildInfoModal(child){
+  const _na='\u2014'; // em dash for empty values
+  openModal(child.name,(mb,close)=>{
+    // Child section
+    const top=el('div',{style:{textAlign:'center',marginBottom:'16px',paddingBottom:'16px',borderBottom:'1.5px solid var(--mint-l)'}});
+    top.appendChild(mkChildAvatar(child,72,'50%'));
+    top.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1.05rem',marginTop:'10px'}},[child.name]));
+    top.appendChild(el('div',{style:{fontSize:'.88rem',color:'var(--slate)',marginTop:'2px'}},[calcAge(child.dob)||'']));
+    top.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate-l)',marginTop:'2px'}},[T('spec_dt_dob')+': '+(child.dob||_na)]));
+    if(localStorage.getItem('hud_country')==='IL'){
+      top.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'4px'}},[T('info_card_id_number')+': '+(child.tz_number||child.tzNumber||_na)]));
+    }
+    mb.appendChild(top);
+
+    // Parents header
+    mb.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',marginBottom:'10px'}},[T('info_card_parents')]));
+    const pw=el('div');
+    pw.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.82rem'}},[T('btn_loading')]));
+    mb.appendChild(pw);
+
+    // Load parents async
+    (async()=>{
+      try{
+        const hid=child.householdId||child.household_id;
+        if(!hid){pw.innerHTML='';pw.appendChild(el('div',{style:{color:'var(--slate-l)',fontStyle:'italic',fontSize:'.82rem'}},[T('info_card_no_contact')]));return;}
         const{data:members}=await _supa.from('profiles').select('id,display_name,email,phone,address_line1,address_line2,city,zip,country,is_primary,role').eq('household_id',hid);
         const parents=(members||[]).filter(m=>m.role==='parent');
-        parentWrap.innerHTML='';
-        if(!parents.length){parentWrap.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate-l)',fontStyle:'italic'}},[T('info_card_no_contact')]));return;}
+        pw.innerHTML='';
+        if(!parents.length){pw.appendChild(el('div',{style:{color:'var(--slate-l)',fontStyle:'italic',fontSize:'.82rem'}},[T('info_card_no_contact')]));return;}
+
         parents.forEach(p=>{
-          const pDiv=el('div',{style:{marginBottom:'12px'}});
-          const nm=el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem',display:'flex',alignItems:'center',gap:'6px'}});
-          nm.appendChild(document.createTextNode(p.display_name||p.email));
-          if(p.is_primary)nm.appendChild(el('span',{style:{fontSize:'.62rem',background:'var(--teal)',color:'#fff',padding:'1px 6px',borderRadius:'4px',fontWeight:700}},[T('info_card_primary')]));
-          pDiv.appendChild(nm);
-          const links=el('div',{style:{display:'flex',gap:'10px',marginTop:'4px',fontSize:'.82rem'}});
-          if(p.phone)links.appendChild(el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},['\uD83D\uDCDE '+p.phone]));
-          if(p.email)links.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},['\uD83D\uDCE7 Email']));
-          pDiv.appendChild(links);
-          if(p.address_line1||p.city){
-            pDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'4px'}},
-              ['\uD83D\uDCCD '+[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean).join(', ')]));
+          const pc=el('div',{style:{padding:'12px',background:'var(--mint-ll)',borderRadius:'12px',marginBottom:'10px'}});
+          // Name + badge
+          const nm=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}});
+          nm.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[p.display_name||p.email||_na]));
+          if(p.is_primary)nm.appendChild(el('span',{style:{fontSize:'.6rem',background:'var(--teal)',color:'#fff',padding:'2px 7px',borderRadius:'99px',fontWeight:700}},[T('info_card_primary')]));
+          pc.appendChild(nm);
+
+          // Phone
+          const ph=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'5px',fontSize:'.82rem'}});
+          ph.appendChild(el('span',{},['📞']));
+          if(p.phone){
+            ph.appendChild(el('a',{href:'tel:'+p.phone,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.phone]));
+          } else {
+            ph.appendChild(el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},[_na]));
           }
-          parentWrap.appendChild(pDiv);
+          pc.appendChild(ph);
+
+          // Email
+          const em2=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'5px',fontSize:'.82rem'}});
+          em2.appendChild(el('span',{},['📧']));
+          if(p.email){
+            em2.appendChild(el('a',{href:'mailto:'+p.email,style:{color:'var(--teal)',fontWeight:600,textDecoration:'none'}},[p.email]));
+          } else {
+            em2.appendChild(el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},[_na]));
+          }
+          pc.appendChild(em2);
+
+          // Address
+          const addr=el('div',{style:{display:'flex',alignItems:'flex-start',gap:'8px',fontSize:'.8rem',marginTop:'4px'}});
+          addr.appendChild(el('span',{},['📍']));
+          const parts=[p.address_line1,p.address_line2,p.city,p.zip,p.country].filter(Boolean);
+          if(parts.length){
+            addr.appendChild(el('span',{style:{color:'var(--slate)'}},[parts.join(', ')]));
+          } else {
+            addr.appendChild(el('span',{style:{color:'var(--slate-l)',fontStyle:'italic'}},[_na]));
+          }
+          pc.appendChild(addr);
+          pw.appendChild(pc);
         });
-      }
-    }catch(e){console.error('load parents:',e);parentWrap.innerHTML='';parentWrap.appendChild(el('div',{style:{color:'var(--slate-l)',fontSize:'.82rem'}},['Could not load.']));}
-  },420);
+      }catch(e){console.error(e);pw.innerHTML='';pw.appendChild(el('div',{style:{color:'var(--slate-l)'}},[T('info_card_no_contact')]));}
+    })();
+  },440);
 }
 
 /* -----------------------------------------------
