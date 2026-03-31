@@ -15164,49 +15164,60 @@ function renderSpecStorage(){
         return;
       }
 
-      // Folders
-      filteredFolders.forEach(folder=>{
-        const row=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer'}});
-        row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},['📁']));
-        const info=el('div',{style:{flex:1,minWidth:0}});
-        info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[folder.name]));
-        row.appendChild(info);
-        row.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1rem'}},['›']));
-        row.onclick=()=>{S.specStoragePath=[...path,{id:folder.id,name:folder.name}];S._specStorageSearch='';re();};
-        // Long press → rename/delete
+      // Folder long-press actions helper
+      const _folderLongPress=(folder,el2)=>{
         let _lpt=null;
-        row.onpointerdown=()=>{_lpt=setTimeout(()=>{
+        el2.onpointerdown=()=>{_lpt=setTimeout(()=>{
           _lpt=null;
           openModal('📁 '+folder.name,(mb,close)=>{
             mb.appendChild(mkBtn(T('storage_rename_folder'),'btn-md btn-secondary btn-full',()=>{
-              close();
-              const newName=prompt(T('storage_folder_name'),folder.name);
-              if(newName&&newName.trim()!==folder.name){
-                _supa.from('spec_vault_folders').update({name:newName.trim()}).eq('id',folder.id).then(()=>{re();});
-              }
+              close();const newName=prompt(T('storage_folder_name'),folder.name);
+              if(newName&&newName.trim()!==folder.name){_supa.from('spec_vault_folders').update({name:newName.trim()}).eq('id',folder.id).then(()=>{re();});}
             }));
             mb.appendChild(el('div',{style:{height:'8px'}}));
             mb.appendChild(mkBtn('🗑️ '+T('btn_delete'),'btn-md btn-danger btn-full',()=>{
-              close();
-              openConfirm(T('storage_delete_folder'),T('storage_delete_folder_msg'),true,async()=>{
-                try{
-                  // Delete files in folder from storage
-                  const{data:fInFolder}=await _supa.from('spec_vault_files').select('storage_path').eq('folder_id',folder.id);
-                  if(fInFolder?.length){
-                    await _supa.storage.from('specialist-storage').remove(fInFolder.map(f=>f.storage_path));
-                    await _supa.from('spec_vault_files').delete().eq('folder_id',folder.id);
-                  }
-                  await _supa.from('spec_vault_folders').delete().eq('id',folder.id);
-                  toast(T('storage_folder_deleted'));re();
-                }catch(e){console.error(e);toast(T('storage_upload_failed'),'error');}
+              close();openConfirm(T('storage_delete_folder'),T('storage_delete_folder_msg'),true,async()=>{
+                try{const{data:fInFolder}=await _supa.from('spec_vault_files').select('storage_path').eq('folder_id',folder.id);
+                  if(fInFolder?.length){await _supa.storage.from('specialist-storage').remove(fInFolder.map(f=>f.storage_path));await _supa.from('spec_vault_files').delete().eq('folder_id',folder.id);}
+                  await _supa.from('spec_vault_folders').delete().eq('id',folder.id);toast(T('storage_folder_deleted'));re();
+                }catch(e2){console.error(e2);toast(T('storage_upload_failed'),'error');}
               });
             }));
           },300);
         },600);};
-        row.onpointerup=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
-        row.onpointerleave=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
-        content.appendChild(row);
-      });
+        el2.onpointerup=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
+        el2.onpointerleave=()=>{if(_lpt){clearTimeout(_lpt);_lpt=null;}};
+      };
+      const _navFolder=folder=>{S.specStoragePath=[...path,{id:folder.id,name:folder.name}];S._specStorageSearch='';re();};
+
+      // Folders — grid or list
+      if(_svPref==='grid'&&filteredFolders.length){
+        const fGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:'10px',marginBottom:filteredFiles.length?'14px':'0'}});
+        filteredFolders.forEach(folder=>{
+          const card=el('div',{class:'card hov',style:{padding:0,overflow:'hidden',cursor:'pointer'}});
+          const thumb=el('div',{style:{width:'100%',aspectRatio:'1',background:'#ecfdf5',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'2.6rem'}},['📁']);
+          card.appendChild(thumb);
+          const info=el('div',{style:{padding:'8px 10px'}});
+          info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.78rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},[folder.name]));
+          card.appendChild(info);
+          card.onclick=()=>_navFolder(folder);
+          _folderLongPress(folder,card);
+          fGrid.appendChild(card);
+        });
+        content.appendChild(fGrid);
+      } else if(filteredFolders.length){
+        filteredFolders.forEach(folder=>{
+          const row=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer'}});
+          row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},['📁']));
+          const info=el('div',{style:{flex:1,minWidth:0}});
+          info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[folder.name]));
+          row.appendChild(info);
+          row.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1rem'}},['›']));
+          row.onclick=()=>_navFolder(folder);
+          _folderLongPress(folder,row);
+          content.appendChild(row);
+        });
+      }
 
       // File action modal helper
       const _openFileActions=(file,e)=>{
