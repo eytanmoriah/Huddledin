@@ -7033,7 +7033,8 @@ function renderParentDesktop(){
   // ─── CHILD PROFILE MODE ───
   if(S.navLevel===1&&S.activeChild){
     // Use exact same container as home dashboard — plain div, no .section class
-    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',flex:'1',width:'100%',minWidth:'0'}});
+    const _isProfileChat=S.activeTab==='chat';
+    const prof=el('div',{class:'web-parent-view',style:{maxWidth:'1280px',margin:'0 auto',padding:_isProfileChat?'24px 48px 0':'24px 48px',flex:'1',width:'100%',minWidth:'0',display:_isProfileChat?'flex':'block',flexDirection:'column',height:_isProfileChat?'calc(100vh - 56px)':'auto',overflow:_isProfileChat?'hidden':'visible'}});
     // Breadcrumb
     const bc=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px',fontSize:'14px'}});
     const bcHome=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500}});bcHome.textContent=T('bc_home');
@@ -7072,7 +7073,8 @@ function renderParentDesktop(){
     if(_rc){
       // If the returned element has class .section, extract its children into a plain wrapper
       // This bypasses the .section{max-width:970px} constraint entirely
-      const contentWrap=el('div',{style:{width:'100%'}});
+      const _isChildChat=S.activeTab==='chat';
+      const contentWrap=el('div',{style:{width:'100%',flex:_isChildChat?'1':'none',minHeight:_isChildChat?0:'auto',overflow:_isChildChat?'hidden':'visible'}});
       if(_rc.classList&&_rc.classList.contains('section')){
         // Move all children from the .section div into our plain wrapper
         while(_rc.firstChild)contentWrap.appendChild(_rc.firstChild);
@@ -7108,12 +7110,13 @@ function renderParentDesktop(){
 
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'24px 48px',width:'100%',flex:'1',minWidth:'0'}});
-    const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px'}});bcBack.textContent=T('bc_back_home');
+    const _isChatPage=S.activeTab==='chat';
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'24px 48px 0':'24px 48px',width:'100%',flex:'1',minWidth:'0',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:'column',height:_isChatPage?'calc(100vh - 56px)':'auto'}});
+    const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px',flexShrink:0}});bcBack.textContent=T('bc_back_home');
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
     const _pgRc=renderContent();
-    const _pgWrap=el('div',{style:{width:'100%',marginTop:'16px'}});
+    const _pgWrap=el('div',{style:{width:'100%',marginTop:'16px',flex:_isChatPage?'1':'none',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
     if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
@@ -7758,7 +7761,8 @@ function _renderSpecDtPatientDetail(child,specId){
   wrap.appendChild(hdr);
 
   /* Content */
-  const body=el('div',{class:'spec-dt-det-body'});
+  const _isChatTab=S.activeTab==='chat';
+  const body=el('div',{class:'spec-dt-det-body',style:_isChatTab?{overflow:'hidden',display:'flex',flexDirection:'column'}:{}});
   body.appendChild(renderContent());
   wrap.appendChild(body);
   return wrap;
@@ -11531,7 +11535,8 @@ function renderChat(){
     return bLast>aLast?1:-1;
   });
 
-  const sec=el('div',{class:'section',style:{padding:0,overflow:'hidden'}});
+  const _isWebChat=window.innerWidth>=1024;
+  const sec=el('div',{class:'section',style:_isWebChat?{padding:0,overflow:'hidden',height:'calc(100vh - 180px)',maxHeight:'calc(100vh - 180px)',display:'flex',flexDirection:'column'}:{padding:0,overflow:'hidden'}});
   const _chatBkChild=DB.children.find(c=>c.id===S.activeChatChildId);
   const _chatBkBar=mkSpecBackBar(_chatBkChild?.name);
   if(_chatBkBar){_chatBkBar.style.paddingLeft='16px';_chatBkBar.style.paddingRight='16px';_chatBkBar.style.paddingTop='12px';sec.appendChild(_chatBkBar);}
@@ -11704,7 +11709,7 @@ function renderChat(){
   }
 
   // -- DESKTOP: side-by-side layout --
-  const wrap=el('div',{style:{display:'flex',gap:'0',height:'calc(100vh - 140px)',maxHeight:'calc(100vh - 140px)',borderTop:'1px solid var(--mint-l)'}});
+  const wrap=el('div',{style:{display:'flex',gap:'0',flex:'1',minHeight:0,borderTop:'1px solid var(--mint-l)',overflow:'hidden'}});
   const sidebar=el('div',{style:{width:'260px',minWidth:'260px',borderRight:'1.5px solid var(--mint-l)',overflowY:'auto',flexShrink:0}});
   sidebar.appendChild(listWrap);
   wrap.appendChild(sidebar);
