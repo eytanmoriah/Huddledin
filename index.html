@@ -13094,12 +13094,12 @@ function renderTodoList(){
   const catFilter=S._parentTaskFilter||'All';
   const dateFilter=S._parentTaskDateFilter||'all';
   let _openDd=null; // track which dropdown is open (local, resets on re())
-  const _closeDds=()=>{sec.querySelectorAll('.ptf-dd').forEach(d2=>d2.remove());document.querySelectorAll('.ptf-backdrop').forEach(b=>b.remove());_openDd=null;};
+  const _closeDds=()=>{document.querySelectorAll('.ptf-dd,.ptf-backdrop').forEach(d2=>d2.remove());_openDd=null;};
 
   const filterBar=el('div',{style:{display:'flex',gap:_web?'12px':'8px',flexWrap:'wrap',marginBottom:'16px'}});
 
   const _mkFilterPill=(label,currentVal,options,stateKey)=>{
-    const wrap=el('div',{style:{position:'relative'}});
+    const wrap=el('div',{});
     wrap.appendChild(el('div',{style:{fontSize:'10px',color:'var(--slate)',marginBottom:'2px'}},[label]));
     const isFiltered=currentVal!=='all'&&currentVal!=='All';
     const pill=el('button',{style:{display:'flex',alignItems:'center',gap:'4px',padding:_web?'5px 12px':'5px 10px',borderRadius:'8px',border:'1.5px solid '+(isFiltered?'var(--teal)':'var(--mint-l)'),background:isFiltered?'var(--teal)':'#fff',color:isFiltered?'#fff':'var(--navy)',fontWeight:600,fontSize:_web?'.78rem':'12px',cursor:'pointer',whiteSpace:'nowrap'}});
@@ -13111,21 +13111,23 @@ function renderTodoList(){
       if(_openDd===stateKey){_closeDds();return;}
       _closeDds();
       _openDd=stateKey;
-      const dd=el('div',{class:'ptf-dd',style:{position:'absolute',top:'100%',left:0,marginTop:'4px',background:'#fff',borderRadius:'10px',boxShadow:'0 4px 16px rgba(0,0,0,.12)',border:'1px solid var(--mint-l)',minWidth:'140px',zIndex:50,overflow:'hidden',animation:'fadeIn .12s ease'}});
+      // Position dropdown below the pill using bounding rect
+      const rect=pill.getBoundingClientRect();
+      const dd=el('div',{class:'ptf-dd',style:{position:'fixed',top:(rect.bottom+4)+'px',left:rect.left+'px',background:'#fff',borderRadius:'10px',boxShadow:'0 4px 16px rgba(0,0,0,.12)',border:'1px solid var(--mint-l)',minWidth:'140px',zIndex:1000,overflow:'hidden',animation:'fadeIn .12s ease'}});
       options.forEach(([v,lbl])=>{
         const isAct=currentVal===v;
         const item=el('div',{style:{padding:'8px 14px',fontSize:'.8rem',fontWeight:isAct?700:500,color:isAct?'var(--teal)':'var(--navy)',cursor:'pointer',background:isAct?'var(--mint-ll)':'transparent',transition:'background .1s'}});
         item.textContent=lbl;
         item.onmouseenter=()=>{if(!isAct)item.style.background='#f0fdf9';};
         item.onmouseleave=()=>{if(!isAct)item.style.background='transparent';};
-        item.onclick=(e2)=>{e2.stopPropagation();S[stateKey]=v;re();};
+        item.onclick=(e2)=>{e2.stopPropagation();_closeDds();S[stateKey]=v;re();};
         dd.appendChild(item);
       });
-      wrap.appendChild(dd);
-      // Invisible full-screen backdrop catches outside clicks
-      const _bd=el('div',{class:'ptf-backdrop',style:{position:'fixed',inset:'0',zIndex:49}});
+      // Backdrop + dropdown both on document.body — no stacking context issues
+      const _bd=el('div',{class:'ptf-backdrop',style:{position:'fixed',inset:'0',zIndex:999}});
       _bd.onclick=()=>_closeDds();
       document.body.appendChild(_bd);
+      document.body.appendChild(dd);
     };
     wrap.appendChild(pill);
     return wrap;
