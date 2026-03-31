@@ -15126,11 +15126,11 @@ function renderSpecStorage(){
     try{
       // Load folders
       let fQ=_supa.from('spec_vault_folders').select('*').eq('specialist_id',specId).order('name');
-      if(!_q)fQ=fQ.eq('parent_folder_id',currentFolderId||null);
+      if(!_q){if(currentFolderId)fQ=fQ.eq('parent_folder_id',currentFolderId);else fQ=fQ.is('parent_folder_id',null);}
       const{data:folders}=await fQ;
       // Load files
       let fiQ=_supa.from('spec_vault_files').select('*').eq('specialist_id',specId).order('created_at',{ascending:false});
-      if(!_q)fiQ=fiQ.eq('folder_id',currentFolderId||null);
+      if(!_q){if(currentFolderId)fiQ=fiQ.eq('folder_id',currentFolderId);else fiQ=fiQ.is('folder_id',null);}
       const{data:files}=await fiQ;
 
       // Calculate total storage
