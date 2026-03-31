@@ -7440,10 +7440,10 @@ function renderSpecDesktop(){
         S._patientDrawerOpen=!S._patientDrawerOpen;
         re();
       } else if(item.id==='calendar'){
-        // Global calendar — clear activeChild so all patients' appointments show
+        S._patientDrawerOpen=false;
         S.activeChild=null;S.calFullscreen=true;
         switchTab('calendar');
-      } else {switchTab(item.id);}
+      } else {S._patientDrawerOpen=false;switchTab(item.id);}
     };
     nav.appendChild(btn);
   });
@@ -11773,7 +11773,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
     overflow:'hidden'
   }:{
-    display:'flex',flexDirection:'column',height:'100%',minHeight:'460px',overflow:'hidden'
+    display:'flex',flexDirection:'column',height:'calc(100vh - 160px)',maxHeight:'calc(100vh - 160px)',overflow:'hidden'
   }});
 
   // iOS only: visualViewport tracks keyboard — adjust bottom so input stays visible
@@ -11881,7 +11881,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
 
   // -- Input row (sticky bottom) — hidden for locked/disconnected specialists
   if(locked)return wrap;
-  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',position:'sticky',bottom:'0',background:'#fff'}});
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',background:'#fff',padding:'10px 14px'}});
   const mi=el('input',{class:'inp',placeholder:T('chat_type_message'),style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
   const sb2=el('button',{class:'send-btn',title:'Send'});
@@ -13094,8 +13094,7 @@ function renderTodoList(){
   const catFilter=S._parentTaskFilter||'All';
   const dateFilter=S._parentTaskDateFilter||'all';
   let _openDd=null; // track which dropdown is open (local, resets on re())
-  const _closeDds=()=>{sec.querySelectorAll('.ptf-dd').forEach(d2=>d2.remove());_openDd=null;};
-  const _docClick=()=>{_closeDds();document.removeEventListener('click',_docClick);};
+  const _closeDds=()=>{sec.querySelectorAll('.ptf-dd').forEach(d2=>d2.remove());document.querySelectorAll('.ptf-backdrop').forEach(b=>b.remove());_openDd=null;};
 
   const filterBar=el('div',{style:{display:'flex',gap:_web?'12px':'8px',flexWrap:'wrap',marginBottom:'16px'}});
 
@@ -13123,7 +13122,10 @@ function renderTodoList(){
         dd.appendChild(item);
       });
       wrap.appendChild(dd);
-      setTimeout(()=>document.addEventListener('click',_docClick),0);
+      // Invisible full-screen backdrop catches outside clicks
+      const _bd=el('div',{class:'ptf-backdrop',style:{position:'fixed',inset:'0',zIndex:49}});
+      _bd.onclick=()=>_closeDds();
+      document.body.appendChild(_bd);
     };
     wrap.appendChild(pill);
     return wrap;
