@@ -3921,7 +3921,6 @@ invite_spec_review:'\uD83E\uDE7A A specialist wants to join your care team. Plea
 gcal_connected:'\u2705 Google Calendar connected!',
 gcal_failed:'Could not connect Google Calendar. Try again.',
 // ── Chat, Vault, Homework, Todo, Patients (lines 10k–14k) ──
-chat_loading:'Loading messages\u2026',chat_not_connected_readonly:'Not connected \u2014 messages are read only',chat_patients_back:'Patients',chat_back_btn:'\u2190 Back',chat_tap_to_open:'Tap to open',chat_specialist_consult_label:'Specialist Consult',chat_group_default:'Group Chat',chat_chat_default:'Chat',chat_mark_read:'Mark as Read',chat_mark_unread:'Mark as Unread',chat_private_consult:'Private specialist conversation',chat_private_toast:'This is a private specialist consultation \u2014 you can see it exists for transparency, but the messages are not accessible.',chat_secure_label:'\uD83D\uDD12 Secure chat',chat_spec_consult_sub:'\uD83D\uDD17 Specialist consult',chat_msg_failed:'\u274C Message failed to send. Please try again.',chat_start_desc:'Open a direct chat with the family \u2014 no approval required.',chat_open_patient_first:'Please open a patient first, then start a new message.',chat_could_not_create_chat:'Could not create chat.',chat_consult_desc:'Request a professional consultation with another specialist. Requires parent approval.',chat_open_patient_consult:'Please open a patient first to request a consultation.',chat_consult_regarding:'Regarding: ',chat_consult_parent_notify:'. The parent will be notified and must approve before the chat begins.',chat_no_other_specs:'The parent needs to add another specialist to this child\'s care team before you can request a consultation.',chat_parent_access:'Parent access to this chat:',chat_private_label:'Private',chat_specs_only:'Specialists only',chat_include_parent:'Include Parent',chat_parent_joins:'Parent joins chat',chat_send_consult:'\uD83D\uDCE4 Send Consultation Request',chat_sending:'Sending\u2026',chat_dup_exists:'A conversation with these exact participants already exists.',chat_dup_pending:'A pending request with these participants already exists.',chat_consult_sent:'\u2705 Request sent \u2014 awaiting parent approval.',chat_consult_fail:'Could not send request. Please try again.',
 vault_private_notes:'\uD83D\uDD12 Private notes \u2014 publish summaries to share with parents',vault_not_connected:'Not connected \u2014 notes are yours only \u00B7 publishing disabled',vault_draft_label:'Draft',vault_unsaved_changes:'Unsaved Changes',vault_switch_note:'Switch note without saving?',vault_unsaved_note:'\u26A0\uFE0F Unsaved changes in this note.',vault_locked_readonly:'\uD83D\uDD12 Permanently locked \u2014 read-only',vault_minimise:'\u25B2 Minimise',vault_minimise_unsaved:'Minimise without saving?',vault_clinical_notes:'\uD83D\uDCCB Clinical Notes (Private)',vault_mic_error:'Microphone error: ',vault_dictate_locked:'\uD83D\uDD12 \uD83C\uDF99 Dictate',vault_ai_notes_title:'AI-Powered Session Notes',vault_ai_notes_desc:'Write detailed clinical notes with voice dictation and AI-generated parent summaries.',vault_unlock_trial:'Unlock with AI Trial',vault_draft_saved:'\uD83D\uDCBE Draft saved!',vault_could_not_save_draft:'\u274C Could not save draft. Please try again.',vault_write_first:'Write session notes first so AI can summarize them.',vault_could_not_generate:'Could not generate summary.',vault_could_not_reach_ai:'Could not reach AI service.',vault_lock_notes:'\uD83D\uDD12 Lock Session Notes',vault_no_summary_warn:'\u26A0\uFE0F No Parent Summary',vault_no_summary_msg:'You haven\'t written a parent summary for this note. Parents won\'t be able to see a summary. Continue locking anyway?',vault_lock_confirm:'Lock Session Notes?',vault_lock_msg:'This will permanently lock these notes and make them a read-only record. This cannot be undone.',vault_locked_toast:'\uD83D\uDD12 Session notes locked!',vault_delete_draft:'Delete Note?',vault_delete_draft_msg:'Permanently delete this draft? This cannot be undone.',vault_summary_placeholder:'Write a parent-friendly summary here. This will be published to the parent when you\'re ready.',vault_write_summary_first:'Write a summary before publishing',vault_publish_confirm:'Publish Summary?',vault_publish_msg:'Send this summary to the parent\'s profile and notify them?',vault_could_not_publish:'\u274C Could not publish summary. Please try again.',vault_vc_punctuation:'Punctuation',vault_vc_formatting:'Formatting',vault_vc_headings:'Structure Headings',vault_vc_lists:'Lists',vault_vc_editing:'Editing',
 stodo_sub:'Follow-ups, reports, referrals and reminders',stodo_pending_label:'Pending',stodo_completed_label:'Completed',stodo_task_fallback:'Task',stodo_edit_title:'Edit Clinical Task',stodo_new_title:'New Clinical Task',stodo_task_required:'Task *',stodo_notes_optional:'Notes (optional)',stodo_category_label:'Category',stodo_priority_label:'Priority',stodo_related_patient:'Related Patient (optional)',stodo_no_patient:'\u2014 No specific patient \u2014',stodo_due_date_label:'Due Date (optional)',stodo_reminder_label:'Reminder (optional)',stodo_no_reminder:'No reminder',stodo_on_due:'On due date',stodo_1day:'1 day before',stodo_1week:'1 week before',stodo_save_changes:'Save Changes',stodo_add_task_btn:'Add Task',stodo_enter_title:'Enter a task title',
 ptodo_pending_label:'Pending',ptodo_completed_label:'Completed',ptodo_delete_confirm:'Delete this task?',ptodo_delete_msg:'This will permanently remove',ptodo_task_deleted:'Task deleted',ptodo_task_fallback:'Task',ptodo_mine_label:'Mine',ptodo_shared_label:'Shared',ptodo_no_date:'No date',ptodo_done_by:'\u2713 Done by',ptodo_edit_title:'Edit Task',ptodo_new_title_modal:'New Task',ptodo_task_required:'Task *',ptodo_notes_modal:'Notes (optional)',ptodo_category_modal:'Category',ptodo_priority_modal:'Priority',ptodo_assign_to:'Assign to',ptodo_related_child:'Related Child (optional)',ptodo_no_child:'\u2014 No specific child \u2014',ptodo_due_date_modal:'Due Date (optional)',ptodo_reminder_modal:'Reminder (optional)',ptodo_saving:'Saving\u2026',ptodo_enter_title:'Enter a task title',
@@ -8387,7 +8386,7 @@ function renderSearchOverlay(){
       results.appendChild(item);
     });
     if(!results.children.length){
-      results.appendChild(el('div',{style:{padding:'20px',color:'var(--slate)',textAlign:'center',fontWeight:600}},['No results found.']));
+      results.appendChild(el('div',{style:{padding:'20px',color:'var(--slate)',textAlign:'center',fontWeight:600}},[T('files_no_matching')]));
     }
   };
   si.oninput=e=>{S.searchQuery=e.target.value;doSearch(e.target.value);};
@@ -8861,7 +8860,7 @@ function renderCalFullscreen(){
     }
     sec.appendChild(dayHd);
     if(selApts.length===0){
-      sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},['No events on this day.']));
+      sec.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},[T('cal_no_events_day')]));
     } else {
       selApts.forEach(a=>{
         const ch=children.find(c=>c.id===a.childId);
@@ -9039,7 +9038,7 @@ function showProcessFileSheet(file){
    APPOINTMENT DISPLAY NAME HELPER
 ----------------------------------------------- */
 function aptDisplayTitle(apt){
-  const typeLabel={speech:'Speech Therapy',ot:'Occupational Therapy',pt:'Physical Therapy',psychology:'Psychology',general:'Session'}[apt.type]||'Session';
+  const typeLabel={speech:T('apt_type_speech'),ot:T('apt_type_ot'),pt:T('apt_type_pt'),psychology:T('apt_type_psychology'),general:T('apt_type_general')}[apt.type]||T('apt_type_general');
   if(session?.role==='specialist'){
     const child=DB.children.find(c=>c.id===apt.childId)||(LS.get('children',[])||[]).find(c=>c.id===apt.childId);
     return (child?.avatar?child.avatar+' ':'')+( child?.name||apt.title);
@@ -9052,7 +9051,7 @@ function aptDisplayTitle(apt){
 }
 function aptDisplaySub(apt){
   if(session?.role==='specialist'){
-    const typeLabel={speech:'Speech Therapy',ot:'Occupational Therapy',pt:'Physical Therapy',psychology:'Psychology',general:'Session'}[apt.type]||'Session';
+    const typeLabel={speech:T('apt_type_speech'),ot:T('apt_type_ot'),pt:T('apt_type_pt'),psychology:T('apt_type_psychology'),general:T('apt_type_general')}[apt.type]||T('apt_type_general');
     return typeLabel+(apt.location?' · '+apt.location:'');
   }
   return apt.location||apt.specialist||'';
@@ -9078,7 +9077,7 @@ function renderContent(){
   if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
   if(t==='request')return renderSpecialistRequest();
   if(t==='specialist-requests'&&r==='parent')return renderSpecialistRequests();
-  return d('section',[p('Coming soon…')]);
+  return d('section',[p(T('content_coming_soon'))]);
 }
 
 /* -----------------------------------------------
@@ -9265,7 +9264,7 @@ function renderSpecDashboard(){
     promoInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px',fontSize:'.92rem'}},[T('sd_grow_title')]));
     promoInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.55',marginBottom:'10px'}},
       [T('sd_grow_desc',{n:myPatients.length,s:myPatients.length!==1?'s':''})]));
-    promoInfo.appendChild(mkBtn(T('sd_share_profile'),'btn-sm btn-lav',()=>toast('Profile link copied — coming soon!','info')));
+    promoInfo.appendChild(mkBtn(T('sd_share_profile'),'btn-sm btn-lav',()=>toast(T('sd_profile_coming_soon'),'info')));
     promoCard.appendChild(promoInfo);
     sec.appendChild(promoCard);
   }
@@ -9284,7 +9283,7 @@ function renderSpecDashboard(){
       info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[n.title]));
       info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[ch?.name+' · '+n.date]));
       card.appendChild(info);
-      card.appendChild(n.locked?el('span',{class:'locked-badge'},['🔒 Locked']):n.isDraft?el('span',{class:'draft-badge'},['Draft']):badge('Published','green'));
+      card.appendChild(n.locked?el('span',{class:'locked-badge'},[T('sd_locked_badge')]):n.isDraft?el('span',{class:'draft-badge'},[T('sd_draft_badge')]):badge(T('sd_published_badge'),'green'));
       card.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
       stack.appendChild(card);
     });
@@ -9300,7 +9299,7 @@ function renderSpecDashboard(){
 function mkSubHeader(title,rightEl=null){
   const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
   if(!(window.innerWidth>=1024&&session?.role==='parent')){
-    const backBtn=mkBtn('← Profile','btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
+    const backBtn=mkBtn(T('files_back_profile'),'btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
     backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
     hd.appendChild(backBtn);
   }
@@ -9356,8 +9355,8 @@ function _filePreview(f){
   } else {
     const w=el('div',{style:{textAlign:'center',color:'#fff'}});
     w.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
-    w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},['Preview not available']));
-    w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},['⬇ Download']));
+    w.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},[T('files_preview_unavail')]));
+    w.appendChild(el('a',{href:f.url,download:f.name,style:{color:'var(--teal)',fontWeight:700}},[T('files_download')]));
     body.appendChild(w);
   }
   ov.appendChild(body);ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);
@@ -9389,41 +9388,41 @@ function _fileActions(f,folder,isParent){
     }));
   }
   if(isParent){
-    acts.appendChild(mkAct('✏️','Rename',()=>{
-      openModal('Rename File',(mb,close)=>{
-        mb.appendChild(el('div',{class:'inp-label'},['New name']));
+    acts.appendChild(mkAct('✏️',T('files_rename'),()=>{
+      openModal(T('files_rename_title'),(mb,close)=>{
+        mb.appendChild(el('div',{class:'inp-label'},[T('files_new_name')]));
         const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
-        mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',()=>{
+        mb.appendChild(mkBtn(T('btn_save'),'btn-lg btn-primary btn-full',()=>{
           if(!ni.value.trim())return;const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
-          if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast('File renamed!');
+          if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast(T('files_file_renamed'));
         }));
       },380);
     }));
-    acts.appendChild(mkAct('🗑','Delete',()=>{
-      openConfirm('Delete "'+f.name+'"?','This permanently removes the file.',true,async()=>{
+    acts.appendChild(mkAct('🗑',T('btn_delete'),()=>{
+      openConfirm(T('files_delete_file'),T('files_delete_confirm_long'),true,async()=>{
         const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
-        if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast('🗑️ File deleted.');
+        if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast(T('files_file_deleted'));
       });
     }));
   }
   if(!isParent&&f.uploadedBy===session?.id){
-    acts.appendChild(mkAct('✏️','Rename',()=>{
-      openModal('Rename File',(mb,close)=>{
-        mb.appendChild(el('div',{class:'inp-label'},['New name']));
+    acts.appendChild(mkAct('✏️',T('files_rename'),()=>{
+      openModal(T('files_rename_title'),(mb,close)=>{
+        mb.appendChild(el('div',{class:'inp-label'},[T('files_new_name')]));
         const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
-        mb.appendChild(mkBtn('Save','btn-lg btn-primary btn-full',async()=>{
+        mb.appendChild(mkBtn(T('btn_save'),'btn-lg btn-primary btn-full',async()=>{
           if(!ni.value.trim())return;
           try{await SB.renameFile(f.id,ni.value.trim());const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
-            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast('File renamed!');
-          }catch(e){console.error('rename failed:',e);toast('❌ Rename failed. Please try again.','error');}
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast(T('files_file_renamed'));
+          }catch(e){console.error('rename failed:',e);toast(T('files_rename_failed'),'error');}
         }));
       },380);
     }));
-    acts.appendChild(mkAct('🗑','Delete',()=>{
-      openConfirm('Delete "'+f.name+'"?','This permanently removes the file. This cannot be undone.',true,async()=>{
+    acts.appendChild(mkAct('🗑',T('btn_delete'),()=>{
+      openConfirm(T('files_delete_file'),T('files_delete_confirm_undo'),true,async()=>{
         try{await SB.deleteFile(f.id);const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
-          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast('🗑 File deleted.');
-        }catch(e){console.error('delete failed:',e);toast('❌ Delete failed. Please try again.','error');}
+          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast(T('files_file_deleted'));
+        }catch(e){console.error('delete failed:',e);toast(T('files_upload_failed'),'error');}
       });
     }));
   }
@@ -9469,8 +9468,8 @@ function renderFolderGrid(folder,isParent,childColor){
     tb.onclick=()=>{localStorage.setItem('huddledin_files_view',mode);re();};
     return tb;
   };
-  togglePill.appendChild(mkToggle('⊞ Grid','grid'));
-  togglePill.appendChild(mkToggle('☰ List','list'));
+  togglePill.appendChild(mkToggle(T('files_grid'),'grid'));
+  togglePill.appendChild(mkToggle(T('files_list'),'list'));
   right.appendChild(togglePill);
   if(isParent)right.appendChild(mkBtn(T('files_upload'),'btn-sm btn-primary',()=>document.getElementById('fileInputFolder')?.click()));
   hd.appendChild(right);
@@ -9573,10 +9572,10 @@ function renderFiles(){
     const _permBtn=mkBtn('⚙️','btn-sm btn-ghost',()=>{
       // Show a picker to select which specialist to manage permissions for
       const specs=(DB.specialists||[]).filter(s=>{const p=s.permissions||{};return s.status==='active'||Object.keys(p).length>0;});
-      if(!specs.length){toast('No specialists connected yet.','error');return;}
+      if(!specs.length){toast(T('files_no_specs_connected'),'error');return;}
       if(specs.length===1){showPermModal(specs[0]);return;}
-      openModal('⚙️ Manage Permissions',(mb)=>{
-        mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},['Select a specialist to manage folder access:']));
+      openModal(T('files_manage_perms'),(mb)=>{
+        mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},[T('files_select_spec_perms')]));
         specs.forEach(s=>{
           const row=mkBtn((s.name||'Specialist')+' '+(s.role&&s.role!=='Specialist'?'· '+s.role:''),'btn-md btn-ghost btn-full',()=>{document.getElementById('modal-overlay')?.remove();showPermModal(s);});
           row.style.marginBottom='8px';row.style.textAlign='left';
@@ -9584,7 +9583,7 @@ function renderFiles(){
         });
       },420);
     });
-    _permBtn.title='Manage Permissions';
+    _permBtn.title=T('files_manage_perms');
     rightEl.appendChild(_permBtn);
     rightEl.appendChild(mkBtn('📁','btn-sm btn-ghost',()=>showAddFolderModal()));
     rightEl.appendChild(mkBtn('📤','btn-sm btn-primary',()=>document.getElementById('fileInput')?.click()));
@@ -9615,7 +9614,7 @@ function renderFiles(){
     const _q=(q||'').toLowerCase().trim();
     _fsRes.innerHTML='';
     if(_dbFolders.length===0){
-      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},['Setting up folders…']),el('div',{class:'empty-state-body'},['Your folders are being created. Pull down to refresh.'])]));
+      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},[T('files_setting_up')]),el('div',{class:'empty-state-body'},[T('files_setting_up_desc')])]));
       return;
     }
     const _mFolders=_q?_dbFolders.filter(f=>(f.name||'').toLowerCase().includes(_q)):_dbFolders;
@@ -9624,20 +9623,20 @@ function renderFiles(){
     if(_q){_dbFolders.forEach(f=>{if(!(f.name||'').toLowerCase().includes(_q)){(f.files||[]).filter(fi=>(fi.name||'').toLowerCase().includes(_q)).forEach(fi=>{_flatFiles.push({file:fi,folderName:f.name,folderId:f.id});});}});}
     // No matches at all
     if(_mFolders.length===0&&_flatFiles.length===0){
-      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},['No matching files']),el('div',{class:'empty-state-body'},['Try a different search term'])]));
+      _fsRes.appendChild(el('div',{class:'empty-state'},[el('span',{class:'empty-state-icon'},['📁']),el('div',{class:'empty-state-title'},[T('files_no_matching')]),el('div',{class:'empty-state-body'},[T('files_no_matching_desc')])]));
       return;
     }
     // Flat file results
     if(_flatFiles.length>0){
       const _fmSec=el('div',{style:{marginBottom:'16px'}});
-      _fmSec.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},['Files matching "'+_q+'"']));
+      _fmSec.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},[T('files_matching_query',{q:_q})]));
       _flatFiles.forEach(({file,folderName,folderId})=>{
         const _th=getFileThumb(file);const _icon=_th.icon||(_th.type==='img'?'🖼':_th.type==='pdf'?'📄':'📎');
         const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#fff',borderRadius:'10px',border:'1.5px solid var(--mint-l)',marginBottom:'6px',cursor:'pointer'}});
         row.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},[_icon]));
         const _fInfo=el('div',{style:{flex:1,minWidth:0}});
         _fInfo.appendChild(el('div',{style:{fontWeight:600,fontSize:'.84rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[file.name||'Untitled']));
-        _fInfo.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)'}},['→ in '+folderName]));
+        _fInfo.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)'}},[T('files_in_folder',{folder:folderName})]));
         row.appendChild(_fInfo);row.onclick=()=>{S.activeFolderId=folderId;S._fileSearch='';re();};
         _fmSec.appendChild(row);
       });
@@ -9655,7 +9654,7 @@ function renderFiles(){
           const iw=el('div',{class:'folder-icon-wrap',style:{background:iconBg,opacity:.5}},['🔒']);
           wrap.appendChild(iw);
           wrap.appendChild(el('div',{class:'folder-name',style:{opacity:.5}},[folder.name]));
-          wrap.appendChild(el('div',{class:'folder-count'},['No access']));
+          wrap.appendChild(el('div',{class:'folder-count'},[T('files_no_access')]));
           wrap.appendChild(el('div',{class:'badge badge-rose',style:{margin:'8px auto 0',display:'inline-flex'}},[T('files_locked')]));
           wrap.onclick=()=>showAccessRequest(folder);
           grid.appendChild(wrap);
@@ -9677,7 +9676,7 @@ function renderFiles(){
             menu.style.cssText='left:'+x+'px;top:'+y+'px';
             const isCustomFolder=folder.key&&folder.key.startsWith('custom_');
             const actions=[
-              {icon:'📂',label:'Open Folder',fn:()=>showFolderModal(folder,isParent)},
+              {icon:'📂',label:T('files_open_folder'),fn:()=>showFolderModal(folder,isParent)},
               ...(isParent?[{icon:'📤',label:T('files_upload'),fn:()=>{document.getElementById('fileInput')?.click();}}]:[]),
               {icon:'ℹ️',label:folder.files.length+' file'+(folder.files.length!==1?'s':''),fn:null},
               ...(isParent?[{icon:'🔒',label:T('files_permissions'),fn:()=>{
@@ -9686,9 +9685,9 @@ function renderFiles(){
                 const _fKey=folder.key;
                 const _seenIds=new Set();
                 const _specs=getChildTeam(_cid).filter(s=>s.status==='active').filter(s=>{if(_seenIds.has(s.id))return false;_seenIds.add(s.id);return true;});
-                if(!_specs.length){toast('No specialists connected yet.','error');return;}
+                if(!_specs.length){toast(T('files_no_specs_connected'),'error');return;}
                 openModal('🔒 Permissions — '+folder.name,async(mb,close)=>{
-                  mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:500,fontSize:'.85rem'}},['Choose which specialists can access this folder:']));
+                  mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontWeight:500,fontSize:'.85rem'}},[T('files_choose_spec_access')]));
                   // Fetch current permissions for this folder
                   let _curPerms=[];
                   try{const{data}=await _supa.from('folder_permissions').select('specialist_id').eq('child_id',_cid).eq('folder_key',_fKey);_curPerms=(data||[]).map(r=>r.specialist_id);}catch(e){}
@@ -9701,12 +9700,12 @@ function renderFiles(){
                       const sid=String(s.id);
                       if(cb.checked){
                         const{error}=await _supa.from('folder_permissions').upsert({specialist_id:sid,child_id:_cid,folder_key:_fKey,granted_at:new Date().toISOString()});
-                        if(error){console.error('❌ grant perm:',error);cb.checked=false;toast('Could not grant access.','error');}
-                        else{row.style.background='var(--mint-ll)';row.style.borderColor='var(--teal)';toast('✅ '+s.name+' granted access.');}
+                        if(error){console.error('❌ grant perm:',error);cb.checked=false;toast(T('files_could_not_grant'),'error');}
+                        else{row.style.background='var(--mint-ll)';row.style.borderColor='var(--teal)';toast(T('files_granted_access',{name:s.name}));}
                       }else{
                         const{error}=await _supa.from('folder_permissions').delete().eq('specialist_id',sid).eq('child_id',_cid).eq('folder_key',_fKey);
-                        if(error){console.error('❌ revoke perm:',error);cb.checked=true;toast('Could not revoke access.','error');}
-                        else{row.style.background='#fff';row.style.borderColor='var(--mint-l)';toast(s.name+' access removed.');}
+                        if(error){console.error('❌ revoke perm:',error);cb.checked=true;toast(T('files_could_not_revoke'),'error');}
+                        else{row.style.background='#fff';row.style.borderColor='var(--mint-l)';toast(T('files_access_removed',{name:s.name}));}
                       }
                     };
                     row.appendChild(cb);
@@ -9717,14 +9716,14 @@ function renderFiles(){
                   });
                 },420);
               }}]:[]),
-              ...(isParent&&isCustomFolder?[{icon:'🗑️',label:'Delete Folder',danger:true,fn:()=>{
-                openConfirm('Delete "'+folder.name+'"?','This will permanently delete the folder and all its files. This cannot be undone.',true,async()=>{
+              ...(isParent&&isCustomFolder?[{icon:'🗑️',label:T('files_delete_folder_btn'),danger:true,fn:()=>{
+                openConfirm(T('files_delete_folder_q',{name:folder.name}),T('files_delete_folder_msg'),true,async()=>{
                   try{
                     await SB.deleteFolder(folder.id);
                     const fls=DB.folders.filter(f=>f.id!==folder.id);
                     DB.folders=fls;
-                    re();toast('🗑️ Folder deleted.');
-                  }catch(e){console.error('delete folder:',e);toast('❌ Could not delete folder. Please try again.','error');}
+                    re();toast(T('files_folder_deleted'));
+                  }catch(e){console.error('delete folder:',e);toast(T('files_delete_failed'),'error');}
                 });
               }}]:[]),
             ];
@@ -9765,7 +9764,7 @@ function renderFiles(){
         }
       });
       _fsRes.appendChild(grid);
-      if(isParent)_fsRes.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},['Hold a folder to rename, upload, or delete']));
+      if(isParent)_fsRes.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',textAlign:'center',marginTop:'8px',marginBottom:'4px'}},[T('files_hold_hint')]));
     }
   }
   _doFsFilter(S._fileSearch);
@@ -9776,7 +9775,7 @@ function renderFiles(){
   if(S.activeChild){
     const vaults=(DB.specialistVaults||[]).filter(v=>v.childId===S.activeChild);
     if(vaults.length>0){
-      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',margin:'22px 0 12px',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--slate)'}},[' Personal Vaults']));
+      sec.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',margin:'22px 0 12px',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--slate)'}},[T('files_personal_vaults')]));
       const vaultGrid=el('div',{class:'g-folder'});
       vaults.forEach(vault=>{
         const isOwner=!isParent&&session?.specialistId===vault.specialistId;
@@ -9787,16 +9786,16 @@ function renderFiles(){
         const iw=el('div',{class:'folder-icon-wrap',style:{background:'var(--lav-l)'}},['🔐']);
         wrap.appendChild(iw);
         wrap.appendChild(el('div',{class:'folder-name'},[vaultSpec?.name||vault.specialistName]));
-        wrap.appendChild(el('div',{class:'folder-count'},['Personal Vault']));
+        wrap.appendChild(el('div',{class:'folder-count'},[T('files_personal_vault')]));
         if(canViewVault){
           // Owner or authorized: show normal open state
-          wrap.appendChild(badge('Your Vault','lav'));
+          wrap.appendChild(badge(T('files_your_vault'),'lav'));
           wrap.onclick=()=>openModal('🔐 '+vaultSpec?.name+"'s Vault",(mb,close)=>{
-            mb.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,marginBottom:'16px'}},['This is your private vault. Files uploaded here are not visible to other specialists.']));
+            mb.appendChild(el('p',{style:{color:'var(--slate)',fontWeight:600,marginBottom:'16px'}},[T('files_vault_private_desc')]));
             // Authorize another specialist
             const otherSpecs=getChildTeam(vault.childId).filter(s=>s.status==='active'&&s.id!==vault.specialistId);
             if(otherSpecs.length>0&&isOwner){
-              mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Authorize another specialist to view:']));
+              mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},[T('files_authorize_view')]));
               otherSpecs.forEach(os=>{
                 const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 12px',borderRadius:'11px',background:'var(--mint-ll)',marginBottom:'7px'}});
                 const cb=el('input',{type:'checkbox'});
@@ -9808,7 +9807,7 @@ function renderFiles(){
                   if(e.target.checked){if(!vs[vi].authorizedSpecialistIds.includes(os.id))vs[vi].authorizedSpecialistIds.push(os.id);}
                   else{vs[vi].authorizedSpecialistIds=vs[vi].authorizedSpecialistIds.filter(x=>x!==os.id);}
                   DB.specialistVaults=vs;
-                  toast('Authorization updated for '+os.name+'!');
+                  toast(T('files_auth_updated',{name:os.name}));
                 };
                 lbl.appendChild(cb);
                 lbl.appendChild(mkAvatar(os.avatar||'🩺',30,'#d1fae5'));
@@ -9895,18 +9894,18 @@ function showShareModal(file){
 
 function showAddFolderModal(){
   const child=DB.children.find(c=>c.id===S.activeChild);
-  if(!child){toast('Select a child first.','error');return;}
+  if(!child){toast(T('files_select_child_first'),'error');return;}
   openModal('📁 '+T('files_new_folder'),(mb,close)=>{
-    mb.appendChild(el('div',{class:'inp-label'},['Folder name']));
-    const nameInp=el('input',{class:'inp',placeholder:'e.g. Speech Therapy',style:{marginBottom:'14px'}});
+    mb.appendChild(el('div',{class:'inp-label'},[T('files_folder_name_label')]));
+    const nameInp=el('input',{class:'inp',placeholder:T('files_folder_name_placeholder'),style:{marginBottom:'14px'}});
     mb.appendChild(nameInp);
 
-    mb.appendChild(el('div',{class:'inp-label'},['Icon']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('files_icon_label')]));
     const iconInp=el('input',{class:'inp',placeholder:'📁',style:{marginBottom:'14px',width:'80px'}});
     iconInp.value='📁';
     mb.appendChild(iconInp);
 
-    mb.appendChild(el('div',{class:'inp-label'},['Who can see this folder?']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('files_who_can_see')]));
     const permsMap={};
     const rows=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
     DB.specialists.filter(s=>s.status==='active').forEach(s=>{
@@ -9922,9 +9921,9 @@ function showAddFolderModal(){
 
     const row2=d('',[], {display:'flex',gap:'10px'});
     row2.appendChild(mkBtn(T('cal_cancel'),'btn-md btn-ghost',close));
-    row2.appendChild(mkBtn('Create Folder','btn-md btn-primary btn-full',async()=>{
+    row2.appendChild(mkBtn(T('files_create_folder'),'btn-md btn-primary btn-full',async()=>{
       const name=nameInp.value.trim();
-      if(!name){toast('Please enter a folder name.','error');return;}
+      if(!name){toast(T('files_enter_name'),'error');return;}
       const key='custom_'+Date.now();
       const newFolder={id:'f_'+S.activeChild+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,childId:S.activeChild};
       try{
@@ -9939,8 +9938,8 @@ function showAddFolderModal(){
           });
           DB.specialists=specs;
         }
-        close();re();toast('📁 "'+name+'" folder created!');
-      }catch(e){console.error('create folder:',e);toast('❌ Could not create folder. Please try again.','error');}
+        close();re();toast(T('files_folder_created',{name}));
+      }catch(e){console.error('create folder:',e);toast(T('files_create_failed'),'error');}
     }));
     mb.appendChild(row2);
   },500);
@@ -9959,8 +9958,8 @@ function showFolderModal(folder,isParent){
       tb.onclick=()=>{localStorage.setItem('huddledin_files_view',mode);close();showFolderModal(folder,isParent);};
       return tb;
     };
-    togglePill.appendChild(_mkTog('⊞ Grid','grid'));
-    togglePill.appendChild(_mkTog('☰ List','list'));
+    togglePill.appendChild(_mkTog(T('files_grid'),'grid'));
+    togglePill.appendChild(_mkTog(T('files_list'),'list'));
     toggleRow.appendChild(togglePill);
     mb.appendChild(toggleRow);
 
@@ -9968,8 +9967,8 @@ function showFolderModal(folder,isParent){
     const _mkFileActions=(f)=>{
       const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
       if(f.url){
-        actions.appendChild(mkBtn('👁 Preview','btn-sm btn-ghost',()=>_filePreview(f)));
-        const dlBtn=mkBtn('⬇ Download','btn-sm btn-ghost',async()=>{
+        actions.appendChild(mkBtn(T('files_view_btn'),'btn-sm btn-ghost',()=>_filePreview(f)));
+        const dlBtn=mkBtn(T('files_download'),'btn-sm btn-ghost',async()=>{
           try{
             dlBtn.textContent='⏳…';dlBtn.disabled=true;
             const resp=await fetch(f.url);if(!resp.ok)throw new Error('Failed');
@@ -9977,8 +9976,8 @@ function showFolderModal(folder,isParent){
             const a=document.createElement('a');a.href=blobUrl;a.download=f.name;
             document.body.appendChild(a);a.click();
             setTimeout(()=>{URL.revokeObjectURL(blobUrl);a.remove();},1000);
-            dlBtn.textContent='⬇ Download';dlBtn.disabled=false;
-          }catch(e){window.open(f.url,'_blank');dlBtn.textContent='⬇ Download';dlBtn.disabled=false;}
+            dlBtn.textContent=T('files_download');dlBtn.disabled=false;
+          }catch(e){window.open(f.url,'_blank');dlBtn.textContent=T('files_download');dlBtn.disabled=false;}
         });
         actions.appendChild(dlBtn);
       }
@@ -9988,11 +9987,11 @@ function showFolderModal(folder,isParent){
           if(newName&&newName.trim()){
             try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
               if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast(T('files_file_renamed'));
             }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
           }
         }));
-        actions.appendChild(mkBtn('⚙️ Manage','btn-sm btn-slate',()=>showFilePermModal(f,folder)));
+        actions.appendChild(mkBtn(T('files_manage'),'btn-sm btn-slate',()=>showFilePermModal(f,folder)));
         actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
           openConfirm(T('files_delete_file'),T('files_delete_file_msg',{name:f.name}),true,async()=>{
             try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
@@ -10008,7 +10007,7 @@ function showFolderModal(folder,isParent){
           if(newName&&newName.trim()){
             try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
               if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast('File renamed!');
+              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast(T('files_file_renamed'));
             }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
           }
         }));
@@ -10093,11 +10092,11 @@ function showFolderModal(folder,isParent){
       mb.appendChild(stack);
     }
     if(isParent){
-      mb.appendChild(mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
+      mb.appendChild(mkBtn(T('files_upload_to_folder'),'btn-md btn-primary btn-full',()=>{close();document.getElementById('fileInput')?.click();}));
     } else {
       const fiPop=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});
       mb.appendChild(fiPop);
-      const upPopBtn=mkBtn('📤 Upload to This Folder','btn-md btn-primary btn-full',()=>fiPop.click());
+      const upPopBtn=mkBtn(T('files_upload_to_folder'),'btn-md btn-primary btn-full',()=>fiPop.click());
       fiPop.onchange=async e=>{
         const file=e.target.files[0];if(!file)return;
         upPopBtn.textContent='⏳ Uploading…';upPopBtn.disabled=true;
@@ -10113,7 +10112,7 @@ function showFolderModal(folder,isParent){
           close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);
           toast('✅ "'+file.name+'" uploaded!');
         }catch(e){
-          upPopBtn.textContent='📤 Upload to This Folder';upPopBtn.disabled=false;
+          upPopBtn.textContent=T('files_upload_to_folder');upPopBtn.disabled=false;
           console.error('upload failed:',e);toast('❌ Upload failed. Please try again.','error');
         }
       };
@@ -10124,7 +10123,7 @@ function showFolderModal(folder,isParent){
 
 function showFilePermModal(file,folder){
   openModal('⚙️ '+T('files_permissions')+' — '+file.name,(mb,close)=>{
-    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Choose which specialists can access this file:']));
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[T('files_choose_spec_file')]));
     const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
     DB.specialists.filter(s=>s.status==='active').forEach(s=>{
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
@@ -10145,15 +10144,15 @@ function showFilePermModal(file,folder){
       rows.appendChild(lbl);
     });
     mb.appendChild(rows);
-    const _sfBtn=mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
-      _sfBtn.disabled=true;_sfBtn.textContent='Saving…';
+    const _sfBtn=mkBtn(T('files_save_perms'),'btn-lg btn-primary btn-full',async()=>{
+      _sfBtn.disabled=true;_sfBtn.textContent=T('files_saving_perms');
       if(_supa&&session?.id!=='demo'){
         const _fo=DB.folders.find(f=>f.id===folder.id);
         const _fi2=_fo?.files.find(x=>x.id===file.id);
         const {error:_fErr}=await _supa.from('files').update({shared_with:_fi2?.sharedWith||[]}).eq('id',file.id);
-        if(_fErr){_sfBtn.disabled=false;_sfBtn.textContent='✅ Save Permissions';toast('❌ Could not save: '+_fErr.message,'error');return;}
+        if(_fErr){_sfBtn.disabled=false;_sfBtn.textContent=T('files_save_perms');toast(T('files_could_not_save_perms',{msg:_fErr.message}),'error');return;}
       }
-      close();toast('✅ Permissions updated!');re();
+      close();toast(T('files_perms_updated'));re();
     });
     mb.appendChild(_sfBtn);
   },500);
@@ -10163,7 +10162,7 @@ function showAccessRequest(folder){
   openModal('🔒 '+T('files_request_access'),(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
       [T('files_locked_desc')]));
-    mb.appendChild(mkBtn('📨 Send Request','btn-lg btn-primary btn-full',async()=>{
+    mb.appendChild(mkBtn(T('files_send_request'),'btn-lg btn-primary btn-full',async()=>{
       const specId=session?.specialistId||null;
       const specName=session?.name||'Specialist';
       const specRole=DB.specialists.find(s=>s.id===specId)?.role||'Specialist';
@@ -10250,7 +10249,7 @@ function buildTeamList(child){
         const f=childFoldersForSpec.find(f=>f.key===key);
         if(f)pr.appendChild(badge(f.icon+' '+f.name,'teal'));
       });
-      if(!pr.children.length&&!isPending)pr.appendChild(badge('No access for this child','slate'));
+      if(!pr.children.length&&!isPending)pr.appendChild(badge(T('team_no_access_child'),'slate'));
       info.appendChild(pr);
       card.appendChild(info);
       if(!isPending&&child){
@@ -10275,18 +10274,18 @@ function buildTeamList(child){
     _childInvites.forEach(inv=>{
       const icard=el('div',{class:'card ghost-card',style:{display:'flex',alignItems:'flex-start',gap:'13px',marginBottom:'12px',position:'relative',flexWrap:'wrap'}});
       const ipb=el('div',{style:{position:'absolute',top:'-10px',[_endSide()]:'13px'}});
-      ipb.appendChild(badge('📧 Invited','amber'));
+      ipb.appendChild(badge(T('team_invited_badge'),'amber'));
       icard.appendChild(ipb);
       icard.appendChild(mkAvatar('🩺',48,'#fef9c3'));
       const iinfo=d('',[],{flex:1});
       // Show email as primary identifier — specialist_name was typed by parent and may be wrong
       iinfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[inv.email||inv.specialist_name]));
       iinfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'4px'}},[(inv.specialist_role||'Specialist')]));
-      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},['Invited — awaiting response']));
+      iinfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'#d97706',fontWeight:600}},[T('team_invited_awaiting')]));
       icard.appendChild(iinfo);
       if(child){
         const iacts=d('',[],{display:'flex',gap:'7px',flexShrink:0,flexWrap:'wrap',width:'100%',marginTop:'4px'});
-        iacts.appendChild(mkBtn('Cancel Invite','btn-sm btn-danger',()=>openConfirm('Cancel Invite',
+        iacts.appendChild(mkBtn(T('team_cancel_invite'),'btn-sm btn-danger',()=>openConfirm(T('team_cancel_invite'),
           `Cancel invite to ${inv.specialist_name||inv.email}? They won\'t be able to join ${child.name}\'s team with this link.`,
           true,
           async()=>{
@@ -10294,10 +10293,10 @@ function buildTeamList(child){
               try{
                 const{error}=await _supa.from('invites').delete().eq('id',inv.id);
                 if(error)throw error;
-              }catch(e){console.error('cancel invite:',e);toast('❌ Could not cancel invite.','error');return;}
+              }catch(e){console.error('cancel invite:',e);toast(T('team_cancel_failed'),'error');return;}
             }
             DB.pendingInvites=(DB.pendingInvites||[]).filter(i=>i.id!==inv.id);
-            re();toast('✅ Invite cancelled.');
+            re();toast(T('team_invite_cancelled'));
           }
         )));
         icard.appendChild(iacts);
@@ -10317,7 +10316,7 @@ function renderTeam(){
     container.innerHTML='';
     const _fReqs=(reqs||[]).filter(r=>r.requestType==='folder'&&r.status==='pending'&&r.childId===S.activeChild);
     if(_fReqs.length===0)return;
-    container.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['📁 Folder Access Requests']));
+    container.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},[T('team_folder_access_reqs')]));
     _fReqs.forEach(req=>{
       const reqFolder=DB.folders.find(f=>f.key===req.requestedFolder&&f.childId===S.activeChild);
       const reqCard=el('div',{class:'spec-request-card'});
@@ -10328,10 +10327,10 @@ function renderTeam(){
       info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+new Date(req.requestedAt).toLocaleDateString()]));
       topRow.appendChild(info);
       reqCard.appendChild(topRow);
-      reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},['Requesting access to: '+(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)]));
+      reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},[T('team_requesting_access',{folder:(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)})]));
       const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-      btnRow.appendChild(mkBtn('✅ Grant Access','btn-sm btn-primary',()=>approveFolderRequest(req)));
-      btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+      btnRow.appendChild(mkBtn(T('team_grant_access'),'btn-sm btn-primary',()=>approveFolderRequest(req)));
+      btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
       reqCard.appendChild(btnRow);
       container.appendChild(reqCard);
     });
@@ -10343,7 +10342,7 @@ function renderTeam(){
     showConnectionCodeModal(child.id);
   }));
   rightEl.appendChild(mkBtn('📧','btn-sm btn-ghost',()=>showInviteModal()));
-  sec.appendChild(mkSubHeader('Care Team',rightEl));
+  sec.appendChild(mkSubHeader(T('team_care_team_label'),rightEl));
 
   // Connection code banner at top of team page
   if(child){
@@ -10459,7 +10458,7 @@ function renderTeam(){
 
     // -- Consultation requests (specialist-to-specialist, parent approves) --
     if(consultReqs.length>0){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['🤝 Consultation Requests']));
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},[T('team_consult_reqs')]));
       consultReqs.forEach(req=>{
         // Parse visibility from stored field: "specialistName|private" or "specialistName|inclusive"
         const parts=(req.requestedFolderName||'').split('|');
@@ -10523,10 +10522,10 @@ function renderTeam(){
             if(_supa&&targetSpecId&&targetSpecId!==specId){
               try{const{error:_ne2}=await _supa.from('notifications').insert({id:'notif_b_'+Date.now(),user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne2)console.error('❌ consult notif b:',_ne2);}catch(e){console.error('consult notif b:',e);}
             }
-          }catch(e){console.error('approve consult:',e);toast('Error approving. Try again.','error');return;}
-          re();toast('✅ Consultation approved! Chat created.');
+          }catch(e){console.error('approve consult:',e);toast(T('team_consult_error'),'error');return;}
+          re();toast(T('team_consult_approved'));
         }));
-        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
         reqCard.appendChild(btnRow);
         sec.appendChild(reqCard);
       });
@@ -10535,18 +10534,18 @@ function renderTeam(){
 
     // -- Join requests (specialist wants to join the team) --
     if(joinReqs.length>0){
-      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},['👥 Pending Team Requests']));
+      sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'4px'}},[T('team_pending_team_reqs')]));
       joinReqs.forEach(req=>{
         const reqCard=el('div',{class:'spec-request-card'});
         const topRow=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}});
         topRow.appendChild(mkAvatar('🩺',40,'#e0f2fe'));
         const info=el('div',{style:{flex:1}});
         info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem'}},[req.specialistName]));
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · Requested '+new Date(req.requestedAt).toLocaleDateString()]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[req.role+' · '+T('team_requested_label',{date:new Date(req.requestedAt).toLocaleDateString()})]));
         topRow.appendChild(info);
         reqCard.appendChild(topRow);
         // Show actual folders for this child, pre-check the profession folder
-        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Choose which folders to share:']));
+        reqCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},[T('team_choose_folders')]));
         const childFolders=DB.folders.filter(f=>f.childId===child.id);
         const profMatch=PROFESSIONS.find(p=>p.label===req.role);
         const selFolders=profMatch?[profMatch.key]:[];
@@ -10559,13 +10558,13 @@ function renderTeam(){
           lbl.appendChild(cb);lbl.appendChild(document.createTextNode(folder.icon+' '+folder.name));
           fRows.appendChild(lbl);
         });
-        if(!childFolders.length)fRows.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},['No folders created yet — specialist will get access when folders are added.']));
+        if(!childFolders.length)fRows.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('team_no_folders_yet')]));
         reqCard.appendChild(fRows);
         const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-        btnRow.appendChild(mkBtn('Approve & Grant Access','btn-sm btn-primary',()=>{
+        btnRow.appendChild(mkBtn(T('team_approve_grant'),'btn-sm btn-primary',()=>{
           approveSpecialistRequest(req.id,selFolders);
         }));
-        btnRow.appendChild(mkBtn('Decline','btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
         reqCard.appendChild(btnRow);
         sec.appendChild(reqCard);
       });
@@ -10581,7 +10580,7 @@ function renderTeam(){
   // Legacy Archive
   const archive=DB.legacyArchive;
   if(archive.length){
-    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},['🗄️ Legacy Archives']));
+    sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:'22px 0 12px'}},[T('team_legacy_archives')]));
     archive.forEach(a=>{
       const ac=el('div',{class:'card',style:{background:'#f8fafc',border:'2px dashed var(--slate-l)',display:'flex',gap:'12px',alignItems:'center',marginBottom:'10px'}});
       ac.appendChild(el('span',{style:{fontSize:'1.4rem'}},['🗄️']));
@@ -10589,7 +10588,7 @@ function renderTeam(){
       acInfo.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)'}},[a.specialistName]));
       acInfo.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)'}},[a.childName+' · Archived '+a.archivedAt+' · '+a.notes.length+' note(s) retained']));
       ac.appendChild(acInfo);
-      ac.appendChild(badge('Legacy','slate'));
+      ac.appendChild(badge(T('team_legacy_badge'),'slate'));
       sec.appendChild(ac);
     });
   }
@@ -10612,7 +10611,7 @@ function renderTeam(){
   });
   if(_allPastSpecs.length&&child){
     const _psHdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',padding:'14px 4px 8px',userSelect:'none',borderTop:'1px solid var(--mint-l)',marginTop:'16px'}});
-    const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},['Past Specialists ('+_allPastSpecs.length+')']);
+    const _psTitle=el('div',{style:{fontWeight:800,color:'var(--slate)',fontSize:'.82rem',letterSpacing:'.04em',textTransform:'uppercase'}},[T('team_past_specs',{n:_allPastSpecs.length})]);
     const _psChev=el('span',{style:{color:'var(--slate)',fontSize:'.85rem'}},['▶']);
     _psHdr.appendChild(_psTitle);_psHdr.appendChild(_psChev);
     const _psList=el('div',{style:{display:'none'}});
@@ -10625,9 +10624,9 @@ function renderTeam(){
       pi.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',fontSize:'.88rem'}},[ps.name]));
       pi.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate-l)'}},[ps.role+(ps.connectedAt?' · Connected '+new Date(ps.connectedAt).toLocaleDateString():'')]));
       pc.appendChild(pi);
-      pc.appendChild(badge('Past','slate'));
+      pc.appendChild(badge(T('team_past_badge'),'slate'));
       if(ps.specialistId&&session?.id!=='demo'){
-        const rBtn=mkBtn('Reconnect','btn-sm btn-primary',()=>reconnectSpecialist(ps));
+        const rBtn=mkBtn(T('team_reconnect'),'btn-sm btn-primary',()=>reconnectSpecialist(ps));
         rBtn.style.marginLeft='auto';
         pc.appendChild(rBtn);
       }
@@ -10750,12 +10749,12 @@ async function reconnectSpecialist(ps){
 
 function showPermModal(spec){
   openModal('⚙️ '+T('team_permissions')+' — '+spec.name,(mb,close)=>{
-    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},['Which areas can '+spec.name+' access?']));
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[T('team_which_areas',{name:spec.name})]));
     const childFolders=DB.folders.filter(f=>f.childId===S.activeChild);
     const curPerms=[...(spec.permissions[S.activeChild]||[])];
     const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
     if(childFolders.length===0){
-      rows.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.85rem',padding:'10px'}},['No folders found for this child.']));
+      rows.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.85rem',padding:'10px'}},[T('team_no_folders_child')]));
     }
     childFolders.forEach(folder=>{
       const key=folder.key||folder.id;
@@ -10768,35 +10767,35 @@ function showPermModal(spec){
       rows.appendChild(lbl);
     });
     mb.appendChild(rows);
-    const saveBtn=mkBtn('✅ Save Permissions','btn-lg btn-primary btn-full',async()=>{
-      saveBtn.disabled=true;saveBtn.innerHTML='Saving…';
+    const saveBtn=mkBtn(T('files_save_perms'),'btn-lg btn-primary btn-full',async()=>{
+      saveBtn.disabled=true;saveBtn.innerHTML=T('files_saving_perms');
       const _origPerms=[...(spec.permissions[S.activeChild]||[])];
       const specs=DB.specialists,i=specs.findIndex(s=>s.id===spec.id);
       if(i>-1){specs[i].permissions[S.activeChild]=[...curPerms];DB.specialists=specs;}
       // Sync to Supabase so specialist's device picks it up
       if(_supa&&spec.id&&S.activeChild){
         const {error:delErr}=await _supa.from('folder_permissions').delete().eq('specialist_id',String(spec.id)).eq('child_id',S.activeChild);
-        if(delErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+delErr.message,'error');return;}
+        if(delErr){saveBtn.disabled=false;saveBtn.innerHTML=T('files_save_perms');toast(T('team_perms_save_failed',{msg:delErr.message}),'error');return;}
         for(const key of curPerms){
           const {error:upErr}=await _supa.from('folder_permissions').upsert({specialist_id:String(spec.id),child_id:S.activeChild,folder_key:key,granted_at:new Date().toISOString()});
-          if(upErr){saveBtn.disabled=false;saveBtn.innerHTML='✅ Save Permissions';toast('❌ Could not save: '+upErr.message,'error');return;}
+          if(upErr){saveBtn.disabled=false;saveBtn.innerHTML=T('files_save_perms');toast(T('team_perms_save_failed',{msg:upErr.message}),'error');return;}
         }
       }
       // Log what changed for audit trail
       const _fldMap=Object.fromEntries(childFolders.map(f=>[f.key||f.id,f.name]));
       curPerms.filter(k=>!_origPerms.includes(k)).forEach(k=>console.log('✅ Folder access granted:',(_fldMap[k]||k),'to',spec.name));
       _origPerms.filter(k=>!curPerms.includes(k)).forEach(k=>console.log('✅ Folder access revoked:',(_fldMap[k]||k),'from',spec.name));
-      close();re();toast('✅ Permissions updated for '+spec.name+'!');
+      close();re();toast(T('team_perms_updated',{name:spec.name}));
     });
     mb.appendChild(saveBtn);
   },480);
 }
 
 function showInviteModal(){
-  openModal('➕ Invite a Specialist',(mb,close)=>{
+  openModal(T('team_invite_title'),(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{marginBottom:'16px'}});
-    const ni=el('input',{class:'inp',placeholder:"Specialist's full name",type:'text'});
-    const ei=el('input',{class:'inp',placeholder:"Specialist's email address",type:'email'});
+    const ni=el('input',{class:'inp',placeholder:T('team_invite_name_placeholder'),type:'text'});
+    const ei=el('input',{class:'inp',placeholder:T('team_invite_email_placeholder'),type:'email'});
     const ri=el('select',{class:'inp',style:{marginBottom:'8px'}});PROFESSIONS.forEach(p=>{const o=el('option');o.value=p.label;o.textContent=p.icon+' '+p.label;ri.appendChild(o);});
     [ni,ei,ri].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
@@ -10808,10 +10807,10 @@ function showInviteModal(){
     mb.appendChild(linkArea);
 
     mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.8rem',marginBottom:'16px',lineHeight:'1.6',fontWeight:500}},
-      ['An invite email will be sent with a magic link. If they\'re new to Huddledin, the link will guide them to register and auto-join the care team.']));
-    mb.appendChild(mkBtn('📨 Send Invitation','btn-lg btn-primary btn-full',async()=>{
-      if(!ei.value){toast('⚠️ Email required.','error');return;}
-      if(!S.activeChild){toast('⚠️ Please open a child profile first, then send the invite.','error');return;}
+      [T('team_invite_explainer')]));
+    mb.appendChild(mkBtn(T('team_invite_send'),'btn-lg btn-primary btn-full',async()=>{
+      if(!ei.value){toast(T('team_invite_email_required'),'error');return;}
+      if(!S.activeChild){toast(T('team_invite_child_first'),'error');return;}
       // Generate magic link token
       const _ta=new Uint8Array(8);crypto.getRandomValues(_ta);
       const token='hd_invite_'+Date.now().toString(36)+'_'+Array.from(_ta).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -10845,7 +10844,7 @@ function showInviteModal(){
           if(_tc){_tc.innerHTML='';_tc.appendChild(buildTeamList(child));}
         }catch(e){
           console.error('❌ Invite insert failed:',e);
-          toast('❌ Failed to send invite — please try again','error');
+          toast(T('team_invite_failed'),'error');
         }
       }
       // Add simulated email to inbox
@@ -10855,11 +10854,11 @@ function showInviteModal(){
       // Show link in UI
       linkArea.style.display='block';
       linkArea.innerHTML='';
-      linkArea.appendChild(el('div',{class:'inp-label'},['🔗 Magic Invite Link (click to copy)']));
+      linkArea.appendChild(el('div',{class:'inp-label'},[T('team_invite_link_label')]));
       const lb=el('div',{class:'invite-link-box'},[magicLink]);
-      lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast('✅ Link copied to clipboard!'));};
+      lb.onclick=()=>{navigator.clipboard?.writeText(magicLink).then(()=>toast(T('team_invite_link_copied')));};
       linkArea.appendChild(lb);
-      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['📧 An invite email has been sent automatically to '+ei.value]));
+      linkArea.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},[T('team_invite_email_sent',{email:ei.value})]));
       // FIX FS2: do NOT call re() here — it destroys the open modal and breaks the close button.
       // The modal already shows the link; re() is deferred until the modal is closed.
       // Send real invite email via Resend
@@ -10875,9 +10874,9 @@ function showInviteModal(){
         })
       }).then(r=>r.json()).then(d=>{
         if(d.ok){toast('📧 Invite email sent to '+ei.value+'!','success');close();}
-        else toast('⚠️ Email delivery failed. Share the link manually.','error');
-      }).catch(()=>toast('⚠️ Email delivery failed. Share the link manually.','error'));
-      toast('✅ Sending invite to '+ei.value+'…');
+        else toast(T('team_invite_delivery_fail'),'error');
+      }).catch(()=>toast(T('team_invite_delivery_fail'),'error'));
+      toast(T('team_invite_sending',{email:ei.value}));
       track('Invite Sent',{role:ri.value||'Specialist'});
     }));
   },500);
@@ -10886,7 +10885,7 @@ function showInviteModal(){
 function showHandshakeModal(spec){
   // Consultations are now specialist-initiated.
   // Parents approve via the Care Team page. This function is kept as a stub.
-  toast('Consultations are requested by specialists — check your Care Team page for pending requests.','info');
+  toast(T('team_consult_stub'),'info');
 }
 
 /* -----------------------------------------------
@@ -10903,7 +10902,7 @@ function showAptDetailModal(apt,child){
     :(apt.specialistId===session.specialistId||apt.specialistId===session.id);
   const dateLabel=new Date(apt.date+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const typeLabel={speech:'🗣 Speech Therapy',ot:'🖐 Occupational Therapy',pt:'🏃 Physical Therapy',psychology:'🧠 Psychology',general:'📋 General'}[apt.type]||'📋 Session';
-  openModal('📅 Appointment',(mb,close)=>{
+  openModal(T('apt_title_label'),(mb,close)=>{
     // Header
     const hdr=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
     const colorBar=el('div',{style:{width:'5px',borderRadius:'99px',background:child?.color||'var(--teal)',alignSelf:'stretch',flexShrink:0}});
@@ -10918,10 +10917,10 @@ function showAptDetailModal(apt,child){
     // Details grid
     const rows=[
       apt.time?['🕐',T('cal_event_time'),apt.time+(apt.endTime?' – '+apt.endTime:'')]:null,
-      apt.specialist&&apt.specialist!=='TBD'?['👤',isParent?T('cal_event_specialist'):'Session with',apt.specialist]:null,
+      apt.specialist&&apt.specialist!=='TBD'?['👤',isParent?T('cal_event_specialist'):T('apt_session_with'),apt.specialist]:null,
       apt.location?['📍',T('cal_event_location'),apt.location]:null,
       child?['🧒',T('cal_event_child'),child.name]:null,
-      apt.recurrence&&apt.recurrence!=='none'?['🔁','Repeats',{weekly:'Weekly',biweekly:'Every 2 weeks',monthly:'Monthly'}[apt.recurrence]||apt.recurrence]:null,
+      apt.recurrence&&apt.recurrence!=='none'?['🔁',T('cal_repeats'),{weekly:T('cal_repeats_weekly'),biweekly:T('cal_repeats_biweekly'),monthly:T('cal_repeats_monthly')}[apt.recurrence]||apt.recurrence]:null,
     ].filter(Boolean);
     rows.forEach(([icon,label,val])=>{
       const row=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)'}});
@@ -10945,11 +10944,11 @@ function showAptDetailModal(apt,child){
         }});
         rsvpInfo.appendChild(el('span',{style:{fontSize:'1.1rem'}},[apt.rsvp==='yes'?'✅':'❌']));
         rsvpInfo.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:apt.rsvp==='yes'?'#065f46':'#991b1b'}},[
-          apt.rsvp==='yes'?'Parent confirmed attending':'Parent marked as not attending'
+          apt.rsvp==='yes'?T('apt_parent_confirmed'):T('apt_parent_not_attending')
         ]));
         mb.appendChild(rsvpInfo);
       }
-      actRow.appendChild(mkBtn('✏️ Edit','btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
+      actRow.appendChild(mkBtn(T('apt_edit'),'btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
       actRow.appendChild(mkBtn('🗑️ '+T('cal_delete'),'btn-md btn-danger',()=>{
         openConfirm(T('cal_delete_confirm'),'Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
           try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){}
@@ -10960,19 +10959,19 @@ function showAptDetailModal(apt,child){
     } else {
       // Not creator — show RSVP only
       const rsvpStatus=apt.rsvp||null;
-      const attending=mkBtn('✅ Attending','btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
+      const attending=mkBtn(T('apt_attending'),'btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
         try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){}
         await notifyOtherParty('appointments',`✅ ${session.name||'Parent'} confirmed attending: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
-        close();re();toast('Marked as Attending ✅');
+        close();re();toast(T('apt_marked_attending'));
       });
-      const notAttending=mkBtn('❌ Not Attending','btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
+      const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
         try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){}
         await notifyOtherParty('appointments',`❌ ${session.name||'Parent'} cannot attend: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
-        close();re();toast('Marked as Not Attending.');
+        close();re();toast(T('apt_marked_not_attending'));
       });
       actRow.appendChild(attending);
       actRow.appendChild(notAttending);
@@ -10983,31 +10982,31 @@ function showAptDetailModal(apt,child){
 
 /* -- Edit Appointment Modal -- */
 function showEditAptModal(apt){
-  openModal('✏️ Edit Appointment',(mb,close)=>{
+  openModal(T('apt_edit_title'),(mb,close)=>{
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_title')]));
     const ti=el('input',{class:'inp',value:apt.title||'',style:{marginBottom:'10px'}});mb.appendChild(ti);
-    mb.appendChild(el('div',{class:'inp-label'},['Date']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('apt_date_label')]));
     const di=makeDateInput('Select date',{value:apt.date||'',style:{marginBottom:'10px'}});mb.appendChild(di);
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_time')]));
     const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
     const tmi=el('input',{class:'inp',type:'time',value:apt.time?.split(' – ')[0]||''});
     const endTmi=el('input',{class:'inp',type:'time',value:apt.endTime||''});
-    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['Start']));sw.appendChild(tmi);
-    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['End']));ew.appendChild(endTmi);
+    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_start_label')]));sw.appendChild(tmi);
+    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_end_label')]));ew.appendChild(endTmi);
     timeRow.appendChild(sw);timeRow.appendChild(ew);mb.appendChild(timeRow);
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_location')]));
-    const loci=el('input',{class:'inp',value:apt.location||'',placeholder:'Clinic, Zoom, Home…',style:{marginBottom:'10px'}});mb.appendChild(loci);
+    const loci=el('input',{class:'inp',value:apt.location||'',placeholder:T('apt_loc_placeholder'),style:{marginBottom:'10px'}});mb.appendChild(loci);
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_notes')]));
     const notesI=el('textarea',{class:'inp',style:{marginBottom:'14px',minHeight:'56px',resize:'vertical'}},[apt.notes||'']);mb.appendChild(notesI);
     mb.appendChild(mkBtn(T('cal_save'),'btn-lg btn-primary btn-full',async()=>{
-      if(!ti.value||!di.value){toast('Title and date required.','error');return;}
+      if(!ti.value||!di.value){toast(T('apt_title_date_required'),'error');return;}
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):(apt.time||'TBD');
       try{
         await _supa.from('appointments').update({title:ti.value,date:di.value,time:timeStr,end_time:endTmi.value||null,location:loci.value||null,notes:notesI.value||null}).eq('id',apt.id);
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){Object.assign(apts[i],{title:ti.value,date:di.value,time:timeStr,endTime:endTmi.value||null,location:loci.value||null,notes:notesI.value||null});DB.appointments=apts;}
         close();re();toast(T('cal_saved'));
-      }catch(e){toast('Could not save.','error');}
+      }catch(e){toast(T('apt_could_not_save'),'error');}
     }));
   },520);
 }
@@ -11170,10 +11169,10 @@ function renderCalendar(){
 }
 
 function showGoogleSyncModal(){
-  openModal('📅 Calendar Sync',(mb,close)=>{
+  openModal(T('cal_sync_title'),(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'20px',lineHeight:'1.65'}},
-      ['Sync Huddledin appointments with your external calendar. Choose a provider:']));
-    const opts=[{name:'Google Calendar',icon:'📅',color:'var(--coral)'},{name:'Apple iCal',icon:'🍎',color:'var(--slate)'},{name:'Outlook',icon:'📧',color:'#0078d4'}];
+      [T('cal_sync_desc')]));
+    const opts=[{name:T('cal_sync_google'),icon:'📅',color:'var(--coral)'},{name:T('cal_sync_apple'),icon:'🍎',color:'var(--slate)'},{name:T('cal_sync_outlook'),icon:'📧',color:'#0078d4'}];
     opts.forEach(opt=>{
       const btn2=el('div',{class:'card hov click',style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'10px',padding:'14px 18px'}});
       btn2.innerHTML=`<span style="font-size:1.6rem">${opt.icon}</span><div><div style="font-weight:800;color:var(--navy)">${opt.name}</div><div style="font-size:.78rem;color:var(--slate)">Sync all appointments to ${opt.name}</div></div>`;
@@ -11186,18 +11185,18 @@ function showGoogleSyncModal(){
 function showAddEventModalForDate(dateStr,availableChildren){
   // Delegate to the full modal — passes prefilledDate and overrides child selector if needed
   const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
-  if(theChildren.length===0){toast('Add a child profile first.','error');return;}
+  if(theChildren.length===0){toast(T('cal_add_child_first_long'),'error');return;}
   // If only one child available, set activeChild so modal pre-selects it
   if(theChildren.length===1)S.activeChild=theChildren[0].id;
   showAddEventModal(dateStr||new Date().toISOString().split('T')[0]);
 }
 
 function showAddEventModal(prefilledDate=null){
-  openModal('➕ Add Appointment',(mb,close)=>{
+  openModal(T('apt_add_title'),(mb,close)=>{
     // Child selector
     const children=DB.children;
     if(children.length>1){
-      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      mb.appendChild(el('div',{class:'inp-label'},[T('cal_for_which_child')]));
       const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
       children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===S.activeChild)o.selected=true;childSel.appendChild(o);});
       childSel.onchange=e=>{S.activeChild=e.target.value;};
@@ -11206,15 +11205,15 @@ function showAddEventModal(prefilledDate=null){
     }
 
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_title')+' *']));
-    const ti=el('input',{class:'inp',placeholder:'e.g. Speech Therapy Session',style:{marginBottom:'10px'}});
+    const ti=el('input',{class:'inp',placeholder:T('apt_title_placeholder'),style:{marginBottom:'10px'}});
     mb.appendChild(ti);
 
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_specialist')]));
-    const si=el('input',{class:'inp',placeholder:'e.g. Dr. Sarah Cohen',style:{marginBottom:'10px'}});
+    const si=el('input',{class:'inp',placeholder:T('apt_spec_placeholder'),style:{marginBottom:'10px'}});
     if(session?.role==='specialist')si.value=session.name||'';
     mb.appendChild(si);
 
-    mb.appendChild(el('div',{class:'inp-label'},['Date *']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('apt_date_label')+' *']));
     const di=makeDateInput('Select date',{style:{marginBottom:'10px'}});
     if(prefilledDate)di.value=prefilledDate;
     mb.appendChild(di);
@@ -11223,15 +11222,15 @@ function showAddEventModal(prefilledDate=null){
     const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
     const tmi=el('input',{class:'inp',type:'time'});
     const endTmi=el('input',{class:'inp',type:'time'});
-    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['Start']));sw.appendChild(tmi);
-    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},['End']));ew.appendChild(endTmi);
+    const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_start_label')]));sw.appendChild(tmi);
+    const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_end_label')]));ew.appendChild(endTmi);
     timeRow.appendChild(sw);timeRow.appendChild(ew);
     mb.appendChild(timeRow);
 
-    mb.appendChild(el('div',{class:'inp-label'},['Session type']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('cal_session_type')]));
     const _aptTypes=['ABA Therapy','Acupuncture','Advocacy Meeting','Allergist','Animal Assisted Therapy','Aquatic Therapy','Art Therapy','Assistive Technology','Audiologist','Augmentative Communication (AAC)','Behavioral Therapy','Cardiologist','Case Management','Child Life Specialist','Child Psychotherapist','Chiropractic','Cognitive Behavioral Therapy (CBT)','Community Program','Consultation','Craniosacral Therapy','Crisis Support','Dentist','Dermatologist','Developmental Pediatrician','Developmental Therapy','Dialectical Behavior Therapy (DBT)','Dietitian','Dyslexia Assessment','Early Intervention','Educational Assessment','EMDR Therapy','Endocrinologist','ENT Specialist','Evaluation','Family Therapy','Feeding Therapy','Follow-up Appointment','Gastroenterologist','Geneticist','Gifted Assessment','Grief Counseling','Hematologist','Hepatologist','Hippotherapy (Horse Therapy)','Home Visit','Hospital Visit','Hydrotherapy','IEP Meeting','Immunologist','Insurance Review','Lab Work','Lactation Consultant','Learning Support','Legal Consultation','Massage Therapy','Math Specialist','Mindfulness Therapy','Music Therapy','Narrative Therapy','Nephrologist','Neurologist','Neuropsychological Assessment','Nutritionist','Occupational Therapy','Oncologist','Ophthalmologist','Optometrist','Oral Surgeon','Orientation & Mobility','Orthodontist','Orthopedist','Orthoptist','Other','Other Specialist','Pain Management','Palliative Care','Parent Training','Pediatrician','Peer Support','Physical Therapy','Play Therapy','Podiatrist','Prosthetist','Psychiatrist','Psychoeducational Assessment','Psychologist','Pulmonologist','Re-assessment','Reading Specialist','Reflexology','Respite Care','Rheumatologist','School Observation','Sensory Integration','Sibling Support','Sleep Specialist','Social Skills Group','Social Worker','Speech Therapy','Support Group','Telehealth Session','Transition Planning','Trauma Therapy','Tutoring','Urologist','Vision Therapy','Yoga Therapy'];
     const typeWrap=el('div',{style:{position:'relative',marginBottom:'10px'}});
-    const typeSel=el('input',{class:'inp',placeholder:'Search or type a session type…',style:{marginBottom:0}});
+    const typeSel=el('input',{class:'inp',placeholder:T('cal_session_type_placeholder'),style:{marginBottom:0}});
     typeSel.value='';
     const typeDd=el('div',{style:{display:'none',position:'absolute',top:'100%',left:0,right:0,maxHeight:'180px',overflowY:'auto',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'0 0 10px 10px',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:20}});
     const _buildTypeDd=(q)=>{
@@ -11256,25 +11255,25 @@ function showAddEventModal(prefilledDate=null){
     mb.appendChild(typeWrap);
 
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_location')]));
-    const loci=el('input',{class:'inp',placeholder:'e.g. Clinic, Zoom, Home visit',style:{marginBottom:'10px'}});
+    const loci=el('input',{class:'inp',placeholder:T('apt_loc_placeholder_full'),style:{marginBottom:'10px'}});
     mb.appendChild(loci);
 
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_notes')]));
-    const notesI=el('textarea',{class:'inp',placeholder:'Preparation notes, goals, what to bring…',style:{marginBottom:'10px',minHeight:'60px',resize:'vertical'}});
+    const notesI=el('textarea',{class:'inp',placeholder:T('apt_notes_placeholder'),style:{marginBottom:'10px',minHeight:'60px',resize:'vertical'}});
     mb.appendChild(notesI);
 
-    mb.appendChild(el('div',{class:'inp-label'},['Repeat']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('cal_repeat_label')]));
     const recurSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
-    [['none','Does not repeat'],['weekly','Weekly'],['biweekly','Every 2 weeks'],['monthly','Monthly']].forEach(([v,l])=>{
+    [['none',T('cal_does_not_repeat')],['weekly',T('cal_repeats_weekly')],['biweekly',T('cal_repeats_biweekly')],['monthly',T('cal_repeats_monthly')]].forEach(([v,l])=>{
       const o=el('option');o.value=v;o.textContent=l;recurSel.appendChild(o);
     });
     mb.appendChild(recurSel);
 
     const sharedWith=[];
 
-    const _aptSaveBtn=mkBtn('✅ Add Appointment','btn-lg btn-primary btn-full',()=>{
-      if(!ti.value||!di.value){toast('⚠️ Title and date required.','error');return;}
-      _aptSaveBtn.disabled=true;_aptSaveBtn.textContent='Saving…';
+    const _aptSaveBtn=mkBtn('✅ '+T('cal_add_appointment'),'btn-lg btn-primary btn-full',()=>{
+      if(!ti.value||!di.value){toast(T('apt_title_date_required'),'error');return;}
+      _aptSaveBtn.disabled=true;_aptSaveBtn.textContent=T('btn_loading');
       const specId2=session?.specialistId||null;
       const childId=S.activeChild;
       const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
@@ -11317,7 +11316,7 @@ function showAddEventModal(prefilledDate=null){
             }).catch(()=>toast('⚠️ Could not sync to Google Calendar.','error',3000));
           }
           close();re();toast(T('cal_saved'));track('Appointment Added');
-        }catch(e){console.error('add appointment:',e);toast('Could not save appointment.','error');_aptSaveBtn.disabled=false;_aptSaveBtn.textContent='✅ Add Appointment';}
+        }catch(e){console.error('add appointment:',e);toast(T('apt_could_not_save'),'error');_aptSaveBtn.disabled=false;_aptSaveBtn.textContent='✅ '+T('cal_add_appointment');}
       })();
     });
     mb.appendChild(_aptSaveBtn);
@@ -11361,7 +11360,7 @@ function renderChat(){
     S.chatsLoaded=true;
     loadChatsFromSupabase().then(()=>re());
     const sec=el('div',{class:'section'});
-    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['Loading messages…']));
+    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},[T('btn_loading')]));
     return sec;
   }
 
@@ -11430,12 +11429,12 @@ function renderChat(){
   const titleRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
   // Back to patient on specialist
   if(role==='specialist'&&!S.activeChatChildId){
-    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),'Patients']);
+    const backBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'flex',alignItems:'center',gap:'4px',padding:'0'}},[el('span',{style:{fontSize:'1.1rem'}},['‹']),T('spec_nav_patients')]);
     backBtn.onclick=()=>{S.activeTab='patient-detail';re();};
     titleRow.appendChild(backBtn);
   } else {
     if(role==='parent'&&S.activeChatChildId&&!(window.innerWidth>=1024)){
-      const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'inline-flex',alignItems:'center',gap:'4px',padding:'0',minHeight:'44px'}},['← Back']);
+      const _cbBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',display:'inline-flex',alignItems:'center',gap:'4px',padding:'0',minHeight:'44px'}},[T('ss_back')]);
       _cbBtn.onclick=()=>{S.activeTab='dashboard';re();};
       titleRow.appendChild(_cbBtn);
     }
@@ -12112,7 +12111,7 @@ function renderVault(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('vault_title')]),
-    el('p',{class:'page-sub'},['🔒 Private notes — publish summaries to share with parents · '+child?.avatar+' '+child?.name])
+    el('p',{class:'page-sub'},[T('vault_private_notes')+' · '+child?.avatar+' '+child?.name])
   ]));
   const _vaultRemoved=(child?.connectionStatus||'approved')==='removed';
   hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -12129,7 +12128,7 @@ function renderVault(){
     })
   ]));
   sec.appendChild(hd);
-  if(_vaultRemoved){const _vLock=el('div',{style:{background:'#fef3c7',border:'1.5px solid #f59e0b',borderRadius:'var(--r-lg)',padding:'10px 14px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px',color:'#92400e'}});_vLock.appendChild(el('span',{style:{fontSize:'1rem'}},['🔌']));_vLock.appendChild(el('div',{style:{fontSize:'.8rem',fontWeight:600}},['Not connected — notes are yours only · publishing disabled']));sec.appendChild(_vLock);}
+  if(_vaultRemoved){const _vLock=el('div',{style:{background:'#fef3c7',border:'1.5px solid #f59e0b',borderRadius:'var(--r-lg)',padding:'10px 14px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px',color:'#92400e'}});_vLock.appendChild(el('span',{style:{fontSize:'1rem'}},['🔌']));_vLock.appendChild(el('div',{style:{fontSize:'.8rem',fontWeight:600}},[T('vault_not_connected')]));sec.appendChild(_vLock);}
 
   if(!myNotes.length){
     sec.appendChild(el('div',{class:'empty-state'},[
@@ -12157,8 +12156,8 @@ function renderVault(){
     }});
     const flags=el('div',{style:{display:'flex',gap:'5px',flexShrink:0}});
     if(note.locked)flags.appendChild(el('span',{style:{fontSize:'.9rem'}},['🔒']));
-    if(note.published)flags.appendChild(badge('Published','green'));
-    else if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},['Draft']));
+    if(note.published)flags.appendChild(badge(T('sd_published_badge'),'green'));
+    else if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},[T('vault_draft_label')]));
     const titleEl=el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)',flex:1,lineHeight:'1.3'}},[_displayNoteTitle(note.title)]);
     const dateEl=el('div',{style:{fontSize:'.72rem',color:'var(--slate)',flexShrink:0}},[note.date]);
     const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transition:'transform .2s',transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
@@ -12168,7 +12167,7 @@ function renderVault(){
     header.appendChild(chevron);
     header.onclick=()=>{
       if(S.vaultHasUnsaved&&!isOpen){
-        openConfirm('Unsaved Changes','Switch note without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
+        openConfirm(T('vault_unsaved_changes'),T('vault_switch_note'),true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
         return;
       }
       S.activeVaultId=isOpen?null:note.id;
@@ -12184,12 +12183,12 @@ function renderVault(){
       // Unsaved banner
       if(S.vaultHasUnsaved){
         const banner=el('div',{class:'unsaved-banner',style:{marginBottom:'0'}});
-        banner.textContent='⚠️ Unsaved changes in this note.';
+        banner.textContent=T('vault_unsaved_note');
         body.appendChild(banner);
       }
 
       if(note.locked){
-        body.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},['🔒 Permanently locked — read-only']));
+        body.appendChild(el('div',{class:'locked-badge',style:{alignSelf:'flex-start'}},[T('vault_locked_readonly')]));
       }
 
       // Editable title
@@ -12203,9 +12202,9 @@ function renderVault(){
         if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
         S.vaultHasUnsaved=true;
       };
-      const minBtn=mkBtn('▲ Minimise','btn-sm btn-ghost',()=>{
+      const minBtn=mkBtn(T('vault_minimise'),'btn-sm btn-ghost',()=>{
         if(S.vaultHasUnsaved){
-          openConfirm('Unsaved Changes','Minimise without saving?',true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
+          openConfirm(T('vault_unsaved_changes'),T('vault_minimise_unsaved'),true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
           return;
         }
         S.activeVaultId=null;S.vaultSummary='';re();
@@ -12217,7 +12216,7 @@ function renderVault(){
       // Clinical notes — gated behind AI subscription
       const _aiOk=_hasSpecAiAccess();
       const _notesLabel=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}});
-      _notesLabel.appendChild(el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},['📋 Clinical Notes (Private)']));
+      _notesLabel.appendChild(el('div',{style:{fontSize:'.69rem',fontWeight:900,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.07em'}},[T('vault_clinical_notes')]));
       // Mic button for voice-to-text
       if(_aiOk&&!note.locked){
         const _SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -12346,7 +12345,7 @@ function renderVault(){
               if(e.error==='no-speech'&&_shouldContinue)return; // silence — onend restarts
               if(e.error==='not-allowed'||e.error==='service-not-available'){
                 _shouldContinue=false;_cleanupRec();
-                toast('Microphone error: '+e.error,'error');
+                toast(T('vault_mic_error')+e.error,'error');
                 return;
               }
               // Other errors (network, etc.) — let onend handle restart
@@ -12403,17 +12402,17 @@ function renderVault(){
               };
               const _he=_isRtl();
               const _hl=(en,he)=>_he?he+' / '+en:en;
-              _sec(_he?'\u05E4\u05D9\u05E1\u05D5\u05E7':'Punctuation',[
+              _sec(T('vault_vc_punctuation'),[
                 [_hl('period','\u05E0\u05E7\u05D5\u05D3\u05D4'),'.'],
                 [_hl('comma','\u05E4\u05E1\u05D9\u05E7'),','],
                 [_hl('question mark','\u05E1\u05D9\u05DE\u05DF \u05E9\u05D0\u05DC\u05D4'),'?'],
                 [_hl('colon','\u05E0\u05E7\u05D5\u05D3\u05EA\u05D9\u05D9\u05DD'),':'],
                 [_hl('dash','\u05DE\u05E7\u05E3'),'-']]);
-              _sec(_he?'\u05E2\u05D9\u05E6\u05D5\u05D1':'Formatting',[
+              _sec(T('vault_vc_formatting'),[
                 [_hl('new line','\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4'),_he?'\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4':'line break'],
                 [_hl('new paragraph','\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4'),_he?'\u05E4\u05E1\u05E7\u05D4 \u05D7\u05D3\u05E9\u05D4':'double line break'],
                 [_hl('next section','\u05D7\u05DC\u05E7 \u05D4\u05D1\u05D0'),_he?'\u05DE\u05E4\u05E8\u05D9\u05D3':'divider']]);
-              _sec(_he?'\u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05DE\u05D1\u05E0\u05D4':'Structure Headings',[
+              _sec(T('vault_vc_headings'),[
                 [_hl('goals','\u05DE\u05D8\u05E8\u05D5\u05EA'),T('vc_goals')+':'],
                 [_hl('observations','\u05EA\u05E6\u05E4\u05D9\u05D5\u05EA'),T('vc_observations')+':'],
                 [_hl('progress','\u05D4\u05EA\u05E7\u05D3\u05DE\u05D5\u05EA'),T('vc_progress')+':'],
@@ -12421,11 +12420,11 @@ function renderVault(){
                 [_hl('recommendations','\u05D4\u05DE\u05DC\u05E6\u05D5\u05EA'),T('vc_recommendations')+':'],
                 [_hl('summary','\u05E1\u05D9\u05DB\u05D5\u05DD'),T('vc_summary')+':'],
                 [_hl('background','\u05E8\u05E7\u05E2'),T('vc_background')+':']]);
-              _sec(_he?'\u05E8\u05E9\u05D9\u05DE\u05D5\u05EA':'Lists',[
+              _sec(T('vault_vc_lists'),[
                 [_hl('start list','\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA'),_he?'\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA':'numbered list'],
                 [_hl('bullet list','\u05E8\u05E9\u05D9\u05DE\u05D4'),_he?'\u05E8\u05E9\u05D9\u05DE\u05EA \u05EA\u05D1\u05DC\u05D9\u05D8\u05D9\u05DD':'bullet list'],
                 [_hl('end list','\u05E1\u05D5\u05E3 \u05E8\u05E9\u05D9\u05DE\u05D4'),_he?'\u05E1\u05D9\u05D5\u05DD \u05E8\u05E9\u05D9\u05DE\u05D4':'ends list']]);
-              _sec(_he?'\u05E2\u05E8\u05D9\u05DB\u05D4':'Editing',[
+              _sec(T('vault_vc_editing'),[
                 [_hl('scratch that','\u05DE\u05D7\u05E7 \u05D0\u05EA \u05D6\u05D4'),_he?'\u05DE\u05D5\u05D7\u05E7 \u05DE\u05D9\u05DC\u05D4 \u05D0\u05D7\u05E8\u05D5\u05E0\u05D4':'removes last word'],
                 [_hl('stop recording','\u05D4\u05E4\u05E1\u05E7 \u05D4\u05E7\u05DC\u05D8\u05D4'),_he?'\u05E2\u05D5\u05E6\u05E8 \u05D4\u05E7\u05DC\u05D8\u05D4':'stops mic']]);
             },380);
@@ -12433,8 +12432,8 @@ function renderVault(){
           _notesLabel.appendChild(cmdBtn);
         }
       } else if(!_aiOk&&!note.locked){
-        const micLock=el('button',{style:{background:'none',border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:600,color:'var(--slate-l)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},['🔒 🎙 Dictate']);
-        micLock.onclick=()=>_showSpecAiUpgradeModal('Voice Dictation');
+        const micLock=el('button',{style:{background:'none',border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'3px 10px',fontSize:'.72rem',fontWeight:600,color:'var(--slate-l)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}},[T('vault_dictate_locked')]);
+        micLock.onclick=()=>_showSpecAiUpgradeModal(T('vault_voice_start'));
         _notesLabel.appendChild(micLock);
       }
       body.appendChild(_notesLabel);
@@ -12443,9 +12442,9 @@ function renderVault(){
         // Locked placeholder for free specialists
         const lockedBox=el('div',{style:{minHeight:'120px',background:'#f8fafc',border:'1.5px dashed var(--mint-l)',borderRadius:'var(--r-md)',padding:'24px 16px',textAlign:'center',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px'}});
         lockedBox.appendChild(el('div',{style:{fontSize:'1.5rem'}},['✨']));
-        lockedBox.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},['AI-Powered Session Notes']));
-        lockedBox.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},['Write detailed clinical notes with voice dictation and AI-generated parent summaries.']));
-        lockedBox.appendChild(mkBtn('Unlock with AI Trial','btn-sm btn-primary',()=>_showSpecAiUpgradeModal('Session Notes')));
+        lockedBox.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[T('vault_ai_notes_title')]));
+        lockedBox.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},[T('vault_ai_notes_desc')]));
+        lockedBox.appendChild(mkBtn(T('vault_unlock_trial'),'btn-sm btn-primary',()=>_showSpecAiUpgradeModal('Session Notes')));
         lockedBox.onclick=e=>{if(!e.target.closest('button'))_showSpecAiUpgradeModal('Session Notes');};
         body.appendChild(lockedBox);
         ta=el('textarea',{style:{display:'none'}});ta.value=note.content||'';
@@ -12473,8 +12472,8 @@ function renderVault(){
           if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
           try{
             await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
-            S.vaultHasUnsaved=false;re();toast('💾 Draft saved!');
-          }catch(e){console.error('save draft:',e);toast('❌ Could not save draft. Please try again.','error');}
+            S.vaultHasUnsaved=false;re();toast(T('vault_draft_saved'));
+          }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');}
         });
 
         // Manual parent summary button (always available)
@@ -12488,7 +12487,7 @@ function renderVault(){
         let aiSumBtn;
         if(_aiOk){
           aiSumBtn=mkBtn(T('vault_ai_summary'),'btn-sm btn-primary',async()=>{
-            if(!ta.value||!ta.value.trim()){toast('Write session notes first so AI can summarize them.','error');return;}
+            if(!ta.value||!ta.value.trim()){toast(T('vault_write_first'),'error');return;}
             aiSumBtn.disabled=true;aiSumBtn.textContent=T('vault_ai_generating');
             try{
               const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:ta.value,childName:child?.name||'the child'})});
@@ -12499,46 +12498,46 @@ function renderVault(){
                 if(i>-1){ns[i].summary=result.summary;DB.vaultNotes=ns;}
                 S.vaultHasUnsaved=true;re();
                 toast(T('vault_ai_generated'),'success');
-              } else {toast(result.error||'Could not generate summary.','error');}
-            }catch(e){console.error('AI summary:',e);toast('Could not reach AI service.','error');}
-            aiSumBtn.disabled=false;aiSumBtn.textContent='✨ AI Summary';
+              } else {toast(result.error||T('vault_could_not_generate'),'error');}
+            }catch(e){console.error('AI summary:',e);toast(T('vault_could_not_reach_ai'),'error');}
+            aiSumBtn.disabled=false;aiSumBtn.textContent='✨ '+T('vault_ai_summary');
           });
         } else {
           aiSumBtn=mkBtn(T('vault_ai_summary'),'btn-sm btn-ghost',()=>_showSpecAiUpgradeModal('AI Parent Summary'));
         }
 
         // Lock session notes button
-        const lockBtn=mkBtn('🔒 Lock Session Notes','btn-sm btn-ghost',()=>{
+        const lockBtn=mkBtn(T('vault_lock_notes'),'btn-sm btn-ghost',()=>{
           const hasSummary=!!(S.vaultSummary||(note.summary||''));
           if(!hasSummary){
             // Warn: no parent summary written
             openConfirm(
-              '⚠️ No Parent Summary',
-              'You haven\'t written a parent summary for this note. Parents won\'t be able to see a summary. Continue locking anyway?',
+              T('vault_no_summary_warn'),
+              T('vault_no_summary_msg'),
               true,
               ()=>{
                 // Second confirm: permanent lock warning
-                openConfirm('Lock Session Notes?',
-                  'This will permanently lock these notes and make them a read-only record. This cannot be undone.',
+                openConfirm(T('vault_lock_confirm'),
+                  T('vault_lock_msg'),
                   true,
                   async()=>{
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                     if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                     try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
-                    S.vaultHasUnsaved=false;re();toast('🔒 Session notes locked!');
+                    S.vaultHasUnsaved=false;re();toast(T('vault_locked_toast'));
                   }
                 );
               }
             );
           } else {
-            openConfirm('Lock Session Notes?',
-              'This will permanently lock these notes and make them a read-only record. This cannot be undone.',
+            openConfirm(T('vault_lock_confirm'),
+              T('vault_lock_msg'),
               true,
               async()=>{
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                 if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                 try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
-                S.vaultHasUnsaved=false;re();toast('🔒 Session notes locked!');
+                S.vaultHasUnsaved=false;re();toast(T('vault_locked_toast'));
               }
             );
           }
@@ -12549,7 +12548,7 @@ function renderVault(){
         actRow.appendChild(aiSumBtn);
         actRow.appendChild(lockBtn);
         if(!note.published){
-          const delBtn=mkBtn('🗑️ Delete','btn-sm btn-ghost',()=>{
+          const delBtn=mkBtn('🗑️ '+T('btn_delete'),'btn-sm btn-ghost',()=>{
             openConfirm(T('vault_delete_note'),T('vault_delete_note_msg'),true,async()=>{
               if(session&&session.id!=='demo'){
                 try{
@@ -12584,7 +12583,7 @@ function renderVault(){
           sta.id='vault-summary-'+note.id;
           sta.value=sumTxt;
           sta.readOnly=false;
-          sta.placeholder='Write a parent-friendly summary here. This will be published to the parent when you\'re ready.';
+          sta.placeholder=T('vault_summary_placeholder');
           sta.oninput=e=>{
             S.vaultSummary=e.target.value;
             const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
@@ -12594,8 +12593,8 @@ function renderVault(){
           ab.appendChild(sta);
           if(!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn(T('vault_publish'),'btn-md btn-primary',()=>{
-              if(!(S.vaultSummary||note.summary||'').trim()){toast('Write a summary before publishing','error');return;}
-              openConfirm('Publish Summary?','Send this summary to the parent\'s profile and notify them?',false,async()=>{
+              if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
+              openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,async()=>{
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                 if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                 try{
@@ -12604,7 +12603,7 @@ function renderVault(){
                   const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
                   await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
                   S.vaultHasUnsaved=false;re();toast(T('vault_published'));
-                }catch(e){console.error('publish note:',e);toast('❌ Could not publish summary. Please try again.','error');}
+                }catch(e){console.error('publish note:',e);toast(T('vault_could_not_publish'),'error');}
               });
             });
             pubBtn.style.marginTop='10px';
@@ -12667,7 +12666,7 @@ function renderSpecTodo(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('stodo_title')]),
-    el('p',{class:'page-sub'},['Follow-ups, reports, referrals and reminders'])
+    el('p',{class:'page-sub'},[T('stodo_sub')])
   ]));
   hd.appendChild(el('div',{class:'sec-hd-right'},[
     mkBtn(T('stodo_new_task'),'btn-md btn-primary',()=>showSpecTaskModal())
@@ -12682,9 +12681,9 @@ function renderSpecTodo(){
 
   if(urgentCount||overdueCount||todayCount){
     const statsRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
-    if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' Urgent']));
-    if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' Overdue']));
-    if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' Due Today']));
+    if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' '+T('ptodo_urgent')]));
+    if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' '+T('stodo_overdue')]));
+    if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' '+T('stodo_due_today')]));
     sec.appendChild(statsRow);
   }
 
@@ -12715,7 +12714,7 @@ function renderSpecTodo(){
 
   // Pending tasks
   if(pending.length){
-    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['Pending ('+pending.length+')']));
+    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},[T('stodo_pending_label')+' ('+pending.length+')']));
     const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'20px'}});
     pending.forEach(task=>_renderSpecTaskCard(task,stack,specId,children));
     sec.appendChild(stack);
@@ -12724,7 +12723,7 @@ function renderSpecTodo(){
   // Done tasks (collapsible, max 10)
   if(done.length){
     const doneHd=el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}});
-    doneHd.appendChild(el('span',{},[`Completed (${done.length})`]));
+    doneHd.appendChild(el('span',{},[T('stodo_completed')+` (${done.length})`]));
     doneHd.appendChild(el('span',{style:{fontSize:'.8rem',color:'var(--slate-l)'}},[S._specTaskDoneOpen?'▲':'▼']));
     doneHd.onclick=()=>{S._specTaskDoneOpen=!S._specTaskDoneOpen;re();};
     sec.appendChild(doneHd);
@@ -12809,7 +12808,7 @@ function _renderSpecTaskCard(task,container,specId,children){
 }
 
 function showSpecTaskModal(existing=null){
-  const title=existing?'Edit Clinical Task':'New Clinical Task';
+  const title=existing?T('stodo_edit_title'):T('stodo_new_title');
   openModal(title,(mb,close)=>{
     const children=DB.children.length?DB.children:LS.get('children',[]);
     const specId=session?.specialistId||session?.id;
@@ -12817,19 +12816,19 @@ function showSpecTaskModal(existing=null){
     const CATS=['Follow-up','Report Due','Assessment','IEP/EHCP','Referral','Parent Comms','Admin','Other'];
 
     // Task title
-    mb.appendChild(el('div',{class:'inp-label'},['Task *']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_task_required')]));
     const titleInp=el('input',{class:'inp',placeholder:'e.g. Write progress report for Lily'});
     if(existing)titleInp.value=existing.title||'';
     mb.appendChild(titleInp);
 
     // Notes
-    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_notes_optional')]));
     const notesInp=el('textarea',{class:'inp',style:{minHeight:'60px'},placeholder:'Add any context or details…'});
     if(existing)notesInp.value=existing.notes||'';
     mb.appendChild(notesInp);
 
     // Category
-    mb.appendChild(el('div',{class:'inp-label'},['Category']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_category_label')]));
     const catSel=el('select',{class:'inp'});
     CATS.forEach(c=>{
       const opt=el('option',{value:c},[c]);
@@ -12839,7 +12838,7 @@ function showSpecTaskModal(existing=null){
     mb.appendChild(catSel);
 
     // Priority
-    mb.appendChild(el('div',{class:'inp-label'},['Priority']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_priority_label')]));
     const priRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
     const priState={v:existing?.priority||'normal'};
     [['urgent','🔴 Urgent'],['normal','🟡 Normal'],['low','🟢 Low']].forEach(([v,l])=>{
@@ -12862,9 +12861,9 @@ function showSpecTaskModal(existing=null){
     mb.appendChild(priRow);
 
     // Related patient
-    mb.appendChild(el('div',{class:'inp-label'},['Related Patient (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_related_patient')]));
     const childSel=el('select',{class:'inp'});
-    childSel.appendChild(el('option',{value:''},['— No specific patient —']));
+    childSel.appendChild(el('option',{value:''},[T('stodo_no_patient')]));
     children.forEach(c=>{
       const opt=el('option',{value:c.id},[c.avatar+' '+c.name]);
       if(existing?.childId===c.id)opt.selected=true;
@@ -12873,15 +12872,15 @@ function showSpecTaskModal(existing=null){
     mb.appendChild(childSel);
 
     // Due date
-    mb.appendChild(el('div',{class:'inp-label'},['Due Date (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_due_date_label')]));
     const dueInp=makeDateInput('Due date');
     if(existing?.dueDate)dueInp.value=existing.dueDate;
     mb.appendChild(dueInp);
 
     // Reminder
-    mb.appendChild(el('div',{class:'inp-label'},['Reminder (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_reminder_label')]));
     const remSel=el('select',{class:'inp'});
-    [['','No reminder'],['on-due-date','On due date'],['1-day-before','1 day before'],['1-week-before','1 week before']].forEach(([v,l])=>{
+    [['',T('stodo_no_reminder')],['on-due-date',T('stodo_on_due')],['1-day-before',T('stodo_1day')],['1-week-before',T('stodo_1week')]].forEach(([v,l])=>{
       const opt=el('option',{value:v},[l]);
       if((existing?.reminder||'')===v)opt.selected=true;
       remSel.appendChild(opt);
@@ -12899,9 +12898,9 @@ function showSpecTaskModal(existing=null){
       mb.appendChild(delBtn);
     }
 
-    const saveBtn=mkBtn(existing?'Save Changes':'Add Task','btn-lg btn-primary btn-full',async()=>{
+    const saveBtn=mkBtn(existing?T('stodo_save_changes'):T('stodo_add_task_btn'),'btn-lg btn-primary btn-full',async()=>{
       const taskTitle=titleInp.value.trim();
-      if(!taskTitle){toast('Enter a task title','error');return;}
+      if(!taskTitle){toast(T('stodo_enter_title'),'error');return;}
       saveBtn.disabled=true;saveBtn.textContent=T('vault_saving');
       const now=new Date().toISOString();
 
@@ -13024,9 +13023,9 @@ function renderTodoList(){
     const todayCount=visible.filter(t=>!t.completed&&t.due_date===today).length;
     if(urgentCount||overdueCount||todayCount){
       const statsRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
-      if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' Urgent']));
-      if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' Overdue']));
-      if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' Due Today']));
+      if(urgentCount)statsRow.appendChild(el('div',{style:{background:'#fff1f0',border:'1.5px solid var(--coral)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--coral)'}},[urgentCount+' '+T('ptodo_urgent')]));
+      if(overdueCount)statsRow.appendChild(el('div',{style:{background:'#fff7ed',border:'1.5px solid #f97316',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'#f97316'}},[overdueCount+' '+T('ptodo_overdue')]));
+      if(todayCount)statsRow.appendChild(el('div',{style:{background:'#ecfdf5',border:'1.5px solid var(--teal)',borderRadius:'10px',padding:'8px 14px',fontSize:'.78rem',fontWeight:800,color:'var(--teal)'}},[todayCount+' '+T('ptodo_due_today')]));
       sec.appendChild(statsRow);
     }
   }
@@ -13053,7 +13052,7 @@ function renderTodoList(){
 
   // Pending
   if(pending.length){
-    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['Pending ('+pending.length+')']));
+    sec.appendChild(el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},[T('stodo_pending_label')+' ('+pending.length+')']));
     const stack=el('div',{style:{display:'flex',flexDirection:'column',gap:_web?'8px':'6px',marginBottom:'20px'}});
     pending.forEach(task=>_renderParentTaskCard(task,stack,children,coParent));
     sec.appendChild(stack);
@@ -13062,7 +13061,7 @@ function renderTodoList(){
   // Done (collapsible)
   if(done.length){
     const doneHd=el('div',{style:{fontWeight:800,fontSize:'.76rem',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}});
-    doneHd.appendChild(el('span',{},['Completed ('+done.length+')']));
+    doneHd.appendChild(el('span',{},[T('ptodo_completed')+' ('+done.length+')']));
     doneHd.appendChild(el('span',{style:{fontSize:'.8rem',color:'var(--slate-l)'}},[S._parentTaskDoneOpen?'▲':'▼']));
     doneHd.onclick=()=>{S._parentTaskDoneOpen=!S._parentTaskDoneOpen;re();};
     sec.appendChild(doneHd);
@@ -13077,7 +13076,7 @@ function renderTodoList(){
 
 // Helper: delete parent task with confirmation
 function _deleteParentTask(task){
-  openConfirm('Delete this task?','This will permanently remove "'+task.title+'".', true, async()=>{
+  openConfirm(T('ptodo_delete_confirm'),T('ptodo_delete_msg')+' "'+task.title+'".', true, async()=>{
     const arr=(DB.parentTasks||[]).filter(t=>t.id!==task.id);
     DB.parentTasks=arr;
     _localParentTaskChanges.add(task.id);
@@ -13214,29 +13213,29 @@ function _renderParentTaskCard(task,container,children,coParent){
 }
 
 function showParentTaskModal(existing=null){
-  const title=existing?'Edit Task':'New Task';
+  const title=existing?T('ptodo_edit_title'):T('ptodo_new_title_modal');
   openModal(title,(mb,close)=>{
     const children=DB.children||[];
     const coParents=DB.coParents||[];
     const coParent=coParents[0]||null;
     const CATS=['Appointment','Insurance','School','Therapy','Admin','Other'];
     // Title
-    mb.appendChild(el('div',{class:'inp-label'},['Task *']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_task_required')]));
     const titleInp=el('input',{class:'inp',placeholder:'e.g. Call insurance about referral'});
     if(existing)titleInp.value=existing.title||'';
     mb.appendChild(titleInp);
     // Notes
-    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_notes_modal')]));
     const notesInp=el('textarea',{class:'inp',style:{minHeight:'60px'},placeholder:'Add any context…'});
     if(existing)notesInp.value=existing.notes||'';
     mb.appendChild(notesInp);
     // Category
-    mb.appendChild(el('div',{class:'inp-label'},['Category']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_category_modal')]));
     const catSel=el('select',{class:'inp'});
     CATS.forEach(c=>{const o=el('option',{value:c},[c]);if((existing?.category||'Admin')===c)o.selected=true;catSel.appendChild(o);});
     mb.appendChild(catSel);
     // Priority
-    mb.appendChild(el('div',{class:'inp-label'},['Priority']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('stodo_priority_label')]));
     const priRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
     const priState={v:existing?.priority||'normal'};
     [['urgent','🔴 Urgent'],['normal','🟡 Normal'],['low','🟢 Low']].forEach(([v,l])=>{
@@ -13249,7 +13248,7 @@ function showParentTaskModal(existing=null){
     // Assign to (only if co-parent exists)
     const assignState={v:existing?.assigned_to||null};
     if(coParent){
-      mb.appendChild(el('div',{class:'inp-label'},['Assign to']));
+      mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_assign_to')]));
       const assignRow=el('div',{style:{display:'flex',gap:'8px',marginBottom:'4px'}});
       [[null,'👥 Shared'],[session.id,'👤 Me'],[coParent.id,'👤 '+(coParent.name||'Co-Parent')]].forEach(([v,l])=>{
         const btn=el('button',{style:{flex:1,padding:'7px 4px',borderRadius:'8px',border:'1.5px solid var(--mint-l)',cursor:'pointer',fontSize:'.76rem',fontWeight:700,background:assignState.v===v?'var(--navy)':'#fff',color:assignState.v===v?'#fff':'var(--navy)'}});
@@ -13260,20 +13259,20 @@ function showParentTaskModal(existing=null){
       mb.appendChild(assignRow);
     }
     // Related child
-    mb.appendChild(el('div',{class:'inp-label'},['Related Child (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_related_child')]));
     const childSel=el('select',{class:'inp'});
-    childSel.appendChild(el('option',{value:''},['— No specific child —']));
+    childSel.appendChild(el('option',{value:''},[T('ptodo_no_child')]));
     children.forEach(c=>{const o=el('option',{value:c.id},[(c.avatar||'🧒')+' '+c.name]);if(existing?.child_id===c.id)o.selected=true;childSel.appendChild(o);});
     mb.appendChild(childSel);
     // Due date
-    mb.appendChild(el('div',{class:'inp-label'},['Due Date (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_due_date_modal')]));
     const dueInp=makeDateInput('Due date');
     if(existing?.due_date)dueInp.value=existing.due_date;
     mb.appendChild(dueInp);
     // Reminder
-    mb.appendChild(el('div',{class:'inp-label'},['Reminder (optional)']));
+    mb.appendChild(el('div',{class:'inp-label'},[T('ptodo_reminder_modal')]));
     const remSel=el('select',{class:'inp'});
-    [['','No reminder'],['on-due-date','On due date'],['1-day-before','1 day before'],['1-week-before','1 week before']].forEach(([v,l])=>{const o=el('option',{value:v},[l]);if((existing?.reminder||'')===v)o.selected=true;remSel.appendChild(o);});
+    [['',T('stodo_no_reminder')],['on-due-date',T('stodo_on_due')],['1-day-before',T('stodo_1day')],['1-week-before',T('stodo_1week')]].forEach(([v,l])=>{const o=el('option',{value:v},[l]);if((existing?.reminder||'')===v)o.selected=true;remSel.appendChild(o);});
     mb.appendChild(remSel);
     // Delete
     if(existing){
@@ -13281,16 +13280,16 @@ function showParentTaskModal(existing=null){
         DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==existing.id);
         _localParentTaskChanges.add(existing.id);
         try{const{error}=await _supa.from('parent_tasks').delete().eq('id',existing.id);if(error)console.error('❌ delete task:',error);}catch(e){}
-        close();re();toast('Task deleted');
+        close();re();toast(T('ptodo_task_deleted'));
       });
       delBtn.style.cssText='margin-top:6px;width:100%;color:var(--coral);';
       mb.appendChild(delBtn);
     }
     // Save
-    const saveBtn=mkBtn(existing?'Save Changes':'Add Task','btn-lg btn-primary btn-full',async()=>{
+    const saveBtn=mkBtn(existing?T('stodo_save_changes'):T('stodo_add_task_btn'),'btn-lg btn-primary btn-full',async()=>{
       const taskTitle=titleInp.value.trim();
-      if(!taskTitle){toast('Enter a task title','error');return;}
-      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      if(!taskTitle){toast(T('stodo_enter_title'),'error');return;}
+      saveBtn.disabled=true;saveBtn.textContent=T('ptodo_saving');
       const now=new Date().toISOString();
       if(existing){
         const upd={title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,assigned_to:assignState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null};
@@ -13404,9 +13403,9 @@ function showAddTodoModal(childId,existing){
     let selChildId=childId||S.activeChild;
     const allChildren=DB.children.length?DB.children:LS.get('children',[]);
     if(!selChildId&&allChildren.length>1){
-      mb.appendChild(el('div',{class:'inp-label'},['For which child?']));
+      mb.appendChild(el('div',{class:'inp-label'},[T('cal_for_which_child')]));
       const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
-      childSel.appendChild(el('option',{value:''},[' — select child —']));
+      childSel.appendChild(el('option',{value:''},[T('todo_select_child')]));
       allChildren.forEach(ch=>{
         const o=el('option',{value:ch.id},[ch.avatar+' '+ch.name]);
         if(existing&&existing.childId===ch.id)o.selected=true;
@@ -13645,7 +13644,7 @@ function showCheckOffModal(occ,task,childColor){
     _galInp.onchange=()=>{if(_galInp.files[0]){_camInp.value='';_photoName.textContent='📎 '+_galInp.files[0].name;_photoName.style.display='inline';}};
     const saveBtn=mkBtn('✅ Mark as Done','btn-lg btn-primary btn-full',async()=>{
       if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
-      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      saveBtn.disabled=true;saveBtn.textContent=T('btn_loading');
       try{
         let photoUrl=null;
         const _photoFile=_camInp.files[0]||_galInp.files[0];if(_photoFile){
@@ -14070,10 +14069,10 @@ function _renderHwTaskDashboard(taskId){
 
 function showAddHomeworkTaskModal(existing,prefill){
   const _pre=existing||prefill;
-  openModal((existing?'✏️ Edit Task':'➕ Add Homework Task'),(mb,close)=>{
+  openModal((existing?T('hw_edit_task_title'):T('hw_add_task_title')),(mb,close)=>{
     const ig=el('div',{class:'inp-group',style:{gap:'14px'}});
     if(!existing){
-      const _uBtn=el('button',{style:{minHeight:'44px',width:'100%',marginBottom:'8px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:700,color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}},['📋 Use Template']);
+      const _uBtn=el('button',{style:{minHeight:'44px',width:'100%',marginBottom:'8px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:700,color:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}},[T('hw_use_template')]);
       _uBtn.onclick=async()=>{
         try{
           const _sid=session?.specialistId||session?.id;
@@ -14102,17 +14101,17 @@ function showAddHomeworkTaskModal(existing,prefill){
       ig.appendChild(_uBtn);
     }
     // Title
-    ig.appendChild(el('div',{class:'inp-label'},['Task Title *']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_task_title_req')]));
     const titleInp=el('input',{class:'inp',type:'text',placeholder:'e.g. Practice breathing exercises for 5 minutes'});
     if(existing)titleInp.value=existing.title||'';
     ig.appendChild(titleInp);
     // Description
-    ig.appendChild(el('div',{class:'inp-label'},['Instructions for parent (optional)']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_instructions_label')]));
     const descInp=el('textarea',{class:'inp',placeholder:'Describe how to do this task...',style:{minHeight:'70px'}});
     if(_pre)descInp.value=_pre.description||'';
     ig.appendChild(descInp);
-    ig.appendChild(el('div',{class:'inp-label'},['Attach Files (optional)']));
-    ig.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',margin:'-4px 0 8px 0'}},['Add instruction sheets, images or videos for parents']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_attach_files')]));
+    ig.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',margin:'-4px 0 8px 0'}},[T('hw_attach_desc')]));
     let hwDraftUrls=(existing?.attachedFileUrls||[]).slice();
     let hwDraftNames=(existing?.attachedFileNames||[]).slice();
     const _fpEl=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'8px'}});
@@ -14131,7 +14130,7 @@ function showAddHomeworkTaskModal(existing,prefill){
     };
     _renderFP();
     ig.appendChild(_fpEl);
-    const _afBtn=el('button',{style:{minHeight:'44px',padding:'0 16px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:600,color:'var(--teal)'}},['+ Add Files']);
+    const _afBtn=el('button',{style:{minHeight:'44px',padding:'0 16px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'var(--r)',cursor:'pointer',fontSize:'.84rem',fontWeight:600,color:'var(--teal)'}},[T('hw_add_files')]);
     _afBtn.onclick=async()=>{
       const _fi=document.createElement('input');_fi.type='file';_fi.multiple=true;_fi.accept='image/*,video/*,.pdf,.doc,.docx';
       _fi.onchange=async ev=>{
@@ -14144,7 +14143,7 @@ function showAddHomeworkTaskModal(existing,prefill){
     ig.appendChild(_afBtn);
     ig.appendChild(el('div',{style:{height:'8px'}}));
     // Difficulty pills
-    ig.appendChild(el('div',{class:'inp-label'},['Difficulty']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_difficulty_label')]));
     let selDiff=_pre?.difficulty||'medium';
     const diffRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const diffBtns={};
@@ -14157,7 +14156,7 @@ function showAddHomeworkTaskModal(existing,prefill){
     ig.appendChild(diffRow);
 
     // Recurrence pills
-    ig.appendChild(el('div',{class:'inp-label'},['Frequency']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_frequency_label')]));
     let selRec=_pre?.recurrence||'daily';
     const recRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const recBtns={};
@@ -14179,7 +14178,7 @@ function showAddHomeworkTaskModal(existing,prefill){
       dayBtns[d]=b;dayRow.appendChild(b);
     });
     daysSection.appendChild(dayRow);
-    [['once','Once'],['daily','Daily'],['every_other_day','Every other day'],['specific_days','Specific days']].forEach(([val,label])=>{
+    [['once',T('hw_once_label')],['daily',T('hw_daily_label')],['every_other_day',T('hw_every_other_day_label')],['specific_days',T('hw_specific_days_label')]].forEach(([val,label])=>{
       const b=el('button',{class:selRec===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill'},[label]);
       b.addEventListener('touchend',(e)=>{e.preventDefault();selRec=val;Object.entries(recBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill';});daysSection.style.display=val==='specific_days'?'block':'none';durWrap.style.display=val==='once'?'none':'block';},{passive:false});
       b.onclick=()=>{selRec=val;Object.entries(recBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill';});daysSection.style.display=val==='specific_days'?'block':'none';durWrap.style.display=val==='once'?'none':'block';};
@@ -14189,7 +14188,7 @@ function showAddHomeworkTaskModal(existing,prefill){
 
     // Duration pills — hidden for once-off tasks (no recurrence period needed)
     const durWrap=el('div',{style:{display:selRec==='once'?'none':'block'}});
-    durWrap.appendChild(el('div',{class:'inp-label'},['Duration']));
+    durWrap.appendChild(el('div',{class:'inp-label'},[T('hw_duration_label')]));
     let selDur=_pre?.durationType||_pre?.duration_type||'open_ended';
     const durRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     const durBtns={};
@@ -14197,7 +14196,7 @@ function showAddHomeworkTaskModal(existing,prefill){
     const endDateInp=makeDateInput('Select end date');
     if(_pre?.endDate||_pre?.end_date)endDateInp.value=_pre.endDate||_pre.end_date||'';
     endDateSection.appendChild(endDateInp);
-    [['open_ended','Open-ended'],['end_date','Until date'],['next_appointment','Next appt']].forEach(([val,label])=>{
+    [['open_ended',T('hw_open_ended')],['end_date',T('hw_until_date')],['next_appointment',T('hw_next_appt')]].forEach(([val,label])=>{
       const b=el('button',{class:selDur===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill'},[label]);
       b.addEventListener('touchend',(e)=>{e.preventDefault();selDur=val;Object.entries(durBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill';});endDateSection.style.display=val==='end_date'?'block':'none';},{passive:false});
       b.onclick=()=>{selDur=val;Object.entries(durBtns).forEach(([k,v])=>{v.className=k===val?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill';});endDateSection.style.display=val==='end_date'?'block':'none';};
@@ -14206,14 +14205,14 @@ function showAddHomeworkTaskModal(existing,prefill){
     durWrap.appendChild(durRow);durWrap.appendChild(endDateSection);ig.appendChild(durWrap);
 
     // Time of day pills
-    ig.appendChild(el('div',{class:'inp-label'},['Time of day (select all that apply)']));
+    ig.appendChild(el('div',{class:'inp-label'},[T('hw_time_of_day')]));
     const _selTimesArr=(_pre?.timeOfDay||_pre?.time_of_day||'morning').split(',').filter(Boolean);
     const selTimes=new Set(_selTimesArr);
     const timeRow=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
     ['morning','afternoon','evening'].forEach(t=>{
       const b=el('button',{class:selTimes.has(t)?'btn btn-sm btn-primary task-pill':'btn btn-sm btn-ghost task-pill'},[t.charAt(0).toUpperCase()+t.slice(1)]);
-      b.addEventListener('touchend',(e)=>{e.preventDefault();if(selTimes.has(t)){if(selTimes.size===1){toast('Select at least one time of day.','error');return;}selTimes.delete(t);b.className='btn btn-sm btn-ghost task-pill';}else{selTimes.add(t);b.className='btn btn-sm btn-primary task-pill';}},{passive:false});
-      b.onclick=()=>{if(selTimes.has(t)){if(selTimes.size===1){toast('Select at least one time of day.','error');return;}selTimes.delete(t);b.className='btn btn-sm btn-ghost task-pill';}else{selTimes.add(t);b.className='btn btn-sm btn-primary task-pill';}};
+      b.addEventListener('touchend',(e)=>{e.preventDefault();if(selTimes.has(t)){if(selTimes.size===1){toast(T('hw_select_1_time'),'error');return;}selTimes.delete(t);b.className='btn btn-sm btn-ghost task-pill';}else{selTimes.add(t);b.className='btn btn-sm btn-primary task-pill';}},{passive:false});
+      b.onclick=()=>{if(selTimes.has(t)){if(selTimes.size===1){toast(T('hw_select_1_time'),'error');return;}selTimes.delete(t);b.className='btn btn-sm btn-ghost task-pill';}else{selTimes.add(t);b.className='btn btn-sm btn-primary task-pill';}};
       timeRow.appendChild(b);
     });
     ig.appendChild(timeRow);
@@ -14224,7 +14223,7 @@ function showAddHomeworkTaskModal(existing,prefill){
     const pinChk=el('div',{class:'chk'+(isPinned?' done':''),style:{flexShrink:0}},[isPinned?'✓':'']);
     pinRow.onclick=()=>{isPinned=!isPinned;pinChk.className='chk'+(isPinned?' done':'');pinChk.textContent=isPinned?'✓':'';};
     pinRow.appendChild(pinChk);
-    pinRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},['📌 Pin to top of list']));
+    pinRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},[T('hw_pin_top')]));
     ig.appendChild(pinRow);
 
     // Save as template (new tasks only)
@@ -14237,20 +14236,20 @@ function showAddHomeworkTaskModal(existing,prefill){
       const tmplChk=el('div',{class:'chk',style:{flexShrink:0}},['']);
       tmplRow.onclick=()=>{saveTemplate=!saveTemplate;tmplChk.className='chk'+(saveTemplate?' done':'');tmplChk.textContent=saveTemplate?'✓':'';tmplNameSection.style.display=saveTemplate?'block':'none';};
       tmplRow.appendChild(tmplChk);
-      tmplRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},['💾 Save as template']));
+      tmplRow.appendChild(el('span',{style:{fontWeight:600,fontSize:'.88rem',color:'var(--navy'}},[T('hw_save_template')]));
       ig.appendChild(tmplRow);
       ig.appendChild(tmplNameSection);
     }
     mb.appendChild(ig);
     mb.appendChild(el('div',{style:{height:'12px'}}));
 
-    const saveBtn=mkBtn(existing?'✅ Save Changes':'✅ Assign Task','btn-lg btn-primary btn-full',async()=>{
+    const saveBtn=mkBtn(existing?T('hw_save_changes_btn'):T('hw_assign_btn'),'btn-lg btn-primary btn-full',async()=>{
       const title=titleInp.value.trim();
-      if(!title){toast('⚠️ Task title is required.','error');return;}
-      if(selRec==='specific_days'&&selDays.size===0){toast('⚠️ Select at least one day.','error');return;}
-      if(selRec!=='once'&&selDur==='end_date'&&!endDateInp.value){toast('⚠️ Select an end date.','error');return;}
+      if(!title){toast(T('hw_title_required'),'error');return;}
+      if(selRec==='specific_days'&&selDays.size===0){toast(T('hw_select_day'),'error');return;}
+      if(selRec!=='once'&&selDur==='end_date'&&!endDateInp.value){toast(T('hw_select_end_date'),'error');return;}
       if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
-      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      saveBtn.disabled=true;saveBtn.textContent=T('btn_loading');
       const specId=session?.specialistId||session?.id;
       const specName=session?.name||getMySpecialistRecord()?.name||'Specialist';
       const specificDays=selRec==='specific_days'?[...selDays]:null;
@@ -14263,7 +14262,7 @@ function showAddHomeworkTaskModal(existing,prefill){
           const all=DB.homeworkTasks||[];
           const i=all.findIndex(t=>t.id===existing.id);
           if(i>-1){all[i]={...all[i],title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:[...selTimes].join(','),difficulty:selDiff,isPinned:isPinned,attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames};DB.homeworkTasks=all;}
-          close();re();toast('✅ Task updated!');
+          close();re();toast(T('hw_task_updated'));
         } else {
           const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
           if(taskErr)throw taskErr;
@@ -14277,14 +14276,14 @@ function showAddHomeworkTaskModal(existing,prefill){
           DB.homeworkTasks=all;
           const child=DB.children.find(c=>c.id===childId);
           await notifyOtherParty('homework','📋 New task for '+(child?.name||'your child')+': "'+title.slice(0,42)+'"',childId,'homework');
-          close();re();toast('✅ Task assigned!');
+          close();re();toast(T('hw_task_assigned'));
         }
-      }catch(e){console.error('save homework task:',e);toast('Could not save task.','error');saveBtn.disabled=false;saveBtn.textContent=existing?'✅ Save Changes':'✅ Assign Task';}
+      }catch(e){console.error('save homework task:',e);toast(T('hw_could_not_save_task'),'error');saveBtn.disabled=false;saveBtn.textContent=existing?T('hw_save_changes_btn'):T('hw_assign_btn');}
     });
     mb.appendChild(saveBtn);
     if(existing){
       mb.appendChild(el('div',{style:{height:'8px'}}));
-      mb.appendChild(mkBtn('Cancel','btn-lg btn-ghost btn-full',()=>close()));
+      mb.appendChild(mkBtn(T('hw_cancel_btn'),'btn-lg btn-ghost btn-full',()=>close()));
     }
   },540);
 }
@@ -14348,7 +14347,7 @@ function renderHomeworkParent(){
   // Back button (mobile only — web has breadcrumb nav)
   if(!(window.innerWidth>=1024&&session?.role==='parent')){
     const backBar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1.5px solid var(--mint-l)'}});
-    const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},['← Back']);
+    const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},[T('ss_back')]);
     backBtn.onclick=()=>{S.activeTab='dashboard';re();};
     backBar.appendChild(backBtn);sec.appendChild(backBar);
   }
@@ -14394,7 +14393,7 @@ function renderHomeworkParent(){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📋']),
       el('div',{class:'empty-state-title'},[tab==='active'?T('hw_no_tasks'):T('hw_archived')]),
-      el('div',{class:'empty-state-body'},[tab==='active'?T('hw_no_tasks_parent_desc'):'Completed or paused tasks will appear here.'])
+      el('div',{class:'empty-state-body'},[tab==='active'?T('hw_no_tasks_parent_desc'):T('hw_paused_archive')])
     ]));
     return sec;
   }
@@ -14434,7 +14433,7 @@ function renderHomeworkParent(){
       if(_doneToday>0&&_doneToday<todayOccs.length){
         chkWrap.appendChild(el('div',{style:{fontSize:'.56rem',fontWeight:700,color:'var(--teal)',textAlign:'center',marginTop:'2px'}},['✓ '+_doneToday+'/'+todayOccs.length]));
       } else if(_doneToday>=todayOccs.length){
-        chkWrap.appendChild(el('div',{style:{fontSize:'.56rem',fontWeight:700,color:'var(--teal)',textAlign:'center',marginTop:'2px'}},['✓ All done']));
+        chkWrap.appendChild(el('div',{style:{fontSize:'.56rem',fontWeight:700,color:'var(--teal)',textAlign:'center',marginTop:'2px'}},[T('hw_all_done')]));
       }
     }
     hdr.appendChild(chkWrap);
@@ -14589,12 +14588,12 @@ function renderHomeworkSpec(){
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('hw_title')]),
-    el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+"'s tasks"])
+    el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+T('hw_spec_tasks_sub')])
   ]));
   const _hwRemoved=(child?.connectionStatus||'approved')==='removed';
   if(!_hwRemoved)hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn(T('hw_new_task'),'btn-md btn-primary',()=>showAddHomeworkTaskModal(null))]));
   sec.appendChild(hd);
-  if(_hwRemoved){const _hwLock=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px',color:'#475569'}});_hwLock.appendChild(el('span',{style:{fontSize:'1.1rem'}},['🔒']));_hwLock.appendChild(el('div',{style:{fontSize:'.83rem',fontWeight:600}},['Not connected — cannot add new tasks']));sec.appendChild(_hwLock);}
+  if(_hwRemoved){const _hwLock=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px',color:'#475569'}});_hwLock.appendChild(el('span',{style:{fontSize:'1.1rem'}},['🔒']));_hwLock.appendChild(el('div',{style:{fontSize:'.83rem',fontWeight:600}},[T('hw_not_connected_no_tasks')]));sec.appendChild(_hwLock);}
   // Tabs
   const tab=S._hwSpecTab||'active';
   const activeTasks=allTasks.filter(t=>t.status==='active');
@@ -14614,7 +14613,7 @@ function renderHomeworkSpec(){
     sec.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['📋']),
       el('div',{class:'empty-state-title'},[tab==='active'?T('hw_no_tasks'):T('hw_archived')]),
-      el('div',{class:'empty-state-body'},[tab==='active'?T('hw_no_tasks_spec_desc'):'Archived tasks will appear here.'])
+      el('div',{class:'empty-state-body'},[tab==='active'?T('hw_no_tasks_spec_desc'):T('hw_archived_here')])
     ]));
     return sec;
   }
@@ -14622,9 +14621,9 @@ function renderHomeworkSpec(){
   const pinned=tasks.filter(t=>t.isPinned);
   const rest=tasks.filter(t=>!t.isPinned);
   if(pinned.length){
-    sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},['📌 Pinned']));
+    sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},[T('hw_pinned_label')]));
     pinned.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
-    if(rest.length)sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',margin:'14px 0 8px'}},['Other Tasks']));
+    if(rest.length)sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',margin:'14px 0 8px'}},[T('hw_other_tasks')]));
   }
   rest.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
   return sec;
@@ -14636,8 +14635,8 @@ function renderHomeworkSpec(){
 function renderPatients(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'6px'}},[T('patients_title')]));
-  sec.appendChild(el('p',{class:'page-sub'},['Click a patient to view their vault & files']));
-  const si=el('input',{class:'inp',placeholder:'🔍 Search by name…',style:{marginBottom:'12px'}});
+  sec.appendChild(el('p',{class:'page-sub'},[T('patients_sub')]));
+  const si=el('input',{class:'inp',placeholder:T('patients_search'),style:{marginBottom:'12px'}});
   sec.appendChild(si);
 
   // Filter bar — state lives in S so it survives re()
@@ -14708,14 +14707,14 @@ function renderPatients(){
       const info=d('',[], {flex:1});
       const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
       nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
-      if(isPending) nameRow.appendChild(el('span',{style:{background:'#f59e0b',color:'#fff',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pending approval']));
-      else if(isRemoved) nameRow.appendChild(el('span',{style:{background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Not connected']));
-      else if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},['Inactive']));
+      if(isPending) nameRow.appendChild(el('span',{style:{background:'#f59e0b',color:'#fff',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_pending_approval')]));
+      else if(isRemoved) nameRow.appendChild(el('span',{style:{background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_not_connected_badge')]));
+      else if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},[T('patients_inactive')]));
       info.appendChild(nameRow);
       if(isPending){
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#b45309',fontStyle:'italic',marginBottom:'4px'}},['Waiting for parent approval']));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#b45309',fontStyle:'italic',marginBottom:'4px'}},[T('patients_waiting')]));
       } else {
-        info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},['Age '+(calcAge(c.dob)||'—')+' · DOB '+(c.dob||'—')]));
+        info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(c.dob)||'—')+' · '+T('patients_dob_label')+' '+(c.dob||'—')]));
       }
       card.appendChild(info);
       if(!isPending){
@@ -15469,17 +15468,17 @@ function renderSpecialistRequests(){
       if(r.requestedAt)info.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate-l)',marginTop:'2px'}},[new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})]));
       top.appendChild(info);card.appendChild(top);
       // Child selector
-      card.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--navy)',marginBottom:'6px'}},['Select a child:']));
+      card.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--navy)',marginBottom:'6px'}},[T('sr_select_child')]));
       const sel=el('select',{class:'inp',style:{marginBottom:'10px'}});
-      sel.appendChild(el('option',{value:''},['Select a child...']));
+      sel.appendChild(el('option',{value:''},[T('sr_select_child_option')]));
       children.forEach(c=>{
         const alreadyConnected=allSpecs.some(s=>String(s.id||s.specialistId)===String(r.specialistId)&&String(s.childId)===String(c.id)&&s.status==='active');
         const o=el('option',{value:c.id});
-        o.textContent=(c.avatar||'🧒')+' '+c.name+(alreadyConnected?' — already connected':'');
+        o.textContent=(c.avatar||'🧒')+' '+c.name+(alreadyConnected?T('sr_already_connected'):'');
         if(alreadyConnected)o.disabled=true;
         sel.appendChild(o);
       });
-      sel.appendChild(el('option',{value:'__add_new'},['+ Add a new child']));
+      sel.appendChild(el('option',{value:'__add_new'},[T('sr_add_new_child')]));
       card.appendChild(sel);
       // Inline add-child form (uses shared helper)
       const addChildForm=_buildAddChildForm(sel);
@@ -15487,17 +15486,17 @@ function renderSpecialistRequests(){
       sel.onchange=()=>{if(sel.value==='__add_new'){addChildForm.style.display='block';sel.value='';}else{addChildForm.style.display='none';}};
       // Action buttons
       const acts=el('div',{style:{display:'flex',gap:'8px'}});
-      const approveBtn=mkBtn('✅ Approve','btn-md btn-primary',async()=>{
+      const approveBtn=mkBtn(T('sr_approve'),'btn-md btn-primary',async()=>{
         const selectedChildId=sel.value;
-        if(!selectedChildId||selectedChildId==='__add_new'){toast('Please select a child first.','error');return;}
-        approveBtn.disabled=true;approveBtn.textContent='⏳…';
+        if(!selectedChildId||selectedChildId==='__add_new'){toast(T('sr_select_first'),'error');return;}
+        approveBtn.disabled=true;approveBtn.textContent=T('sr_approving');
         try{
           // Collision check
           if(r.specialistId){
             const{data:existing}=await _supa.from('specialist_requests').select('id,status')
               .eq('specialist_id',r.specialistId).eq('child_id',selectedChildId).eq('request_type','join').limit(1);
             if(existing&&existing.length>0&&existing[0].status==='approved'){
-              toast('This specialist is already connected to this child.','info');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';return;}
+              toast(T('sr_already_connected_msg'),'info');approveBtn.disabled=false;approveBtn.textContent=T('sr_approve');return;}
             if(existing&&existing.length>0&&existing[0].status==='pending'&&existing[0].id!==r.id){
               await _supa.from('specialist_requests').update({status:'approved'}).eq('id',existing[0].id);}
           }
@@ -15505,7 +15504,7 @@ function renderSpecialistRequests(){
           const{error:updErr}=await _supa.from('specialist_requests').update({
             child_id:selectedChildId,household_id:String(session.householdId),parent_id:session.id
           }).eq('id',r.id);
-          if(updErr){console.error('❌ update:',updErr);toast('Failed to approve.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';return;}
+          if(updErr){console.error('❌ update:',updErr);toast(T('sr_approve_failed'),'error');approveBtn.disabled=false;approveBtn.textContent=T('sr_approve');return;}
           // Load into cache
           const mapped={id:r.id,specialistId:r.specialistId,specialistName:r.specialistName,role:r.role,childId:selectedChildId,requestedAt:r.requestedAt,status:'pending',requestType:'join'};
           const reqs=DB.specialistRequests||[];const idx=reqs.findIndex(x=>x.id===r.id);
@@ -15647,7 +15646,7 @@ async function _showPendingSpecialistRequestsPopup(){
         const o=el('option',{value:c.id});o.textContent=(c.avatar||'🧒')+' '+c.name+(alreadyConnected?' — already connected':'');
         if(alreadyConnected)o.disabled=true;sel.appendChild(o);
       });
-      sel.appendChild(el('option',{value:'__add_new'},['+ Add a new child']));
+      sel.appendChild(el('option',{value:'__add_new'},[T('sr_add_new_child')]));
       mb.appendChild(sel);
       const addForm=_buildAddChildForm(sel);
       mb.appendChild(addForm);
@@ -15668,7 +15667,7 @@ async function _showPendingSpecialistRequestsPopup(){
           const{error:updErr}=await _supa.from('specialist_requests').update({
             child_id:selectedChildId,household_id:String(session.householdId),parent_id:session.id
           }).eq('id',r.id);
-          if(updErr){console.error('❌ update:',updErr);toast('Failed to approve.','error');approveBtn.disabled=false;approveBtn.textContent='✅ Approve';return;}
+          if(updErr){console.error('❌ update:',updErr);toast(T('sr_approve_failed'),'error');approveBtn.disabled=false;approveBtn.textContent=T('sr_approve');return;}
           const mapped={id:r.id,specialistId:r.specialistId,specialistName:r.specialistName,role:r.role,childId:selectedChildId,requestedAt:r.requestedAt,status:'pending',requestType:'join'};
           const reqs=DB.specialistRequests||[];const idx=reqs.findIndex(x=>x.id===r.id);if(idx>-1)reqs[idx]=mapped;else reqs.push(mapped);DB.specialistRequests=reqs;
           await approveSpecialistRequest(r.id,[]);
@@ -16367,20 +16366,20 @@ function renderSpecialistSettings(){
 
   // Profession / specialty
   const profRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}});
-  profRow.appendChild(el('div',{style:{flex:1,fontWeight:600,color:'var(--slate)',fontSize:'.86rem'}},['🎓 Specialty: '+roleLbl]));
+  profRow.appendChild(el('div',{style:{flex:1,fontWeight:600,color:'var(--slate)',fontSize:'.86rem'}},[T('settings_spec_specialty',{role:roleLbl})]));
   const editProf=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'.9rem',padding:'4px'}},['✏️']);
   editProf.onclick=()=>{
-    openModal('Edit Specialty',(mb,close)=>{
-      mb.appendChild(el('div',{class:'inp-label'},['Your specialty / profession']));
+    openModal(T('settings_spec_edit_specialty'),(mb,close)=>{
+      mb.appendChild(el('div',{class:'inp-label'},[T('settings_spec_specialty_label')]));
       const sel=el('select',{class:'inp',style:{marginBottom:'14px'}});
       [['speech','Speech Therapist'],['ot','Occupational Therapist'],['pt','Physiotherapist'],['psychology','Psychologist / Counsellor'],['general','Specialist / Other']].forEach(([v,l])=>{
         const o=el('option');o.value=v;o.textContent=l;if(v===session?.specialistType)o.selected=true;sel.appendChild(o);
       });
       mb.appendChild(sel);
-      mb.appendChild(mkBtn('Save','btn-md btn-primary btn-full',()=>{
+      mb.appendChild(mkBtn(T('settings_spec_save'),'btn-md btn-primary btn-full',()=>{
         _supa.from('profiles').update({specialist_role:sel.value}).eq('id',session.id)
-          .then(()=>{session.specialistType=sel.value;close();re();toast('Specialty updated!');})
-          .catch(()=>toast('Could not save.','error'));
+          .then(()=>{session.specialistType=sel.value;close();re();toast(T('settings_spec_specialty_updated'));})
+          .catch(()=>toast(T('settings_spec_save_failed'),'error'));
       }));
     },380);
   };
@@ -16389,31 +16388,31 @@ function renderSpecialistSettings(){
 
   // License / credentials number
   const licRow=el('div',{style:{marginBottom:'10px'}});
-  const licInput=el('input',{class:'inp',placeholder:'License or registration number (optional)',style:{marginBottom:'6px'}});
+  const licInput=el('input',{class:'inp',placeholder:T('settings_spec_license_placeholder'),style:{marginBottom:'6px'}});
   const savedLic=LS.get('spec_license','');
   if(savedLic)licInput.value=savedLic;
-  licRow.appendChild(el('div',{class:'inp-label'},['🪪 License Number']));
+  licRow.appendChild(el('div',{class:'inp-label'},[T('settings_spec_license')]));
   licRow.appendChild(licInput);
-  licRow.appendChild(mkBtn('Save License','btn-sm btn-ghost',()=>{LS.set('spec_license',licInput.value);toast('Saved!');}));
+  licRow.appendChild(mkBtn(T('settings_spec_save_license'),'btn-sm btn-ghost',()=>{LS.set('spec_license',licInput.value);toast(T('settings_spec_saved'));}));
   pr.appendChild(licRow);
 
   // Work phone
   const phoneRow=el('div',{style:{marginBottom:'4px'}});
-  const phoneInput=el('input',{class:'inp',placeholder:'Work phone (optional)',type:'tel',style:{marginBottom:'6px'}});
+  const phoneInput=el('input',{class:'inp',placeholder:T('settings_spec_phone_placeholder'),type:'tel',style:{marginBottom:'6px'}});
   const savedPhone=LS.get('spec_phone','');
   if(savedPhone)phoneInput.value=savedPhone;
-  phoneRow.appendChild(el('div',{class:'inp-label'},['📞 Work Phone']));
+  phoneRow.appendChild(el('div',{class:'inp-label'},[T('settings_spec_phone')]));
   phoneRow.appendChild(phoneInput);
-  phoneRow.appendChild(mkBtn('Save Phone','btn-sm btn-ghost',()=>{LS.set('spec_phone',phoneInput.value);toast('Saved!');}));
+  phoneRow.appendChild(mkBtn(T('settings_spec_save_phone'),'btn-sm btn-ghost',()=>{LS.set('spec_phone',phoneInput.value);toast(T('settings_spec_saved'));}));
   pr.appendChild(phoneRow);
 
   sec.appendChild(pr);
 
   // Notification Preferences
   const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['🔔 Notifications']));
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},[T('settings_spec_notif')]));
   const prefs=DB.notifPrefs;
-  const specNotifKeys={homework:'New tasks / completions',appointments:'Appointments',chat:'New messages',report:'Session summaries'};
+  const specNotifKeys={homework:T('settings_spec_hw_label'),appointments:T('settings_spec_apt_label'),chat:T('settings_spec_chat_label'),report:T('settings_spec_report_label')};
   Object.entries(specNotifKeys).forEach(([key,label])=>{
     const val=prefs[key]!==false;
     const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
@@ -16426,8 +16425,8 @@ function renderSpecialistSettings(){
 
   // Working hours
   const wh=el('div',{class:'card',style:{marginBottom:'16px'}});
-  wh.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🕐 Working Hours']));
-  wh.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.83rem',marginBottom:'12px'}},['Set your availability so families know when to reach you.']));
+  wh.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_spec_hours')]));
+  wh.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.83rem',marginBottom:'12px'}},[T('settings_spec_hours_desc')]));
   const days=['Mon','Tue','Wed','Thu','Fri'];
   const savedHours=LS.get('spec_hours',{});
   days.forEach(day=>{
@@ -16451,8 +16450,8 @@ function renderSpecialistSettings(){
   // Sign out
   const ac=el('div',{class:'card',style:{marginBottom:'16px'}});
   ac.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_account')]));
-  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},['Email: '+session?.email]));
-  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},['Role: Specialist / Therapist']));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},[T('settings_email_label',{email:session?.email||''})]));
+  ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},[T('settings_role_specialist')]));
   ac.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
   ac.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   sec.appendChild(ac);
@@ -16467,12 +16466,12 @@ function renderSpecialistSettings(){
   }
 
   const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
-  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
+  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},[T('settings_legal')]));
   const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Privacy Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Terms of Service']));
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Cookie Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Contact Us']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_privacy_policy')]));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_terms')]));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_cookies')]));
+  _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_contact')]));
   _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
 
   return sec;
@@ -17255,45 +17254,45 @@ function renderSettings(){
 
   // Privacy
   const pv=el('div',{class:'card'});
-  pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},['🔒 Privacy & Security']));
+  pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_privacy')]));
   pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
-    ['All session data is stored in your browser\'s local storage and in Dropbox (for uploaded files). Specialists only see files and appointments explicitly shared with them. When a specialist is removed or a child is deleted, their authored notes remain in a Legacy Archive.']));
+    [T('settings_privacy_desc')]));
   sec.appendChild(pv);
 
   // Onboarding & Demo
   const od=el('div',{class:'card',style:{marginTop:'16px'}});
-  od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['🗺️ Onboarding & Demo']));
+  od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('settings_onboarding')]));
   const tourDismissed=LS.get('tourDismissed',false);
   const odRows=[
     {
-      icon:'🗺️',title:'Guided Tour',desc:tourDismissed?'Tour dismissed. Click to restart it.':'Restart the step-by-step onboarding tour.',
-      btn:'Restart Tour',action:()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}
+      icon:'🗺️',title:T('settings_tour_title'),desc:tourDismissed?T('settings_tour_desc_dismissed'):T('settings_tour_desc'),
+      btn:T('settings_tour_btn'),action:()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}
     },
     {
-      icon:'🎭',title:'Load Demo Data',desc:'Populate with sample data for Lily & Noah Carter to explore all features.',
-      btn:'Load Demo',action:()=>openConfirm('Load Demo Data','This replaces your current data with demo data. Are you sure?',true,()=>loadDemoData())
+      icon:'🎭',title:T('settings_demo_title'),desc:T('settings_demo_desc'),
+      btn:T('settings_demo_btn'),action:()=>openConfirm(T('settings_demo_confirm_title'),T('settings_demo_confirm'),true,()=>loadDemoData())
     },
     {
-      icon:'📅',title:'Clear All Appointments',desc:'Delete all appointments from this device and Supabase.',
-      btn:'Clear Appointments',danger:true,
-      action:()=>openConfirm('Clear All Appointments','Permanently delete ALL appointments? This cannot be undone.',true,async()=>{
+      icon:'📅',title:T('settings_clear_apts_title'),desc:T('settings_clear_apts_desc'),
+      btn:T('settings_clear_apts_btn'),danger:true,
+      action:()=>openConfirm(T('settings_clear_apts_title'),T('settings_clear_apts_confirm'),true,async()=>{
         try{
           if(session?.id!=='demo'){
             const hid=session?.householdId;
             if(hid){await _supa.from('appointments').delete().neq('id','x').eq('household_id',hid);}
             else if(session?.id){await _supa.from('appointments').delete().neq('id','x').eq('parent_id',session.id);}
           }
-          LS.set('appointments',[]);re();toast('✅ All appointments cleared.');
-        }catch(e){LS.set('appointments',[]);re();console.error('clear appointments:',e);toast('❌ Could not clear remote data. Please try again.','error');}
+          LS.set('appointments',[]);re();toast(T('settings_apts_cleared'));
+        }catch(e){LS.set('appointments',[]);re();console.error('clear appointments:',e);toast(T('settings_apts_clear_fail'),'error');}
       })
     },
     {
-      icon:'🗑️',title:'Clear All Data',desc:'Reset everything to a clean slate. This cannot be undone.',
-      btn:'Clear Data',danger:true,
-      action:()=>openConfirm('Clear All Data','This will permanently delete all your data including children, files, and connections. Are you sure?',true,()=>{
+      icon:'🗑️',title:T('settings_clear_data_title'),desc:T('settings_clear_data_desc'),
+      btn:T('settings_clear_data_btn'),danger:true,
+      action:()=>openConfirm(T('settings_clear_data_confirm_title'),T('settings_clear_data_confirm'),true,()=>{
         // Clear all hd9_ keys
         Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
-        doLogout().then(()=>{re();toast('All data cleared.','info');});
+        doLogout().then(()=>{re();toast(T('settings_data_cleared'),'info');});
       })
     }
   ];
@@ -17311,33 +17310,33 @@ function renderSettings(){
 
   // Google Calendar integration card
   const gcCard=el('div',{class:'card',style:{marginBottom:'16px'}});
-  gcCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px'}},['📅 Google Calendar']));
+  gcCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px'}},[T('settings_gcal_title')]));
   const gcEnabled=session?.googleCalendarEnabled||false;
   if(gcEnabled){
-    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--teal)',fontWeight:700,marginBottom:'12px'}},['✅ Connected — appointments sync automatically']));
-    const disconnBtn=mkBtn('Disconnect','btn-sm btn-danger',async()=>{
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--teal)',fontWeight:700,marginBottom:'12px'}},[T('settings_gcal_connected')]));
+    const disconnBtn=mkBtn(T('settings_gcal_disconnect'),'btn-sm btn-danger',async()=>{
       try{
         await fetch('/api/google-disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:session.id})});
         session.googleCalendarEnabled=false;
-        toast('Google Calendar disconnected.','info');re();
-      }catch(e){toast('Could not disconnect. Try again.','error');}
+        toast(T('settings_gcal_disconnected'),'info');re();
+      }catch(e){toast(T('settings_gcal_disconnect_fail'),'error');}
     });
     gcCard.appendChild(disconnBtn);
   }else{
-    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.55'}},['Connect your Google Calendar and every appointment you add will appear there automatically.']));
-    gcCard.appendChild(mkBtn('🔗 Connect Google Calendar','btn-md btn-primary',()=>{
+    gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--slate)',marginBottom:'12px',lineHeight:'1.55'}},[T('settings_gcal_desc')]));
+    gcCard.appendChild(mkBtn(T('settings_gcal_connect'),'btn-md btn-primary',()=>{
       window.location.href='/api/google-auth?userId='+session.id;
     }));
   }
   sec.appendChild(gcCard);
 
   const _legalCard=el('div',{class:'card',style:{marginTop:'16px'}});
-  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},['📋 Legal']));
+  _legalCard.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px'}},[T('settings_legal')]));
   const _legalLinks=el('div',{style:{display:'flex',gap:'20px',flexWrap:'wrap',alignItems:'center'}});
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Privacy Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Terms of Service']));
-  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Cookie Policy']));
-  _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},['Contact Us']));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/privacy',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_privacy_policy')]));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/terms',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_terms')]));
+  _legalLinks.appendChild(el('a',{href:'https://www.huddledin.com/cookies',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_cookies')]));
+  _legalLinks.appendChild(el('a',{href:'https://huddledin.com/contact',target:'_blank',rel:'noopener noreferrer',style:{color:'var(--teal)',fontSize:'.84rem',fontWeight:600,textDecoration:'none',display:'inline-block',padding:'12px 6px'}},[T('settings_contact')]));
   _legalCard.appendChild(_legalLinks);sec.appendChild(_legalCard);
 
   return sec;
