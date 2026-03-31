@@ -1880,7 +1880,7 @@ async function refreshFromSupabase(){
       let children=[];
       if(hid){
         const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id})));
+        children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
       } else {
         children=await SB.getChildren(session.id);
       }
@@ -2726,6 +2726,7 @@ let S={
   specAiSubscription:null,      // specialist AI: {status:'trial'|'active'|'expired', daysRemaining, exempt}
   _infoCardOpen:false,     // specialist web: expandable patient info panel
   _contactEditMode:false,  // parent settings: contact info edit mode
+  _srHistoryOpen:false,    // specialist join: past requests collapsible
   specStoragePath:[],      // breadcrumb: [{id,name},...]
   specStorageView:'list',  // 'list' or 'grid'
   _specStorageSearch:'',
@@ -3797,6 +3798,7 @@ sr_already_sent:'You already sent a request to this parent. Wait for their respo
 sr_send_failed:'Failed to send request. Please try again.',
 sr_sent_to:'\u2705 Request sent to {email}!',
 sr_send_error:'Something went wrong. Please try again.',
+sr_past_requests:'Past requests',
 // ── Session Summaries ──
 ss_back:'\u2190 Back',
 ss_no_summaries_title:'No summaries yet',
@@ -5060,6 +5062,7 @@ sr_select_child_prompt:'יש לבחור ילד/ה.',
 sr_select_first:'יש לבחור ילד/ה קודם.',
 sr_send_btn:'\uD83D\uDCE8 שליחת בקשה',
 sr_send_error:'משהו השתבש. נסי שוב.',
+sr_past_requests:'בקשות קודמות',
 sr_send_failed:'שליחת הבקשה נכשלה. נסי שוב.',
 sr_send_info:'ההורה יקבל דוא"ל עם קישור לאישור הבקשה. לאחר האישור, הילד/ה יופיע/תופיע ברשימת המטופלים שלך.',
 sr_send_new:'\u2795 שליחת בקשה חדשה',
@@ -7505,16 +7508,7 @@ function renderSpecDesktop(){
   }
   topbar.appendChild(bc);
 
-  // Quick-action buttons (when patient selected)
-  if(isPatientCtx&&activeChild){
-    const acts=el('div',{class:'spec-dt-tb-actions'});
-    const nNote=el('button',{class:'spec-dt-act-btn'},[T('spec_dt_plus_note')]);
-    nNote.onclick=()=>{S.activeTab='vault';re();};
-    const nTask=el('button',{class:'spec-dt-act-btn'},[T('spec_dt_plus_task')]);
-    nTask.onclick=()=>{S.activeTab='homework';re();};
-    acts.appendChild(nNote); acts.appendChild(nTask);
-    topbar.appendChild(acts);
-  }
+  // Quick-action buttons removed from topbar — they exist in patient detail header (ha div)
 
   // Right icons
   const tico=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',flexShrink:0,marginLeft:'8px'}});
@@ -7638,6 +7632,11 @@ function renderSpecDesktop(){
   renderList(S._dtPS||'');
   searchI.oninput=e=>{S._dtPS=e.target.value;renderList(e.target.value);};
   plPanel.appendChild(plList);
+  if(S._patientDrawerOpen){
+    const plBackdrop=el('div',{style:{position:'absolute',inset:'0',zIndex:49}});
+    plBackdrop.onclick=()=>{S._patientDrawerOpen=false;re();};
+    body.appendChild(plBackdrop);
+  }
   body.appendChild(plPanel);
 
   /* ── Right detail panel ─────────────────────────────────────────── */
@@ -11774,7 +11773,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     display:'flex',flexDirection:'column',background:'#fff',zIndex:200,
     overflow:'hidden'
   }:{
-    display:'flex',flexDirection:'column',height:'100%',minHeight:'460px'
+    display:'flex',flexDirection:'column',height:'100%',minHeight:'460px',overflow:'hidden'
   }});
 
   // iOS only: visualViewport tracks keyboard — adjust bottom so input stays visible
@@ -11861,6 +11860,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
 
   // Scroll to bottom after paint
   requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+  setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;},50);
 
   // -- Real-time subscription --
   if(session?.id!=='demo'&&activeChat.childId){
@@ -11881,7 +11881,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
 
   // -- Input row (sticky bottom) — hidden for locked/disconnected specialists
   if(locked)return wrap;
-  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)'}});
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',position:'sticky',bottom:'0',background:'#fff'}});
   const mi=el('input',{class:'inp',placeholder:T('chat_type_message'),style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
   const sb2=el('button',{class:'send-btn',title:'Send'});
@@ -13123,7 +13123,7 @@ function renderTodoList(){
         dd.appendChild(item);
       });
       wrap.appendChild(dd);
-      document.addEventListener('click',_docClick);
+      setTimeout(()=>document.addEventListener('click',_docClick),0);
     };
     wrap.appendChild(pill);
     return wrap;
@@ -16397,7 +16397,9 @@ function renderSpecialistRequest(){
         return;
       }
       _reqWrap.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px',marginTop:'8px'}},['My Requests']));
-      myReqs.forEach(r=>{
+      const _pendingReqs=myReqs.filter(r=>r.status==='pending');
+      const _pastReqs=myReqs.filter(r=>r.status!=='pending');
+      const _renderReqCard=(r,container)=>{
         const dbChild=(LS.get('children',[])||[]).find(c=>c.id===r.child_id);
         const childName=dbChild?.name||r.child_name_hint||'Pending';
         const card=el('div',{class:'spec-request-card'});
@@ -16411,8 +16413,18 @@ function renderSpecialistRequest(){
         if(r.parent_email_hint)meta.push('To: '+r.parent_email_hint);
         if(r.requested_at){meta.push(new Date(r.requested_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}));}
         card.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[meta.join(' · ')]));
-        _reqWrap.appendChild(card);
-      });
+        container.appendChild(card);
+      };
+      _pendingReqs.forEach(r=>_renderReqCard(r,_reqWrap));
+      if(_pastReqs.length){
+        const pastToggle=el('button',{style:{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'1.5px solid var(--mint-l)',borderRadius:'10px',padding:'8px 14px',cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.82rem',color:'var(--navy)',marginTop:'12px',marginBottom:'8px'}});
+        pastToggle.textContent='\uD83D\uDCCB '+T('sr_past_requests')+' ('+_pastReqs.length+')';
+        pastToggle.onclick=()=>{S._srHistoryOpen=!S._srHistoryOpen;re();};
+        _reqWrap.appendChild(pastToggle);
+        if(S._srHistoryOpen){
+          _pastReqs.forEach(r=>_renderReqCard(r,_reqWrap));
+        }
+      }
     }catch(e){console.error('load my requests:',e);}
   })();
 
