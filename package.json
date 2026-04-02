@@ -1,0 +1,10 @@
+{
+  "name": "huddledin",
+  "private": true,
+  "scripts": {
+    "build": "node esbuild.config.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
