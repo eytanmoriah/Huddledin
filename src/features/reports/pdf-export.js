@@ -51,14 +51,18 @@ export async function downloadReportPDF(reportData, generatedText, childInfo, sp
 
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
-  tempDiv.style.cssText = 'position:absolute;left:-9999px;width:210mm;';
+  // Must be on-screen for html2canvas to render — use fixed positioning behind everything
+  tempDiv.style.cssText = 'position:fixed;top:0;left:0;width:210mm;z-index:-9999;opacity:0;pointer-events:none;';
   document.body.appendChild(tempDiv);
+
+  // Allow browser a frame to layout the content before capturing
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
     await window.html2pdf().set({
       margin: [15, 15, 15, 15],
       filename,
-      html2canvas: { scale: 2 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     }).from(tempDiv).save();
   } finally {
