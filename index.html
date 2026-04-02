@@ -7426,8 +7426,7 @@ function renderSpecDesktop(){
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
-    {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📁'},
-    {id:'reports',label:'Reports'+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📋'},
+    {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' 🔒'),icon:'📁'},
     {id:'request',label:T('spec_nav_join_team'),icon:'📨'},
     {id:'settings', label:T('nav_settings'),icon:'⚙️'},
   ].forEach(item=>{
@@ -7482,7 +7481,7 @@ function renderSpecDesktop(){
   const TAB_NAMES={dashboard:T('nav_home'),patients:T('spec_nav_patients'),todo:T('nav_todo'),
     notifications:T('nav_notifications'),settings:T('nav_settings'),vault:T('tab_notes'),
     homework:T('tab_tasks'),files:T('tab_files'),chat:T('tab_chat'),calendar:T('nav_calendar'),
-    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries'),'spec-storage':T('storage_title'),reports:'Reports','report-form':'New Report','report-preview':'Report Preview'};
+    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries'),'spec-storage':T('storage_title')};
 
   // Breadcrumb
   const bc=el('div',{class:'spec-dt-bc'});
@@ -7651,7 +7650,7 @@ function renderSpecDesktop(){
   } else if(isPatientCtx&&activeChild){
     detail.appendChild(_renderSpecDtPatientDetail(activeChild,specId));
   } else if(!isPatientCtx&&!['todo','notifications','settings','credentials','request',
-      'session-summaries','email','calendar','admin','spec-storage','reports','report-form','report-preview'].includes(S.activeTab)){
+      'session-summaries','email','calendar','admin','spec-storage'].includes(S.activeTab)){
     // Empty state — no patient selected
     detail.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['👤']),
@@ -8164,7 +8163,6 @@ function renderDrawer(){
       {icon:'📅',label:T('nav_calendar'),id:'calendar'},
       {icon:'✅',label:T('spec_nav_my_tasks'),id:'todo'},
       {icon:'📁',label:T('storage_title'),id:'spec-storage'},
-      {icon:'📋',label:'Reports',id:'reports'},
       {icon:'🔔',label:T('nav_notifications'),id:'notifications'},
       {icon:'⚙️',label:T('nav_settings'),id:'settings'},
     ];
@@ -9212,11 +9210,6 @@ function renderContent(){
   if(t==='credentials')return renderCredentials();
   if(t==='info'&&r==='specialist')return renderSpecInfoCard();
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
-  if(['reports','report-form','report-preview'].includes(t)&&r==='specialist'&&window.HUD_REPORTS){
-    if(t==='reports')return window.HUD_REPORTS.renderReports();
-    if(t==='report-form')return window.HUD_REPORTS.renderReportForm();
-    if(t==='report-preview')return window.HUD_REPORTS.renderReportPreview();
-  }
   if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
   if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
@@ -18571,19 +18564,6 @@ async function _processPendingInvite(){
 })();
 
 // Note: re() is called inside the async Supabase session boot above
-
-// ═══════════════════════════════════════════
-// Window Bridge — exposes globals for external modules (src/app.js)
-// ═══════════════════════════════════════════
-window.HUD={
-  get S(){return S;},get session(){return session;},
-  re,T,el,mkBtn,toast,openModal,openConfirm,
-  DB,SB,LS,_supa,
-  _hasSpecAiAccess,_showSpecAiUpgradeModal,
-  _debouncedRefresh,_formatBytes,_isRtl,_startSide,_endSide,
-  _speechLang,_availableLangs,_lang,
-};
-window.dispatchEvent(new Event('hud-ready'));
 </script>
 <script>
   // Register service worker for PWA offline support
@@ -18595,6 +18575,5 @@ window.dispatchEvent(new Event('hud-ready'));
     });
   }
 </script>
-<script src="/app.bundle.js" defer></script>
 </body>
 </html>
