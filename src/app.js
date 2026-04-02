@@ -1,12 +1,13 @@
 // Huddledin Module Entry Point
-// New features are built here as modules and access index.html globals via window.HUD
+import { initReports } from './features/reports/index.js';
 
 console.log('[Huddledin] Module system loaded');
 
-// Future modules will be imported here:
-// import { initReports } from './features/reports/index.js';
-//
-// When HUD bridge is ready, initialize modules:
-// window.addEventListener('hud-ready', () => {
-//   initReports();
-// });
+// Initialize modules when HUD bridge is ready
+if (window.HUD) {
+  initReports();
+} else {
+  window.addEventListener('hud-ready', () => {
+    initReports();
+  });
+}
