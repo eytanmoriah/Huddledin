@@ -2,8 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
-    "api/generate-report.js": { "memory": 1024, "maxDuration": 60 },
-    "api/import-template.js": { "memory": 1024, "maxDuration": 60 },
+    "api/report-ai.js": { "memory": 1024, "maxDuration": 60 },
     "api/*.js": { "memory": 1024, "maxDuration": 10 }
   }
 }
