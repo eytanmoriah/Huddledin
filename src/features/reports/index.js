@@ -275,22 +275,32 @@ export function renderTemplateEditor() {
 
   // Track selected section IDs
   const selected = new Set((RS.currentTemplate?.sections || []).map(s => typeof s === 'string' ? s : s.id));
+  const importedSections = RS.currentTemplate?._importedSections || [];
+  const hasImportedText = !!(RS.importedOriginalText && RS.currentTemplate?.source === 'imported');
+  const isWebView = window.innerWidth >= 1024;
+
+  // Build section content into a container (left column in split view)
+  const leftCol = el('div', { style: { flex: 1, minWidth: 0 } });
 
   // Always included
   const alwaysGroup = el('div', { class: 'rpt-sec-group' });
   alwaysGroup.appendChild(el('div', { class: 'rpt-sec-group-title' }, ['Always Included']));
   [['admin', '📋 Administrative Info (auto-filled)'], ['signature', '✍️ Signature (auto-filled from credentials)']].forEach(([id, label]) => {
     const row = el('div', { class: 'rpt-sec-check', style: { opacity: .6 } });
-    const cb = el('input', { type: 'checkbox', checked: true, disabled: true });
-    row.appendChild(cb);
+    row.appendChild(el('input', { type: 'checkbox', checked: true, disabled: true }));
     row.appendChild(el('div', {}, [el('div', { style: { fontWeight: 600, color: '#0f172a', fontSize: '.84rem' } }, [label])]));
     alwaysGroup.appendChild(row);
   });
-  sec.appendChild(alwaysGroup);
+  leftCol.appendChild(alwaysGroup);
 
-  // Section checkbox builder
+  // Right column ref for highlighting
+  let rightTextEl = null;
+
+  // Section checkbox builder with hover highlight
   const mkSecRow = (s) => {
-    const row = el('div', { class: 'rpt-sec-check' });
+    const impSec = importedSections.find(is => is.id === s.id);
+    const excerpt = impSec?.source_excerpt || '';
+    const row = el('div', { class: 'rpt-sec-check', 'data-section-id': s.id });
     const cb = el('input', { type: 'checkbox' });
     cb.checked = selected.has(s.id);
     cb.onchange = () => { if (cb.checked) selected.add(s.id); else selected.delete(s.id); };
@@ -300,41 +310,57 @@ export function renderTemplateEditor() {
     const typeLbl = s.type === 'freetext' ? 'Free text' : s.type === 'structured' ? 'Structured' : 'Mixed';
     info.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [typeLbl + ' · ' + (s.fields || []).length + ' field' + ((s.fields || []).length !== 1 ? 's' : '')]));
     row.appendChild(info);
+    // Hover highlight for imported templates
+    if (hasImportedText && isWebView && excerpt) {
+      row.onmouseenter = () => _highlightExcerpt(excerpt, true);
+      row.onmouseleave = () => _highlightExcerpt(excerpt, false);
+      row.onclick = (e) => { if (e.target.tagName !== 'INPUT') _scrollToExcerpt(excerpt); };
+    }
     return row;
   };
 
-  // Specialty sections
+  // Imported sections (from AI analysis)
+  if (importedSections.length) {
+    const impGroup = el('div', { class: 'rpt-sec-group' });
+    impGroup.appendChild(el('div', { class: 'rpt-sec-group-title' }, ['Imported Sections']));
+    importedSections.forEach(s => {
+      if (!s.id) s.id = s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'sec_' + Math.random().toString(36).slice(2, 6);
+      selected.add(s.id); // auto-select imported sections
+      impGroup.appendChild(mkSecRow(s));
+    });
+    leftCol.appendChild(impGroup);
+  }
+
+  // Library sections
   const profession = session?.profession || '';
   const { universal, specific, specKey } = getSectionsForSpecialty(profession);
 
   const uniGroup = el('div', { class: 'rpt-sec-group' });
   uniGroup.appendChild(el('div', { class: 'rpt-sec-group-title' }, ['Universal Sections']));
   universal.forEach(s => uniGroup.appendChild(mkSecRow(s)));
-  sec.appendChild(uniGroup);
+  leftCol.appendChild(uniGroup);
 
   if (specific.length) {
     const specGroup = el('div', { class: 'rpt-sec-group' });
     const specLabel = { speech: 'Speech-Language', ot: 'Occupational Therapy', pt: 'Physical Therapy', behavioral: 'Behavioral / Psychology' }[specKey] || specKey;
     specGroup.appendChild(el('div', { class: 'rpt-sec-group-title' }, [specLabel + ' Sections']));
     specific.forEach(s => specGroup.appendChild(mkSecRow(s)));
-    sec.appendChild(specGroup);
+    leftCol.appendChild(specGroup);
   }
 
-  // Other specialties (collapsible)
   const others = getOtherSpecialtySections(specKey);
   if (Object.keys(others).length) {
-    const togBtn = el('button', { style: { background: 'none', border: 'none', color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '4px' } });
+    const togBtn = el('button', { style: { background: 'none', border: 'none', color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', padding: '8px 0' } });
     togBtn.textContent = (RS.showOtherSpecs ? '▴' : '▾') + ' Show other specialties';
     togBtn.onclick = () => { RS.showOtherSpecs = !RS.showOtherSpecs; H().re(); };
-    sec.appendChild(togBtn);
-
+    leftCol.appendChild(togBtn);
     if (RS.showOtherSpecs) {
       Object.entries(others).forEach(([key, sections]) => {
         const lbl = { speech: 'Speech-Language', ot: 'Occupational Therapy', pt: 'Physical Therapy', behavioral: 'Behavioral / Psychology' }[key] || key;
         const grp = el('div', { class: 'rpt-sec-group' });
         grp.appendChild(el('div', { class: 'rpt-sec-group-title' }, [lbl]));
         sections.forEach(s => grp.appendChild(mkSecRow(s)));
-        sec.appendChild(grp);
+        leftCol.appendChild(grp);
       });
     }
   }
@@ -348,15 +374,56 @@ export function renderTemplateEditor() {
       tpl.name = nameInp.value.trim();
       tpl.description = descInp.value.trim();
       tpl.sections = [...selected];
-      const id = await saveTemplate(tpl);
-      RS.templatesLoaded = false; await loadData();
+      await saveTemplate(tpl);
+      RS.templatesLoaded = false; RS.importedOriginalText = ''; await loadData();
       toast(isEdit ? '💾 Template saved!' : '✅ Template created!');
       nav('templates');
     } catch (e) { console.error(e); toast('Could not save template.', 'error'); saveBtn.disabled = false; saveBtn.textContent = isEdit ? '💾 Save Template' : '✅ Create Template'; }
   });
-  sec.appendChild(el('div', { style: { marginTop: '20px' } }, [saveBtn]));
+  leftCol.appendChild(el('div', { style: { marginTop: '20px' } }, [saveBtn]));
+
+  // Split view (web + imported) or single column
+  if (hasImportedText && isWebView) {
+    const splitWrap = el('div', { style: { display: 'flex', gap: '20px', alignItems: 'flex-start' } });
+    splitWrap.appendChild(leftCol);
+    // Right column — original report text
+    const rightCol = el('div', { style: { flex: 1, minWidth: 0, position: 'sticky', top: '60px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' } });
+    rightCol.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.84rem', marginBottom: '8px' } }, ['📄 Original Report']));
+    rightTextEl = el('div', { id: 'rpt-import-original', style: { fontSize: '.8rem', lineHeight: '1.7', color: '#334155', padding: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e8f4f2', whiteSpace: 'pre-wrap', fontFamily: 'inherit' } });
+    rightTextEl.textContent = RS.importedOriginalText;
+    rightCol.appendChild(rightTextEl);
+    splitWrap.appendChild(rightCol);
+    sec.appendChild(splitWrap);
+  } else {
+    sec.appendChild(leftCol);
+  }
 
   return sec;
+}
+
+// Highlight helpers for import split view
+function _highlightExcerpt(excerpt, on) {
+  const container = document.getElementById('rpt-import-original');
+  if (!container || !excerpt) return;
+  if (!on) { container.innerHTML = ''; container.textContent = RS.importedOriginalText; return; }
+  const text = RS.importedOriginalText || '';
+  const idx = text.indexOf(excerpt);
+  if (idx === -1) { container.innerHTML = ''; container.textContent = text; return; }
+  container.innerHTML = '';
+  container.appendChild(document.createTextNode(text.substring(0, idx)));
+  const mark = document.createElement('mark');
+  mark.style.cssText = 'background:#ccfbf1;border-radius:3px;padding:1px 2px;';
+  mark.textContent = excerpt;
+  container.appendChild(mark);
+  container.appendChild(document.createTextNode(text.substring(idx + excerpt.length)));
+}
+
+function _scrollToExcerpt(excerpt) {
+  const container = document.getElementById('rpt-import-original');
+  if (!container) return;
+  _highlightExcerpt(excerpt, true);
+  const mark = container.querySelector('mark');
+  if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ════════════════════════════════════════
@@ -682,6 +749,7 @@ function _startImport() {
           const template = await importTemplate(file);
           close();
           RS.importedTemplate = template;
+          RS.importedOriginalText = template.original_text || '';
           RS.currentTemplate = {
             name: template.name || 'Imported Template',
             description: template.description || 'Imported from ' + file.name,
