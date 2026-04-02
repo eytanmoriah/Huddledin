@@ -17,6 +17,7 @@ const RS = {
   formData: {},
   showOtherSpecs: false,
   dirty: false, // true if form has unsaved changes
+  lastSavedFormData: null, // snapshot of formData at last save/load
 };
 
 const MONTHLY_LIMIT = 5;
@@ -56,7 +57,20 @@ function exitWithCheck(destView) {
       ['You have unsaved changes. Save draft before leaving?']));
     const row = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' } });
     row.appendChild(mkBtn('Cancel', 'btn-md btn-ghost', close));
-    row.appendChild(mkBtn('Discard', 'btn-md btn-danger', () => { close(); nav(destView || 'hub'); }));
+    row.appendChild(mkBtn('Discard', 'btn-md btn-danger', async () => {
+      close();
+      // Revert form data to last saved snapshot
+      if (RS.lastSavedFormData) {
+        RS.formData = JSON.parse(JSON.stringify(RS.lastSavedFormData));
+      }
+      // If report was never saved (no id), it doesn't exist in DB — nothing to delete
+      // If it was saved, the DB still has the last-saved version — formData is just reverted locally
+      if (RS.currentReport?.id && !RS.lastSavedFormData) {
+        // Brand new report that was auto-created but never intentionally saved — delete it
+        try { await _supa.from('reports').delete().eq('id', RS.currentReport.id); RS.reportsLoaded = false; } catch (e) { console.error(e); }
+      }
+      nav(destView || 'hub');
+    }));
     row.appendChild(mkBtn('Save & Exit', 'btn-md btn-primary', async () => {
       try {
         const tplName = RS.currentTemplate?.name || RS.currentReport?.report_type || 'Report';
@@ -145,7 +159,7 @@ export function renderReports() {
   hdrR.appendChild(mkBtn('📄 My Templates', 'btn-sm btn-ghost', () => nav('templates')));
   hdrR.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
-    RS.selectedChildId = null; RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {}; RS.currentReport = null; RS.step = 0;
+    RS.selectedChildId = null; RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {}; RS.currentReport = null; RS.lastSavedFormData = null; RS.step = 0;
     nav('new-report');
   }));
   hdr.appendChild(hdrR); sec.appendChild(hdr);
@@ -166,7 +180,9 @@ export function renderReports() {
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(r.created_at ? new Date(r.created_at).toLocaleDateString() : '')]));
     card.onclick = () => {
       RS.currentReport = r; RS.selectedChildId = r.child_id;
-      RS.formData = r.form_data || {}; RS.selectedSections = r.sections_included || [];
+      RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
+      RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
+      RS.selectedSections = r.sections_included || [];
       RS.step = 3; nav('new-report', 3);
     };
     sec.appendChild(card);
@@ -473,6 +489,7 @@ export function renderNewReport() {
           await _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id);
         }
         RS.dirty = false;
+        RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
         toast('💾 Draft saved!');
         nav('hub'); // go back to reports list
       } catch (e) { console.error(e); toast('Could not save.', 'error'); saveBtn.disabled = false; saveBtn.textContent = '💾 Save Draft'; }
