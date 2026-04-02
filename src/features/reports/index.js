@@ -16,6 +16,7 @@ const RS = {
   selectedSections: [],
   formData: {},
   showOtherSpecs: false,
+  dirty: false, // true if form has unsaved changes
 };
 
 const MONTHLY_LIMIT = 5;
@@ -45,7 +46,42 @@ function statusBadge(status) {
   return el('span', { class: 'rpt-badge ' + cls }, [lbl]);
 }
 
-function nav(view, step) { RS.view = view; RS.step = step || 0; H().re(); }
+function nav(view, step) { RS.view = view; RS.step = step || 0; RS.dirty = false; H().re(); }
+
+function exitWithCheck(destView) {
+  if (!RS.dirty) { nav(destView || 'hub'); return; }
+  const { openModal, el, mkBtn, _supa, session, toast } = H();
+  openModal('Unsaved Changes', (mb, close) => {
+    mb.appendChild(el('div', { style: { fontSize: '.88rem', color: '#475569', marginBottom: '16px', lineHeight: '1.6' } },
+      ['You have unsaved changes. Save draft before leaving?']));
+    const row = el('div', { style: { display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' } });
+    row.appendChild(mkBtn('Cancel', 'btn-md btn-ghost', close));
+    row.appendChild(mkBtn('Discard', 'btn-md btn-danger', () => { close(); nav(destView || 'hub'); }));
+    row.appendChild(mkBtn('Save & Exit', 'btn-md btn-primary', async () => {
+      try {
+        const tplName = RS.currentTemplate?.name || RS.currentReport?.report_type || 'Report';
+        const payload = {
+          specialist_id: session.id, child_id: RS.selectedChildId,
+          report_type: tplName, template_id: RS.currentTemplate?.id || null,
+          sections_included: RS.selectedSections,
+          status: 'draft', form_data: RS.formData,
+          updated_at: new Date().toISOString(),
+        };
+        if (RS.currentReport?.id) {
+          await _supa.from('reports').update(payload).eq('id', RS.currentReport.id);
+        } else {
+          const { data, error } = await _supa.from('reports').insert(payload).select('id').single();
+          if (error) throw error;
+          RS.currentReport = { ...payload, id: data.id };
+        }
+        RS.reportsLoaded = false;
+        toast('💾 Draft saved!');
+        close(); nav(destView || 'hub');
+      } catch (e) { console.error(e); toast('Could not save.', 'error'); }
+    }));
+    mb.appendChild(row);
+  }, 400);
+}
 
 async function loadData() {
   const { _supa, session } = H();
@@ -304,10 +340,22 @@ export function renderNewReport() {
   const { el, mkBtn, toast, session, _supa, S } = H();
   const sec = document.createElement('div'); sec.className = 'section';
 
+  const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } });
   const backLabel = RS.step === 0 ? '← Back to Reports' : '← Back';
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, [backLabel]);
-  back.onclick = () => { if (RS.step > 0) { RS.step--; H().re(); } else nav('hub'); };
-  sec.appendChild(back);
+  back.onclick = () => {
+    if (RS.step > 0 && RS.step <= 2) { RS.step--; H().re(); }
+    else if (RS.step === 3) { exitWithCheck('hub'); }
+    else { nav('hub'); }
+  };
+  navRow.appendChild(back);
+  // Exit button — always visible during flow
+  if (RS.step > 0) {
+    const exitBtn = el('button', { style: { background: 'none', border: '1px solid #e8f4f2', borderRadius: '8px', padding: '4px 12px', fontSize: '.76rem', fontWeight: 600, color: '#64748b', cursor: 'pointer' } }, ['✕ Exit']);
+    exitBtn.onclick = () => exitWithCheck('hub');
+    navRow.appendChild(exitBtn);
+  }
+  sec.appendChild(navRow);
 
   // ── Step 0: Pick Patient ──
   if (RS.step === 0) {
@@ -392,6 +440,9 @@ export function renderNewReport() {
     sec.appendChild(el('div', { style: { fontSize: '.78rem', color: '#64748b', marginBottom: '14px' } }, ['For ' + childInfo.name + ' · ' + childInfo.age]));
 
     const formContainer = el('div');
+    // Track dirty state — any input/change in the form sets dirty
+    formContainer.addEventListener('input', () => { RS.dirty = true; }, true);
+    formContainer.addEventListener('change', () => { RS.dirty = true; }, true);
     const activeSections = RS.selectedSections.filter(id => getSectionById(id));
     renderForm(activeSections, formContainer, RS.formData, childInfo, specInfo);
     sec.appendChild(formContainer);
@@ -421,8 +472,9 @@ export function renderNewReport() {
         if (RS.currentTemplate?.id) {
           await _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id);
         }
+        RS.dirty = false;
         toast('💾 Draft saved!');
-        saveBtn.disabled = false; saveBtn.textContent = '💾 Save Draft';
+        nav('hub'); // go back to reports list
       } catch (e) { console.error(e); toast('Could not save.', 'error'); saveBtn.disabled = false; saveBtn.textContent = '💾 Save Draft'; }
     });
     actions.appendChild(saveBtn);
