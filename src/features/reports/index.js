@@ -340,7 +340,7 @@ export function renderNewReport() {
   const { el, mkBtn, toast, session, _supa, S } = H();
   const sec = document.createElement('div'); sec.className = 'section';
 
-  const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } });
+  const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: '0', zIndex: 10, background: '#f0fdf9', padding: '10px 0', marginBottom: '4px' } });
   const backLabel = RS.step === 0 ? '← Back to Reports' : '← Back';
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, [backLabel]);
   back.onclick = () => {
