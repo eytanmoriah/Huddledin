@@ -1,10 +1,10 @@
-// AI Report Generation + Template Import
+// AI Report Generation + Template Import — single endpoint
 
 export async function generateReport({ reportType, formData, childInfo, specialistInfo, writingStyle, sections }) {
-  const response = await fetch('/api/generate-report', {
+  const response = await fetch('/api/report-ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reportType, formData, childInfo, specialistInfo, writingStyle, sections }),
+    body: JSON.stringify({ action: 'generate', reportType, formData, childInfo, specialistInfo, writingStyle, sections }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -15,20 +15,18 @@ export async function generateReport({ reportType, formData, childInfo, speciali
 }
 
 export async function importTemplate(file) {
-  // Read file as base64
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]); // strip data:... prefix
+    reader.onload = () => resolve(reader.result.split(',')[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 
-  const response = await fetch('/api/import-template', {
+  const response = await fetch('/api/report-ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ documentBase64: base64, mimeType: file.type, fileName: file.name }),
+    body: JSON.stringify({ action: 'import', documentBase64: base64, mimeType: file.type, fileName: file.name }),
   });
-
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to analyze document');
