@@ -18564,6 +18564,19 @@ async function _processPendingInvite(){
 })();
 
 // Note: re() is called inside the async Supabase session boot above
+
+// ═══════════════════════════════════════════
+// Window Bridge — exposes globals for external modules (src/app.js)
+// ═══════════════════════════════════════════
+window.HUD={
+  get S(){return S;},get session(){return session;},
+  re,T,el,mkBtn,toast,openModal,openConfirm,
+  DB,SB,LS,_supa,
+  _hasSpecAiAccess,_showSpecAiUpgradeModal,
+  _debouncedRefresh,_formatBytes,_isRtl,_startSide,_endSide,
+  _speechLang,_availableLangs,_lang,
+};
+window.dispatchEvent(new Event('hud-ready'));
 </script>
 <script>
   // Register service worker for PWA offline support
@@ -18575,5 +18588,6 @@ async function _processPendingInvite(){
     });
   }
 </script>
+<script src="/app.bundle.js" defer></script>
 </body>
 </html>
