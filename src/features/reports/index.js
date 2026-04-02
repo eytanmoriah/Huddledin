@@ -211,7 +211,10 @@ export function renderTemplates() {
 
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0 16px' } });
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.1rem', margin: 0 } }, ['My Templates']));
-  hdr.appendChild(mkBtn('+ New Template', 'btn-sm btn-primary', () => { RS.currentTemplate = null; nav('edit-template'); }));
+  const hdrBtns = el('div', { style: { display: 'flex', gap: '8px' } });
+  hdrBtns.appendChild(mkBtn('📄 Import from Report', 'btn-sm btn-ghost', () => _startImport()));
+  hdrBtns.appendChild(mkBtn('+ New Template', 'btn-sm btn-primary', () => _showNewTemplateChoice()));
+  hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);
 
   if (!RS.templates.length) {
@@ -631,6 +634,32 @@ function renderPreview() {
 export function initReports() {
   injectStyles();
   console.log('[Huddledin] Reports v2 module initialized');
+}
+
+// ─── New template choice ───
+function _showNewTemplateChoice() {
+  const { el, mkBtn, openModal } = H();
+  openModal('New Template', (mb, close) => {
+    mb.appendChild(el('div', { style: { fontSize: '.88rem', color: '#475569', marginBottom: '16px' } }, ['How would you like to create your template?']));
+    const opts = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+    const opt1 = el('div', { class: 'rpt-card', style: { display: 'flex', alignItems: 'center', gap: '14px' } });
+    opt1.appendChild(el('span', { style: { fontSize: '1.6rem' } }, ['📄']));
+    const i1 = el('div', { style: { flex: 1 } });
+    i1.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, ['Upload a Past Report']));
+    i1.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, ['AI analyzes your report and creates a template from it']));
+    opt1.appendChild(i1);
+    opt1.onclick = () => { close(); _startImport(); };
+    opts.appendChild(opt1);
+    const opt2 = el('div', { class: 'rpt-card', style: { display: 'flex', alignItems: 'center', gap: '14px' } });
+    opt2.appendChild(el('span', { style: { fontSize: '1.6rem' } }, ['🔧']));
+    const i2 = el('div', { style: { flex: 1 } });
+    i2.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, ['Build From Scratch']));
+    i2.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, ['Pick sections from the library and customize']));
+    opt2.appendChild(i2);
+    opt2.onclick = () => { close(); RS.currentTemplate = null; nav('edit-template'); };
+    opts.appendChild(opt2);
+    mb.appendChild(opts);
+  }, 400);
 }
 
 // ─── Import helper ───
