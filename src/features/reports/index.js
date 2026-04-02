@@ -12,6 +12,7 @@ const RS = {
   formState: {},
   generatedText: null,
   currentReportId: null,
+  currentReport: null, // full report object for preview
   reports: [],
   reportsLoaded: false,
   monthlyCount: 0,
@@ -22,6 +23,20 @@ const MONTHLY_LIMIT = 5;
 // ─── Helpers ───
 function getHUD() {
   return window.HUD || {};
+}
+
+// Deduplicated children list — DB.children and LS may overlap
+function getChildren() {
+  const { DB } = getHUD();
+  const dbKids = DB?.children || [];
+  const lsKids = (window.HUD?.LS?.get?.('children', []) || []);
+  const seen = new Set();
+  const result = [];
+  // DB first (fresher), then LS for any missing
+  [...dbKids, ...lsKids].forEach(c => {
+    if (!seen.has(c.id)) { seen.add(c.id); result.push(c); }
+  });
+  return result;
 }
 
 function calcAge(dob) {
@@ -45,7 +60,6 @@ async function loadReports() {
   try {
     const { data } = await _supa.from('reports').select('*').eq('specialist_id', session.id).order('created_at', { ascending: false });
     RS.reports = data || [];
-    // Count this month's reports
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     RS.monthlyCount = RS.reports.filter(r => r.created_at >= monthStart).length;
@@ -60,7 +74,6 @@ export function renderReports() {
   const sec = document.createElement('div');
   sec.className = 'section';
 
-  // Lock gate
   if (!_hasSpecAiAccess()) {
     sec.appendChild(el('div', { class: 'empty-state' }, [
       el('span', { class: 'empty-state-icon' }, ['📋']),
@@ -73,36 +86,25 @@ export function renderReports() {
     return sec;
   }
 
-  // Header
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' } });
   hdr.appendChild(el('h2', { class: 'page-title', style: { margin: 0 } }, ['📋 Reports']));
   const hdrRight = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } });
   hdrRight.appendChild(el('span', { class: 'rpt-counter' }, [RS.monthlyCount + ' / ' + MONTHLY_LIMIT + ' this month']));
   hdrRight.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
-    if (RS.monthlyCount >= MONTHLY_LIMIT) {
-      toast('Monthly report limit reached (5/5). Upgrade for more.', 'error');
-      return;
-    }
-    RS.selectedChildId = null;
-    RS.selectedTemplate = null;
-    RS.formState = {};
-    RS.generatedText = null;
-    RS.currentReportId = null;
-    const { S, re } = getHUD();
-    S.activeTab = 'report-form';
-    re();
+    if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly report limit reached (5/5). Upgrade for more.', 'error'); return; }
+    RS.selectedChildId = null; RS.selectedTemplate = null; RS.formState = {};
+    RS.generatedText = null; RS.currentReportId = null; RS.currentReport = null;
+    const { S, re } = getHUD(); S.activeTab = 'report-form'; re();
   }));
   hdr.appendChild(hdrRight);
   sec.appendChild(hdr);
 
-  // Load reports
   if (!RS.reportsLoaded) {
     sec.appendChild(el('div', { style: { textAlign: 'center', padding: '24px', color: '#64748b' } }, ['Loading reports...']));
     loadReports().then(() => { const { re } = getHUD(); re(); });
     return sec;
   }
 
-  // Empty state
   if (!RS.reports.length) {
     sec.appendChild(el('div', { class: 'empty-state' }, [
       el('span', { class: 'empty-state-icon' }, ['📋']),
@@ -111,6 +113,7 @@ export function renderReports() {
       el('div', { class: 'empty-state-actions' }, [
         mkBtn('+ New Report', 'btn-md btn-primary', () => {
           RS.selectedChildId = null; RS.selectedTemplate = null; RS.formState = {};
+          RS.currentReport = null;
           const { S, re } = getHUD(); S.activeTab = 'report-form'; re();
         })
       ])
@@ -118,8 +121,7 @@ export function renderReports() {
     return sec;
   }
 
-  // Report list
-  const children = DB.children.concat(window.HUD.LS?.get?.('children', []) || []);
+  const children = getChildren();
   RS.reports.forEach(r => {
     const child = children.find(c => c.id === r.child_id);
     const card = el('div', { class: 'rpt-hub-card' });
@@ -134,6 +136,7 @@ export function renderReports() {
     ]));
     card.onclick = () => {
       RS.currentReportId = r.id;
+      RS.currentReport = r;
       RS.generatedText = r.generated_text;
       RS.selectedChildId = r.child_id;
       RS.selectedTemplate = r.specialty_template;
@@ -148,14 +151,13 @@ export function renderReports() {
   return sec;
 }
 
-// ─── New Report Form (patient picker → template picker → form) ───
+// ─── New Report Form ───
 export function renderReportForm() {
   injectStyles();
   const { el, mkBtn, toast, session, _supa, DB, S, re, T } = getHUD();
   const sec = document.createElement('div');
   sec.className = 'section';
 
-  // Back button
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back to Reports']);
   back.onclick = () => { S.activeTab = 'reports'; re(); };
   sec.appendChild(back);
@@ -163,7 +165,7 @@ export function renderReportForm() {
   // Step 1: Patient picker
   if (!RS.selectedChildId) {
     sec.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', margin: '16px 0 12px', fontSize: '1.1rem' } }, ['Select Patient']));
-    const children = DB.children.concat(window.HUD.LS?.get?.('children', []) || []);
+    const children = getChildren();
     if (!children.length) {
       sec.appendChild(el('div', { style: { color: '#64748b', fontSize: '.84rem' } }, ['No patients connected.']));
       return sec;
@@ -201,7 +203,7 @@ export function renderReportForm() {
   const template = getTemplate(RS.selectedTemplate);
   if (!template) { sec.appendChild(el('div', {}, ['Template not found.'])); return sec; }
 
-  const children = DB.children.concat(window.HUD.LS?.get?.('children', []) || []);
+  const children = getChildren();
   const child = children.find(c => c.id === RS.selectedChildId);
   const childInfo = { name: child?.name || '—', dob: child?.dob || '—', age: calcAge(child?.dob) };
   const specialistInfo = { name: session?.displayName || session?.name || '—', specialty: session?.profession || '—', credentials: session?.credentials_title || '' };
@@ -213,10 +215,8 @@ export function renderReportForm() {
   buildForm(template, formContainer, RS.formState, childInfo, specialistInfo);
   sec.appendChild(formContainer);
 
-  // Action buttons
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' } });
 
-  // Save draft
   actions.appendChild(mkBtn('💾 Save Draft', 'btn-md btn-secondary', async () => {
     const formData = collectFormData(RS.formState);
     try {
@@ -236,18 +236,27 @@ export function renderReportForm() {
     } catch (e) { console.error(e); toast('Could not save draft.', 'error'); }
   }));
 
-  // Generate with AI
-  actions.appendChild(mkBtn('✨ Generate Report', 'btn-md btn-primary', async () => {
+  const genBtn = mkBtn('✨ Generate Report', 'btn-md btn-primary', async () => {
     const formData = collectFormData(RS.formState);
-    const btn = actions.querySelector('.btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+    genBtn.disabled = true; genBtn.textContent = '⏳ Generating...';
     try {
+      console.log('[Reports] Calling AI with formData:', Object.keys(formData).length, 'fields');
       const text = await generateReport(template.name, specialistInfo.specialty, formData, childInfo, specialistInfo);
+      console.log('[Reports] AI returned', text?.length || 0, 'chars');
       RS.generatedText = text;
 
-      // Save to DB
+      // Build a report object for preview/PDF
+      const reportObj = {
+        report_type: template.name,
+        specialty_template: RS.selectedTemplate,
+        status: 'generated',
+        form_data: formData,
+        generated_text: text,
+      };
+
       if (RS.currentReportId) {
         await _supa.from('reports').update({ form_data: formData, generated_text: text, status: 'generated', updated_at: new Date().toISOString() }).eq('id', RS.currentReportId);
+        reportObj.id = RS.currentReportId;
       } else {
         const { data, error } = await _supa.from('reports').insert({
           specialist_id: session.id, child_id: RS.selectedChildId,
@@ -256,16 +265,19 @@ export function renderReportForm() {
         }).select('id').single();
         if (error) throw error;
         RS.currentReportId = data.id;
+        reportObj.id = data.id;
       }
+      RS.currentReport = reportObj;
       RS.reportsLoaded = false;
       S.activeTab = 'report-preview';
       re();
     } catch (e) {
-      console.error(e);
+      console.error('[Reports] Generate failed:', e);
       toast('Could not generate report: ' + e.message, 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '✨ Generate Report'; }
+      genBtn.disabled = false; genBtn.textContent = '✨ Generate Report';
     }
-  }));
+  });
+  actions.appendChild(genBtn);
 
   sec.appendChild(actions);
   return sec;
@@ -287,13 +299,14 @@ export function renderReportPreview() {
     return sec;
   }
 
-  const children = DB.children.concat(window.HUD.LS?.get?.('children', []) || []);
+  const children = getChildren();
   const child = children.find(c => c.id === RS.selectedChildId);
   const childInfo = { name: child?.name || '—', dob: child?.dob || '—', age: calcAge(child?.dob) };
   const specialistInfo = { name: session?.displayName || session?.name || '—', specialty: session?.profession || '—', credentials: session?.credentials_title || '' };
 
-  // Report header
-  const report = RS.reports.find(r => r.id === RS.currentReportId) || {};
+  // Use currentReport (set during generate or hub click) — fallback to reports list
+  const report = RS.currentReport || RS.reports.find(r => r.id === RS.currentReportId) || { report_type: 'Report', status: 'generated' };
+
   sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0 10px' } }, [
     el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
     statusBadge(report.status || 'generated')
@@ -302,18 +315,17 @@ export function renderReportPreview() {
     childInfo.name + ' · ' + childInfo.age + ' · ' + new Date().toLocaleDateString()
   ]));
 
-  // Editable text area
+  const isFinalized = report.status === 'finalized';
+
   const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' } });
   textArea.value = RS.generatedText;
   textArea.oninput = () => { RS.generatedText = textArea.value; };
-  if (report.status === 'finalized') { textArea.readOnly = true; textArea.style.background = '#f8fafc'; }
+  if (isFinalized) { textArea.readOnly = true; textArea.style.background = '#f8fafc'; }
   sec.appendChild(textArea);
 
-  // Actions
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
 
-  if (report.status !== 'finalized') {
-    // Save edits
+  if (!isFinalized) {
     actions.appendChild(mkBtn('💾 Save', 'btn-md btn-secondary', async () => {
       try {
         await _supa.from('reports').update({ generated_text: RS.generatedText, updated_at: new Date().toISOString() }).eq('id', RS.currentReportId);
@@ -322,33 +334,34 @@ export function renderReportPreview() {
       } catch (e) { toast('Could not save.', 'error'); }
     }));
 
-    // Regenerate
-    actions.appendChild(mkBtn('🔄 Regenerate', 'btn-md btn-ghost', async () => {
-      S.activeTab = 'report-form';
-      re();
+    actions.appendChild(mkBtn('🔄 Regenerate', 'btn-md btn-ghost', () => {
+      S.activeTab = 'report-form'; re();
     }));
 
-    // Finalize
     actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', async () => {
       try {
-        await _supa.from('reports').update({
+        const { error } = await _supa.from('reports').update({
           generated_text: RS.generatedText,
           status: 'finalized',
           finalized_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }).eq('id', RS.currentReportId);
+        if (error) throw error;
+        // Update local state immediately so UI reflects the change
+        if (RS.currentReport) RS.currentReport.status = 'finalized';
         RS.reportsLoaded = false;
         toast('✅ Report finalized!');
         re();
-      } catch (e) { toast('Could not finalize.', 'error'); }
+      } catch (e) { console.error(e); toast('Could not finalize.', 'error'); }
     }));
   }
 
-  // Download PDF (always available)
+  // PDF — always available, uses RS.generatedText directly
   actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-secondary', async () => {
     toast('Generating PDF...', 'info', 2000);
     try {
-      await downloadReportPDF(report, RS.generatedText, childInfo, specialistInfo);
+      const pdfReport = { report_type: report.report_type || 'Report', status: report.status };
+      await downloadReportPDF(pdfReport, RS.generatedText, childInfo, specialistInfo);
       toast('📥 PDF downloaded!');
     } catch (e) { console.error(e); toast('PDF generation failed.', 'error'); }
   }));
@@ -363,11 +376,10 @@ export function initReports() {
   console.log('[Huddledin] Reports module initialized');
 }
 
-// Register on window for index.html glue code
 window.HUD_REPORTS = {
   renderReports,
   renderReportForm,
   renderReportPreview,
   initReports,
-  RS, // expose state for debugging
+  RS,
 };
