@@ -2434,7 +2434,8 @@ async function _loadSessionFromSupabase(s){
       householdId:profile.household_id,isPrimary:profile.is_primary!==false,
       profession:profile.profession||null,
       googleCalendarEnabled:profile.google_calendar_enabled||false,
-phone:profile.phone||null,address_line1:profile.address_line1||null,address_line2:profile.address_line2||null,city:profile.city||null,zip:profile.zip||null,country:profile.country||null};
+phone:profile.phone||null,address_line1:profile.address_line1||null,address_line2:profile.address_line2||null,city:profile.city||null,zip:profile.zip||null,country:profile.country||null,
+      credentials_title:profile.credentials_title||null,credentials_license:profile.credentials_license||null,credentials_certs:profile.credentials_certs||null};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
