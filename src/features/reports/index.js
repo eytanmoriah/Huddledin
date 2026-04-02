@@ -1,6 +1,7 @@
-// Reports Module v2 — Template System + Report Form
+// Reports Module v2 — Templates + Form + AI Generation + Import
 import { SECTION_LIBRARY, getSectionsForSpecialty, getOtherSpecialtySections, getSectionById, loadTemplates, saveTemplate, deleteTemplate } from './templates.js';
 import { renderForm } from './form-builder.js';
+import { generateReport, importTemplate } from './ai-generator.js';
 import { injectStyles } from './styles.js';
 
 const RS = {
@@ -16,8 +17,11 @@ const RS = {
   selectedSections: [],
   formData: {},
   showOtherSpecs: false,
-  dirty: false, // true if form has unsaved changes
-  lastSavedFormData: null, // snapshot of formData at last save/load
+  dirty: false,
+  lastSavedFormData: null,
+  generatedText: null,
+  regenCount: 0, // max 3 regenerations per report
+  importedTemplate: null, // template proposed by AI import
 };
 
 const MONTHLY_LIMIT = 5;
@@ -144,7 +148,8 @@ export function renderReports() {
       el('span', { class: 'empty-state-icon' }, ['📋']),
       el('div', { class: 'empty-state-title' }, ['Welcome to the Report Builder!']),
       el('div', { class: 'empty-state-body' }, ['Create your first template to start writing reports.']),
-      el('div', { class: 'empty-state-actions' }, [
+      el('div', { class: 'empty-state-actions', style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
+        mkBtn('📄 Upload a Past Report', 'btn-md btn-secondary', () => _startImport()),
         mkBtn('🔧 Build From Scratch', 'btn-md btn-primary', () => { RS.currentTemplate = null; nav('edit-template'); })
       ])
     ]));
@@ -183,7 +188,10 @@ export function renderReports() {
       RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
       RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
       RS.selectedSections = r.sections_included || [];
-      RS.step = 3; nav('new-report', 3);
+      RS.generatedText = r.generated_text || null;
+      RS.regenCount = 0;
+      if (r.status === 'generated' || r.status === 'finalized') { nav('preview'); }
+      else { RS.step = 3; nav('new-report', 3); }
     };
     sec.appendChild(card);
   });
@@ -463,44 +471,159 @@ export function renderNewReport() {
     renderForm(activeSections, formContainer, RS.formData, childInfo, specInfo);
     sec.appendChild(formContainer);
 
-    // Save draft
+    // Actions
     const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' } });
-    const saveBtn = mkBtn('💾 Save Draft', 'btn-md btn-primary', async () => {
-      saveBtn.disabled = true; saveBtn.textContent = 'Saving...';
+
+    // Save draft
+    actions.appendChild(mkBtn('💾 Save Draft', 'btn-md btn-secondary', async () => {
+      try { await _saveDraft(session, _supa, tplName); toast('💾 Draft saved!'); nav('hub'); }
+      catch (e) { console.error(e); toast('Could not save.', 'error'); }
+    }));
+
+    // Generate with AI
+    const genBtn = mkBtn('✨ Generate Report', 'btn-md btn-primary', async () => {
+      if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
+      genBtn.disabled = true; genBtn.textContent = '⏳ Generating...';
       try {
-        const payload = {
-          specialist_id: session.id, child_id: RS.selectedChildId,
-          report_type: tplName, template_id: RS.currentTemplate?.id || null,
-          sections_included: RS.selectedSections,
-          status: 'draft', form_data: RS.formData,
-          updated_at: new Date().toISOString(),
-        };
-        if (RS.currentReport?.id) {
-          const { error } = await _supa.from('reports').update(payload).eq('id', RS.currentReport.id);
-          if (error) throw error;
-        } else {
-          const { data, error } = await _supa.from('reports').insert(payload).select('id').single();
-          if (error) throw error;
-          RS.currentReport = { ...payload, id: data.id };
-        }
+        // Save draft first
+        await _saveDraft(session, _supa, tplName);
+        // Call AI
+        const hasStyle = RS.currentTemplate?.writing_style;
+        const sectionTitles = activeSections.map(id => getSectionById(id)?.title).filter(Boolean);
+        const text = await generateReport({
+          reportType: tplName,
+          formData: RS.formData,
+          childInfo, specialistInfo: specInfo,
+          writingStyle: hasStyle ? JSON.stringify(RS.currentTemplate.writing_style) : null,
+          sections: sectionTitles,
+        });
+        RS.generatedText = text;
+        RS.regenCount = 0;
+        // Save generated text
+        await _supa.from('reports').update({ generated_text: text, status: 'generated', updated_at: new Date().toISOString() }).eq('id', RS.currentReport.id);
+        RS.currentReport.generated_text = text;
+        RS.currentReport.status = 'generated';
         RS.reportsLoaded = false;
-        // Increment template use count
-        if (RS.currentTemplate?.id) {
-          await _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id);
-        }
-        RS.dirty = false;
-        RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
-        toast('💾 Draft saved!');
-        nav('hub'); // go back to reports list
-      } catch (e) { console.error(e); toast('Could not save.', 'error'); saveBtn.disabled = false; saveBtn.textContent = '💾 Save Draft'; }
+        nav('preview');
+      } catch (e) {
+        console.error(e); toast('Generation failed: ' + e.message, 'error');
+        genBtn.disabled = false; genBtn.textContent = '✨ Generate Report';
+      }
     });
-    actions.appendChild(saveBtn);
+    actions.appendChild(genBtn);
+
     sec.appendChild(actions);
     return sec;
   }
 
   return sec;
 }
+
+// Save draft helper (reused by save and generate)
+async function _saveDraft(session, _supa, tplName) {
+  const payload = {
+    specialist_id: session.id, child_id: RS.selectedChildId,
+    report_type: tplName, template_id: RS.currentTemplate?.id || null,
+    sections_included: RS.selectedSections,
+    status: RS.currentReport?.status || 'draft', form_data: RS.formData,
+    updated_at: new Date().toISOString(),
+  };
+  if (RS.currentReport?.id) {
+    const { error } = await _supa.from('reports').update(payload).eq('id', RS.currentReport.id);
+    if (error) throw error;
+  } else {
+    const { data, error } = await _supa.from('reports').insert(payload).select('id').single();
+    if (error) throw error;
+    RS.currentReport = { ...payload, id: data.id };
+  }
+  RS.reportsLoaded = false;
+  RS.dirty = false;
+  RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
+  if (RS.currentTemplate?.id) {
+    _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id).catch(() => {});
+  }
+}
+
+// ════════════════════════════════════════
+// REPORT PREVIEW
+// ════════════════════════════════════════
+function renderPreview() {
+  injectStyles();
+  const { el, mkBtn, toast, session, _supa, openModal, openConfirm } = H();
+  const sec = document.createElement('div'); sec.className = 'section';
+
+  const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: '0', zIndex: 10, background: '#f0fdf9', padding: '10px 0' } });
+  const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back to Form']);
+  back.onclick = () => { RS.step = 3; nav('new-report', 3); };
+  navRow.appendChild(back);
+  const exitBtn = el('button', { style: { background: 'none', border: '1px solid #e8f4f2', borderRadius: '8px', padding: '4px 12px', fontSize: '.76rem', fontWeight: 600, color: '#64748b', cursor: 'pointer' } }, ['✕ Exit']);
+  exitBtn.onclick = () => nav('hub');
+  navRow.appendChild(exitBtn);
+  sec.appendChild(navRow);
+
+  if (!RS.generatedText) {
+    sec.appendChild(el('div', { style: { color: '#64748b', padding: '24px', textAlign: 'center' } }, ['No report generated yet.']));
+    return sec;
+  }
+
+  const report = RS.currentReport || {};
+  const isFinalized = report.status === 'finalized';
+
+  // Header
+  sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } }, [
+    el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
+    statusBadge(report.status || 'generated')
+  ]));
+
+  // Report text — editable unless finalized
+  const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', background: isFinalized ? '#f8fafc' : '#fff' } });
+  textArea.value = RS.generatedText;
+  textArea.readOnly = isFinalized;
+  textArea.oninput = () => { RS.generatedText = textArea.value; };
+  sec.appendChild(textArea);
+
+  // Actions
+  const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
+
+  if (!isFinalized) {
+    // Save edits
+    actions.appendChild(mkBtn('💾 Save', 'btn-md btn-secondary', async () => {
+      try {
+        await _supa.from('reports').update({ generated_text: RS.generatedText, updated_at: new Date().toISOString() }).eq('id', RS.currentReport.id);
+        toast('💾 Saved!');
+      } catch (e) { toast('Could not save.', 'error'); }
+    }));
+
+    // Regenerate (max 3)
+    if (RS.regenCount < 3) {
+      actions.appendChild(mkBtn('🔄 Regenerate (' + (3 - RS.regenCount) + ' left)', 'btn-md btn-ghost', () => {
+        RS.regenCount++;
+        RS.step = 3; nav('new-report', 3);
+      }));
+    }
+
+    // Finalize
+    actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', () => {
+      openConfirm('Finalize Report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, async () => {
+        try {
+          const { error } = await _supa.from('reports').update({
+            generated_text: RS.generatedText, status: 'finalized',
+            finalized_at: new Date().toISOString(), updated_at: new Date().toISOString()
+          }).eq('id', RS.currentReport.id);
+          if (error) throw error;
+          RS.currentReport.status = 'finalized';
+          RS.reportsLoaded = false;
+          toast('✅ Report finalized!');
+          H().re();
+        } catch (e) { toast('Could not finalize.', 'error'); }
+      });
+    }));
+  }
+
+  sec.appendChild(actions);
+  return sec;
+}
+
 
 // ════════════════════════════════════════
 // INIT + ROUTING
@@ -510,12 +633,54 @@ export function initReports() {
   console.log('[Huddledin] Reports v2 module initialized');
 }
 
+// ─── Import helper ───
+function _startImport() {
+  const { el, mkBtn, toast, openModal } = H();
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
+  inp.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    openModal('📄 Analyzing Report...', (mb, close) => {
+      mb.appendChild(el('div', { style: { textAlign: 'center', padding: '20px' } }, [
+        el('div', { style: { fontSize: '2rem', marginBottom: '10px' } }, ['⏳']),
+        el('div', { style: { fontWeight: 600, color: '#0f172a' } }, ['AI is analyzing your report...']),
+        el('div', { style: { fontSize: '.78rem', color: '#64748b', marginTop: '6px' } }, ['This may take up to a minute.'])
+      ]));
+      (async () => {
+        try {
+          const template = await importTemplate(file);
+          close();
+          RS.importedTemplate = template;
+          RS.currentTemplate = {
+            name: template.name || 'Imported Template',
+            description: template.description || 'Imported from ' + file.name,
+            sections: (template.sections || []).map(s => s.id || s.title?.toLowerCase().replace(/\s+/g, '_')),
+            writing_style: template.writing_style || null,
+            source: 'imported',
+            _importedSections: template.sections || [],
+          };
+          nav('edit-template');
+          toast('📄 Template extracted! Review and save.');
+        } catch (err) {
+          close();
+          console.error(err);
+          toast('Could not analyze document: ' + err.message, 'error');
+        }
+      })();
+    }, 340);
+  };
+  document.body.appendChild(inp); inp.click(); inp.remove();
+}
+
 // Main render dispatcher (called from index.html glue)
 function renderMain() {
   switch (RS.view) {
     case 'templates': return renderTemplates();
     case 'edit-template': return renderTemplateEditor();
     case 'new-report': return renderNewReport();
+    case 'preview': return renderPreview();
     default: return renderReports();
   }
 }
