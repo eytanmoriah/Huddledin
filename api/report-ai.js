@@ -73,11 +73,13 @@ Return ONLY valid JSON with this exact structure:
 {
   "name": "Template name based on report type",
   "description": "Brief description",
+  "original_text": "The full plain-text content of the document, preserving paragraph breaks",
   "sections": [
     {
       "id": "unique_snake_case_id",
       "title": "Section Title",
       "type": "freetext|structured|mixed",
+      "source_excerpt": "The exact text from the original document that this section was extracted from (verbatim, 1-3 sentences)",
       "fields": [
         { "id": "field_id", "label": "Field Label", "type": "textarea|text|dropdown|scale|checklist", "placeholder": "...", "options": ["opt1","opt2"] }
       ]
@@ -97,6 +99,8 @@ Rules:
 - For sections with structured data (scores, ratings, checklists), create appropriate field types
 - For narrative/prose sections, use type "freetext" with a single textarea field
 - Capture the specialist's unique writing voice in writing_style
+- Include "original_text" with the full readable text of the document
+- Include "source_excerpt" in each section with the verbatim text that section came from
 - Return ONLY the JSON, no markdown fences or explanation`;
 
     const userContent = [{ type: 'text', text: 'Analyze this clinical report and extract a reusable template structure. Return JSON only.' }];
