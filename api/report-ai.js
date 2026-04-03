@@ -32,18 +32,7 @@ CRITICAL RULES:
 ${styleInstruction}`;
 
     const sectionList = sections?.length ? '\nSections included: ' + sections.join(', ') + '\n' : '';
-
-    const userPrompt = `Generate a ${reportType || 'clinical'} report:
-
-Patient: ${childInfo.name || 'N/A'}
-DOB: ${childInfo.dob || 'N/A'}
-Age: ${childInfo.age || 'N/A'}
-Date: ${new Date().toISOString().split('T')[0]}
-Specialist: ${specialistInfo?.name || 'N/A'}${specialistInfo?.credentials ? ', ' + specialistInfo.credentials : ''}
-Specialty: ${specialistInfo?.specialty || 'N/A'}
-${sectionList}
-Form Data:
-${JSON.stringify(formData, null, 2)}`;
+    const userPrompt = `Generate a ${reportType || 'clinical'} report:\n\nPatient: ${childInfo.name || 'N/A'}\nDOB: ${childInfo.dob || 'N/A'}\nAge: ${childInfo.age || 'N/A'}\nDate: ${new Date().toISOString().split('T')[0]}\nSpecialist: ${specialistInfo?.name || 'N/A'}${specialistInfo?.credentials ? ', ' + specialistInfo.credentials : ''}\nSpecialty: ${specialistInfo?.specialty || 'N/A'}\n${sectionList}\nForm Data:\n${JSON.stringify(formData, null, 2)}`;
 
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -51,7 +40,7 @@ ${JSON.stringify(formData, null, 2)}`;
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] }),
       });
-      if (!response.ok) { const err = await response.json().catch(() => ({})); console.error('Anthropic API error:', response.status, err); return res.status(500).json({ error: 'AI service error' }); }
+      if (!response.ok) { const err = await response.json().catch(() => ({})); console.error('API error:', response.status, err); return res.status(500).json({ error: 'AI service error' }); }
       const data = await response.json();
       const reportText = data.content?.[0]?.text || '';
       if (!reportText) return res.status(500).json({ error: 'Empty response from AI' });
@@ -59,72 +48,107 @@ ${JSON.stringify(formData, null, 2)}`;
     } catch (err) { console.error('Report generation error:', err); return res.status(500).json({ error: 'Failed to generate report' }); }
   }
 
-  // ── IMPORT TEMPLATE ──
-  if (action === 'import') {
+  // ── IMPORT STEP 1: Extract text from document ──
+  if (action === 'import-extract') {
     const { documentBase64, mimeType, fileName } = req.body;
     if (!documentBase64) return res.status(400).json({ error: 'No document provided' });
 
-    const systemPrompt = `You are a clinical report template analyzer. Given a clinical/therapy report document, extract:
-1. The sections used (title, type: freetext/structured/mixed, and any structured fields with their types)
-2. The writing style (formal/conversational, sentence length, use of clinical jargon, first/third person, etc.)
-3. Any boilerplate text that appears standard/reusable
+    const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    const docx = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    if (docx.includes(mimeType)) return res.status(400).json({ error: 'Word documents (.docx) not supported. Please save as PDF.' });
+    if (!supported.includes(mimeType)) return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF or image.' });
 
-Return ONLY valid JSON with this exact structure:
-{
-  "name": "Template name based on report type",
-  "description": "Brief description",
-  "original_text": "The full plain-text content of the document, preserving paragraph breaks",
-  "sections": [
-    {
-      "id": "unique_snake_case_id",
-      "title": "Section Title",
-      "type": "freetext|structured|mixed",
-      "source_excerpt": "The exact text from the original document that this section was extracted from (verbatim, 1-3 sentences)",
-      "fields": [
-        { "id": "field_id", "label": "Field Label", "type": "textarea|text|dropdown|scale|checklist", "placeholder": "...", "options": ["opt1","opt2"] }
-      ]
+    console.log('[import-extract]', fileName, mimeType, 'base64:', documentBase64.length);
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 8000,
+          system: 'Extract ALL text from this document verbatim. Preserve paragraph breaks and section headers. Return ONLY the plain text content, nothing else.',
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: 'Extract all text from this document.' },
+            { type: mimeType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: mimeType, data: documentBase64 } }
+          ]}],
+        }),
+      });
+      if (!r.ok) {
+        const eb = await r.text().catch(() => '');
+        console.error('[import-extract] API error:', r.status, eb);
+        let msg = 'AI error (HTTP ' + r.status + ')';
+        try { msg = JSON.parse(eb).error?.message || msg; } catch (_) {}
+        return res.status(502).json({ error: msg, details: eb.substring(0, 500) });
+      }
+      const d = await r.json();
+      const txt = d.content?.[0]?.text || '';
+      console.log('[import-extract] Got', txt.length, 'chars');
+      if (!txt) return res.status(502).json({ error: 'Could not extract text from document' });
+      return res.status(200).json({ text: txt });
+    } catch (err) {
+      console.error('[import-extract]', err.message);
+      return res.status(500).json({ error: 'Text extraction failed: ' + err.message });
     }
+  }
+
+  // ── IMPORT STEP 2: Analyze text into template ──
+  if (action === 'import-analyze') {
+    const { documentText } = req.body;
+    if (!documentText) return res.status(400).json({ error: 'No document text provided' });
+
+    console.log('[import-analyze]', documentText.length, 'chars');
+    const sys = `You are a clinical report template analyzer. Given report text, extract its template structure.
+
+Return ONLY valid JSON:
+{
+  "name": "Template name",
+  "description": "Brief description",
+  "sections": [
+    {"id": "snake_case_id", "title": "Section Title", "type": "freetext|structured|mixed", "fields": [
+      {"id": "field_id", "label": "Label", "type": "textarea|text|dropdown|scale|checklist", "placeholder": "...", "options": ["a","b"]}
+    ]}
   ],
   "writing_style": {
-    "tone": "description of tone",
-    "person": "first|third",
-    "formality": "formal|semi-formal|conversational",
-    "characteristics": ["list", "of", "style", "traits"],
-    "sample_phrases": ["example phrases from the document"]
+    "tone": "...", "person": "first|third", "formality": "formal|semi-formal|conversational",
+    "characteristics": ["trait1", "trait2"], "sample_phrases": ["phrase1", "phrase2"]
   }
 }
 
-Rules:
-- Identify ALL distinct sections in the document
-- For sections with structured data (scores, ratings, checklists), create appropriate field types
-- For narrative/prose sections, use type "freetext" with a single textarea field
-- Capture the specialist's unique writing voice in writing_style
-- Include "original_text" with the full readable text of the document
-- Include "source_excerpt" in each section with the verbatim text that section came from
-- Return ONLY the JSON, no markdown fences or explanation`;
-
-    const userContent = [{ type: 'text', text: 'Analyze this clinical report and extract a reusable template structure. Return JSON only.' }];
-    const supportedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-    if (supportedTypes.includes(mimeType)) {
-      userContent.push({ type: mimeType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: mimeType, data: documentBase64 } });
-    } else {
-      userContent.push({ type: 'text', text: `[Document: ${fileName}, type: ${mimeType}. Content not directly readable.]\n\nBase64 (first 2000 chars): ${documentBase64.substring(0, 2000)}` });
-    }
+Rules: identify ALL sections, use appropriate field types, capture writing voice. Do NOT include document text in response. Return ONLY JSON.`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, system: systemPrompt, messages: [{ role: 'user', content: userContent }] }),
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 4000, system: sys,
+          messages: [{ role: 'user', content: 'Analyze this report and return a template structure as JSON:\n\n' + documentText }],
+        }),
       });
-      if (!response.ok) { const err = await response.json().catch(() => ({})); console.error('Import API error:', response.status, err); return res.status(500).json({ error: 'AI service error' }); }
-      const data = await response.json();
-      const text = data.content?.[0]?.text || '';
+      if (!r.ok) {
+        const eb = await r.text().catch(() => '');
+        console.error('[import-analyze] API error:', r.status, eb);
+        let msg = 'AI error (HTTP ' + r.status + ')';
+        try { msg = JSON.parse(eb).error?.message || msg; } catch (_) {}
+        return res.status(502).json({ error: msg, details: eb.substring(0, 500) });
+      }
+      const d = await r.json();
+      const txt = d.content?.[0]?.text || '';
+      console.log('[import-analyze] Response:', txt.length, 'chars');
+      if (!txt) return res.status(502).json({ error: 'Empty AI response' });
+
       let template;
-      try { const jsonStr = text.replace(/^```json?\n?/m, '').replace(/\n?```$/m, '').trim(); template = JSON.parse(jsonStr); }
-      catch (e) { console.error('Failed to parse template JSON:', text.substring(0, 500)); return res.status(500).json({ error: 'Could not parse AI response as template' }); }
+      try {
+        template = JSON.parse(txt.replace(/^```json?\s*\n?/gm, '').replace(/\n?\s*```\s*$/gm, '').trim());
+      } catch (e) {
+        console.error('[import-analyze] Parse failed:', txt.substring(0, 500));
+        return res.status(422).json({ error: 'AI response was not valid JSON — try again.', details: txt.substring(0, 1000) });
+      }
+      console.log('[import-analyze] OK:', template.name, template.sections?.length, 'sections');
       return res.status(200).json({ template });
-    } catch (err) { console.error('Import template error:', err); return res.status(500).json({ error: 'Failed to analyze document' }); }
+    } catch (err) {
+      console.error('[import-analyze]', err.message);
+      return res.status(500).json({ error: 'Analysis failed: ' + err.message });
+    }
   }
 
   return res.status(400).json({ error: 'Unknown action: ' + action });
