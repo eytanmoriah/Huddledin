@@ -766,7 +766,7 @@ function _startImport() {
   const { el, mkBtn, toast, openModal } = H();
   const inp = document.createElement('input');
   inp.type = 'file';
-  inp.accept = '.pdf,.png,.jpg,.jpeg';
+  inp.accept = '.pdf,.docx,.doc,.png,.jpg,.jpeg';
   inp.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
