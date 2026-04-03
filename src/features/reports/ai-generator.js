@@ -1,4 +1,4 @@
-// AI Report Generation + Template Import — single endpoint
+// AI Report Generation + Two-Step Template Import
 
 export async function generateReport({ reportType, formData, childInfo, specialistInfo, writingStyle, sections }) {
   const response = await fetch('/api/report-ai', {
@@ -14,7 +14,14 @@ export async function generateReport({ reportType, formData, childInfo, speciali
   return data.report;
 }
 
+// Two-step import: extract text first, then analyze into template
 export async function importTemplate(file) {
+  // Validate file type
+  const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  if (!supported.includes(file.type)) {
+    throw new Error('Please upload a PDF or image file. Word documents (.docx) should be saved as PDF first.');
+  }
+
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -22,15 +29,36 @@ export async function importTemplate(file) {
     reader.readAsDataURL(file);
   });
 
-  const response = await fetch('/api/report-ai', {
+  // Step 1: Extract text from document
+  console.log('[import] Step 1: Extracting text...');
+  const extractRes = await fetch('/api/report-ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'import', documentBase64: base64, mimeType: file.type, fileName: file.name }),
+    body: JSON.stringify({ action: 'import-extract', documentBase64: base64, mimeType: file.type, fileName: file.name }),
   });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
+  if (!extractRes.ok) {
+    const err = await extractRes.json().catch(() => ({}));
+    console.error('[import] Extract failed:', err);
+    throw new Error(err.error || 'Failed to read document');
+  }
+  const { text: originalText } = await extractRes.json();
+  console.log('[import] Extracted', originalText.length, 'chars');
+
+  // Step 2: Analyze text into template structure
+  console.log('[import] Step 2: Analyzing template...');
+  const analyzeRes = await fetch('/api/report-ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'import-analyze', documentText: originalText }),
+  });
+  if (!analyzeRes.ok) {
+    const err = await analyzeRes.json().catch(() => ({}));
+    console.error('[import] Analyze failed:', err);
     throw new Error(err.error || 'Failed to analyze document');
   }
-  const data = await response.json();
-  return data.template;
+  const { template } = await analyzeRes.json();
+  console.log('[import] Template:', template.name, template.sections?.length, 'sections');
+
+  // Return template + original text (kept separate, not in AI response)
+  return { template, originalText };
 }
