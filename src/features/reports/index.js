@@ -437,17 +437,51 @@ function _findExcerptForSection(sectionTitle, originalText) {
 function _highlightExcerpt(excerpt, on) {
   const container = document.getElementById('rpt-import-original');
   if (!container || !excerpt) return;
-  if (!on) { container.innerHTML = ''; container.textContent = RS.importedOriginalText; return; }
   const text = RS.importedOriginalText || '';
-  const idx = text.indexOf(excerpt);
-  if (idx === -1) { container.innerHTML = ''; container.textContent = text; return; }
+  if (!on) { container.innerHTML = ''; container.textContent = text; return; }
+
+  // Find the best match: try exact first, then first line of excerpt, then first few words
+  let startIdx = -1, matchLen = 0;
+
+  // Try: exact match
+  startIdx = text.indexOf(excerpt);
+  if (startIdx !== -1) { matchLen = excerpt.length; }
+
+  // Try: first line/sentence of the excerpt (before the first space-joined boundary)
+  if (startIdx === -1) {
+    const firstChunk = excerpt.split(/\s{2,}/)[0] || excerpt.substring(0, 40);
+    startIdx = text.indexOf(firstChunk);
+    if (startIdx !== -1) {
+      // Highlight from this point to the end of the paragraph (next double newline or ~300 chars)
+      const endSearch = text.indexOf('\n\n', startIdx);
+      matchLen = (endSearch !== -1 ? endSearch : Math.min(startIdx + 300, text.length)) - startIdx;
+    }
+  }
+
+  // Try: case-insensitive search for first few words
+  if (startIdx === -1) {
+    const words = excerpt.toLowerCase().split(/\s+/).slice(0, 4).join('\\s+');
+    if (words.length > 5) {
+      const re = new RegExp(words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const m = re.exec(text);
+      if (m) {
+        startIdx = m.index;
+        const endSearch = text.indexOf('\n\n', startIdx);
+        matchLen = (endSearch !== -1 ? endSearch : Math.min(startIdx + 300, text.length)) - startIdx;
+      }
+    }
+  }
+
+  if (startIdx === -1) { container.innerHTML = ''; container.textContent = text; return; }
+
+  const matchText = text.substring(startIdx, startIdx + matchLen);
   container.innerHTML = '';
-  container.appendChild(document.createTextNode(text.substring(0, idx)));
+  container.appendChild(document.createTextNode(text.substring(0, startIdx)));
   const mark = document.createElement('mark');
-  mark.style.cssText = 'background:#ccfbf1;border-radius:3px;padding:1px 2px;';
-  mark.textContent = excerpt;
+  mark.style.cssText = 'background:#ccfbf1;border-radius:4px;padding:2px 0;';
+  mark.textContent = matchText;
   container.appendChild(mark);
-  container.appendChild(document.createTextNode(text.substring(idx + excerpt.length)));
+  container.appendChild(document.createTextNode(text.substring(startIdx + matchLen)));
 }
 
 function _scrollToExcerpt(excerpt) {
