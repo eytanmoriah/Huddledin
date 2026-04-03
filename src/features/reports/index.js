@@ -241,7 +241,8 @@ export function renderTemplates() {
     card.appendChild(meta);
     // Actions
     const acts = el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } });
-    acts.appendChild(mkBtn('Edit', 'btn-sm btn-ghost', (e) => { e.stopPropagation(); RS.currentTemplate = { ...t, sections: [...(t.sections || [])] }; nav('edit-template'); }));
+    const _copyTpl = () => ({ ...t, sections: JSON.parse(JSON.stringify(t.sections || [])) });
+    acts.appendChild(mkBtn('Edit', 'btn-sm btn-ghost', (e) => { e.stopPropagation(); RS.currentTemplate = _copyTpl(); nav('edit-template'); }));
     acts.appendChild(mkBtn('Delete', 'btn-sm btn-ghost', (e) => {
       e.stopPropagation();
       openConfirm('Delete Template?', 'This cannot be undone.', true, async () => {
@@ -249,7 +250,7 @@ export function renderTemplates() {
       });
     }));
     card.appendChild(acts);
-    card.onclick = () => { RS.currentTemplate = { ...t, sections: [...(t.sections || [])] }; nav('edit-template'); };
+    card.onclick = () => { RS.currentTemplate = _copyTpl(); nav('edit-template'); };
     grid.appendChild(card);
   });
   sec.appendChild(grid);
