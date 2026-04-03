@@ -676,7 +676,7 @@ async function _saveDraft(session, _supa, tplName) {
   RS.dirty = false;
   RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
   if (RS.currentTemplate?.id) {
-    _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id).catch(() => {});
+    try { await _supa.from('report_templates').update({ use_count: (RS.currentTemplate.use_count || 0) + 1 }).eq('id', RS.currentTemplate.id); } catch(e) {}
   }
 }
 
