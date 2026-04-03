@@ -54,11 +54,29 @@ ${styleInstruction}`;
     if (!documentBase64) return res.status(400).json({ error: 'No document provided' });
 
     const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-    const docx = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
-    if (docx.includes(mimeType)) return res.status(400).json({ error: 'Word documents (.docx) not supported. Please save as PDF.' });
-    if (!supported.includes(mimeType)) return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF or image.' });
+    const docxTypes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    const isDocx = docxTypes.includes(mimeType);
+    if (!isDocx && !supported.includes(mimeType)) return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF, DOCX, or image.' });
 
     console.log('[import-extract]', fileName, mimeType, 'base64:', documentBase64.length);
+
+    // DOCX: extract text directly from the ZIP/XML (no AI needed)
+    if (isDocx) {
+      try {
+        const { Readable } = await import('stream');
+        const { createInflateRaw } = await import('zlib');
+        const buf = Buffer.from(documentBase64, 'base64');
+        const text = await extractDocxText(buf);
+        console.log('[import-extract] DOCX text extracted:', text.length, 'chars');
+        if (!text.trim()) return res.status(422).json({ error: 'Could not extract text from DOCX. The file may be empty or corrupted.' });
+        return res.status(200).json({ text });
+      } catch (err) {
+        console.error('[import-extract] DOCX parse error:', err.message);
+        return res.status(422).json({ error: 'Could not read DOCX file: ' + err.message });
+      }
+    }
+
+    // PDF/Image: use AI to extract text
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -152,4 +170,60 @@ Rules: identify ALL sections, use appropriate field types, capture writing voice
   }
 
   return res.status(400).json({ error: 'Unknown action: ' + action });
+}
+
+// Extract text from DOCX (ZIP of XML) — no external dependencies
+async function extractDocxText(buf) {
+  const { inflateRawSync } = await import('zlib');
+
+  // Minimal ZIP parser — find entries, locate word/document.xml
+  const entries = [];
+  let i = 0;
+  while (i < buf.length - 4) {
+    // Local file header signature: PK\x03\x04
+    if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x03 && buf[i+3] === 0x04) {
+      const method = buf.readUInt16LE(i + 8);
+      const compSize = buf.readUInt32LE(i + 18);
+      const uncompSize = buf.readUInt32LE(i + 22);
+      const nameLen = buf.readUInt16LE(i + 26);
+      const extraLen = buf.readUInt16LE(i + 28);
+      const name = buf.toString('utf8', i + 30, i + 30 + nameLen);
+      const dataStart = i + 30 + nameLen + extraLen;
+      entries.push({ name, method, compSize, uncompSize, dataStart });
+      i = dataStart + compSize;
+    } else {
+      i++;
+    }
+  }
+
+  // Find word/document.xml
+  const docEntry = entries.find(e => e.name === 'word/document.xml');
+  if (!docEntry) throw new Error('No word/document.xml found in DOCX');
+
+  let xml;
+  const raw = buf.slice(docEntry.dataStart, docEntry.dataStart + docEntry.compSize);
+  if (docEntry.method === 0) {
+    xml = raw.toString('utf8'); // stored (no compression)
+  } else if (docEntry.method === 8) {
+    xml = inflateRawSync(raw).toString('utf8'); // deflated
+  } else {
+    throw new Error('Unsupported compression method: ' + docEntry.method);
+  }
+
+  // Extract text from XML — get content of all <w:t> tags
+  const parts = [];
+  let inParagraph = false;
+  // Split by paragraph boundaries
+  const paragraphs = xml.split(/<\/w:p>/);
+  for (const para of paragraphs) {
+    const texts = [];
+    const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    let m;
+    while ((m = re.exec(para)) !== null) {
+      texts.push(m[1]);
+    }
+    if (texts.length) parts.push(texts.join(''));
+  }
+
+  return parts.join('\n').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
 }
