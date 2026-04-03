@@ -228,7 +228,11 @@ export function renderTemplates() {
   const grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '12px' } });
   RS.templates.forEach(t => {
     const card = el('div', { class: 'rpt-tpl-card' });
-    card.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px' } }, [t.name]));
+    const nameRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' } });
+    nameRow.appendChild(el('span', { style: { fontWeight: 700, color: '#0f172a' } }, [t.name]));
+    if (t.name?.includes('(Draft)')) nameRow.appendChild(el('span', { class: 'rpt-badge rpt-badge-draft' }, ['Draft']));
+    if (t.source === 'imported') nameRow.appendChild(el('span', { class: 'rpt-badge', style: { background: '#ede9fe', color: '#6d28d9' } }, ['Imported']));
+    card.appendChild(nameRow);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '8px' } }, [t.description || '']));
     const meta = el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } });
     const secCount = (t.sections || []).length;
@@ -665,32 +669,37 @@ async function _saveDraft(session, _supa, tplName) {
   }
 }
 
-// Share finalized report with parents — uploads PDF to child's files, sends notifications
+// Share finalized report with parents — uploads to specialist's shared folder, sends notifications
 async function _shareReportWithParents(report, generatedText, _supa, session) {
-  const { DB, SB, toast } = H();
+  const { DB, SB } = H();
   const childId = report.child_id;
   const children = getChildren();
   const child = children.find(c => c.id === childId);
   if (!child) throw new Error('Child not found');
 
-  // Build a simple text file (plain text report) as a Blob
-  const fileName = (report.report_type || 'Report').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.txt';
+  // The specialist's shared folder key is 'spec_' + session.id (created on approval)
+  const folderKey = 'spec_' + session.id;
+
+  // Build a plain text report as a Blob
+  const fileName = (report.report_type || 'Report').replace(/[^a-zA-Z0-9\u0590-\u05FF ._-]/g, '').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.txt';
   const blob = new Blob([generatedText || ''], { type: 'text/plain' });
-  const file = new File([blob], fileName, { type: 'text/plain' });
 
-  // Upload to child's shared files using existing SB pattern
+  // Upload to huddledin-files bucket under child's path
   const storagePath = childId + '/' + Date.now() + '_' + fileName;
-  const { error: upErr } = await _supa.storage.from('huddledin-files').upload(storagePath, file, { contentType: 'text/plain', upsert: false });
-  if (upErr) throw upErr;
+  console.log('[share] Uploading to', storagePath, 'size:', blob.size);
+  const { error: upErr } = await _supa.storage.from('huddledin-files').upload(storagePath, blob, { contentType: 'text/plain', upsert: false });
+  if (upErr) { console.error('[share] Upload error:', upErr); throw new Error('Upload failed: ' + upErr.message); }
+  console.log('[share] Upload OK');
 
-  // Insert file record (category 'reports' or the specialist's folder key)
-  const { error: fileErr } = await _supa.from('files').insert({
+  // Insert file record into the specialist's shared folder (category = folder key)
+  const { data: fileData, error: fileErr } = await _supa.from('files').insert({
     child_id: childId, uploaded_by: session.id,
     name: fileName, storage_path: storagePath,
     mime_type: 'text/plain', size_bytes: blob.size,
-    category: 'general', shared_with: []
-  });
-  if (fileErr) console.error('File record error:', fileErr);
+    category: folderKey, shared_with: []
+  }).select('id').single();
+  if (fileErr) { console.error('[share] File record error:', fileErr.message, fileErr.details); throw new Error('File record failed: ' + fileErr.message); }
+  console.log('[share] File record created:', fileData?.id);
 
   // Mark report as shared
   const { error: rptErr } = await _supa.from('reports').update({
