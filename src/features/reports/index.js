@@ -3,6 +3,7 @@ import { SECTION_LIBRARY, getSectionsForSpecialty, getOtherSpecialtySections, ge
 import { renderForm } from './form-builder.js';
 import { generateReport, importTemplate } from './ai-generator.js';
 import { injectStyles } from './styles.js';
+import { generatePDFBlob } from './pdf-util.js';
 
 const RS = {
   templates: [], templatesLoaded: false,
@@ -271,7 +272,7 @@ export function renderTemplateEditor() {
         const tpl = RS.currentTemplate || {};
         tpl.name = nameInp.value.trim() + (tpl.name?.includes('(Draft)') ? '' : ' (Draft)');
         tpl.description = descInp?.value?.trim() || tpl.description || '';
-        tpl.sections = [...selected];
+        tpl.sections = { ids: [...selected], imported: importedSections.length ? importedSections : undefined };
         await saveTemplate(tpl);
         RS.templatesLoaded = false;
         toast('💾 Draft template saved');
@@ -294,10 +295,17 @@ export function renderTemplateEditor() {
   sec.appendChild(el('label', { class: 'rpt-form-label', style: { marginTop: '8px' } }, ['Description']));
   sec.appendChild(descInp);
 
-  // Track selected section IDs
-  const selected = new Set((RS.currentTemplate?.sections || []).map(s => typeof s === 'string' ? s : s.id));
-  const importedSections = RS.currentTemplate?._importedSections || [];
-  const hasImportedText = !!(RS.importedOriginalText && RS.currentTemplate?.source === 'imported');
+  // Track selected section IDs — handle both old format (array) and new format ({ids, imported})
+  const rawSections = RS.currentTemplate?.sections || [];
+  const sectionIds = Array.isArray(rawSections) ? rawSections : (rawSections.ids || []);
+  const selected = new Set(sectionIds.map(s => typeof s === 'string' ? s : s.id));
+  // Imported section definitions: from current flow OR restored from saved template
+  const importedSections = RS.currentTemplate?._importedSections || (Array.isArray(rawSections) ? [] : (rawSections.imported || []));
+  // Restore original text from saved writing_style if not already in memory
+  if (!RS.importedOriginalText && RS.currentTemplate?.writing_style?._originalText) {
+    RS.importedOriginalText = RS.currentTemplate.writing_style._originalText;
+  }
+  const hasImportedText = !!(RS.importedOriginalText && (RS.currentTemplate?.source === 'imported' || importedSections.length > 0));
   const isWebView = window.innerWidth >= 1024;
 
   // Build section content into a container (left column in split view)
@@ -392,7 +400,8 @@ export function renderTemplateEditor() {
       const tpl = RS.currentTemplate || {};
       tpl.name = nameInp.value.trim();
       tpl.description = descInp.value.trim();
-      tpl.sections = [...selected];
+      // Save section IDs + imported section definitions (so they survive reload)
+      tpl.sections = { ids: [...selected], imported: importedSections.length ? importedSections : undefined };
       await saveTemplate(tpl);
       RS.templatesLoaded = false; RS.importedOriginalText = ''; await loadData();
       toast(isEdit ? '💾 Template saved!' : '✅ Template created!');
@@ -677,25 +686,28 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
   const child = children.find(c => c.id === childId);
   if (!child) throw new Error('Child not found');
 
-  // The specialist's shared folder key is 'spec_' + session.id (created on approval)
   const folderKey = 'spec_' + session.id;
+  const specName = session.displayName || session.name || 'Specialist';
+  const childInfo = { name: child.name, dob: child.dob, age: calcAge(child.dob) };
+  const specInfo = { name: specName, specialty: session.profession || '', credentials: session.credentials_title || '' };
 
-  // Build a plain text report as a Blob
-  const fileName = (report.report_type || 'Report').replace(/[^a-zA-Z0-9\u0590-\u05FF ._-]/g, '').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.txt';
-  const blob = new Blob([generatedText || ''], { type: 'text/plain' });
+  // Generate a proper PDF from the report text
+  console.log('[share] Generating PDF...');
+  const pdfBlob = await generatePDFBlob(generatedText, report.report_type, childInfo, specInfo);
+  const fileName = (report.report_type || 'Report').replace(/[^a-zA-Z0-9\u0590-\u05FF ._-]/g, '').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+  console.log('[share] PDF generated:', pdfBlob.size, 'bytes');
 
-  // Upload to huddledin-files bucket under child's path
+  // Upload PDF to huddledin-files bucket
   const storagePath = childId + '/' + Date.now() + '_' + fileName;
-  console.log('[share] Uploading to', storagePath, 'size:', blob.size);
-  const { error: upErr } = await _supa.storage.from('huddledin-files').upload(storagePath, blob, { contentType: 'text/plain', upsert: false });
+  const { error: upErr } = await _supa.storage.from('huddledin-files').upload(storagePath, pdfBlob, { contentType: 'application/pdf', upsert: false });
   if (upErr) { console.error('[share] Upload error:', upErr); throw new Error('Upload failed: ' + upErr.message); }
   console.log('[share] Upload OK');
 
-  // Insert file record into the specialist's shared folder (category = folder key)
+  // Insert file record into the specialist's shared folder
   const { data: fileData, error: fileErr } = await _supa.from('files').insert({
     child_id: childId, uploaded_by: session.id,
     name: fileName, storage_path: storagePath,
-    mime_type: 'text/plain', size_bytes: blob.size,
+    mime_type: 'application/pdf', size_bytes: pdfBlob.size,
     category: folderKey, shared_with: []
   }).select('id').single();
   if (fileErr) { console.error('[share] File record error:', fileErr.message, fileErr.details); throw new Error('File record failed: ' + fileErr.message); }
@@ -927,16 +939,29 @@ function _startImport() {
           RS.importedTemplate = tpl;
           RS.importedOriginalText = result.originalText || '';
           // Section IDs assigned for highlight mapping (matched in _buildSegmentedOriginal)
+          const sectionIds = (tpl.sections || []).map(s => s.id || s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+          // Ensure each imported section has an id
+          (tpl.sections || []).forEach(s => { if (!s.id) s.id = s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '_'); });
+          // Bundle original text into writing_style for persistence
+          const wsData = tpl.writing_style || {};
+          wsData._originalText = result.originalText || '';
           RS.currentTemplate = {
-            name: tpl.name || 'Imported Template',
+            name: (tpl.name || 'Imported Template') + ' (Draft)',
             description: tpl.description || 'Imported from ' + file.name,
-            sections: (tpl.sections || []).map(s => s.id || s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '_')),
-            writing_style: tpl.writing_style || null,
+            sections: { ids: sectionIds, imported: tpl.sections || [] },
+            writing_style: wsData,
             source: 'imported',
             _importedSections: tpl.sections || [],
           };
+          // Auto-save as draft immediately so work isn't lost
+          try {
+            const id = await saveTemplate(RS.currentTemplate);
+            RS.currentTemplate.id = id;
+            RS.templatesLoaded = false;
+            console.log('[import] Auto-saved draft template:', id);
+          } catch (e) { console.error('[import] Auto-save failed:', e); }
           nav('edit-template');
-          toast('📄 Template extracted! Review and save.');
+          toast('📄 Template extracted! Review and edit.');
         } catch (err) {
           close();
           console.error(err);
