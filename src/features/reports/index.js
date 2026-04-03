@@ -180,7 +180,10 @@ export function renderReports() {
     const card = el('div', { class: 'rpt-card' });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
     top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [(child?.avatar || '🧒') + ' ' + (child?.name || 'Patient') + ' — ' + (r.report_type || 'Report')]));
-    top.appendChild(statusBadge(r.status));
+    const badges = el('div', { style: { display: 'flex', gap: '4px' } });
+    badges.appendChild(statusBadge(r.status));
+    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
+    top.appendChild(badges);
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(r.created_at ? new Date(r.created_at).toLocaleDateString() : '')]));
     card.onclick = () => {
@@ -257,7 +260,21 @@ export function renderTemplateEditor() {
   const sec = document.createElement('div'); sec.className = 'section';
 
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back']);
-  back.onclick = () => nav(RS.templates.length ? 'templates' : 'hub'); sec.appendChild(back);
+  back.onclick = async () => {
+    // Auto-save imported templates as draft to prevent losing work
+    if (!isEdit && RS.currentTemplate?.source === 'imported' && nameInp?.value?.trim()) {
+      try {
+        const tpl = RS.currentTemplate || {};
+        tpl.name = nameInp.value.trim() + (tpl.name?.includes('(Draft)') ? '' : ' (Draft)');
+        tpl.description = descInp?.value?.trim() || tpl.description || '';
+        tpl.sections = [...selected];
+        await saveTemplate(tpl);
+        RS.templatesLoaded = false;
+        toast('💾 Draft template saved');
+      } catch (e) { console.error('Auto-save template:', e); }
+    }
+    nav(RS.templates.length ? 'templates' : 'hub');
+  }; sec.appendChild(back);
 
   const isEdit = !!RS.currentTemplate?.id;
   sec.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', margin: '14px 0 16px', fontSize: '1.1rem' } }, [isEdit ? 'Edit Template' : 'New Template']));
@@ -648,6 +665,61 @@ async function _saveDraft(session, _supa, tplName) {
   }
 }
 
+// Share finalized report with parents — uploads PDF to child's files, sends notifications
+async function _shareReportWithParents(report, generatedText, _supa, session) {
+  const { DB, SB, toast } = H();
+  const childId = report.child_id;
+  const children = getChildren();
+  const child = children.find(c => c.id === childId);
+  if (!child) throw new Error('Child not found');
+
+  // Build a simple text file (plain text report) as a Blob
+  const fileName = (report.report_type || 'Report').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.txt';
+  const blob = new Blob([generatedText || ''], { type: 'text/plain' });
+  const file = new File([blob], fileName, { type: 'text/plain' });
+
+  // Upload to child's shared files using existing SB pattern
+  const storagePath = childId + '/' + Date.now() + '_' + fileName;
+  const { error: upErr } = await _supa.storage.from('huddledin-files').upload(storagePath, file, { contentType: 'text/plain', upsert: false });
+  if (upErr) throw upErr;
+
+  // Insert file record (category 'reports' or the specialist's folder key)
+  const { error: fileErr } = await _supa.from('files').insert({
+    child_id: childId, uploaded_by: session.id,
+    name: fileName, storage_path: storagePath,
+    mime_type: 'text/plain', size_bytes: blob.size,
+    category: 'general', shared_with: []
+  });
+  if (fileErr) console.error('File record error:', fileErr);
+
+  // Mark report as shared
+  const { error: rptErr } = await _supa.from('reports').update({
+    shared_with_parents: true, shared_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  }).eq('id', report.id);
+  if (rptErr) console.error('Report share update error:', rptErr);
+
+  // Notify parents in household
+  const hid = child.householdId || child.household_id;
+  if (hid && session.id !== 'demo') {
+    try {
+      const { data: members } = await _supa.from('profiles').select('id,role').eq('household_id', hid);
+      const parents = (members || []).filter(m => m.role === 'parent');
+      const specName = session.displayName || session.name || 'Specialist';
+      for (const p of parents) {
+        try {
+          await _supa.from('notifications').insert({
+            id: 'n_op_' + Date.now() + '_' + p.id,
+            user_id: p.id, child_id: childId,
+            type: 'report',
+            message: '📋 ' + specName + ' shared a report for ' + (child.name || 'your child'),
+            read: false, link_tab: 'files'
+          });
+        } catch (e) { console.error('Notify parent:', e); }
+      }
+    } catch (e) { console.error('Load household:', e); }
+  }
+}
+
 // ════════════════════════════════════════
 // REPORT PREVIEW
 // ════════════════════════════════════════
@@ -684,14 +756,44 @@ function renderPreview() {
     textDiv.textContent = RS.generatedText || '';
     sec.appendChild(textDiv);
 
-    // Actions: Print + Back only
-    const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px' } });
+    // Shared status
+    if (report.shared_with_parents) {
+      sec.appendChild(el('div', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#d1fae5', borderRadius: '8px', fontSize: '.78rem', fontWeight: 600, color: '#065f46', marginBottom: '12px' } }, [
+        '✅ Shared with parents' + (report.shared_at ? ' · ' + new Date(report.shared_at).toLocaleDateString() : '')
+      ]));
+    }
+
+    // Actions
+    const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
+
+    // Share with parents (if not already shared)
+    if (!report.shared_with_parents) {
+      actions.appendChild(mkBtn('📤 Share with Parents', 'btn-md btn-primary', () => {
+        openConfirm('Share Report?', 'This will upload the report as a PDF to the child\'s shared files and notify both parents. Continue?', false, async () => {
+          try {
+            await _shareReportWithParents(report, RS.generatedText, _supa, session);
+            report.shared_with_parents = true;
+            report.shared_at = new Date().toISOString();
+            RS.reportsLoaded = false;
+            toast('📤 Report shared with parents!');
+            H().re();
+          } catch (e) { console.error(e); toast('Could not share: ' + e.message, 'error'); }
+        });
+      }));
+    }
+
+    // Print
     actions.appendChild(mkBtn('🖨 Print', 'btn-md btn-secondary', () => {
+      const children = getChildren();
+      const child = children.find(c => c.id === report.child_id);
       const w = window.open('', '_blank');
-      w.document.write('<html><head><title>' + (report.report_type || 'Report') + '</title><style>body{font-family:-apple-system,system-ui,sans-serif;padding:40px;line-height:1.8;color:#1e293b;white-space:pre-wrap;}</style></head><body>' + (RS.generatedText || '').replace(/</g, '&lt;') + '</body></html>');
+      const title = (report.report_type || 'Report') + ' — ' + (child?.name || 'Patient');
+      const escaped = (RS.generatedText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      w.document.write('<html><head><title>' + title + '</title><style>body{font-family:-apple-system,system-ui,sans-serif;max-width:700px;margin:40px auto;line-height:1.8;color:#1e293b;white-space:pre-wrap;font-size:12pt;}@media print{body{margin:0;padding:20mm;}}</style></head><body>' + escaped + '</body></html>');
       w.document.close();
       w.print();
     }));
+
     actions.appendChild(mkBtn('← Reports', 'btn-md btn-ghost', () => nav('hub')));
     sec.appendChild(actions);
     return sec;
