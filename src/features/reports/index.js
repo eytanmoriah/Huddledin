@@ -310,9 +310,9 @@ export function renderTemplateEditor() {
     row.appendChild(info);
     // Hover/click highlight for imported templates
     if (hasImportedText && isWebView) {
-      row.onmouseenter = () => _highlightSection(s.id, true);
-      row.onmouseleave = () => _highlightSection(null, false);
-      row.onclick = (e) => { if (e.target.tagName !== 'INPUT') _highlightSection(s.id, true); };
+      row.onmouseenter = () => _highlightSection(s.id, true, false);
+      row.onmouseleave = () => _highlightSection(null, false, false);
+      row.onclick = (e) => { if (e.target.tagName !== 'INPUT') _highlightSection(s.id, true, true); };
     }
     return row;
   };
@@ -441,16 +441,19 @@ function _buildSegmentedOriginal(originalText, sectionTitles) {
   return container;
 }
 
-function _highlightSection(sectionId, on) {
+function _highlightSection(sectionId, on, scroll) {
   const container = document.getElementById('rpt-import-original');
   if (!container) return;
-  // Clear all highlights
   container.querySelectorAll('[data-rpt-section]').forEach(b => { b.style.background = ''; });
   if (on && sectionId) {
     const block = container.querySelector('[data-rpt-section="' + sectionId + '"]');
     if (block) {
       block.style.background = '#ccfbf1';
-      block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Only scroll on explicit click, not hover — prevents left panel from jumping
+      if (scroll) {
+        const parent = container.parentElement;
+        if (parent) parent.scrollTop = block.offsetTop - parent.offsetTop - 40;
+      }
     }
   }
 }
