@@ -17,9 +17,10 @@ export async function generateReport({ reportType, formData, childInfo, speciali
 // Two-step import: extract text first, then analyze into template
 export async function importTemplate(file) {
   // Validate file type
-  const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
   if (!supported.includes(file.type)) {
-    throw new Error('Please upload a PDF or image file. Word documents (.docx) should be saved as PDF first.');
+    throw new Error('Please upload a PDF, DOCX, or image file.');
   }
 
   const base64 = await new Promise((resolve, reject) => {
