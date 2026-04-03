@@ -402,6 +402,38 @@ export function renderTemplateEditor() {
 }
 
 // Highlight helpers for import split view
+// Find the paragraph in original text that best matches a section title (client-side)
+function _findExcerptForSection(sectionTitle, originalText) {
+  if (!sectionTitle || !originalText) return '';
+  const lines = originalText.split('\n');
+  const titleLower = sectionTitle.toLowerCase();
+  // Find the line that contains the section title (or close match)
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase().includes(titleLower)) {
+      // Return this line + next 2-3 non-empty lines as the excerpt
+      const excerpt = [];
+      for (let j = i; j < Math.min(i + 4, lines.length); j++) {
+        if (lines[j].trim()) excerpt.push(lines[j].trim());
+      }
+      return excerpt.join(' ');
+    }
+  }
+  // Fallback: try matching first word of title
+  const firstWord = titleLower.split(/\s/)[0];
+  if (firstWord.length > 3) {
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].toLowerCase().includes(firstWord)) {
+        const excerpt = [];
+        for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+          if (lines[j].trim()) excerpt.push(lines[j].trim());
+        }
+        return excerpt.join(' ');
+      }
+    }
+  }
+  return '';
+}
+
 function _highlightExcerpt(excerpt, on) {
   const container = document.getElementById('rpt-import-original');
   if (!container || !excerpt) return;
@@ -734,7 +766,7 @@ function _startImport() {
   const { el, mkBtn, toast, openModal } = H();
   const inp = document.createElement('input');
   inp.type = 'file';
-  inp.accept = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
+  inp.accept = '.pdf,.png,.jpg,.jpeg';
   inp.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -746,17 +778,24 @@ function _startImport() {
       ]));
       (async () => {
         try {
-          const template = await importTemplate(file);
+          const result = await importTemplate(file);
           close();
-          RS.importedTemplate = template;
-          RS.importedOriginalText = template.original_text || '';
+          const tpl = result.template;
+          RS.importedTemplate = tpl;
+          RS.importedOriginalText = result.originalText || '';
+          // Match section titles to original text for highlight excerpts (client-side)
+          if (RS.importedOriginalText && tpl.sections) {
+            tpl.sections.forEach(s => {
+              s.source_excerpt = _findExcerptForSection(s.title, RS.importedOriginalText);
+            });
+          }
           RS.currentTemplate = {
-            name: template.name || 'Imported Template',
-            description: template.description || 'Imported from ' + file.name,
-            sections: (template.sections || []).map(s => s.id || s.title?.toLowerCase().replace(/\s+/g, '_')),
-            writing_style: template.writing_style || null,
+            name: tpl.name || 'Imported Template',
+            description: tpl.description || 'Imported from ' + file.name,
+            sections: (tpl.sections || []).map(s => s.id || s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '_')),
+            writing_style: tpl.writing_style || null,
             source: 'imported',
-            _importedSections: template.sections || [],
+            _importedSections: tpl.sections || [],
           };
           nav('edit-template');
           toast('📄 Template extracted! Review and save.');
