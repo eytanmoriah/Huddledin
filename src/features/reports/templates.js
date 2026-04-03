@@ -105,7 +105,9 @@ export async function loadTemplates() {
   const { _supa, session } = window.HUD || {};
   if (!_supa || !session) return [];
   try {
-    const { data } = await _supa.from('report_templates').select('*').eq('specialist_id', session.id).order('updated_at', { ascending: false });
+    const { data, error } = await _supa.from('report_templates').select('*').eq('specialist_id', session.id).order('updated_at', { ascending: false });
+    if (error) { console.error('[templates] Load error:', error.message, error.details); return []; }
+    console.log('[templates] Loaded', (data || []).length, 'templates for', session.id);
     return data || [];
   } catch (e) { console.error('Load templates:', e); return []; }
 }
