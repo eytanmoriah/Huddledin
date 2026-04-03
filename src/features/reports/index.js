@@ -298,8 +298,6 @@ export function renderTemplateEditor() {
 
   // Section checkbox builder with hover highlight
   const mkSecRow = (s) => {
-    const impSec = importedSections.find(is => is.id === s.id);
-    const excerpt = impSec?.source_excerpt || '';
     const row = el('div', { class: 'rpt-sec-check', 'data-section-id': s.id });
     const cb = el('input', { type: 'checkbox' });
     cb.checked = selected.has(s.id);
@@ -310,11 +308,11 @@ export function renderTemplateEditor() {
     const typeLbl = s.type === 'freetext' ? 'Free text' : s.type === 'structured' ? 'Structured' : 'Mixed';
     info.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [typeLbl + ' · ' + (s.fields || []).length + ' field' + ((s.fields || []).length !== 1 ? 's' : '')]));
     row.appendChild(info);
-    // Hover highlight for imported templates
-    if (hasImportedText && isWebView && excerpt) {
-      row.onmouseenter = () => _highlightExcerpt(excerpt, true);
-      row.onmouseleave = () => _highlightExcerpt(excerpt, false);
-      row.onclick = (e) => { if (e.target.tagName !== 'INPUT') _scrollToExcerpt(excerpt); };
+    // Hover/click highlight for imported templates
+    if (hasImportedText && isWebView) {
+      row.onmouseenter = () => _highlightSection(s.id, true);
+      row.onmouseleave = () => _highlightSection(null, false);
+      row.onclick = (e) => { if (e.target.tagName !== 'INPUT') _highlightSection(s.id, true); };
     }
     return row;
   };
@@ -386,12 +384,10 @@ export function renderTemplateEditor() {
   if (hasImportedText && isWebView) {
     const splitWrap = el('div', { style: { display: 'flex', gap: '20px', alignItems: 'flex-start' } });
     splitWrap.appendChild(leftCol);
-    // Right column — original report text
+    // Right column — original report segmented by section for highlighting
     const rightCol = el('div', { style: { flex: 1, minWidth: 0, position: 'sticky', top: '60px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' } });
     rightCol.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.84rem', marginBottom: '8px' } }, ['📄 Original Report']));
-    rightTextEl = el('div', { id: 'rpt-import-original', style: { fontSize: '.8rem', lineHeight: '1.7', color: '#334155', padding: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e8f4f2', whiteSpace: 'pre-wrap', fontFamily: 'inherit' } });
-    rightTextEl.textContent = RS.importedOriginalText;
-    rightCol.appendChild(rightTextEl);
+    rightCol.appendChild(_buildSegmentedOriginal(RS.importedOriginalText, importedSections));
     splitWrap.appendChild(rightCol);
     sec.appendChild(splitWrap);
   } else {
@@ -401,95 +397,62 @@ export function renderTemplateEditor() {
   return sec;
 }
 
-// Highlight helpers for import split view
-// Find the paragraph in original text that best matches a section title (client-side)
-function _findExcerptForSection(sectionTitle, originalText) {
-  if (!sectionTitle || !originalText) return '';
+// ── Import split-view highlight system ──
+// Segments the original text into blocks tagged by section title.
+// Each block in the right column gets a data-section-id for CSS targeting.
+
+function _buildSegmentedOriginal(originalText, sectionTitles) {
+  // Split original text into segments. Each segment starts where a section title appears.
+  const { el } = H();
+  const container = el('div', { id: 'rpt-import-original', style: { fontSize: '.8rem', lineHeight: '1.7', color: '#334155', padding: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e8f4f2', fontFamily: 'inherit' } });
+  if (!originalText) return container;
+
   const lines = originalText.split('\n');
-  const titleLower = sectionTitle.toLowerCase();
-  // Find the line that contains the section title (or close match)
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].toLowerCase().includes(titleLower)) {
-      // Return this line + next 2-3 non-empty lines as the excerpt
-      const excerpt = [];
-      for (let j = i; j < Math.min(i + 4, lines.length); j++) {
-        if (lines[j].trim()) excerpt.push(lines[j].trim());
-      }
-      return excerpt.join(' ');
-    }
-  }
-  // Fallback: try matching first word of title
-  const firstWord = titleLower.split(/\s/)[0];
-  if (firstWord.length > 3) {
+  const titleMap = {}; // line index → section id
+  sectionTitles.forEach(s => {
+    const tLow = s.title.toLowerCase();
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].toLowerCase().includes(firstWord)) {
-        const excerpt = [];
-        for (let j = i; j < Math.min(i + 3, lines.length); j++) {
-          if (lines[j].trim()) excerpt.push(lines[j].trim());
-        }
-        return excerpt.join(' ');
+      if (lines[i].toLowerCase().includes(tLow) && !titleMap[i]) {
+        titleMap[i] = s.id;
+        break;
       }
     }
+  });
+
+  // Build blocks: group consecutive lines under the same section
+  let currentId = '_header';
+  let blockLines = [];
+  const flush = () => {
+    if (!blockLines.length) return;
+    const block = el('div', { 'data-rpt-section': currentId, style: { padding: '4px 6px', borderRadius: '6px', marginBottom: '2px', transition: 'background .15s', whiteSpace: 'pre-wrap' } });
+    block.textContent = blockLines.join('\n');
+    container.appendChild(block);
+    blockLines = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (titleMap[i] && titleMap[i] !== currentId) {
+      flush();
+      currentId = titleMap[i];
+    }
+    blockLines.push(lines[i]);
   }
-  return '';
+  flush();
+  return container;
 }
 
-function _highlightExcerpt(excerpt, on) {
-  const container = document.getElementById('rpt-import-original');
-  if (!container || !excerpt) return;
-  const text = RS.importedOriginalText || '';
-  if (!on) { container.innerHTML = ''; container.textContent = text; return; }
-
-  // Find the best match: try exact first, then first line of excerpt, then first few words
-  let startIdx = -1, matchLen = 0;
-
-  // Try: exact match
-  startIdx = text.indexOf(excerpt);
-  if (startIdx !== -1) { matchLen = excerpt.length; }
-
-  // Try: first line/sentence of the excerpt (before the first space-joined boundary)
-  if (startIdx === -1) {
-    const firstChunk = excerpt.split(/\s{2,}/)[0] || excerpt.substring(0, 40);
-    startIdx = text.indexOf(firstChunk);
-    if (startIdx !== -1) {
-      // Highlight from this point to the end of the paragraph (next double newline or ~300 chars)
-      const endSearch = text.indexOf('\n\n', startIdx);
-      matchLen = (endSearch !== -1 ? endSearch : Math.min(startIdx + 300, text.length)) - startIdx;
-    }
-  }
-
-  // Try: case-insensitive search for first few words
-  if (startIdx === -1) {
-    const words = excerpt.toLowerCase().split(/\s+/).slice(0, 4).join('\\s+');
-    if (words.length > 5) {
-      const re = new RegExp(words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      const m = re.exec(text);
-      if (m) {
-        startIdx = m.index;
-        const endSearch = text.indexOf('\n\n', startIdx);
-        matchLen = (endSearch !== -1 ? endSearch : Math.min(startIdx + 300, text.length)) - startIdx;
-      }
-    }
-  }
-
-  if (startIdx === -1) { container.innerHTML = ''; container.textContent = text; return; }
-
-  const matchText = text.substring(startIdx, startIdx + matchLen);
-  container.innerHTML = '';
-  container.appendChild(document.createTextNode(text.substring(0, startIdx)));
-  const mark = document.createElement('mark');
-  mark.style.cssText = 'background:#ccfbf1;border-radius:4px;padding:2px 0;';
-  mark.textContent = matchText;
-  container.appendChild(mark);
-  container.appendChild(document.createTextNode(text.substring(startIdx + matchLen)));
-}
-
-function _scrollToExcerpt(excerpt) {
+function _highlightSection(sectionId, on) {
   const container = document.getElementById('rpt-import-original');
   if (!container) return;
-  _highlightExcerpt(excerpt, true);
-  const mark = container.querySelector('mark');
-  if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Clear all highlights
+  container.querySelectorAll('[data-rpt-section]').forEach(b => { b.style.background = ''; });
+  if (on && sectionId) {
+    const block = container.querySelector('[data-rpt-section="' + sectionId + '"]');
+    if (block) {
+      block.style.background = '#ccfbf1';
+      block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 }
 
 // ════════════════════════════════════════
@@ -685,9 +648,51 @@ async function _saveDraft(session, _supa, tplName) {
 // ════════════════════════════════════════
 function renderPreview() {
   injectStyles();
-  const { el, mkBtn, toast, session, _supa, openModal, openConfirm } = H();
+  const { el, mkBtn, toast, session, _supa, openConfirm } = H();
   const sec = document.createElement('div'); sec.className = 'section';
+  const report = RS.currentReport || {};
+  const isFinalized = report.status === 'finalized';
 
+  // ── FINALIZED: clean read-only view ──
+  if (isFinalized) {
+    const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: '0', zIndex: 10, background: '#f0fdf9', padding: '10px 0' } });
+    const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back to Reports']);
+    back.onclick = () => nav('hub');
+    navRow.appendChild(back);
+    sec.appendChild(navRow);
+
+    // Header with badge
+    sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } }, [
+      el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
+      statusBadge('finalized')
+    ]));
+
+    // Finalized date
+    if (report.finalized_at) {
+      sec.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '12px' } }, [
+        '🔒 Finalized on ' + new Date(report.finalized_at).toLocaleDateString()
+      ]));
+    }
+
+    // Read-only report text
+    const textDiv = el('div', { style: { padding: '20px', borderRadius: '14px', border: '1px solid #e8f4f2', background: '#fff', fontSize: '.84rem', lineHeight: '1.8', color: '#1e293b', whiteSpace: 'pre-wrap', fontFamily: 'inherit' } });
+    textDiv.textContent = RS.generatedText || '';
+    sec.appendChild(textDiv);
+
+    // Actions: Print + Back only
+    const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px' } });
+    actions.appendChild(mkBtn('🖨 Print', 'btn-md btn-secondary', () => {
+      const w = window.open('', '_blank');
+      w.document.write('<html><head><title>' + (report.report_type || 'Report') + '</title><style>body{font-family:-apple-system,system-ui,sans-serif;padding:40px;line-height:1.8;color:#1e293b;white-space:pre-wrap;}</style></head><body>' + (RS.generatedText || '').replace(/</g, '&lt;') + '</body></html>');
+      w.document.close();
+      w.print();
+    }));
+    actions.appendChild(mkBtn('← Reports', 'btn-md btn-ghost', () => nav('hub')));
+    sec.appendChild(actions);
+    return sec;
+  }
+
+  // ── EDITABLE: generated but not finalized ──
   const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: '0', zIndex: 10, background: '#f0fdf9', padding: '10px 0' } });
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back to Form']);
   back.onclick = () => { RS.step = 3; nav('new-report', 3); };
@@ -702,59 +707,47 @@ function renderPreview() {
     return sec;
   }
 
-  const report = RS.currentReport || {};
-  const isFinalized = report.status === 'finalized';
-
-  // Header
   sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } }, [
     el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
     statusBadge(report.status || 'generated')
   ]));
 
-  // Report text — editable unless finalized
-  const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', background: isFinalized ? '#f8fafc' : '#fff' } });
+  const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' } });
   textArea.value = RS.generatedText;
-  textArea.readOnly = isFinalized;
   textArea.oninput = () => { RS.generatedText = textArea.value; };
   sec.appendChild(textArea);
 
-  // Actions
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
 
-  if (!isFinalized) {
-    // Save edits
-    actions.appendChild(mkBtn('💾 Save', 'btn-md btn-secondary', async () => {
-      try {
-        await _supa.from('reports').update({ generated_text: RS.generatedText, updated_at: new Date().toISOString() }).eq('id', RS.currentReport.id);
-        toast('💾 Saved!');
-      } catch (e) { toast('Could not save.', 'error'); }
-    }));
+  actions.appendChild(mkBtn('💾 Save', 'btn-md btn-secondary', async () => {
+    try {
+      await _supa.from('reports').update({ generated_text: RS.generatedText, updated_at: new Date().toISOString() }).eq('id', RS.currentReport.id);
+      toast('💾 Saved!');
+    } catch (e) { toast('Could not save.', 'error'); }
+  }));
 
-    // Regenerate (max 3)
-    if (RS.regenCount < 3) {
-      actions.appendChild(mkBtn('🔄 Regenerate (' + (3 - RS.regenCount) + ' left)', 'btn-md btn-ghost', () => {
-        RS.regenCount++;
-        RS.step = 3; nav('new-report', 3);
-      }));
-    }
-
-    // Finalize
-    actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', () => {
-      openConfirm('Finalize Report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, async () => {
-        try {
-          const { error } = await _supa.from('reports').update({
-            generated_text: RS.generatedText, status: 'finalized',
-            finalized_at: new Date().toISOString(), updated_at: new Date().toISOString()
-          }).eq('id', RS.currentReport.id);
-          if (error) throw error;
-          RS.currentReport.status = 'finalized';
-          RS.reportsLoaded = false;
-          toast('✅ Report finalized!');
-          H().re();
-        } catch (e) { toast('Could not finalize.', 'error'); }
-      });
+  if (RS.regenCount < 3) {
+    actions.appendChild(mkBtn('🔄 Regenerate (' + (3 - RS.regenCount) + ' left)', 'btn-md btn-ghost', () => {
+      RS.regenCount++;
+      RS.step = 3; nav('new-report', 3);
     }));
   }
+
+  actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', () => {
+    openConfirm('Finalize Report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, async () => {
+      try {
+        const { error } = await _supa.from('reports').update({
+          generated_text: RS.generatedText, status: 'finalized',
+          finalized_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        }).eq('id', RS.currentReport.id);
+        if (error) throw error;
+        RS.currentReport.status = 'finalized';
+        RS.reportsLoaded = false;
+        toast('✅ Report finalized!');
+        H().re();
+      } catch (e) { toast('Could not finalize.', 'error'); }
+    });
+  }));
 
   sec.appendChild(actions);
   return sec;
@@ -817,12 +810,7 @@ function _startImport() {
           const tpl = result.template;
           RS.importedTemplate = tpl;
           RS.importedOriginalText = result.originalText || '';
-          // Match section titles to original text for highlight excerpts (client-side)
-          if (RS.importedOriginalText && tpl.sections) {
-            tpl.sections.forEach(s => {
-              s.source_excerpt = _findExcerptForSection(s.title, RS.importedOriginalText);
-            });
-          }
+          // Section IDs assigned for highlight mapping (matched in _buildSegmentedOriginal)
           RS.currentTemplate = {
             name: tpl.name || 'Imported Template',
             description: tpl.description || 'Imported from ' + file.name,
