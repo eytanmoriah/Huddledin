@@ -129,50 +129,52 @@ export function parseReportText(text) {
     // Markdown header: ## Header or ### Header
     const mdHeader = trimmed.match(/^(#{1,4})\s+(.+)$/);
     if (mdHeader) {
-      const level = mdHeader[1].length; // 1-4
-      const title = stripInlineMarkdown(mdHeader[2]).replace(/:$/, '');
-      blocks.push({ type: 'header', text: title, level });
+      const level = mdHeader[1].length;
+      const rawText = mdHeader[2].replace(/:$/, '');
+      const title = stripInlineMarkdown(rawText);
+      blocks.push({ type: 'header', text: title, rawText, level, format: 'md' });
       i++; continue;
     }
 
     // UPPERCASE header (existing pattern): "SECTION TITLE" or "SECTION TITLE:"
     if (/^[A-Z][A-Z\s\/&:()]{3,}:?\s*$/.test(trimmed) ||
         (hasHebrew(trimmed) && /^[\u0590-\u05FF][\u0590-\u05FF\s\/&:]+:?\s*$/.test(trimmed) && trimmed.length < 60)) {
-      blocks.push({ type: 'header', text: trimmed.replace(/:$/, '').trim(), level: 2 });
+      const hText = trimmed.replace(/:$/, '').trim();
+      blocks.push({ type: 'header', text: hText, rawText: hText, level: 2, format: 'upper' });
       i++; continue;
     }
 
     // Bold-only line (acts as sub-header): **Something** or __Something__
     if (/^\*\*[^*]+\*\*:?\s*$/.test(trimmed) || /^__[^_]+__:?\s*$/.test(trimmed)) {
       const text = trimmed.replace(/^\*\*|\*\*:?\s*$|^__|__:?\s*$/g, '').trim();
-      blocks.push({ type: 'subheader', text });
+      blocks.push({ type: 'subheader', text, rawText: text });
       i++; continue;
     }
 
     // Bullet point: - item or * item or • item (but not ---)
     if (/^[-*•]\s+/.test(trimmed) && !/^[-]{2,}/.test(trimmed)) {
       const bulletText = trimmed.replace(/^[-*•]\s+/, '');
-      blocks.push({ type: 'bullet', text: stripInlineMarkdown(bulletText) });
+      blocks.push({ type: 'bullet', text: stripInlineMarkdown(bulletText), rawText: bulletText });
       i++; continue;
     }
 
     // Numbered list: 1. item, 2. item, etc.
     const numMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/);
     if (numMatch) {
-      blocks.push({ type: 'numbered', num: numMatch[1], text: stripInlineMarkdown(numMatch[2]) });
+      blocks.push({ type: 'numbered', num: numMatch[1], text: stripInlineMarkdown(numMatch[2]), rawText: numMatch[2] });
       i++; continue;
     }
 
     // Regular paragraph — strip inline markdown
-    blocks.push({ type: 'paragraph', text: stripInlineMarkdown(trimmed) });
+    blocks.push({ type: 'paragraph', text: stripInlineMarkdown(trimmed), rawText: trimmed });
     i++;
   }
 
   return blocks;
 }
 
-// Strip inline markdown formatting and return segments for mixed rendering
-function stripInlineMarkdown(text) {
+// Strip inline markdown formatting
+export function stripInlineMarkdown(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold**
     .replace(/__(.+?)__/g, '$1')       // __bold__
@@ -481,4 +483,42 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   const blob = doc.output('blob');
   console.log('[pdf] Generated:', blob.size, 'bytes,', totalPages, 'pages, hebrew:', isHeb, 'logo:', !!logoDataUrl);
   return blob;
+}
+
+// ── Editing support: skip prefix + reconstruction ──
+
+export function getSkippedPrefix(text) {
+  const lines = (text || '').split('\n');
+  const pat = /^(patient|date of birth|dob|date|specialist|age|מטופל|ת\. לידה|תאריך|גיל|מטפל)/i;
+  let skipUntil = 0;
+  for (let j = 0; j < Math.min(lines.length, 15); j++) {
+    const t = lines[j].trim();
+    if (!t) continue;
+    if (pat.test(t.replace(/^\*+/, '').replace(/^#+\s*/, ''))) {
+      skipUntil = j + 1;
+    } else if (skipUntil > 0 && (t === '---' || t === '***' || t === '___')) {
+      skipUntil = j + 1; break;
+    } else if (skipUntil > 0) { break; }
+  }
+  return skipUntil > 0 ? lines.slice(0, skipUntil).join('\n') : '';
+}
+
+export function blockToMarkdown(block) {
+  switch (block.type) {
+    case 'spacer': return '';
+    case 'hr': return '---';
+    case 'header':
+      if (block.format === 'upper') return block.rawText;
+      return '#'.repeat(block.level) + ' ' + block.rawText;
+    case 'subheader': return '**' + block.rawText + '**';
+    case 'bullet': return '- ' + block.rawText;
+    case 'numbered': return block.num + '. ' + block.rawText;
+    case 'paragraph': return block.rawText;
+    default: return block.rawText || '';
+  }
+}
+
+export function reconstructMarkdown(blocks, skippedPrefix) {
+  const body = blocks.map(b => blockToMarkdown(b)).join('\n');
+  return skippedPrefix ? skippedPrefix + '\n' + body : body;
 }
