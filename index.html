@@ -17137,6 +17137,144 @@ function renderSpecialistSettings(){
   }));
   pr.appendChild(credCard);
 
+  // Report Branding section
+  const brandCard=el('div',{style:{marginTop:'14px',padding:'14px',background:'var(--mint-ll)',borderRadius:'var(--r)',border:'1px solid var(--mint-l)'}});
+  brandCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px',fontSize:'.86rem'}},['🎨 Report Branding']));
+  // Load existing settings
+  let _brandData={};
+  const _loadBrand=async()=>{
+    try{const{data}=await _supa.from('report_settings').select('*').eq('specialist_id',session.id).limit(1);_brandData=data?.[0]||{};}catch(e){}
+  };
+  _loadBrand().then(()=>{
+    // Practice name
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'6px'}},['Practice Name']));
+    const pnInp=el('input',{class:'inp',placeholder:'e.g. Hamakort Therapy Center',style:{marginBottom:'8px'}});
+    pnInp.value=_brandData.practice_name||'';
+    brandCard.appendChild(pnInp);
+    // Practice details
+    const _bdFields=[
+      {key:'practice_address',label:'Address',placeholder:'Practice address'},
+      {key:'practice_phone',label:'Phone',placeholder:'Practice phone',type:'tel'},
+      {key:'practice_email',label:'Email',placeholder:'Practice email',type:'email'},
+    ];
+    const _bdInputs={practice_name:pnInp};
+    _bdFields.forEach(({key,label,placeholder,type})=>{
+      brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'6px'}},[label]));
+      const inp=el('input',{class:'inp',placeholder,type:type||'text',style:{marginBottom:'4px'}});
+      inp.value=_brandData[key]||'';
+      _bdInputs[key]=inp;
+      brandCard.appendChild(inp);
+    });
+    // Logo upload
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'10px'}},['Practice Logo']));
+    const logoWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+    if(_brandData.logo_storage_path){
+      const logoPreview=el('div',{style:{width:'48px',height:'48px',borderRadius:'8px',background:'#f0fdf9',border:'1px solid var(--mint-l)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+      (async()=>{try{const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(_brandData.logo_storage_path,300);if(data?.signedUrl){const img=el('img',{src:data.signedUrl,style:{width:'100%',height:'100%',objectFit:'contain'}});logoPreview.appendChild(img);}}catch(e){}})();
+      logoWrap.appendChild(logoPreview);
+      logoWrap.appendChild(mkBtn('Remove','btn-sm btn-ghost',async()=>{
+        try{await _supa.storage.from('specialist-storage').remove([_brandData.logo_storage_path]);_brandData.logo_storage_path=null;re();}catch(e){}
+      }));
+    }
+    logoWrap.appendChild(mkBtn('Upload Logo','btn-sm btn-secondary',()=>{
+      const fi=el('input',{type:'file',accept:'image/png,image/jpeg',style:{display:'none'}});
+      fi.onchange=async(ev)=>{
+        const f=ev.target.files?.[0];if(!f)return;
+        if(f.size>500*1024){toast('Logo must be under 500KB.','error');return;}
+        const path=session.id+'/logo_'+Date.now()+'.'+f.name.split('.').pop();
+        try{
+          const{error}=await _supa.storage.from('specialist-storage').upload(path,f,{contentType:f.type,upsert:false});
+          if(error)throw error;
+          _brandData.logo_storage_path=path;
+          toast('Logo uploaded!');re();
+        }catch(e){toast('Upload failed.','error');}
+      };
+      document.body.appendChild(fi);fi.click();fi.remove();
+    }));
+    brandCard.appendChild(logoWrap);
+    // Header color
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'10px'}},['Header Color']));
+    const colorRow=el('div',{style:{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap',marginBottom:'8px'}});
+    const colors=['#0d9488','#1e3a5f','#166534','#7f1d1d','#0f172a'];
+    let selColor=_brandData.header_color||'#0d9488';
+    const _renderColors=()=>{
+      colorRow.innerHTML='';
+      colors.forEach(c=>{
+        const sw=el('div',{style:{width:'28px',height:'28px',borderRadius:'50%',background:c,cursor:'pointer',border:selColor===c?'3px solid var(--navy)':'2px solid #e8f4f2',transition:'border .15s'}});
+        sw.onclick=()=>{selColor=c;_renderColors();};
+        colorRow.appendChild(sw);
+      });
+      const cInp=el('input',{type:'text',value:selColor,placeholder:'#hex',style:{width:'80px',padding:'4px 8px',borderRadius:'6px',border:'1.5px solid var(--mint-l)',fontSize:'.78rem',fontFamily:'monospace'}});
+      cInp.oninput=()=>{if(/^#[0-9a-fA-F]{6}$/.test(cInp.value)){selColor=cInp.value;_renderColors();}};
+      colorRow.appendChild(cInp);
+    };
+    _renderColors();
+    brandCard.appendChild(colorRow);
+    // Font style
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'6px'}},['Font Style']));
+    const fontRow=el('div',{style:{display:'flex',gap:'10px',marginBottom:'8px'}});
+    let selFont=_brandData.font_style||'sans-serif';
+    ['sans-serif','serif'].forEach(f=>{
+      const lbl=f==='sans-serif'?'Clean (Sans-serif)':'Professional (Serif)';
+      const rb=el('label',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'.82rem',cursor:'pointer'}});
+      const inp=el('input',{type:'radio',name:'rpt_font'});
+      inp.checked=selFont===f;
+      inp.onchange=()=>{selFont=f;};
+      rb.appendChild(inp);rb.appendChild(document.createTextNode(lbl));
+      fontRow.appendChild(rb);
+    });
+    brandCard.appendChild(fontRow);
+    // Header style
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'6px'}},['Header Style']));
+    const hsRow=el('div',{style:{display:'flex',gap:'10px',marginBottom:'8px'}});
+    let selHeaderStyle=_brandData.header_style||'compact';
+    ['compact','centered'].forEach(hs=>{
+      const lbl=hs==='compact'?'Compact (left-aligned)':'Centered (formal)';
+      const rb=el('label',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'.82rem',cursor:'pointer'}});
+      const inp=el('input',{type:'radio',name:'rpt_hstyle'});
+      inp.checked=selHeaderStyle===hs;
+      inp.onchange=()=>{selHeaderStyle=hs;};
+      rb.appendChild(inp);rb.appendChild(document.createTextNode(lbl));
+      hsRow.appendChild(rb);
+    });
+    brandCard.appendChild(hsRow);
+    // Footer text
+    brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'6px'}},['Footer Text']));
+    const ftInp=el('input',{class:'inp',placeholder:'e.g. Confidential — For Clinical Use Only',style:{marginBottom:'10px'}});
+    ftInp.value=_brandData.footer_text!==undefined?(_brandData.footer_text||''):'Confidential \u2014 For Clinical Use Only';
+    brandCard.appendChild(ftInp);
+    // Save
+    brandCard.appendChild(mkBtn(T('btn_save'),'btn-sm btn-primary',async()=>{
+      const payload={
+        specialist_id:session.id,
+        practice_name:_bdInputs.practice_name.value.trim()||null,
+        practice_address:_bdInputs.practice_address.value.trim()||null,
+        practice_phone:_bdInputs.practice_phone.value.trim()||null,
+        practice_email:_bdInputs.practice_email.value.trim()||null,
+        logo_storage_path:_brandData.logo_storage_path||null,
+        header_color:selColor,
+        font_style:selFont,
+        header_style:selHeaderStyle,
+        footer_text:ftInp.value.trim()||null,
+        updated_at:new Date().toISOString(),
+      };
+      try{
+        if(_brandData.id){
+          const{error}=await _supa.from('report_settings').update(payload).eq('id',_brandData.id);
+          if(error)throw error;
+        }else{
+          const{data,error}=await _supa.from('report_settings').insert(payload).select('id').single();
+          if(error)throw error;
+          _brandData.id=data.id;
+        }
+        toast('🎨 Report branding saved!');
+        // Invalidate module cache so next PDF picks up new settings
+        if(window.HUD_REPORTS?.RS)window.HUD_REPORTS.RS.brandingLoaded=false;
+      }catch(e){console.error(e);toast('Could not save branding.','error');}
+    }));
+  });
+  pr.appendChild(brandCard);
+
   sec.appendChild(pr);
 
   // Notification Preferences
