@@ -22,6 +22,7 @@ Generate a comprehensive ${reportType || 'clinical'} report.
 CRITICAL RULES:
 - Write in the same language as the input data. If Hebrew, write in Hebrew. If English, write in English.
 - Use professional clinical language.
+- NAMING: Use the child's FULL NAME on first mention (e.g. "Erez Moriah"). Use FIRST NAME ONLY for all subsequent mentions (e.g. "Erez"). NEVER use "the client", "the patient", or "the child" — always refer to them by name.
 - Format with clear section headers in UPPERCASE followed by a blank line.
 - Include ALL data provided — do not omit any section.
 - Where standardized test scores are provided, include professional interpretation.
