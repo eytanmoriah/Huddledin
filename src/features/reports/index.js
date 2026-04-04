@@ -840,7 +840,7 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
 // ════════════════════════════════════════
 function renderFormattedReport(text, branding, childInfo, specialistInfo, reportType, opts) {
   const { el } = H();
-  const { editable, onUpdate } = opts || {};
+  const { editable, onUpdate, onFlushRef } = opts || {};
   const brand = branding || {};
   const hColor = brand.header_color || '#0d9488';
   const blocks = parseReportText(text);
@@ -915,10 +915,13 @@ function renderFormattedReport(text, branding, childInfo, specialistInfo, report
   // ── Report body ──
   const body = el('div', { style: { padding: '20px 24px', lineHeight: '1.75', fontSize: '.86rem', color: '#1e293b' } });
 
+  // Track active edit so it can be flushed synchronously before save
+  let _activeFinish = null;
   if (editable) {
-    // Hint
     const hint = el('div', { style: { fontSize: '.72rem', color: '#94a3b8', marginBottom: '10px', textAlign: 'center' } }, ['Double-click any section to edit']);
     body.appendChild(hint);
+    // Expose flush function: commits any in-progress inline edit immediately
+    if (onFlushRef) onFlushRef(() => { if (_activeFinish) _activeFinish(); });
   }
 
   blocks.forEach(block => {
@@ -972,6 +975,7 @@ function renderFormattedReport(text, branding, childInfo, specialistInfo, report
       const finish = () => {
         if (!bw._editing) return;
         bw._editing = false;
+        _activeFinish = null;
         const newVal = ta.value.trim();
         if (newVal !== block.rawText) {
           block.rawText = newVal;
@@ -984,6 +988,7 @@ function renderFormattedReport(text, branding, childInfo, specialistInfo, report
         bw.appendChild(mkBlock(block));
       };
 
+      _activeFinish = finish;
       doneBtn.onclick = (e) => { e.stopPropagation(); finish(); };
       ta.addEventListener('blur', () => setTimeout(finish, 180));
       ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') finish(); });
@@ -1207,15 +1212,18 @@ function renderPreview() {
   const eSi = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
 
   // Formatted report with inline editing
+  let _flushEdit = null; // called before save to commit any active inline edit
   sec.appendChild(renderFormattedReport(RS.generatedText, getBranding(), eCi, eSi, report.report_type, {
     editable: true,
-    onUpdate: (newText) => { RS.generatedText = newText; }
+    onUpdate: (newText) => { RS.generatedText = newText; },
+    onFlushRef: (fn) => { _flushEdit = fn; }
   }));
 
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
 
   actions.appendChild(mkBtn('💾 Save', 'btn-md btn-secondary', async () => {
     try {
+      if (_flushEdit) _flushEdit(); // commit any active inline edit
       await _supa.from('reports').update({ generated_text: RS.generatedText, updated_at: new Date().toISOString() }).eq('id', RS.currentReport.id);
       toast('💾 Saved!');
     } catch (e) { toast('Could not save.', 'error'); }
@@ -1230,6 +1238,7 @@ function renderPreview() {
 
   actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-ghost', async () => {
     try {
+      if (_flushEdit) _flushEdit(); // commit any active inline edit
       await ensureBranding();
       const children = getChildren();
       const child = children.find(c => c.id === RS.selectedChildId);
@@ -1242,6 +1251,7 @@ function renderPreview() {
   }));
 
   actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', () => {
+    if (_flushEdit) _flushEdit(); // commit any active inline edit
     openConfirm('Finalize Report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, async () => {
       try {
         const { error } = await _supa.from('reports').update({
