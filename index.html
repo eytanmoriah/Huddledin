@@ -7394,7 +7394,7 @@ function renderSpecDesktop(){
   const activeChild=DB.children.find(c=>c.id===S.activeChild)
     ||(LS.get('children',[])).find(c=>c.id===S.activeChild);
 
-  const PATIENT_TABS=['vault','homework','files','chat','calendar','info'];
+  const PATIENT_TABS=['vault','homework','files','chat','calendar','info','patient-reports'];
   const isPatientCtx=!!(S.activeChild&&activeChild&&
     (S.activeTab==='patient-detail'||PATIENT_TABS.includes(S.activeTab)));
 
@@ -7483,7 +7483,7 @@ function renderSpecDesktop(){
   const TAB_NAMES={dashboard:T('nav_home'),patients:T('spec_nav_patients'),todo:T('nav_todo'),
     notifications:T('nav_notifications'),settings:T('nav_settings'),vault:T('tab_notes'),
     homework:T('tab_tasks'),files:T('tab_files'),chat:T('tab_chat'),calendar:T('nav_calendar'),
-    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries'),'spec-storage':T('storage_title'),reports:'Reports'};
+    credentials:T('spec_nav_my_folder'),request:T('spec_nav_join_team'),'session-summaries':T('tab_session_summaries'),'spec-storage':T('storage_title'),reports:'Reports','patient-reports':'Reports'};
 
   // Breadcrumb
   const bc=el('div',{class:'spec-dt-bc'});
@@ -7731,6 +7731,7 @@ function _renderSpecDtPatientDetail(child,specId){
     {id:'files',    label:'📁 '+T('tab_files')},
     {id:'chat',     label:'💬 '+T('tab_chat')},
     {id:'info',     label:T('info_card_info')},
+    {id:'patient-reports', label:'📋 Reports'},
   ];
   // Compute per-tab badge counts for this child
   const _tabBadges={};
@@ -9213,6 +9214,7 @@ function renderContent(){
   if(t==='credentials')return renderCredentials();
   if(t==='info'&&r==='specialist')return renderSpecInfoCard();
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
+  if(t==='patient-reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderPatientReports();
   if(t==='reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderReports();
   if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
