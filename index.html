@@ -17089,25 +17089,51 @@ function renderSpecialistSettings(){
   profRow.appendChild(editProf);
   pr.appendChild(profRow);
 
-  // License / credentials number
-  const licRow=el('div',{style:{marginBottom:'10px'}});
-  const licInput=el('input',{class:'inp',placeholder:T('settings_spec_license_placeholder'),style:{marginBottom:'6px'}});
-  const savedLic=LS.get('spec_license','');
-  if(savedLic)licInput.value=savedLic;
-  licRow.appendChild(el('div',{class:'inp-label'},[T('settings_spec_license')]));
-  licRow.appendChild(licInput);
-  licRow.appendChild(mkBtn(T('settings_spec_save_license'),'btn-sm btn-ghost',()=>{LS.set('spec_license',licInput.value);toast(T('settings_spec_saved'));}));
-  pr.appendChild(licRow);
+  // Professional Credentials — saves to Supabase profiles
+  const credCard=el('div',{style:{marginTop:'14px',padding:'14px',background:'var(--mint-ll)',borderRadius:'var(--r)',border:'1px solid var(--mint-l)'}});
+  credCard.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'10px',fontSize:'.86rem'}},['📋 Professional Credentials']));
+  const _credFields=[
+    {key:'credentials_title',label:'Title / Degree',placeholder:'e.g. M.A., M.Sc., Ph.D.'},
+    {key:'credentials_license',label:T('settings_spec_license'),placeholder:T('settings_spec_license_placeholder')},
+    {key:'credentials_certs',label:'Certifications',placeholder:'e.g. CCC-SLP, BCBA, OTR/L'},
+    {key:'phone',label:T('settings_spec_phone'),placeholder:T('settings_spec_phone_placeholder'),type:'tel'},
+  ];
+  const _credInputs={};
+  _credFields.forEach(({key,label,placeholder,type})=>{
+    credCard.appendChild(el('div',{class:'inp-label',style:{marginBottom:'2px',marginTop:'6px'}},[label]));
+    const inp=el('input',{class:'inp',placeholder,type:type||'text',style:{marginBottom:'4px'}});
+    inp.value=session?.[key]||'';
+    _credInputs[key]=inp;
+    credCard.appendChild(inp);
+  });
 
-  // Work phone
-  const phoneRow=el('div',{style:{marginBottom:'4px'}});
-  const phoneInput=el('input',{class:'inp',placeholder:T('settings_spec_phone_placeholder'),type:'tel',style:{marginBottom:'6px'}});
-  const savedPhone=LS.get('spec_phone','');
-  if(savedPhone)phoneInput.value=savedPhone;
-  phoneRow.appendChild(el('div',{class:'inp-label'},[T('settings_spec_phone')]));
-  phoneRow.appendChild(phoneInput);
-  phoneRow.appendChild(mkBtn(T('settings_spec_save_phone'),'btn-sm btn-ghost',()=>{LS.set('spec_phone',phoneInput.value);toast(T('settings_spec_saved'));}));
-  pr.appendChild(phoneRow);
+  // Live preview
+  const credPreview=el('div',{style:{fontSize:'.82rem',color:'var(--teal)',fontWeight:700,marginTop:'10px',padding:'8px 12px',background:'#fff',borderRadius:'8px',border:'1px solid var(--mint-l)',minHeight:'20px'}});
+  const _updatePreview=()=>{
+    const name=session?.displayName||session?.name||'';
+    const parts=[name];
+    if(_credInputs.credentials_title.value.trim())parts.push(_credInputs.credentials_title.value.trim());
+    if(_credInputs.credentials_certs.value.trim())parts.push(_credInputs.credentials_certs.value.trim());
+    credPreview.textContent=parts.join(', ')||(name||'Your Name');
+    if(_credInputs.credentials_license.value.trim())credPreview.textContent+=' · Lic. '+_credInputs.credentials_license.value.trim();
+  };
+  _updatePreview();
+  Object.values(_credInputs).forEach(inp=>{inp.oninput=_updatePreview;});
+  credCard.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)',marginTop:'6px'}},['Preview — how your name appears on reports:']));
+  credCard.appendChild(credPreview);
+
+  // Save button
+  credCard.appendChild(mkBtn(T('btn_save'),'btn-sm btn-primary',async()=>{
+    const updates={};
+    for(const k in _credInputs)updates[k]=_credInputs[k].value.trim()||null;
+    try{
+      const{error}=await _supa.from('profiles').update(updates).eq('id',session.id);
+      if(error)throw error;
+      for(const k in updates)session[k]=updates[k];
+      toast(T('settings_spec_saved'));
+    }catch(e){console.error(e);toast('Could not save.','error');}
+  }));
+  pr.appendChild(credCard);
 
   sec.appendChild(pr);
 
