@@ -3,7 +3,7 @@ import { SECTION_LIBRARY, getSectionsForSpecialty, getOtherSpecialtySections, ge
 import { renderForm } from './form-builder.js';
 import { generateReport, importTemplate } from './ai-generator.js';
 import { injectStyles } from './styles.js';
-import { generatePDFBlob } from './pdf-util.js';
+import { generatePDFBlob, parseReportText } from './pdf-util.js';
 
 const RS = {
   templates: [], templatesLoaded: false,
@@ -836,6 +836,191 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
 }
 
 // ════════════════════════════════════════
+// FORMATTED REPORT HTML RENDERER
+// ════════════════════════════════════════
+function renderFormattedReport(text, branding, childInfo, specialistInfo, reportType) {
+  const { el } = H();
+  const brand = branding || {};
+  const hColor = brand.header_color || '#0d9488';
+  const blocks = parseReportText(text);
+
+  const wrap = el('div', { style: { background: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.06)' } });
+
+  // ── Header area ──
+  const header = el('div', { style: { padding: '24px 24px 16px', borderBottom: '2px solid ' + hColor, textAlign: 'center' } });
+
+  // Logo
+  if (brand.logo_storage_path) {
+    const logoImg = el('img', { style: { maxHeight: '48px', maxWidth: '180px', objectFit: 'contain', marginBottom: '8px', display: 'block', marginInline: 'auto' } });
+    // Load logo from storage
+    (async () => {
+      try {
+        const _supa = H()._supa;
+        if (!_supa) return;
+        const { data } = await _supa.storage.from('specialist-storage').createSignedUrl(brand.logo_storage_path, 120);
+        if (data?.signedUrl) logoImg.src = data.signedUrl;
+      } catch (e) { console.error('[preview] Logo load:', e); }
+    })();
+    header.appendChild(logoImg);
+  }
+
+  // Practice name
+  const practiceName = brand.practice_name || 'Huddledin';
+  header.appendChild(el('div', { style: { fontSize: '1.2rem', fontWeight: 800, color: hColor } }, [practiceName]));
+
+  // Practice details
+  const details = [brand.practice_address, brand.practice_phone, brand.practice_email].filter(Boolean);
+  if (details.length) {
+    header.appendChild(el('div', { style: { fontSize: '.75rem', color: '#64748b', marginTop: '4px' } }, [details.join(' · ')]));
+  }
+
+  // Report type
+  header.appendChild(el('div', { style: { fontSize: '.95rem', color: '#1e293b', marginTop: '6px' } }, [reportType || 'Clinical Report']));
+  wrap.appendChild(header);
+
+  // ── Patient info ──
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const infoGrid = el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '.8rem', color: '#475569' } });
+  const infoItems = [
+    ['Patient', childInfo?.name || '\u2014'],
+    ['DOB', childInfo?.dob || '\u2014'],
+    ['Age', childInfo?.age || '\u2014'],
+    ['Date', date],
+    ['Specialist', (specialistInfo?.name || '\u2014') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : '')],
+    ['Specialty', specialistInfo?.specialty || '\u2014'],
+  ];
+  infoItems.forEach(([label, value]) => {
+    const row = el('div', { style: { padding: '2px 0' } });
+    row.appendChild(el('span', { style: { fontWeight: 600, color: '#334155' } }, [label + ': ']));
+    row.appendChild(el('span', {}, [value]));
+    infoGrid.appendChild(row);
+  });
+  wrap.appendChild(infoGrid);
+
+  // ── Report body ──
+  const body = el('div', { style: { padding: '20px 24px', lineHeight: '1.75', fontSize: '.86rem', color: '#1e293b' } });
+
+  blocks.forEach(block => {
+    switch (block.type) {
+      case 'spacer':
+        body.appendChild(el('div', { style: { height: '8px' } }));
+        break;
+      case 'hr':
+        body.appendChild(el('hr', { style: { border: 'none', borderTop: '1px solid #e2e8f0', margin: '12px 0' } }));
+        break;
+      case 'header': {
+        const fs = block.level === 1 ? '1.05rem' : block.level === 2 ? '.95rem' : '.88rem';
+        const hEl = el('div', { style: { fontSize: fs, fontWeight: 700, color: hColor, marginTop: '16px', marginBottom: '6px', paddingBottom: block.level <= 2 ? '4px' : '0', borderBottom: block.level <= 2 ? '1px solid #e8f4f2' : 'none' } }, [block.text]);
+        body.appendChild(hEl);
+        break;
+      }
+      case 'subheader':
+        body.appendChild(el('div', { style: { fontWeight: 700, color: '#334155', fontSize: '.86rem', marginTop: '10px', marginBottom: '4px' } }, [block.text]));
+        break;
+      case 'bullet': {
+        const li = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
+        li.appendChild(el('span', { style: { color: '#94a3b8', flexShrink: 0 } }, ['\u2022']));
+        li.appendChild(el('span', {}, [block.text]));
+        body.appendChild(li);
+        break;
+      }
+      case 'numbered': {
+        const ni = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
+        ni.appendChild(el('span', { style: { color: '#64748b', flexShrink: 0, fontWeight: 600, minWidth: '18px' } }, [block.num + '.']));
+        ni.appendChild(el('span', {}, [block.text]));
+        body.appendChild(ni);
+        break;
+      }
+      case 'paragraph':
+      default:
+        body.appendChild(el('p', { style: { margin: '0 0 6px' } }, [block.text]));
+        break;
+    }
+  });
+  wrap.appendChild(body);
+
+  // ── Footer ──
+  const footerText = brand.footer_text !== undefined ? brand.footer_text : 'Confidential \u2014 For Clinical Use Only';
+  if (footerText) {
+    const footer = el('div', { style: { padding: '10px 24px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '.7rem', color: '#94a3b8' } });
+    footer.appendChild(el('span', {}, [footerText + ' \u00B7 ' + date]));
+    wrap.appendChild(footer);
+  }
+
+  return wrap;
+}
+
+// Generate print HTML from formatted blocks
+function _buildPrintHTML(text, branding, childInfo, specialistInfo, reportType) {
+  const brand = branding || {};
+  const hColor = brand.header_color || '#0d9488';
+  const blocks = parseReportText(text);
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const footerText = brand.footer_text !== undefined ? brand.footer_text : 'Confidential \u2014 For Clinical Use Only';
+
+  let html = `<html><head><title>${(reportType || 'Report')} \u2014 ${childInfo?.name || 'Patient'}</title>
+<style>
+body{font-family:-apple-system,system-ui,sans-serif;max-width:700px;margin:0 auto;line-height:1.75;color:#1e293b;font-size:11pt;}
+.hdr{text-align:center;padding-bottom:12px;border-bottom:2px solid ${hColor};margin-bottom:16px;}
+.hdr .name{font-size:16pt;font-weight:800;color:${hColor};}
+.hdr .details{font-size:8pt;color:#64748b;margin-top:2px;}
+.hdr .rtype{font-size:11pt;color:#1e293b;margin-top:4px;}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;padding:8px 0 12px;border-bottom:1px solid #e2e8f0;font-size:9pt;color:#475569;margin-bottom:14px;}
+.info b{color:#334155;}
+h2{font-size:12pt;font-weight:700;color:${hColor};margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #e8f4f2;}
+h3{font-size:11pt;font-weight:700;color:${hColor};margin:12px 0 4px;}
+h4{font-size:10pt;font-weight:700;color:#334155;margin:10px 0 4px;}
+hr{border:none;border-top:1px solid #e2e8f0;margin:10px 0;}
+ul,ol{margin:4px 0 8px 20px;padding:0;}
+li{margin-bottom:2px;}
+p{margin:0 0 6px;}
+.footer{text-align:center;font-size:7pt;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:20px;}
+@media print{body{margin:0;padding:15mm;max-width:none;}}
+</style></head><body>`;
+
+  // Header
+  html += '<div class="hdr">';
+  html += `<div class="name">${esc(brand.practice_name || 'Huddledin')}</div>`;
+  const dets = [brand.practice_address, brand.practice_phone, brand.practice_email].filter(Boolean);
+  if (dets.length) html += `<div class="details">${esc(dets.join(' · '))}</div>`;
+  html += `<div class="rtype">${esc(reportType || 'Clinical Report')}</div>`;
+  html += '</div>';
+
+  // Patient info
+  html += '<div class="info">';
+  const items = [
+    ['Patient', childInfo?.name], ['DOB', childInfo?.dob],
+    ['Age', childInfo?.age], ['Date', date],
+    ['Specialist', (specialistInfo?.name || '') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : '')],
+    ['Specialty', specialistInfo?.specialty],
+  ];
+  items.forEach(([l, v]) => { html += `<div><b>${l}:</b> ${esc(v || '\u2014')}</div>`; });
+  html += '</div>';
+
+  // Body
+  blocks.forEach(b => {
+    switch (b.type) {
+      case 'spacer': html += '<br>'; break;
+      case 'hr': html += '<hr>'; break;
+      case 'header': {
+        const tag = b.level === 1 ? 'h2' : b.level === 2 ? 'h2' : b.level === 3 ? 'h3' : 'h4';
+        html += `<${tag}>${esc(b.text)}</${tag}>`; break;
+      }
+      case 'subheader': html += `<h4>${esc(b.text)}</h4>`; break;
+      case 'bullet': html += `<ul><li>${esc(b.text)}</li></ul>`; break;
+      case 'numbered': html += `<ol start="${b.num}"><li>${esc(b.text)}</li></ol>`; break;
+      case 'paragraph': default: html += `<p>${esc(b.text)}</p>`; break;
+    }
+  });
+
+  if (footerText) html += `<div class="footer">${esc(footerText)} · ${date}</div>`;
+  html += '</body></html>';
+  return html;
+}
+
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ════════════════════════════════════════
 // REPORT PREVIEW
 // ════════════════════════════════════════
 function renderPreview() {
@@ -866,10 +1051,12 @@ function renderPreview() {
       ]));
     }
 
-    // Read-only report text
-    const textDiv = el('div', { style: { padding: '20px', borderRadius: '14px', border: '1px solid #e8f4f2', background: '#fff', fontSize: '.84rem', lineHeight: '1.8', color: '#1e293b', whiteSpace: 'pre-wrap', fontFamily: 'inherit' } });
-    textDiv.textContent = RS.generatedText || '';
-    sec.appendChild(textDiv);
+    // Formatted report view
+    const children = getChildren();
+    const child = children.find(c => c.id === report.child_id);
+    const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
+    const si = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
+    sec.appendChild(renderFormattedReport(RS.generatedText, getBranding(), ci, si, report.report_type));
 
     // Shared status
     if (report.shared_with_parents) {
@@ -913,12 +1100,8 @@ function renderPreview() {
 
     // Print
     actions.appendChild(mkBtn('🖨 Print', 'btn-md btn-ghost', () => {
-      const children = getChildren();
-      const child = children.find(c => c.id === report.child_id);
       const w = window.open('', '_blank');
-      const title = (report.report_type || 'Report') + ' — ' + (child?.name || 'Patient');
-      const escaped = (RS.generatedText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      w.document.write('<html><head><title>' + title + '</title><style>body{font-family:-apple-system,system-ui,sans-serif;max-width:700px;margin:40px auto;line-height:1.8;color:#1e293b;white-space:pre-wrap;font-size:12pt;}@media print{body{margin:0;padding:20mm;}}</style></head><body>' + escaped + '</body></html>');
+      w.document.write(_buildPrintHTML(RS.generatedText, getBranding(), ci, si, report.report_type));
       w.document.close();
       w.print();
     }));
@@ -957,15 +1140,47 @@ function renderPreview() {
     return sec;
   }
 
-  sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } }, [
-    el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
-    statusBadge(report.status || 'generated')
-  ]));
+  // Title row with badge + view/edit toggle
+  const titleRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } });
+  titleRow.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]));
+  const titleRight = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } });
+  titleRight.appendChild(statusBadge(report.status || 'generated'));
+  titleRow.appendChild(titleRight);
+  sec.appendChild(titleRow);
 
-  const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' } });
-  textArea.value = RS.generatedText;
-  textArea.oninput = () => { RS.generatedText = textArea.value; };
-  sec.appendChild(textArea);
+  // Build child/specialist info for preview
+  const eChildren = getChildren();
+  const eChild = eChildren.find(c => c.id === RS.selectedChildId);
+  const eCi = { name: eChild?.name || 'Patient', dob: eChild?.dob || '', age: calcAge(eChild?.dob) };
+  const eSi = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
+
+  // Content container — holds either formatted or edit view
+  const contentBox = el('div');
+  let isEditing = false;
+
+  const renderView = () => {
+    contentBox.innerHTML = '';
+    if (isEditing) {
+      const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' } });
+      textArea.value = RS.generatedText;
+      textArea.oninput = () => { RS.generatedText = textArea.value; };
+      contentBox.appendChild(textArea);
+    } else {
+      contentBox.appendChild(renderFormattedReport(RS.generatedText, getBranding(), eCi, eSi, report.report_type));
+    }
+  };
+
+  // Toggle button
+  const toggleBtn = el('button', { style: { background: 'none', border: '1px solid #e8f4f2', borderRadius: '8px', padding: '4px 12px', fontSize: '.76rem', fontWeight: 600, color: '#0d9488', cursor: 'pointer' } }, ['✏️ Edit']);
+  toggleBtn.onclick = () => {
+    isEditing = !isEditing;
+    toggleBtn.textContent = isEditing ? '👁 Preview' : '✏️ Edit';
+    renderView();
+  };
+  titleRight.appendChild(toggleBtn);
+
+  renderView();
+  sec.appendChild(contentBox);
 
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
 
