@@ -23,10 +23,14 @@ const RS = {
   generatedText: null,
   regenCount: 0,
   importedTemplate: null,
-  returnToPatient: null, // child ID — if set, back/exit returns to patient reports tab instead of hub
+  returnToPatient: null,
+  branding: null, // report_settings row
+  brandingLoaded: false,
+  brandingBannerDismissed: false,
 };
 
 const MONTHLY_LIMIT = 5;
+const DEFAULT_BRANDING = { header_color: '#0d9488', font_style: 'sans-serif', header_style: 'compact', footer_text: 'Confidential — For Clinical Use Only' };
 
 function H() { return window.HUD || {}; }
 
@@ -158,6 +162,17 @@ async function loadData() {
       RS.reportsLoaded = true;
     } catch (e) { console.error('Load reports:', e); }
   }
+  if (!RS.brandingLoaded) {
+    try {
+      const { data } = await _supa.from('report_settings').select('*').eq('specialist_id', session.id).limit(1);
+      RS.branding = data?.[0] || null;
+      RS.brandingLoaded = true;
+    } catch (e) { console.error('Load branding:', e); RS.brandingLoaded = true; }
+  }
+}
+
+function getBranding() {
+  return { ...DEFAULT_BRANDING, ...(RS.branding || {}) };
 }
 
 // ════════════════════════════════════════
@@ -205,6 +220,7 @@ export function renderReports() {
   hdr.appendChild(el('h2', { class: 'page-title', style: { margin: 0 } }, ['📋 Reports']));
   const hdrR = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } });
   hdrR.appendChild(el('span', { class: 'rpt-counter' }, [RS.monthlyCount + ' / ' + MONTHLY_LIMIT + ' this month']));
+  hdrR.appendChild(mkBtn('⚙️', 'btn-sm btn-ghost', () => { const { S } = H(); S.activeTab = 'settings'; H().re(); }));
   hdrR.appendChild(mkBtn('📄 My Templates', 'btn-sm btn-ghost', () => nav('templates')));
   hdrR.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
@@ -757,7 +773,7 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
 
   // Generate a proper PDF from the report text
   console.log('[share] Generating PDF...');
-  const pdfBlob = await generatePDFBlob(generatedText, report.report_type, childInfo, specInfo);
+  const pdfBlob = await generatePDFBlob(generatedText, report.report_type, childInfo, specInfo, getBranding());
   const fileName = (report.report_type || 'Report').replace(/[^a-zA-Z0-9\u0590-\u05FF ._-]/g, '').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
   console.log('[share] PDF generated:', pdfBlob.size, 'bytes');
 
@@ -874,7 +890,7 @@ function renderPreview() {
         const child = children.find(c => c.id === report.child_id);
         const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
         const si = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
-        const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si);
+        const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si, getBranding());
         _downloadBlob(blob, report.report_type, child?.name);
         toast('📥 PDF downloaded!');
       } catch (e) { console.error(e); toast('PDF failed: ' + e.message, 'error'); }
@@ -898,6 +914,20 @@ function renderPreview() {
   }
 
   // ── EDITABLE: generated but not finalized ──
+  // Branding nudge — show once if no branding configured
+  const br = getBranding();
+  if (!RS.brandingBannerDismissed && !RS.branding?.practice_name && !RS.branding?.logo_storage_path) {
+    const nudge = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', marginBottom: '10px', fontSize: '.8rem' } });
+    nudge.appendChild(el('span', {}, ['✨ Add your practice logo and branding to personalize your reports.']));
+    const nudgeLink = el('span', { style: { color: '#0d9488', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' } }, ['Settings →']);
+    nudgeLink.onclick = () => { const { S } = H(); S.activeTab = 'settings'; H().re(); };
+    nudge.appendChild(nudgeLink);
+    const dismiss = el('button', { style: { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', flexShrink: 0 } }, ['✕']);
+    dismiss.onclick = () => { RS.brandingBannerDismissed = true; nudge.remove(); };
+    nudge.appendChild(dismiss);
+    sec.appendChild(nudge);
+  }
+
   const navRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: '0', zIndex: 10, background: '#f0fdf9', padding: '10px 0' } });
   const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['← Back to Form']);
   back.onclick = () => { RS.step = 3; nav('new-report', 3); };
@@ -944,7 +974,7 @@ function renderPreview() {
       const child = children.find(c => c.id === RS.selectedChildId);
       const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
       const si = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
-      const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si);
+      const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si, getBranding());
       _downloadBlob(blob, report.report_type, child?.name);
       toast('📥 PDF downloaded!');
     } catch (e) { console.error(e); toast('PDF failed: ' + e.message, 'error'); }
