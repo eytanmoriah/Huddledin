@@ -21,8 +21,9 @@ const RS = {
   dirty: false,
   lastSavedFormData: null,
   generatedText: null,
-  regenCount: 0, // max 3 regenerations per report
-  importedTemplate: null, // template proposed by AI import
+  regenCount: 0,
+  importedTemplate: null,
+  returnToPatient: null, // child ID — if set, back/exit returns to patient reports tab instead of hub
 };
 
 const MONTHLY_LIMIT = 5;
@@ -84,7 +85,17 @@ function statusBadge(status) {
   return el('span', { class: 'rpt-badge ' + cls }, [lbl]);
 }
 
-function nav(view, step) { RS.view = view; RS.step = step || 0; RS.dirty = false; H().re(); }
+function nav(view, step) {
+  RS.view = view; RS.step = step || 0; RS.dirty = false;
+  // If going to 'hub' and we came from a patient tab, go back to patient context instead
+  if (view === 'hub' && RS.returnToPatient) {
+    const { S } = H();
+    S.activeChild = RS.returnToPatient;
+    S.activeTab = 'patient-reports';
+    RS.returnToPatient = null;
+  }
+  H().re();
+}
 
 function exitWithCheck(destView) {
   if (!RS.dirty) { nav(destView || 'hub'); return; }
@@ -1046,6 +1057,91 @@ function _startImport() {
   document.body.appendChild(inp); inp.click(); inp.remove();
 }
 
+// ════════════════════════════════════════
+// PATIENT REPORTS TAB (filtered by child)
+// ════════════════════════════════════════
+function renderPatientReports() {
+  injectStyles();
+  const { el, mkBtn, toast, session, _supa, _hasSpecAiAccess, _showSpecAiUpgradeModal, S } = H();
+  const sec = document.createElement('div'); sec.className = 'section';
+  const childId = S.activeChild;
+
+  // Lock gate
+  if (!_hasSpecAiAccess()) {
+    sec.appendChild(el('div', { class: 'empty-state' }, [
+      el('span', { class: 'empty-state-icon' }, ['📋']),
+      el('div', { class: 'empty-state-title' }, ['🔒 Reports']),
+      el('div', { class: 'empty-state-body' }, ['Generate professional clinical reports with AI. Unlock with AI subscription.']),
+      el('div', { class: 'empty-state-actions' }, [mkBtn('✨ Unlock Reports', 'btn-md btn-primary', () => _showSpecAiUpgradeModal('Reports'))])
+    ]));
+    return sec;
+  }
+
+  if (!RS.reportsLoaded || !RS.templatesLoaded) {
+    sec.appendChild(el('div', { style: { textAlign: 'center', padding: '24px', color: '#64748b' } }, ['Loading...']));
+    loadData().then(() => H().re());
+    return sec;
+  }
+
+  const children = getChildren();
+  const child = children.find(c => c.id === childId);
+  const childReports = RS.reports.filter(r => r.child_id === childId);
+
+  // Header
+  const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' } });
+  hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1rem', margin: 0 } }, ['📋 Reports']));
+  hdr.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
+    if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
+    RS.selectedChildId = childId;
+    RS.returnToPatient = childId;
+    RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {};
+    RS.currentReport = null; RS.lastSavedFormData = null;
+    // Skip patient picker — go straight to template selection
+    RS.step = RS.templates.length ? 1 : 0;
+    S.activeTab = 'reports';
+    nav('new-report', RS.step);
+  }));
+  sec.appendChild(hdr);
+
+  // Empty state
+  if (!childReports.length) {
+    sec.appendChild(el('div', { class: 'empty-state', style: { marginTop: '8px' } }, [
+      el('span', { class: 'empty-state-icon' }, ['📋']),
+      el('div', { class: 'empty-state-title' }, ['No reports yet']),
+      el('div', { class: 'empty-state-body' }, ['Create your first report for ' + (child?.name || 'this patient') + '.'])
+    ]));
+    return sec;
+  }
+
+  // Report list
+  childReports.forEach(r => {
+    const card = el('div', { class: 'rpt-card' });
+    const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
+    top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.report_type || 'Report']));
+    const badges = el('div', { style: { display: 'flex', gap: '4px' } });
+    badges.appendChild(statusBadge(r.status));
+    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
+    top.appendChild(badges);
+    card.appendChild(top);
+    card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [r.created_at ? new Date(r.created_at).toLocaleDateString() : '']));
+    card.onclick = () => {
+      RS.currentReport = r; RS.selectedChildId = r.child_id;
+      RS.returnToPatient = childId;
+      RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
+      RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
+      RS.selectedSections = _getSectionIds(r.sections_included);
+      RS.generatedText = r.generated_text || null;
+      RS.regenCount = 0;
+      S.activeTab = 'reports';
+      if (r.status === 'generated' || r.status === 'finalized') { nav('preview'); }
+      else { RS.step = 3; nav('new-report', 3); }
+    };
+    sec.appendChild(card);
+  });
+
+  return sec;
+}
+
 // Main render dispatcher (called from index.html glue)
 function renderMain() {
   switch (RS.view) {
@@ -1059,6 +1155,7 @@ function renderMain() {
 
 window.HUD_REPORTS = {
   renderReports: renderMain,
+  renderPatientReports,
   renderTemplates,
   renderTemplateEditor,
   renderNewReport,
