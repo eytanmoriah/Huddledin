@@ -84,6 +84,7 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   const isHeb = hasHebrew(reportText);
   if (isHeb) await ensureHebrewFont();
   const brand = branding || {};
+  console.log('[pdf] Branding received:', JSON.stringify({ practice_name: brand.practice_name, header_color: brand.header_color, footer_text: brand.footer_text, logo: !!brand.logo_storage_path }));
   const headerColor = hexToRgb(brand.header_color || '#0d9488');
   const footerText = brand.footer_text !== undefined ? brand.footer_text : 'Confidential — For Clinical Use Only';
 
