@@ -3,7 +3,7 @@ import { SECTION_LIBRARY, getSectionsForSpecialty, getOtherSpecialtySections, ge
 import { renderForm } from './form-builder.js';
 import { generateReport, importTemplate } from './ai-generator.js';
 import { injectStyles } from './styles.js';
-import { generatePDFBlob, parseReportText } from './pdf-util.js';
+import { generatePDFBlob, parseReportText, stripInlineMarkdown, getSkippedPrefix, reconstructMarkdown } from './pdf-util.js';
 
 const RS = {
   templates: [], templatesLoaded: false,
@@ -838,21 +838,21 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
 // ════════════════════════════════════════
 // FORMATTED REPORT HTML RENDERER
 // ════════════════════════════════════════
-function renderFormattedReport(text, branding, childInfo, specialistInfo, reportType) {
+function renderFormattedReport(text, branding, childInfo, specialistInfo, reportType, opts) {
   const { el } = H();
+  const { editable, onUpdate } = opts || {};
   const brand = branding || {};
   const hColor = brand.header_color || '#0d9488';
   const blocks = parseReportText(text);
+  const skippedPrefix = editable ? getSkippedPrefix(text) : '';
 
-  const wrap = el('div', { style: { background: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.06)' } });
+  const outerWrap = el('div', { style: { background: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.06)' } });
 
   // ── Header area ──
   const header = el('div', { style: { padding: '24px 24px 16px', borderBottom: '2px solid ' + hColor, textAlign: 'center' } });
 
-  // Logo
   if (brand.logo_storage_path) {
     const logoImg = el('img', { style: { maxHeight: '48px', maxWidth: '180px', objectFit: 'contain', marginBottom: '8px', display: 'block', marginInline: 'auto' } });
-    // Load logo from storage
     (async () => {
       try {
         const _supa = H()._supa;
@@ -864,90 +864,144 @@ function renderFormattedReport(text, branding, childInfo, specialistInfo, report
     header.appendChild(logoImg);
   }
 
-  // Practice name
-  const practiceName = brand.practice_name || 'Huddledin';
-  header.appendChild(el('div', { style: { fontSize: '1.2rem', fontWeight: 800, color: hColor } }, [practiceName]));
-
-  // Practice details
+  header.appendChild(el('div', { style: { fontSize: '1.2rem', fontWeight: 800, color: hColor } }, [brand.practice_name || 'Huddledin']));
   const details = [brand.practice_address, brand.practice_phone, brand.practice_email].filter(Boolean);
-  if (details.length) {
-    header.appendChild(el('div', { style: { fontSize: '.75rem', color: '#64748b', marginTop: '4px' } }, [details.join(' · ')]));
-  }
-
-  // Report type
+  if (details.length) header.appendChild(el('div', { style: { fontSize: '.75rem', color: '#64748b', marginTop: '4px' } }, [details.join(' \u00B7 ')]));
   header.appendChild(el('div', { style: { fontSize: '.95rem', color: '#1e293b', marginTop: '6px' } }, [reportType || 'Clinical Report']));
-  wrap.appendChild(header);
+  outerWrap.appendChild(header);
 
   // ── Patient info ──
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const infoGrid = el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '.8rem', color: '#475569' } });
-  const infoItems = [
-    ['Patient', childInfo?.name || '\u2014'],
-    ['DOB', childInfo?.dob || '\u2014'],
-    ['Age', childInfo?.age || '\u2014'],
-    ['Date', date],
-    ['Specialist', (specialistInfo?.name || '\u2014') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : '')],
-    ['Specialty', specialistInfo?.specialty || '\u2014'],
-  ];
-  infoItems.forEach(([label, value]) => {
+  [['Patient', childInfo?.name || '\u2014'], ['DOB', childInfo?.dob || '\u2014'],
+   ['Age', childInfo?.age || '\u2014'], ['Date', date],
+   ['Specialist', (specialistInfo?.name || '\u2014') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : '')],
+   ['Specialty', specialistInfo?.specialty || '\u2014']
+  ].forEach(([label, value]) => {
     const row = el('div', { style: { padding: '2px 0' } });
     row.appendChild(el('span', { style: { fontWeight: 600, color: '#334155' } }, [label + ': ']));
     row.appendChild(el('span', {}, [value]));
     infoGrid.appendChild(row);
   });
-  wrap.appendChild(infoGrid);
+  outerWrap.appendChild(infoGrid);
+
+  // ── Helper: create a formatted block element ──
+  function mkBlock(b) {
+    switch (b.type) {
+      case 'spacer': return el('div', { style: { height: '8px' } });
+      case 'hr': return el('hr', { style: { border: 'none', borderTop: '1px solid #e2e8f0', margin: '12px 0' } });
+      case 'header': {
+        const fs = b.level === 1 ? '1.05rem' : b.level === 2 ? '.95rem' : '.88rem';
+        return el('div', { style: { fontSize: fs, fontWeight: 700, color: hColor, marginTop: '16px', marginBottom: '6px', paddingBottom: b.level <= 2 ? '4px' : '0', borderBottom: b.level <= 2 ? '1px solid #e8f4f2' : 'none' } }, [b.text]);
+      }
+      case 'subheader':
+        return el('div', { style: { fontWeight: 700, color: '#334155', fontSize: '.86rem', marginTop: '10px', marginBottom: '4px' } }, [b.text]);
+      case 'bullet': {
+        const li = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
+        li.appendChild(el('span', { style: { color: '#94a3b8', flexShrink: 0 } }, ['\u2022']));
+        li.appendChild(el('span', {}, [b.text]));
+        return li;
+      }
+      case 'numbered': {
+        const ni = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
+        ni.appendChild(el('span', { style: { color: '#64748b', flexShrink: 0, fontWeight: 600, minWidth: '18px' } }, [b.num + '.']));
+        ni.appendChild(el('span', {}, [b.text]));
+        return ni;
+      }
+      default: return el('p', { style: { margin: '0 0 6px' } }, [b.text]);
+    }
+  }
 
   // ── Report body ──
   const body = el('div', { style: { padding: '20px 24px', lineHeight: '1.75', fontSize: '.86rem', color: '#1e293b' } });
 
+  if (editable) {
+    // Hint
+    const hint = el('div', { style: { fontSize: '.72rem', color: '#94a3b8', marginBottom: '10px', textAlign: 'center' } }, ['Double-click any section to edit']);
+    body.appendChild(hint);
+  }
+
   blocks.forEach(block => {
-    switch (block.type) {
-      case 'spacer':
-        body.appendChild(el('div', { style: { height: '8px' } }));
-        break;
-      case 'hr':
-        body.appendChild(el('hr', { style: { border: 'none', borderTop: '1px solid #e2e8f0', margin: '12px 0' } }));
-        break;
-      case 'header': {
-        const fs = block.level === 1 ? '1.05rem' : block.level === 2 ? '.95rem' : '.88rem';
-        const hEl = el('div', { style: { fontSize: fs, fontWeight: 700, color: hColor, marginTop: '16px', marginBottom: '6px', paddingBottom: block.level <= 2 ? '4px' : '0', borderBottom: block.level <= 2 ? '1px solid #e8f4f2' : 'none' } }, [block.text]);
-        body.appendChild(hEl);
-        break;
-      }
-      case 'subheader':
-        body.appendChild(el('div', { style: { fontWeight: 700, color: '#334155', fontSize: '.86rem', marginTop: '10px', marginBottom: '4px' } }, [block.text]));
-        break;
-      case 'bullet': {
-        const li = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
-        li.appendChild(el('span', { style: { color: '#94a3b8', flexShrink: 0 } }, ['\u2022']));
-        li.appendChild(el('span', {}, [block.text]));
-        body.appendChild(li);
-        break;
-      }
-      case 'numbered': {
-        const ni = el('div', { style: { display: 'flex', gap: '8px', paddingInlineStart: '12px', marginBottom: '2px' } });
-        ni.appendChild(el('span', { style: { color: '#64748b', flexShrink: 0, fontWeight: 600, minWidth: '18px' } }, [block.num + '.']));
-        ni.appendChild(el('span', {}, [block.text]));
-        body.appendChild(ni);
-        break;
-      }
-      case 'paragraph':
-      default:
-        body.appendChild(el('p', { style: { margin: '0 0 6px' } }, [block.text]));
-        break;
+    // Non-editable blocks (spacers, HRs) or read-only mode
+    if (!editable || block.rawText === undefined) {
+      body.appendChild(mkBlock(block));
+      return;
     }
+
+    // Editable wrapper
+    const bw = el('div', { style: { borderRadius: '6px', transition: 'background .15s, box-shadow .15s', cursor: 'pointer', padding: '2px 4px', margin: '-2px -4px' } });
+    bw.appendChild(mkBlock(block));
+    bw._editing = false;
+
+    bw.addEventListener('mouseenter', () => { if (!bw._editing) bw.style.background = '#f0fdf9'; });
+    bw.addEventListener('mouseleave', () => { if (!bw._editing) { bw.style.background = ''; bw.style.boxShadow = ''; } });
+
+    bw.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (bw._editing) return;
+      bw._editing = true;
+      bw.style.background = '';
+      bw.style.cursor = '';
+      bw.innerHTML = '';
+      bw.style.position = 'relative';
+
+      const ta = document.createElement('textarea');
+      ta.value = block.rawText;
+      Object.assign(ta.style, {
+        width: '100%', padding: '8px 34px 8px 10px', border: '1.5px solid ' + hColor,
+        borderRadius: '8px', fontSize: 'inherit', lineHeight: 'inherit',
+        fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box',
+        minHeight: '36px', outline: 'none', background: '#fafffe', display: 'block'
+      });
+      bw.appendChild(ta);
+
+      const doneBtn = document.createElement('button');
+      doneBtn.textContent = '\u2713';
+      Object.assign(doneBtn.style, {
+        position: 'absolute', insetInlineEnd: '8px', top: '8px',
+        background: hColor, color: '#fff', border: 'none', borderRadius: '50%',
+        width: '24px', height: '24px', fontSize: '.8rem', cursor: 'pointer',
+        lineHeight: '24px', textAlign: 'center', flexShrink: '0'
+      });
+      bw.appendChild(doneBtn);
+
+      const autoSize = () => { ta.style.height = 'auto'; ta.style.height = Math.max(36, ta.scrollHeight) + 'px'; };
+      ta.addEventListener('input', autoSize);
+      requestAnimationFrame(() => { ta.focus(); autoSize(); });
+
+      const finish = () => {
+        if (!bw._editing) return;
+        bw._editing = false;
+        const newVal = ta.value.trim();
+        if (newVal !== block.rawText) {
+          block.rawText = newVal;
+          block.text = stripInlineMarkdown(newVal);
+          if (onUpdate) onUpdate(reconstructMarkdown(blocks, skippedPrefix));
+        }
+        bw.innerHTML = '';
+        bw.style.position = '';
+        bw.style.cursor = 'pointer';
+        bw.appendChild(mkBlock(block));
+      };
+
+      doneBtn.onclick = (e) => { e.stopPropagation(); finish(); };
+      ta.addEventListener('blur', () => setTimeout(finish, 180));
+      ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') finish(); });
+    });
+
+    body.appendChild(bw);
   });
-  wrap.appendChild(body);
+  outerWrap.appendChild(body);
 
   // ── Footer ──
   const footerText = brand.footer_text !== undefined ? brand.footer_text : 'Confidential \u2014 For Clinical Use Only';
   if (footerText) {
     const footer = el('div', { style: { padding: '10px 24px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '.7rem', color: '#94a3b8' } });
     footer.appendChild(el('span', {}, [footerText + ' \u00B7 ' + date]));
-    wrap.appendChild(footer);
+    outerWrap.appendChild(footer);
   }
 
-  return wrap;
+  return outerWrap;
 }
 
 // Generate print HTML from formatted blocks
@@ -1140,13 +1194,11 @@ function renderPreview() {
     return sec;
   }
 
-  // Title row with badge + view/edit toggle
-  const titleRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } });
-  titleRow.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]));
-  const titleRight = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } });
-  titleRight.appendChild(statusBadge(report.status || 'generated'));
-  titleRow.appendChild(titleRight);
-  sec.appendChild(titleRow);
+  // Title row with badge
+  sec.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0 10px' } }, [
+    el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.05rem', margin: 0 } }, ['📄 ' + (report.report_type || 'Report')]),
+    statusBadge(report.status || 'generated')
+  ]));
 
   // Build child/specialist info for preview
   const eChildren = getChildren();
@@ -1154,33 +1206,11 @@ function renderPreview() {
   const eCi = { name: eChild?.name || 'Patient', dob: eChild?.dob || '', age: calcAge(eChild?.dob) };
   const eSi = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
 
-  // Content container — holds either formatted or edit view
-  const contentBox = el('div');
-  let isEditing = false;
-
-  const renderView = () => {
-    contentBox.innerHTML = '';
-    if (isEditing) {
-      const textArea = el('textarea', { style: { width: '100%', minHeight: '400px', padding: '16px', borderRadius: '14px', border: '1.5px solid #e8f4f2', fontSize: '.84rem', lineHeight: '1.7', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' } });
-      textArea.value = RS.generatedText;
-      textArea.oninput = () => { RS.generatedText = textArea.value; };
-      contentBox.appendChild(textArea);
-    } else {
-      contentBox.appendChild(renderFormattedReport(RS.generatedText, getBranding(), eCi, eSi, report.report_type));
-    }
-  };
-
-  // Toggle button
-  const toggleBtn = el('button', { style: { background: 'none', border: '1px solid #e8f4f2', borderRadius: '8px', padding: '4px 12px', fontSize: '.76rem', fontWeight: 600, color: '#0d9488', cursor: 'pointer' } }, ['✏️ Edit']);
-  toggleBtn.onclick = () => {
-    isEditing = !isEditing;
-    toggleBtn.textContent = isEditing ? '👁 Preview' : '✏️ Edit';
-    renderView();
-  };
-  titleRight.appendChild(toggleBtn);
-
-  renderView();
-  sec.appendChild(contentBox);
+  // Formatted report with inline editing
+  sec.appendChild(renderFormattedReport(RS.generatedText, getBranding(), eCi, eSi, report.report_type, {
+    editable: true,
+    onUpdate: (newText) => { RS.generatedText = newText; }
+  }));
 
   const actions = el('div', { style: { display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' } });
 
