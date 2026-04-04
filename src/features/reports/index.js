@@ -171,8 +171,21 @@ async function loadData() {
   }
 }
 
+async function ensureBranding() {
+  if (RS.brandingLoaded) return;
+  const { _supa, session } = H();
+  if (!_supa || !session) return;
+  try {
+    const { data } = await _supa.from('report_settings').select('*').eq('specialist_id', session.id).limit(1);
+    RS.branding = data?.[0] || null;
+    RS.brandingLoaded = true;
+    console.log('[reports] Branding loaded on demand:', RS.branding?.practice_name || '(none)');
+  } catch (e) { console.error('Load branding:', e); RS.brandingLoaded = true; }
+}
+
 function getBranding() {
-  return { ...DEFAULT_BRANDING, ...(RS.branding || {}) };
+  const result = { ...DEFAULT_BRANDING, ...(RS.branding || {}) };
+  return result;
 }
 
 // ════════════════════════════════════════
@@ -771,7 +784,8 @@ async function _shareReportWithParents(report, generatedText, _supa, session) {
   const childInfo = { name: child.name, dob: child.dob, age: calcAge(child.dob) };
   const specInfo = { name: specName, specialty: session.profession || '', credentials: session.credentials_title || '' };
 
-  // Generate a proper PDF from the report text
+  // Ensure branding is loaded before PDF generation
+  await ensureBranding();
   console.log('[share] Generating PDF...');
   const pdfBlob = await generatePDFBlob(generatedText, report.report_type, childInfo, specInfo, getBranding());
   const fileName = (report.report_type || 'Report').replace(/[^a-zA-Z0-9\u0590-\u05FF ._-]/g, '').replace(/\s+/g, '_') + '_' + (child.name || '').replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
@@ -886,6 +900,7 @@ function renderPreview() {
     // Download PDF
     actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-secondary', async () => {
       try {
+        await ensureBranding();
         const children = getChildren();
         const child = children.find(c => c.id === report.child_id);
         const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
@@ -970,6 +985,7 @@ function renderPreview() {
 
   actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-ghost', async () => {
     try {
+      await ensureBranding();
       const children = getChildren();
       const child = children.find(c => c.id === RS.selectedChildId);
       const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
