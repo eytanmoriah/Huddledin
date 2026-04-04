@@ -29,6 +29,17 @@ const MONTHLY_LIMIT = 5;
 
 function H() { return window.HUD || {}; }
 
+// Get section IDs from either format: array of strings OR {ids:[], imported:[]}
+function _getSectionIds(sections) {
+  if (!sections) return [];
+  if (Array.isArray(sections)) return sections;
+  return sections.ids || [];
+}
+
+function _getSectionCount(sections) {
+  return _getSectionIds(sections).length;
+}
+
 function _buildCredentials(session) {
   const parts = [];
   if (session?.credentials_title) parts.push(session.credentials_title);
@@ -257,7 +268,7 @@ export function renderTemplates() {
     card.appendChild(nameRow);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '8px' } }, [t.description || '']));
     const meta = el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } });
-    const secCount = (t.sections || []).length;
+    const secCount = _getSectionCount(t.sections);
     meta.textContent = secCount + ' section' + (secCount !== 1 ? 's' : '') + ' · Used ' + (t.use_count || 0) + ' time' + ((t.use_count || 0) !== 1 ? 's' : '');
     card.appendChild(meta);
     // Actions
@@ -582,8 +593,8 @@ export function renderNewReport() {
     RS.templates.forEach(t => {
       const card = el('div', { class: 'rpt-tpl-card' });
       card.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px' } }, [t.name]));
-      card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(t.sections || []).length + ' sections']));
-      card.onclick = () => { RS.currentTemplate = t; RS.selectedSections = [...(t.sections || [])]; RS.step = 2; H().re(); };
+      card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [_getSectionCount(t.sections) + ' sections']));
+      card.onclick = () => { RS.currentTemplate = t; RS.selectedSections = [..._getSectionIds(t.sections)]; RS.step = 2; H().re(); };
       grid.appendChild(card);
     });
     sec.appendChild(grid);
