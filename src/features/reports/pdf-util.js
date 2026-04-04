@@ -1,4 +1,4 @@
-// PDF generation using jsPDF with Hebrew font support + branding
+// PDF generation using jsPDF with Hebrew font support + branding + markdown
 
 function hexToRgb(hex) {
   const h = (hex || '#0d9488').replace('#', '');
@@ -7,7 +7,7 @@ function hexToRgb(hex) {
 
 let _jspdfLoaded = false;
 let _hebrewFontLoaded = false;
-let _hebrewFontData = null; // arraybuffer
+let _hebrewFontData = null;
 
 async function ensureJsPDF() {
   if (_jspdfLoaded || window.jspdf) { _jspdfLoaded = true; return; }
@@ -26,7 +26,6 @@ function hasHebrew(text) {
 
 async function ensureHebrewFont() {
   if (_hebrewFontLoaded) return;
-  // Load Noto Sans Hebrew Regular from Google Fonts static CDN
   const url = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanshebrew/NotoSansHebrew%5Bwdth%2Cwght%5D.ttf';
   try {
     const resp = await fetch(url);
@@ -36,7 +35,6 @@ async function ensureHebrewFont() {
     console.log('[pdf] Hebrew font loaded:', _hebrewFontData.byteLength, 'bytes');
   } catch (e) {
     console.error('[pdf] Could not load Hebrew font:', e.message);
-    // Fallback: try a lighter font
     try {
       const resp2 = await fetch('https://cdn.jsdelivr.net/gh/nicholasgasior/gfonts-noto-sans-hebrew@master/fonts/NotoSansHebrew-Regular.ttf');
       if (resp2.ok) { _hebrewFontData = await resp2.arrayBuffer(); _hebrewFontLoaded = true; }
@@ -47,7 +45,6 @@ async function ensureHebrewFont() {
 function registerHebrewFont(doc) {
   if (!_hebrewFontData) return false;
   try {
-    // Convert arraybuffer to base64 string
     const bytes = new Uint8Array(_hebrewFontData);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
@@ -61,19 +58,145 @@ function registerHebrewFont(doc) {
   }
 }
 
-// Reverse Hebrew lines for RTL rendering in jsPDF (which only does LTR)
 function bidiLine(text) {
-  // jsPDF renders left-to-right. For Hebrew text, we reverse the character order
-  // so it appears correctly when rendered LTR.
   if (!hasHebrew(text)) return text;
-  // Split into runs of Hebrew vs non-Hebrew, reverse Hebrew runs
-  // Simple approach: if mostly Hebrew, reverse the whole line
   const hebrewChars = (text.match(/[\u0590-\u05FF]/g) || []).length;
   if (hebrewChars > text.replace(/\s/g, '').length * 0.3) {
-    // Reverse the string but keep numbers/punctuation in correct order
     return text.split('').reverse().join('');
   }
   return text;
+}
+
+// Load logo from Supabase storage as base64 data URL
+async function loadLogoImage(logoPath) {
+  if (!logoPath) return null;
+  try {
+    const _supa = window.HUD?._supa;
+    if (!_supa) { console.warn('[pdf] No Supabase client for logo'); return null; }
+    const { data: urlData, error } = await _supa.storage.from('specialist-storage').createSignedUrl(logoPath, 60);
+    if (error || !urlData?.signedUrl) { console.error('[pdf] Logo signed URL error:', error); return null; }
+    const resp = await fetch(urlData.signedUrl);
+    if (!resp.ok) { console.error('[pdf] Logo fetch failed:', resp.status); return null; }
+    const blob = await resp.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => { console.error('[pdf] Logo read error'); resolve(null); };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error('[pdf] Logo load error:', e);
+    return null;
+  }
+}
+
+// ── Markdown-aware text parser ──
+// Parses report text into structured blocks for PDF rendering
+function parseReportText(text) {
+  const blocks = [];
+  const lines = (text || '').split('\n');
+  let i = 0;
+
+  // Detect and skip duplicate patient info block at the top
+  // (AI sometimes includes Patient/DOB/Date which duplicates the header)
+  const patientInfoPattern = /^(patient|date of birth|dob|date|specialist|age|מטופל|ת\. לידה|תאריך|גיל|מטפל)/i;
+  let skipUntil = 0;
+  for (let j = 0; j < Math.min(lines.length, 15); j++) {
+    const t = lines[j].trim();
+    if (!t) continue;
+    if (patientInfoPattern.test(t.replace(/^\*+/, '').replace(/^#+\s*/, ''))) {
+      skipUntil = j + 1;
+    } else if (skipUntil > 0 && (t === '---' || t === '***' || t === '___')) {
+      skipUntil = j + 1;
+      break;
+    } else if (skipUntil > 0) {
+      break;
+    }
+  }
+
+  i = skipUntil;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Empty line → spacer
+    if (!trimmed) { blocks.push({ type: 'spacer' }); i++; continue; }
+
+    // Horizontal rule: --- or *** or ___
+    if (/^[-*_]{3,}\s*$/.test(trimmed)) { blocks.push({ type: 'hr' }); i++; continue; }
+
+    // Markdown header: ## Header or ### Header
+    const mdHeader = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (mdHeader) {
+      const level = mdHeader[1].length; // 1-4
+      const title = stripInlineMarkdown(mdHeader[2]).replace(/:$/, '');
+      blocks.push({ type: 'header', text: title, level });
+      i++; continue;
+    }
+
+    // UPPERCASE header (existing pattern): "SECTION TITLE" or "SECTION TITLE:"
+    if (/^[A-Z][A-Z\s\/&:()]{3,}:?\s*$/.test(trimmed) ||
+        (hasHebrew(trimmed) && /^[\u0590-\u05FF][\u0590-\u05FF\s\/&:]+:?\s*$/.test(trimmed) && trimmed.length < 60)) {
+      blocks.push({ type: 'header', text: trimmed.replace(/:$/, '').trim(), level: 2 });
+      i++; continue;
+    }
+
+    // Bold-only line (acts as sub-header): **Something** or __Something__
+    if (/^\*\*[^*]+\*\*:?\s*$/.test(trimmed) || /^__[^_]+__:?\s*$/.test(trimmed)) {
+      const text = trimmed.replace(/^\*\*|\*\*:?\s*$|^__|__:?\s*$/g, '').trim();
+      blocks.push({ type: 'subheader', text });
+      i++; continue;
+    }
+
+    // Bullet point: - item or * item or • item (but not ---)
+    if (/^[-*•]\s+/.test(trimmed) && !/^[-]{2,}/.test(trimmed)) {
+      const bulletText = trimmed.replace(/^[-*•]\s+/, '');
+      blocks.push({ type: 'bullet', text: stripInlineMarkdown(bulletText) });
+      i++; continue;
+    }
+
+    // Numbered list: 1. item, 2. item, etc.
+    const numMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/);
+    if (numMatch) {
+      blocks.push({ type: 'numbered', num: numMatch[1], text: stripInlineMarkdown(numMatch[2]) });
+      i++; continue;
+    }
+
+    // Regular paragraph — strip inline markdown
+    blocks.push({ type: 'paragraph', text: stripInlineMarkdown(trimmed) });
+    i++;
+  }
+
+  return blocks;
+}
+
+// Strip inline markdown formatting and return segments for mixed rendering
+function stripInlineMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold**
+    .replace(/__(.+?)__/g, '$1')       // __bold__
+    .replace(/\*(.+?)\*/g, '$1')       // *italic*
+    .replace(/_(.+?)_/g, '$1')         // _italic_
+    .replace(/`(.+?)`/g, '$1')         // `code`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [link](url)
+}
+
+// Parse inline bold segments for mixed-weight rendering
+function parseInlineSegments(text) {
+  const segments = [];
+  const pattern = /\*\*(.+?)\*\*|__(.+?)__/g;
+  let last = 0;
+  let m;
+  while ((m = pattern.exec(text)) !== null) {
+    if (m.index > last) segments.push({ text: text.slice(last, m.index), bold: false });
+    segments.push({ text: m[1] || m[2], bold: true });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), bold: false });
+  // If no bold found, return single segment with stripped text
+  if (segments.length === 0) return [{ text: stripInlineMarkdown(text), bold: false }];
+  return segments;
 }
 
 export async function generatePDFBlob(reportText, reportType, childInfo, specialistInfo, branding) {
@@ -88,6 +211,13 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   const headerColor = hexToRgb(brand.header_color || '#0d9488');
   const footerText = brand.footer_text !== undefined ? brand.footer_text : 'Confidential — For Clinical Use Only';
 
+  // Load logo if available
+  let logoDataUrl = null;
+  if (brand.logo_storage_path) {
+    logoDataUrl = await loadLogoImage(brand.logo_storage_path);
+    console.log('[pdf] Logo loaded:', logoDataUrl ? (logoDataUrl.length + ' chars') : 'failed');
+  }
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -100,23 +230,69 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   if (isHeb) hebrewOK = registerHebrewFont(doc);
   const setFont = (style) => {
     if (isHeb && hebrewOK) doc.setFont('NotoSansHebrew', style || 'normal');
-    else doc.setFont(undefined, style || 'normal');
+    else doc.setFont('helvetica', style || 'normal');
   };
-  // For Hebrew, text aligns right
   const textAlign = isHeb ? 'right' : 'left';
   const textX = isHeb ? (pageW - marginR) : marginL;
 
   const addPage = () => { doc.addPage(); y = marginT; };
   const checkSpace = (needed) => { if (y + needed > pageH - marginB) addPage(); };
 
+  // Helper: render text with inline bold segments
+  const renderInline = (rawText, x, yPos, opts) => {
+    const segments = parseInlineSegments(rawText);
+    if (segments.length === 1 && !segments[0].bold) {
+      const txt = isHeb ? bidiLine(segments[0].text) : segments[0].text;
+      doc.text(txt, x, yPos, opts);
+      return;
+    }
+    // For mixed bold, render segment by segment (LTR only — Hebrew falls back to simple)
+    if (isHeb) {
+      const plain = segments.map(s => s.text).join('');
+      doc.text(bidiLine(plain), x, yPos, opts);
+      return;
+    }
+    let cx = x;
+    segments.forEach(seg => {
+      setFont(seg.bold ? 'bold' : 'normal');
+      doc.text(seg.text, cx, yPos);
+      cx += doc.getTextWidth(seg.text);
+    });
+  };
+
   // ── Header with branding ──
   const headerName = brand.practice_name || 'Huddledin';
+
+  // Logo
+  if (logoDataUrl) {
+    try {
+      const logoH = 12; // mm
+      // Detect image format from data URL
+      const fmt = logoDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      // Load image to get aspect ratio
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = logoDataUrl;
+      });
+      const aspect = img.naturalWidth / img.naturalHeight;
+      const logoW = logoH * aspect;
+      const logoX = (pageW - logoW) / 2;
+      doc.addImage(logoDataUrl, fmt, logoX, y - 2, logoW, logoH);
+      y += logoH + 3;
+    } catch (e) {
+      console.error('[pdf] Logo render error:', e);
+    }
+  }
+
   console.log('[pdf] Rendering header:', headerName, 'color:', headerColor, 'at y:', y);
   doc.setFontSize(18);
   doc.setTextColor(headerColor.r, headerColor.g, headerColor.b);
   doc.setFont('helvetica', 'bold');
   doc.text(headerName, pageW / 2, y, { align: 'center' });
   y += 7;
+
   // Practice details line
   const detailParts = [brand.practice_address, brand.practice_phone, brand.practice_email].filter(Boolean);
   if (detailParts.length) {
@@ -126,6 +302,7 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
     doc.text(detailParts.join(' \u00B7 '), pageW / 2, y, { align: 'center' });
     y += 5;
   }
+
   // Report type
   doc.setFontSize(13);
   doc.setTextColor(30, 41, 59);
@@ -143,9 +320,9 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   doc.setFont('helvetica', 'normal');
   const date = new Date().toLocaleDateString(isHeb ? 'he-IL' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const infoLines = [
-    [(isHeb ? 'מטופל: ' : 'Patient: ') + (childInfo?.name || '—'), (isHeb ? 'ת. לידה: ' : 'DOB: ') + (childInfo?.dob || '—')],
-    [(isHeb ? 'גיל: ' : 'Age: ') + (childInfo?.age || '—'), (isHeb ? 'תאריך: ' : 'Date: ') + date],
-    [(isHeb ? 'מטפל/ת: ' : 'Specialist: ') + (specialistInfo?.name || '—') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : ''), (isHeb ? 'התמחות: ' : 'Specialty: ') + (specialistInfo?.specialty || '—')],
+    [(isHeb ? 'מטופל: ' : 'Patient: ') + (childInfo?.name || '\u2014'), (isHeb ? 'ת. לידה: ' : 'DOB: ') + (childInfo?.dob || '\u2014')],
+    [(isHeb ? 'גיל: ' : 'Age: ') + (childInfo?.age || '\u2014'), (isHeb ? 'תאריך: ' : 'Date: ') + date],
+    [(isHeb ? 'מטפל/ת: ' : 'Specialist: ') + (specialistInfo?.name || '\u2014') + (specialistInfo?.credentials ? ', ' + specialistInfo.credentials : ''), (isHeb ? 'התמחות: ' : 'Specialty: ') + (specialistInfo?.specialty || '\u2014')],
   ];
   infoLines.forEach(([left, right]) => {
     if (isHeb) {
@@ -163,40 +340,118 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   doc.line(marginL, y, pageW - marginR, y);
   y += 6;
 
-  // ── Report body ──
-  const lines = (reportText || '').split('\n');
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed) { y += 3; return; }
+  // ── Report body (markdown-aware) ──
+  const blocks = parseReportText(reportText);
+  const bulletIndent = 6;
 
-    // Detect headers: UPPERCASE English or Hebrew section-like patterns
-    const isHeader = /^[A-Z][A-Z\s\/&:]+:?\s*$/.test(trimmed) || /^[A-Z\s\/&]{4,}$/.test(trimmed)
-      || (isHeb && /^[\u0590-\u05FF][\u0590-\u05FF\s\/&:]+:?\s*$/.test(trimmed) && trimmed.length < 60);
+  blocks.forEach(block => {
+    switch (block.type) {
+      case 'spacer':
+        y += 3;
+        break;
 
-    if (isHeader) {
-      checkSpace(12);
-      y += 4;
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(headerColor.r, headerColor.g, headerColor.b);
-      doc.text(isHeb ? bidiLine(trimmed) : trimmed, textX, y, { align: textAlign });
-      y += 5;
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.1);
-      doc.line(marginL, y, pageW - marginR, y);
-      y += 4;
-    } else {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      const processedLine = isHeb ? bidiLine(trimmed) : trimmed;
-      const wrapped = doc.splitTextToSize(processedLine, contentW);
-      wrapped.forEach(wl => {
-        checkSpace(5);
-        doc.text(wl, textX, y, { align: textAlign });
-        y += 4.5;
-      });
-      y += 1;
+      case 'hr':
+        checkSpace(6);
+        y += 2;
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(marginL, y, pageW - marginR, y);
+        y += 4;
+        break;
+
+      case 'header': {
+        checkSpace(14);
+        y += 5;
+        const fontSize = block.level === 1 ? 13 : block.level === 2 ? 11 : 10;
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(headerColor.r, headerColor.g, headerColor.b);
+        const htxt = isHeb ? bidiLine(block.text) : block.text;
+        doc.text(htxt, textX, y, { align: textAlign });
+        y += fontSize * 0.4 + 1;
+        // Subtle underline for top-level headers
+        if (block.level <= 2) {
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.15);
+          doc.line(marginL, y, pageW - marginR, y);
+          y += 3;
+        } else {
+          y += 2;
+        }
+        break;
+      }
+
+      case 'subheader': {
+        checkSpace(10);
+        y += 3;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(50, 60, 75);
+        const stxt = isHeb ? bidiLine(block.text) : block.text;
+        doc.text(stxt, textX, y, { align: textAlign });
+        y += 5;
+        break;
+      }
+
+      case 'bullet': {
+        doc.setFontSize(10);
+        setFont('normal');
+        doc.setTextColor(30, 41, 59);
+        const bx = isHeb ? (pageW - marginR - bulletIndent) : (marginL + bulletIndent);
+        const bw = contentW - bulletIndent;
+        const btxt = isHeb ? bidiLine(block.text) : block.text;
+        const wrapped = doc.splitTextToSize(btxt, bw);
+        wrapped.forEach((wl, wi) => {
+          checkSpace(5);
+          if (wi === 0) {
+            // Bullet character
+            const dotX = isHeb ? (pageW - marginR - 2) : (marginL + 2);
+            doc.text('\u2022', dotX, y, { align: isHeb ? 'right' : 'left' });
+          }
+          doc.text(wl, bx, y, { align: textAlign });
+          y += 4.5;
+        });
+        y += 0.5;
+        break;
+      }
+
+      case 'numbered': {
+        doc.setFontSize(10);
+        setFont('normal');
+        doc.setTextColor(30, 41, 59);
+        const nx = isHeb ? (pageW - marginR - bulletIndent) : (marginL + bulletIndent);
+        const nw = contentW - bulletIndent;
+        const ntxt = isHeb ? bidiLine(block.text) : block.text;
+        const nwrapped = doc.splitTextToSize(ntxt, nw);
+        nwrapped.forEach((wl, wi) => {
+          checkSpace(5);
+          if (wi === 0) {
+            const numX = isHeb ? (pageW - marginR - 1) : (marginL + 1);
+            doc.setFont('helvetica', 'normal');
+            doc.text(block.num + '.', numX, y, { align: isHeb ? 'right' : 'left' });
+          }
+          doc.text(wl, nx, y, { align: textAlign });
+          y += 4.5;
+        });
+        y += 0.5;
+        break;
+      }
+
+      case 'paragraph':
+      default: {
+        doc.setFontSize(10);
+        setFont('normal');
+        doc.setTextColor(30, 41, 59);
+        const ptxt = isHeb ? bidiLine(block.text) : block.text;
+        const wrapped = doc.splitTextToSize(ptxt, contentW);
+        wrapped.forEach(wl => {
+          checkSpace(5);
+          doc.text(wl, textX, y, { align: textAlign });
+          y += 4.5;
+        });
+        y += 1;
+        break;
+      }
     }
   });
 
@@ -210,7 +465,7 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184);
-  const fText = footerText ? footerText + ' · ' + date : 'Generated by Huddledin · ' + date;
+  const fText = footerText ? footerText + ' \u00B7 ' + date : 'Generated by Huddledin \u00B7 ' + date;
   doc.text(fText, pageW / 2, y, { align: 'center' });
 
   // Page numbers
@@ -224,6 +479,6 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   }
 
   const blob = doc.output('blob');
-  console.log('[pdf] Generated:', blob.size, 'bytes,', totalPages, 'pages, hebrew:', isHeb);
+  console.log('[pdf] Generated:', blob.size, 'bytes,', totalPages, 'pages, hebrew:', isHeb, 'logo:', !!logoDataUrl);
   return blob;
 }
