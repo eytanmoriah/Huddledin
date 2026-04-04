@@ -92,7 +92,7 @@ async function loadLogoImage(logoPath) {
 
 // ── Markdown-aware text parser ──
 // Parses report text into structured blocks for PDF rendering
-function parseReportText(text) {
+export function parseReportText(text) {
   const blocks = [];
   const lines = (text || '').split('\n');
   let i = 0;
