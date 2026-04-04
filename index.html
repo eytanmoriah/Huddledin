@@ -17165,31 +17165,39 @@ function renderSpecialistSettings(){
       _bdInputs[key]=inp;
       brandCard.appendChild(inp);
     });
-    // Logo upload
+    // Logo upload — updates inline, no re-render
     brandCard.appendChild(el('div',{class:'inp-label',style:{marginTop:'10px'}},['Practice Logo']));
-    const logoWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}});
+    const logoWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px',flexWrap:'wrap'}});
+    const logoPreview=el('div',{style:{width:'48px',height:'48px',borderRadius:'8px',background:'#f0fdf9',border:'1px solid var(--mint-l)',overflow:'hidden',display:_brandData.logo_storage_path?'flex':'none',alignItems:'center',justifyContent:'center'}});
     if(_brandData.logo_storage_path){
-      const logoPreview=el('div',{style:{width:'48px',height:'48px',borderRadius:'8px',background:'#f0fdf9',border:'1px solid var(--mint-l)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
-      (async()=>{try{const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(_brandData.logo_storage_path,300);if(data?.signedUrl){const img=el('img',{src:data.signedUrl,style:{width:'100%',height:'100%',objectFit:'contain'}});logoPreview.appendChild(img);}}catch(e){}})();
-      logoWrap.appendChild(logoPreview);
-      logoWrap.appendChild(mkBtn('Remove','btn-sm btn-ghost',async()=>{
-        try{await _supa.storage.from('specialist-storage').remove([_brandData.logo_storage_path]);_brandData.logo_storage_path=null;re();}catch(e){}
-      }));
+      (async()=>{try{const{data}=await _supa.storage.from('specialist-storage').createSignedUrl(_brandData.logo_storage_path,300);if(data?.signedUrl){const img=el('img',{src:data.signedUrl,style:{width:'100%',height:'100%',objectFit:'contain'}});logoPreview.innerHTML='';logoPreview.appendChild(img);}}catch(e){console.error('[logo] preview load:',e);}})();
     }
+    logoWrap.appendChild(logoPreview);
+    const removeBtn=mkBtn('Remove','btn-sm btn-ghost',async()=>{
+      try{await _supa.storage.from('specialist-storage').remove([_brandData.logo_storage_path]);_brandData.logo_storage_path=null;logoPreview.innerHTML='';logoPreview.style.display='none';removeBtn.style.display='none';toast('Logo removed.');}catch(e){console.error('[logo] remove:',e);}
+    });
+    removeBtn.style.display=_brandData.logo_storage_path?'inline-flex':'none';
+    logoWrap.appendChild(removeBtn);
     logoWrap.appendChild(mkBtn('Upload Logo','btn-sm btn-secondary',()=>{
       const fi=el('input',{type:'file',accept:'image/png,image/jpeg',style:{display:'none'}});
       fi.onchange=async(ev)=>{
-        const f=ev.target.files?.[0];if(!f)return;
-        if(f.size>500*1024){toast('Logo must be under 500KB.','error');return;}
-        const path=session.id+'/logo_'+Date.now()+'.'+f.name.split('.').pop();
+        const f=ev.target.files?.[0];if(!f){fi.remove();return;}
+        if(f.size>500*1024){toast('Logo must be under 500KB.','error');fi.remove();return;}
+        const path=session.id+'/report_logo_'+Date.now()+'.'+f.name.split('.').pop();
+        console.log('[logo] Uploading to',path,'size:',f.size);
         try{
           const{error}=await _supa.storage.from('specialist-storage').upload(path,f,{contentType:f.type,upsert:false});
-          if(error)throw error;
+          if(error){console.error('[logo] upload error:',error);throw error;}
           _brandData.logo_storage_path=path;
-          toast('Logo uploaded!');re();
-        }catch(e){toast('Upload failed.','error');}
+          // Show preview inline without re-rendering
+          const url=URL.createObjectURL(f);
+          logoPreview.innerHTML='';logoPreview.appendChild(el('img',{src:url,style:{width:'100%',height:'100%',objectFit:'contain'}}));
+          logoPreview.style.display='flex';removeBtn.style.display='inline-flex';
+          toast('Logo uploaded!');
+        }catch(e){toast('Upload failed: '+e.message,'error');}
+        fi.remove();
       };
-      document.body.appendChild(fi);fi.click();fi.remove();
+      document.body.appendChild(fi);fi.click();
     }));
     brandCard.appendChild(logoWrap);
     // Header color
