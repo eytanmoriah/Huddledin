@@ -681,13 +681,18 @@ export function renderNewReport() {
         // Save draft first
         await _saveDraft(session, _supa, tplName);
         // Call AI
-        const hasStyle = RS.currentTemplate?.writing_style;
         const sectionTitles = activeSections.map(id => getSectionById(id)?.title).filter(Boolean);
+        // Send writing style WITHOUT _originalText (it's huge and makes AI write in the wrong language)
+        let wsForAI = null;
+        if (RS.currentTemplate?.writing_style) {
+          const { _originalText, ...styleOnly } = RS.currentTemplate.writing_style;
+          if (styleOnly.tone || styleOnly.characteristics?.length) wsForAI = JSON.stringify(styleOnly);
+        }
         const text = await generateReport({
           reportType: tplName,
           formData: RS.formData,
           childInfo, specialistInfo: specInfo,
-          writingStyle: hasStyle ? JSON.stringify(RS.currentTemplate.writing_style) : null,
+          writingStyle: wsForAI,
           sections: sectionTitles,
         });
         RS.generatedText = text;
