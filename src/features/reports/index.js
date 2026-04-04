@@ -29,6 +29,27 @@ const MONTHLY_LIMIT = 5;
 
 function H() { return window.HUD || {}; }
 
+function _buildCredentials(session) {
+  const parts = [];
+  if (session?.credentials_title) parts.push(session.credentials_title);
+  if (session?.credentials_certs) parts.push(session.credentials_certs);
+  if (session?.credentials_license) parts.push('Lic. ' + session.credentials_license);
+  return parts.join(', ');
+}
+
+function _downloadBlob(blob, reportType, childName) {
+  const name = (reportType || 'Report').replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_');
+  const child = (childName || 'Patient').replace(/\s+/g, '_');
+  const date = new Date().toISOString().split('T')[0];
+  const filename = name + '_' + child + '_' + date + '.pdf';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function calcAge(dob) {
   if (!dob) return '';
   const b = new Date(dob), n = new Date();
@@ -243,6 +264,21 @@ export function renderTemplates() {
     const acts = el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } });
     const _copyTpl = () => ({ ...t, sections: JSON.parse(JSON.stringify(t.sections || [])) });
     acts.appendChild(mkBtn('Edit', 'btn-sm btn-ghost', (e) => { e.stopPropagation(); RS.currentTemplate = _copyTpl(); nav('edit-template'); }));
+    acts.appendChild(mkBtn('Duplicate', 'btn-sm btn-ghost', async (e) => {
+      e.stopPropagation();
+      try {
+        const clone = _copyTpl();
+        delete clone.id;
+        clone.name = (clone.name || 'Template') + ' (Copy)';
+        clone.use_count = 0;
+        const newId = await saveTemplate(clone);
+        clone.id = newId;
+        RS.currentTemplate = clone;
+        RS.templatesLoaded = false;
+        toast('📋 Template duplicated!');
+        nav('edit-template');
+      } catch (ex) { console.error(ex); toast('Could not duplicate.', 'error'); }
+    }));
     acts.appendChild(mkBtn('Delete', 'btn-sm btn-ghost', (e) => {
       e.stopPropagation();
       openConfirm('Delete Template?', 'This cannot be undone.', true, async () => {
@@ -592,7 +628,7 @@ export function renderNewReport() {
     const children = getChildren();
     const child = children.find(c => c.id === RS.selectedChildId);
     const childInfo = { name: child?.name || '—', dob: child?.dob || '—', age: calcAge(child?.dob) };
-    const specInfo = { name: session?.displayName || session?.name || '—', specialty: session?.profession || '—', credentials: session?.credentials_title || '' };
+    const specInfo = { name: session?.displayName || session?.name || '—', specialty: session?.profession || '—', credentials: _buildCredentials(session) };
     const tplName = RS.currentTemplate?.name || RS.currentReport?.report_type || 'Report';
 
     sec.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', margin: '14px 0 4px', fontSize: '1.1rem' } }, [tplName]));
@@ -804,8 +840,21 @@ function renderPreview() {
       }));
     }
 
+    // Download PDF
+    actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-secondary', async () => {
+      try {
+        const children = getChildren();
+        const child = children.find(c => c.id === report.child_id);
+        const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
+        const si = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
+        const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si);
+        _downloadBlob(blob, report.report_type, child?.name);
+        toast('📥 PDF downloaded!');
+      } catch (e) { console.error(e); toast('PDF failed: ' + e.message, 'error'); }
+    }));
+
     // Print
-    actions.appendChild(mkBtn('🖨 Print', 'btn-md btn-secondary', () => {
+    actions.appendChild(mkBtn('🖨 Print', 'btn-md btn-ghost', () => {
       const children = getChildren();
       const child = children.find(c => c.id === report.child_id);
       const w = window.open('', '_blank');
@@ -861,6 +910,18 @@ function renderPreview() {
       RS.step = 3; nav('new-report', 3);
     }));
   }
+
+  actions.appendChild(mkBtn('📥 Download PDF', 'btn-md btn-ghost', async () => {
+    try {
+      const children = getChildren();
+      const child = children.find(c => c.id === RS.selectedChildId);
+      const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
+      const si = { name: session?.displayName || session?.name || '', specialty: session?.profession || '', credentials: _buildCredentials(session) };
+      const blob = await generatePDFBlob(RS.generatedText, report.report_type, ci, si);
+      _downloadBlob(blob, report.report_type, child?.name);
+      toast('📥 PDF downloaded!');
+    } catch (e) { console.error(e); toast('PDF failed: ' + e.message, 'error'); }
+  }));
 
   actions.appendChild(mkBtn('✅ Finalize', 'btn-md btn-primary', () => {
     openConfirm('Finalize Report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, async () => {
