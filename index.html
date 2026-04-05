@@ -267,7 +267,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .toggle.on{background:linear-gradient(135deg,var(--teal),var(--teal-l))}
 .toggle::after{content:'';width:24px;height:24px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .toggle.on::after{left:24px}
-.chk{width:28px;height:28px;border-radius:10px;border:2px solid var(--mint);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s;font-size:.8rem;font-weight:900;color:#fff;min-width:28px}
+.chk{width:28px;height:28px;border-radius:10px;border:2px solid var(--mint);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s;font-size:.8rem;font-weight:900;color:#fff;min-width:28px;padding:0;-webkit-appearance:none;-webkit-tap-highlight-color:transparent}
 .chk.done{background:linear-gradient(135deg,var(--teal),var(--teal-l));border-color:var(--teal);box-shadow:0 4px 12px rgba(13,148,136,.35)}
 .chk.missed{background:var(--rose-l);border-color:var(--rose);color:#be123c}
 .hw-cal-chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 8px;border-radius:10px;min-width:38px;flex-shrink:0;cursor:default}
@@ -3296,6 +3296,9 @@ chat_select_spec_consult:'Select specialist for consultation',
 chat_family_chat:'\u2019s Family',
 chat_group_chat:'Care Team Group Chat',
 chat_consult_label:'Consultation',
+chat_members_title:'Chat Members',
+chat_member_parent:'Parent',
+chat_member_specialist:'Specialist',
 // ── Vault Notes (Chunk 13) ──
 vault_title:'\uD83D\uDCCB Session Notes',
 vault_new_note:'+ New Note',
@@ -3306,6 +3309,7 @@ vault_saving:'Saving\u2026',
 vault_saved:'\u2705 Note saved',
 vault_publish:'Publish to Parents',
 vault_published:'\u2705 Published',
+vault_summary_sent:'Sent to parents — create a new note to update.',
 vault_unpublish:'Unpublish',
 vault_delete_note:'Delete Note?',
 vault_delete_note_msg:'This will permanently remove this session note.',
@@ -4502,6 +4506,9 @@ chat_select_spec_consult:'\u05D1\u05D7\u05D9\u05E8\u05EA \u05DE\u05D8\u05E4\u05D
 chat_family_chat:'\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05E9\u05DC ',
 chat_group_chat:'\u05E6\u05F3\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9 \u2014 \u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
 chat_consult_label:'\u05D9\u05D9\u05E2\u05D5\u05E5',
+chat_members_title:'\u05DE\u05E9\u05EA\u05EA\u05E4\u05D9 \u05D4\u05E6\u05F3\u05D0\u05D8',
+chat_member_parent:'\u05D4\u05D5\u05E8\u05D4',
+chat_member_specialist:'\u05DE\u05D8\u05E4\u05DC/\u05EA',
 // ── Vault Notes ──
 vault_title:'\uD83D\uDCCB \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9 \u05DE\u05E4\u05D2\u05E9\u05D9\u05DD',
 vault_new_note:'+ \u05E1\u05D9\u05DB\u05D5\u05DD \u05D7\u05D3\u05E9',
@@ -4512,6 +4519,7 @@ vault_saving:'\u05E9\u05D5\u05DE\u05E8\u2026',
 vault_saved:'\u2705 \u05D4\u05E1\u05D9\u05DB\u05D5\u05DD \u05E0\u05E9\u05DE\u05E8',
 vault_publish:'\u05E4\u05E8\u05E1\u05D5\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD',
 vault_published:'\u2705 \u05E4\u05D5\u05E8\u05E1\u05DD',
+vault_summary_sent:'\u05E0\u05E9\u05DC\u05D7 \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD \u2014 \u05E6\u05E8\u05D5 \u05D4\u05E2\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05DC\u05E2\u05D3\u05DB\u05D5\u05DF.',
 vault_unpublish:'\u05D1\u05D9\u05D8\u05D5\u05DC \u05E4\u05E8\u05E1\u05D5\u05DD',
 vault_delete_note:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05E1\u05D9\u05DB\u05D5\u05DD?',
 vault_delete_note_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05DE\u05D7\u05E7 \u05D0\u05EA \u05E1\u05D9\u05DB\u05D5\u05DD \u05D4\u05DE\u05E4\u05D2\u05E9 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA.',
@@ -7704,6 +7712,7 @@ function renderSpecDesktop(){
   if((S.activeTab==='patients'||isPatientCtx)&&!S.activeChild&&sorted.length>0){
     S.activeChild=sorted[0].id;
     S.activeTab='calendar';
+    S.calendarMode='child';
   }
 
   renderList(S._dtPS||'');
@@ -9382,7 +9391,7 @@ function renderParentDashboard(){
       el('div',{class:'empty-state-actions'},[
         mkBtn(T('home_email_invite'),'btn-md btn-primary',()=>showInviteModal()),
         mkBtn(T('pd_generate_code'),'btn-md btn-secondary',()=>showConnectionCodeModal(child.id)),
-        mkBtn(T('pd_add_apt'),'btn-md btn-ghost',()=>{_pushNav();S.activeTab='calendar';re();})
+        mkBtn(T('pd_add_apt'),'btn-md btn-ghost',()=>{_pushNav();S.calendarMode='child';S.activeTab='calendar';re();})
       ])
     ]));
     return sec;
@@ -11117,7 +11126,7 @@ function showAptDetailModal(apt,child){
     ?true
     :(apt.specialistId===session.specialistId||apt.specialistId===session.id);
   const dateLabel=new Date(apt.date+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  const typeLabel={speech:'🗣 Speech Therapy',ot:'🖐 Occupational Therapy',pt:'🏃 Physical Therapy',psychology:'🧠 Psychology',general:'📋 General'}[apt.type]||'📋 Session';
+  const typeLabel={speech:T('apt_type_speech'),ot:T('apt_type_ot'),pt:T('apt_type_pt'),psychology:T('apt_type_psychology'),general:T('apt_type_general')}[apt.type]||T('apt_type_general');
   openModal(T('apt_title_label'),(mb,close)=>{
     // Header
     const hdr=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
@@ -11516,7 +11525,8 @@ function showAddEventModal(prefilledDate=null){
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           // Notify only when specialist books — parents booking their own child's appointment skip notification to other parents
           if(session?.role==='specialist'){
-            await notifyOtherParty('appointments',`📅 New appointment: ${ti.value} on ${di.value} at ${timeStr}`,childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+            const _nc=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
+            await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:newApt.id});
           }
           // (Specialist sharing removed — parent appointments are private)
           // Push to Google Calendar (server decides if connected)
@@ -11898,6 +11908,31 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   ti.appendChild(el('div',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
     [isGroup?'\u{1F465} '+participantNames:isConsult?'\u{1F517} Specialist consult':'\u{1F512} Secure chat']));
   threadHd.appendChild(ti);
+  // Click header info to show member list
+  ti.style.cursor='pointer';
+  ti.onclick=()=>{
+    const pIds=(activeChat.participants||[]).filter(p=>p&&p!=='parent');
+    if(!pIds.length)return;
+    openModal(T('chat_members_title'),async(mb,close)=>{
+      mb.appendChild(el('div',{style:{textAlign:'center',color:'var(--slate)',fontSize:'.8rem',padding:'8px'}},['Loading\u2026']));
+      try{
+        const {data:profs}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',pIds);
+        mb.innerHTML='';
+        (profs||[]).forEach(p=>{
+          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 4px',borderBottom:'1px solid var(--mint-ll)'}});
+          const init=(p.display_name||'?')[0].toUpperCase();
+          row.appendChild(el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.9rem',flexShrink:0}},[init]));
+          const info=el('div',{style:{flex:1,minWidth:0}});
+          info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[p.display_name||'Unknown']));
+          const roleLabel=p.role==='specialist'?(p.profession||T('chat_member_specialist')):T('chat_member_parent');
+          info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[roleLabel]));
+          row.appendChild(info);
+          if(p.id===session?.id)row.appendChild(el('span',{style:{fontSize:'.66rem',color:'var(--teal)',fontWeight:700,background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['You']));
+          mb.appendChild(row);
+        });
+      }catch(e){mb.innerHTML='';mb.appendChild(el('div',{style:{color:'var(--slate)',padding:'12px'}},[T('chat_no_specialists')]));}
+    },380);
+  };
   wrap.appendChild(threadHd);
 
   // -- Messages (scrollable, flex:1) --
@@ -12124,12 +12159,14 @@ function showNewMessageModal(){
     mb.appendChild(pathB);
   },460);
 }
-function showConsultModal(childId){
+async function showConsultModal(childId){
   // childId can be passed directly or fall back to active child
   const cid=childId||S.activeChild;
   const child=DB.children.find(c=>c.id===cid)||(LS.get('children',[])||[]).find(c=>c.id===cid);
   const spec=getMySpecialistRecord();
   const mySpecId=session?.specialistId||session?.id;
+  // Ensure specialist list is loaded for this child (cache may be empty)
+  if(!getChildTeam(cid).length)await loadChildSpecialists(cid);
 
   openModal(T('chat_consultation'),(mb,close)=>{
     // Header — who this is about
@@ -12764,7 +12801,7 @@ function renderVault(){
         actRow.appendChild(saveDraftBtn);
         actRow.appendChild(summaryBtn);
         actRow.appendChild(aiSumBtn);
-        actRow.appendChild(lockBtn);
+        if(_aiOk)actRow.appendChild(lockBtn);
         if(!note.published){
           const delBtn=mkBtn('🗑️ '+T('btn_delete'),'btn-sm btn-ghost',()=>{
             openConfirm(T('vault_delete_note'),T('vault_delete_note_msg'),true,async()=>{
@@ -12797,18 +12834,22 @@ function renderVault(){
         if(showSumSection){
           const ab=el('div',{class:'ai-block'});
           ab.appendChild(el('div',{class:'ai-label'},[T('vault_parent_summary')]));
-          const sta=el('textarea',{class:'inp',style:{background:note.locked?'#f8fafc':'white',minHeight:'88px'}});
+          const _sumLocked=!!note.published;
+          const sta=el('textarea',{class:'inp',style:{background:(note.locked||_sumLocked)?'#f8fafc':'white',minHeight:'88px',color:_sumLocked?'var(--slate)':'inherit'}});
           sta.id='vault-summary-'+note.id;
           sta.value=sumTxt;
-          sta.readOnly=false;
+          sta.readOnly=_sumLocked;
           sta.placeholder=T('vault_summary_placeholder');
-          sta.oninput=e=>{
-            S.vaultSummary=e.target.value;
-            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-            if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
-            S.vaultHasUnsaved=true;
-          };
+          if(!_sumLocked){
+            sta.oninput=e=>{
+              S.vaultSummary=e.target.value;
+              const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+              if(i>-1){ns[i].summary=e.target.value;DB.vaultNotes=ns;}
+              S.vaultHasUnsaved=true;
+            };
+          }
           ab.appendChild(sta);
+          if(_sumLocked){ab.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'4px'}},[T('vault_summary_sent')]));}
           if(!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn(T('vault_publish'),'btn-md btn-primary',()=>{
               if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
@@ -13917,7 +13958,7 @@ function showCheckOffModal(occ,task,childColor){
           }
         }
         const child=DB.children.find(c=>c.id===S.activeChild);
-        await notifyOtherParty('homework','✅ '+(child?.name||'Child')+' completed: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
+        await notifyOtherParty('homework',T('notif_task_completed',{child:child?.name||'Child',title:task.title.slice(0,42)}),S.activeChild,'homework',null,task.specialistId||null);
         close();re();toast('✅ Marked as done!');
       }catch(e){console.error('check off:',e);toast('Could not save. Please try again.','error');saveBtn.disabled=false;saveBtn.textContent='✅ Mark as Done';}
     });
@@ -14637,7 +14678,7 @@ function renderHomeworkParent(){
       chkWrap.appendChild(el('div',{class:'chk',style:{opacity:'.3'}},['—']));
     } else if(todayOccs.length===1){
       const _o=todayOccs[0];const _st=_o.status||'none';
-      const _c=el('div',{class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
+      const _c=el('button',{type:'button',class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
       if(_st!=='completed')_c.onclick=e=>{e.stopPropagation();showCheckOffModal(_o,task,childColor);};
       chkWrap.appendChild(_c);
     } else {
@@ -14645,7 +14686,7 @@ function renderHomeworkParent(){
         const _st=_o.status||'none';
         const _lbl=(_o.timeOfDay||'').slice(0,3);
         const _row=el('div',{style:{display:'flex',alignItems:'center',gap:'3px'}});
-        const _c=el('div',{class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{width:'26px',height:'26px',fontSize:'.55rem',flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
+        const _c=el('button',{type:'button',class:'chk'+(_st==='completed'?' done':_st==='missed'?' missed':''),style:{width:'26px',height:'26px',fontSize:'.55rem',flexShrink:0}},[_st==='completed'?'✓':_st==='missed'?'✗':'']);
         if(_st!=='completed')_c.onclick=e=>{e.stopPropagation();showCheckOffModal(_o,task,childColor);};
         _row.appendChild(_c);_row.appendChild(el('span',{style:{fontSize:'.58rem',color:'var(--slate)',fontWeight:600}},[_lbl]));
         chkWrap.appendChild(_row);
