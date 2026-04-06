@@ -11270,6 +11270,7 @@ function renderCalendar(){
 
   const _isWebCal=window.innerWidth>=1024;
   const sec=el('div',{class:'section',style:_isWebCal?{maxWidth:'100%',width:'100%',margin:'0'}:{}});
+  if(!isParent&&S.calendarMode==='child'&&child){const _calBar=mkSpecBackBar(child.name);if(_calBar)sec.appendChild(_calBar);}
   if(isParent){
     const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
     rightEl.appendChild(mkBtn('📅','btn-sm btn-ghost',()=>showGoogleSyncModal()));
