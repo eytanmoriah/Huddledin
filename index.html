@@ -1675,11 +1675,8 @@ function getChildHouseholdId(childId){
 async function loadChildSpecialists(childId){
   if(!childId||!_supa)return[];
   try{
-    // Get all approved specialist_requests for this child
-    const {data:reqs}=await _supa.from('specialist_requests')
-      .select('specialist_id,specialist_name,role,status')
-      .eq('child_id',childId)
-      .in('status',['approved','pending']);
+    // Get all approved specialist_requests for this child via RPC (bypasses RLS safely)
+    const {data:reqs}=await _supa.rpc('get_child_specialists',{p_child_id:childId});
     if(!reqs||!reqs.length)return[];
     // Get their profiles
     const specIds=reqs.map(r=>r.specialist_id).filter(Boolean);
