@@ -8028,7 +8028,7 @@ function renderHeader(){
     const _isTopLevelNav=S.calFullscreen||S.activeTab==='notifications'||(S.activeTab==='chat'&&!S.activeChatId);
     if(allChildren.length){
       const centre=el('div',{style:{
-        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:_isTopLevelNav?'6px':'8px',cursor:'pointer'
+        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:_isTopLevelNav?'6px':'8px',cursor:'pointer',position:'relative'
       }});
       if(!_isTopLevelNav&&child){
         // Inside child profile — show child avatar + name
@@ -8052,7 +8052,7 @@ function renderHeader(){
       centre.onclick=e=>{
         e.stopPropagation();
         if(csDd){csDd.remove();csDd=null;return;}
-        csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
+        csDd=el('div',{style:{position:'absolute',top:'100%',left:'50%',transform:'translateX(-50%)',marginTop:'6px',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
         allChildren.forEach(ch=>{
           const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:(!_isTopLevelNav&&ch.id===S.activeChild)?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
           const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'22',border:'2px solid '+(ch.color||'var(--teal)'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
@@ -8072,7 +8072,7 @@ function renderHeader(){
           }
           csDd.appendChild(item);
         });
-        (document.getElementById('header')||document.body).appendChild(csDd);
+        centre.appendChild(csDd);
         const out=ev2=>{if(!centre.contains(ev2.target)){csDd?.remove();csDd=null;document.removeEventListener('click',out);}};
         setTimeout(()=>document.addEventListener('click',out),10);
       };
