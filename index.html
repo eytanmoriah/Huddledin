@@ -12183,6 +12183,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   sb2.onclick=async()=>{
     if(_sending)return;
     const txt=mi.value.trim();if(!txt)return;
+    console.log('ABOUT TO DISABLE SEND BTN, active element:',document.activeElement?.tagName,document.activeElement?.className);
     _sending=true;sb2.disabled=true;
     try{
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
@@ -18721,6 +18722,7 @@ function _getSwipeTabs(){
 }
 
 function re(){
+  console.log('RE() CALLED FROM:',new Error().stack?.split('\n')[2]?.trim());
   // Debounce: collapse multiple rapid re() calls into one per animation frame
   if(_reTimer)cancelAnimationFrame(_reTimer);
   _reTimer=requestAnimationFrame(()=>{
