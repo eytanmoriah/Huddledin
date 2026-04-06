@@ -11921,23 +11921,42 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     const pIds=(activeChat.participants||[]).filter(p=>p&&p!=='parent');
     if(!pIds.length)return;
     openModal(T('chat_members_title'),async(mb,close)=>{
-      mb.appendChild(el('div',{style:{textAlign:'center',color:'var(--slate)',fontSize:'.8rem',padding:'8px'}},['Loading\u2026']));
-      try{
-        const {data:profs}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',pIds);
-        mb.innerHTML='';
-        (profs||[]).forEach(p=>{
-          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 4px',borderBottom:'1px solid var(--mint-ll)'}});
-          const init=(p.display_name||'?')[0].toUpperCase();
-          row.appendChild(el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.9rem',flexShrink:0}},[init]));
-          const info=el('div',{style:{flex:1,minWidth:0}});
-          info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[p.display_name||'Unknown']));
-          const roleLabel=p.role==='specialist'?(p.profession||T('chat_member_specialist')):T('chat_member_parent');
-          info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[roleLabel]));
-          row.appendChild(info);
-          if(p.id===session?.id)row.appendChild(el('span',{style:{fontSize:'.66rem',color:'var(--teal)',fontWeight:700,background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['You']));
-          mb.appendChild(row);
-        });
-      }catch(e){mb.innerHTML='';mb.appendChild(el('div',{style:{color:'var(--slate)',padding:'12px'}},[T('chat_no_specialists')]));}
+      // Resolve from cache first
+      const members=[];
+      const unknownIds=[];
+      pIds.forEach(pid=>{
+        if(pid===session?.id){
+          members.push({id:pid,name:session.displayName||session.name||'You',role:session.role,profession:session.profession||''});
+        } else {
+          const spec=getChildTeam(activeChat.childId).find(s=>s.id===pid)||(DB.specialists||[]).find(s=>s.id===pid);
+          if(spec){members.push({id:pid,name:spec.name||'Specialist',role:'specialist',profession:spec.role||''});return;}
+          const cp=(DB.coParents||[]).find(c=>c.id===pid);
+          if(cp){members.push({id:pid,name:cp.name||'Parent',role:'parent',profession:''});return;}
+          unknownIds.push(pid);
+        }
+      });
+      // Fetch any remaining unknown profiles (e.g. parents on specialist side)
+      if(unknownIds.length){
+        try{
+          const {data:profs}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',unknownIds);
+          (profs||[]).forEach(p=>members.push({id:p.id,name:p.display_name||'Member',role:p.role||'unknown',profession:p.profession||''}));
+        }catch(e){}
+        unknownIds.forEach(uid=>{if(!members.find(m=>m.id===uid))members.push({id:uid,name:'Member',role:'unknown',profession:''});});
+      }
+      // Render
+      members.forEach(p=>{
+        const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 4px',borderBottom:'1px solid var(--mint-ll)'}});
+        const init=(p.name||'?')[0].toUpperCase();
+        row.appendChild(el('div',{style:{width:'36px',height:'36px',borderRadius:'50%',background:'var(--teal)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.9rem',flexShrink:0}},[init]));
+        const info=el('div',{style:{flex:1,minWidth:0}});
+        info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[p.name]));
+        const roleLabel=p.role==='specialist'?(p.profession||T('chat_member_specialist')):T('chat_member_parent');
+        info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[roleLabel]));
+        row.appendChild(info);
+        if(p.id===session?.id)row.appendChild(el('span',{style:{fontSize:'.66rem',color:'var(--teal)',fontWeight:700,background:'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},['You']));
+        mb.appendChild(row);
+      });
+      if(!members.length)mb.appendChild(el('div',{style:{color:'var(--slate)',padding:'12px',textAlign:'center'}},[T('chat_no_specialists')]));
     },380);
   };
   wrap.appendChild(threadHd);
