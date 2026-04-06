@@ -9842,7 +9842,8 @@ function renderFolderGrid(folder,isParent,childColor){
 
   // Empty state
   if(!folder.files||folder.files.length===0){
-    const empty=el('div',{style:{textAlign:'center',padding:'48px 24px',color:'var(--slate)'}});
+    const empty=el('div',{style:{textAlign:'center',padding:'48px 24px',color:'var(--slate)',cursor:'pointer'}});
+    empty.onclick=()=>document.getElementById('fileInputFolder')?.click();
     empty.appendChild(el('div',{style:{fontSize:'2.5rem',marginBottom:'12px'}},[folder.icon]));
     empty.appendChild(el('div',{style:{fontWeight:700,fontSize:'.9rem',marginBottom:'6px'}},[T('files_empty_folder')]));
     empty.appendChild(el('div',{style:{fontSize:'.8rem'}},[T('files_upload_first')]));
@@ -10393,7 +10394,9 @@ function showFolderModal(folder,isParent){
     };
 
     if(!folder.files||folder.files.length===0){
-      mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},[T('files_empty_folder')]));
+      const _emptyFl=el('div',{class:'empty-inline',style:{marginBottom:'16px',cursor:'pointer'}},[T('files_empty_folder')]);
+      _emptyFl.onclick=()=>{close();document.getElementById('fileInput')?.click();};
+      mb.appendChild(_emptyFl);
     } else if(_fvPref==='grid'){
       // ─── GRID VIEW ───
       const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'16px'}});
