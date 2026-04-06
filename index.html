@@ -9529,7 +9529,7 @@ function renderSpecDashboard(){
 ----------------------------------------------- */
 function mkSubHeader(title,rightEl=null){
   const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
-  if(!(window.innerWidth>=1024&&session?.role==='parent')){
+  if(!(window.innerWidth>=1024&&session?.role==='parent')&&!S.calFullscreen){
     const backBtn=mkBtn(T('files_back_profile'),'btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
     backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
     hd.appendChild(backBtn);
