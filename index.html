@@ -12167,14 +12167,12 @@ function showNewMessageModal(){
     mb.appendChild(pathB);
   },460);
 }
-async function showConsultModal(childId){
+function showConsultModal(childId){
   // childId can be passed directly or fall back to active child
   const cid=childId||S.activeChild;
   const child=DB.children.find(c=>c.id===cid)||(LS.get('children',[])||[]).find(c=>c.id===cid);
   const spec=getMySpecialistRecord();
   const mySpecId=session?.specialistId||session?.id;
-  // Always load fresh specialist list for consultation modal
-  await loadChildSpecialists(cid);
 
   openModal(T('chat_consultation'),(mb,close)=>{
     // Header — who this is about
@@ -12189,8 +12187,14 @@ async function showConsultModal(childId){
       ['Regarding: '+(child?.name||'this patient')+'. The parent will be notified and must approve before the chat begins.']));
     mb.appendChild(hdr);
 
-    // Pick a specialist to consult with
-    const otherSpecs=getChildTeam(cid).filter(s=>s.id!==mySpecId&&s.status!=='pending');
+    // Show loading then fetch fresh specialist list
+    const listArea=el('div',{style:{textAlign:'center',padding:'24px 0',color:'var(--slate)',fontSize:'.84rem'}},['Loading\u2026']);
+    mb.appendChild(listArea);
+
+    (async()=>{
+      await loadChildSpecialists(cid);
+      const otherSpecs=getChildTeam(cid).filter(s=>s.id!==mySpecId&&s.status!=='pending');
+      listArea.remove();
 
     if(!otherSpecs.length){
       mb.appendChild(el('div',{style:{textAlign:'center',padding:'24px 0',color:'var(--slate)'}},
@@ -12340,6 +12344,7 @@ async function showConsultModal(childId){
       }
     });
     mb.appendChild(sendBtn);
+    })();
   },500);
 }
 
