@@ -12173,8 +12173,8 @@ async function showConsultModal(childId){
   const child=DB.children.find(c=>c.id===cid)||(LS.get('children',[])||[]).find(c=>c.id===cid);
   const spec=getMySpecialistRecord();
   const mySpecId=session?.specialistId||session?.id;
-  // Ensure specialist list is loaded for this child (cache may be empty)
-  if(!getChildTeam(cid).length)await loadChildSpecialists(cid);
+  // Always load fresh specialist list for consultation modal
+  await loadChildSpecialists(cid);
 
   openModal(T('chat_consultation'),(mb,close)=>{
     // Header — who this is about
