@@ -12179,9 +12179,11 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
   const sb2=el('button',{class:'send-btn',title:'Send'});
   sb2.innerHTML='&#10148;';
+  let _sending=false;
   sb2.onclick=async()=>{
+    if(_sending)return;
     const txt=mi.value.trim();if(!txt)return;
-    sb2.disabled=true;
+    _sending=true;sb2.disabled=true;
     try{
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci>-1){
@@ -12234,8 +12236,8 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       }
     }
     S.chatMsg='';re();
-    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
-    }finally{sb2.disabled=false;}
+    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;const _ni=document.querySelector('.chat-input-row input');if(_ni)_ni.focus();});
+    }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
   inputRow.appendChild(mi);inputRow.appendChild(sb2);
