@@ -2288,7 +2288,7 @@ function setupSpecialistSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
     _supa.channel('spec_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},()=>{loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;loadChatsFromSupabase().then(()=>re());})
       .subscribe();
     // Vault notes and files for this child
     _supa.channel('spec_child_data:'+cid)
