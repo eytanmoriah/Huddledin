@@ -18448,6 +18448,60 @@ function _renderLoadingScreen(){
   w.appendChild(ring);w.appendChild(logo);w.appendChild(msg);w.appendChild(dots);
   return w;
 }
+// ── Swipe navigation between bottom bar sections (mobile only) ──
+function _initSwipeNav(){
+  if(window.innerWidth>=1024)return;
+  const main=document.getElementById('main')||document.getElementById('body');
+  if(!main)return;
+  let _sx=0,_sy=0;
+  main.addEventListener('touchstart',e=>{_sx=e.touches[0].clientX;_sy=e.touches[0].clientY;},{passive:true});
+  main.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-_sx;
+    const dy=e.changedTouches[0].clientY-_sy;
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    // Block when modal/overlay is open
+    if(document.querySelector('body > .overlay'))return;
+    const tabs=_getSwipeTabs();
+    if(!tabs)return;
+    const ci=tabs.findIndex(t=>t.isCurrent);
+    if(ci===-1)return;
+    const ni=dx<0?ci+1:ci-1;
+    if(ni<0||ni>=tabs.length)return;
+    tabs[ni].action();
+  },{passive:true});
+}
+function _getSwipeTabs(){
+  const r=session?.role;
+  if(r==='parent'){
+    // Only allow on top-level sections
+    const isHome=S.navLevel===0&&!S.calFullscreen;
+    const isCal=!!S.calFullscreen;
+    const isChat=S.activeTab==='chat'&&!S.activeChatId;
+    const isNotif=S.activeTab==='notifications';
+    if(!isHome&&!isCal&&!isChat&&!isNotif)return null;
+    return[
+      {isCurrent:isHome,action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
+      {isCurrent:isCal,action:()=>{_pushNav();S.calFullscreen=true;S.navLevel=1;re();}},
+      {isCurrent:isChat,action:()=>{S.calFullscreen=false;S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');}},
+      {isCurrent:isNotif,action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}}
+    ];
+  }
+  if(r==='specialist'){
+    // Only allow on top-level tabs (not inside patient profile)
+    const topTabs=['dashboard','patients','todo','notifications'];
+    if(!topTabs.includes(S.activeTab))return null;
+    // Block if inside a patient (activeChild set + patient-specific tab)
+    if(S.activeChild&&!topTabs.includes(S.activeTab))return null;
+    return[
+      {isCurrent:S.activeTab==='dashboard',action:()=>switchTab('dashboard')},
+      {isCurrent:S.activeTab==='patients',action:()=>switchTab('patients')},
+      {isCurrent:S.activeTab==='todo',action:()=>switchTab('todo')},
+      {isCurrent:S.activeTab==='notifications',action:()=>switchTab('notifications')}
+    ];
+  }
+  return null;
+}
+
 function re(){
   // Debounce: collapse multiple rapid re() calls into one per animation frame
   if(_reTimer)cancelAnimationFrame(_reTimer);
@@ -18461,6 +18515,7 @@ function re(){
     root.innerHTML='';
     if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
     root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+    _initSwipeNav();
     const _t1=performance.now();
     if(_t1-_t0>80)console.warn('re() slow:',(_t1-_t0).toFixed(0)+'ms');
   });
