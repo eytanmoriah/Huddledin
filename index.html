@@ -10257,7 +10257,7 @@ function showShareModal(file){
         if(fi2)fi2.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
         DB.folders=fls;
         close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
-      }catch(e){close();console.error('upload failed:',e);toast('❌ Upload failed. Please try again.','error');}
+      }catch(e){console.error('upload failed:',e);toast('❌ Upload failed. Please try again.','error');upBtn.innerHTML='📤 Upload';upBtn.disabled=false;}
     });
     upBtn.innerHTML='📤 Upload';
     row2.appendChild(upBtn);
@@ -10708,8 +10708,10 @@ function renderTeam(){
       reqCard.appendChild(topRow);
       reqCard.appendChild(el('div',{style:{fontSize:'.84rem',color:'var(--navy)',marginBottom:'12px',fontWeight:600}},[T('team_requesting_access',{folder:(reqFolder?.icon||'📁')+' '+(reqFolder?.name||req.requestedFolderName||req.requestedFolder)})]));
       const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-      btnRow.appendChild(mkBtn(T('team_grant_access'),'btn-sm btn-primary',()=>approveFolderRequest(req)));
-      btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+      const _faBtn=mkBtn(T('team_grant_access'),'btn-sm btn-primary',async()=>{_faBtn.disabled=true;_fdBtn.disabled=true;_faBtn.textContent=T('btn_loading');try{await approveFolderRequest(req);}catch(e){_faBtn.disabled=false;_fdBtn.disabled=false;_faBtn.textContent=T('team_grant_access');}});
+      const _fdBtn=mkBtn(T('team_decline'),'btn-sm btn-danger',async()=>{_faBtn.disabled=true;_fdBtn.disabled=true;_fdBtn.textContent=T('btn_loading');try{await denySpecialistRequest(req.id);}catch(e){_faBtn.disabled=false;_fdBtn.disabled=false;_fdBtn.textContent=T('team_decline');}});
+      btnRow.appendChild(_faBtn);
+      btnRow.appendChild(_fdBtn);
       reqCard.appendChild(btnRow);
       container.appendChild(reqCard);
     });
@@ -10874,7 +10876,9 @@ function renderTeam(){
         reqCard.appendChild(desc);
 
         const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-        btnRow.appendChild(mkBtn('✅ Approve','btn-sm btn-primary',async()=>{
+        const _caBtn=mkBtn('✅ Approve','btn-sm btn-primary',async()=>{
+          _caBtn.disabled=true;_caBtn.textContent=T('btn_loading');
+          try{
           // Create the chat with correct participants
           const specId=req.specialistId;
           const targetSpecId=req.requestedFolder; // stored the target specialist's ID here
@@ -10901,9 +10905,11 @@ function renderTeam(){
             if(_supa&&targetSpecId&&targetSpecId!==specId){
               try{const{error:_ne2}=await _supa.from('notifications').insert({id:'notif_b_'+Date.now(),user_id:targetSpecId,household_id:session.householdId||null,child_id:child.id,type:'consult',message:`✅ ${req.specialistName} has been approved to consult with you regarding ${child.name}. Your secure chat is ready.`,read:false,link_tab:'chat',created_at:_notifTime});if(_ne2)console.error('❌ consult notif b:',_ne2);}catch(e){console.error('consult notif b:',e);}
             }
-          }catch(e){console.error('approve consult:',e);toast(T('team_consult_error'),'error');return;}
+          }catch(e){console.error('approve consult:',e);toast(T('team_consult_error'),'error');_caBtn.disabled=false;_caBtn.textContent='✅ Approve';return;}
           re();toast(T('team_consult_approved'));
-        }));
+          }catch(e){console.error('approve consult outer:',e);toast(T('team_consult_error'),'error');_caBtn.disabled=false;_caBtn.textContent='✅ Approve';}
+        });
+        btnRow.appendChild(_caBtn);
         btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
         reqCard.appendChild(btnRow);
         sec.appendChild(reqCard);
@@ -10940,10 +10946,10 @@ function renderTeam(){
         if(!childFolders.length)fRows.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('team_no_folders_yet')]));
         reqCard.appendChild(fRows);
         const btnRow=el('div',{style:{display:'flex',gap:'9px'}});
-        btnRow.appendChild(mkBtn(T('team_approve_grant'),'btn-sm btn-primary',()=>{
-          approveSpecialistRequest(req.id,selFolders);
-        }));
-        btnRow.appendChild(mkBtn(T('team_decline'),'btn-sm btn-danger',()=>denySpecialistRequest(req.id)));
+        const _jaBtn=mkBtn(T('team_approve_grant'),'btn-sm btn-primary',async()=>{_jaBtn.disabled=true;_jdBtn.disabled=true;_jaBtn.textContent=T('btn_loading');try{await approveSpecialistRequest(req.id,selFolders);}catch(e){_jaBtn.disabled=false;_jdBtn.disabled=false;_jaBtn.textContent=T('team_approve_grant');}});
+        const _jdBtn=mkBtn(T('team_decline'),'btn-sm btn-danger',async()=>{_jaBtn.disabled=true;_jdBtn.disabled=true;_jdBtn.textContent=T('btn_loading');try{await denySpecialistRequest(req.id);}catch(e){_jaBtn.disabled=false;_jdBtn.disabled=false;_jdBtn.textContent=T('team_decline');}});
+        btnRow.appendChild(_jaBtn);
+        btnRow.appendChild(_jdBtn);
         reqCard.appendChild(btnRow);
         sec.appendChild(reqCard);
       });
@@ -12896,13 +12902,14 @@ function renderVault(){
 
         // Save draft
         const saveDraftBtn=mkBtn(T('vault_save'),'btn-sm btn-slate',async()=>{
+          saveDraftBtn.disabled=true;
           const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
           const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
           if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
           try{
             await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
             S.vaultHasUnsaved=false;re();toast(T('vault_draft_saved'));
-          }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');}
+          }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');saveDraftBtn.disabled=false;}
         });
 
         // Manual parent summary button (always available)
@@ -13027,6 +13034,7 @@ function renderVault(){
           if(!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn(T('vault_publish'),'btn-md btn-primary',()=>{
               if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
+              pubBtn.disabled=true;
               openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,async()=>{
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                 if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -13727,6 +13735,7 @@ function showParentTaskModal(existing=null){
       const taskTitle=titleInp.value.trim();
       if(!taskTitle){toast(T('stodo_enter_title'),'error');return;}
       saveBtn.disabled=true;saveBtn.textContent=T('ptodo_saving');
+      try{
       const now=new Date().toISOString();
       if(existing){
         const upd={title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,assigned_to:assignState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null};
@@ -13748,6 +13757,7 @@ function showParentTaskModal(existing=null){
       // Re-fetch from Supabase to ensure cache is fully in sync
       try{const{data:_ptRefresh}=await _supa.from('parent_tasks').select('*').eq('household_id',String(session.householdId)).order('created_at',{ascending:false});DB.parentTasks=_ptRefresh||[];}catch(e){}
       close();re();toast(existing?T('stodo_task_updated'):T('stodo_task_added'));
+      }catch(e){console.error('parent task save:',e);toast('Could not save. Please try again.','error');saveBtn.disabled=false;saveBtn.textContent=existing?T('stodo_save_changes'):T('stodo_add_task_btn');}
     });
     mb.appendChild(saveBtn);
   },480);
@@ -16977,7 +16987,10 @@ function _showParentNewChatModal(){
   },420);
 }
 
+let _creatingDirectChat=false;
 async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
+  if(_creatingDirectChat)return;_creatingDirectChat=true;
+  try{
   // Check for existing direct chat
   let chat=(DB.chats||[]).find(c=>c.type==='direct'&&(c.participants||[]).includes(specId)&&(c.childId||c.child_id)===_cid);
   if(!chat){
@@ -17010,6 +17023,7 @@ async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
   }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
   S.activeChatId=_newId;S.chatsLoaded=true;S.activeTab='chat';re();
   toast(T('chat_created'));
+  }finally{_creatingDirectChat=false;}
 }
 
 function showCreateGroupChatModal(){
@@ -17033,8 +17047,9 @@ function showCreateGroupChatModal(){
       mb.appendChild(lbl);
     });
     mb.appendChild(el('div',{style:{height:'12px'}}));
-    mb.appendChild(mkBtn(T('chat_create_group_btn'),'btn-lg btn-primary btn-full',()=>{
+    const _gcBtn=mkBtn(T('chat_create_group_btn'),'btn-lg btn-primary btn-full',()=>{
       if(selected.size===0){toast(T('chat_select_one_spec'),'error');return;}
+      _gcBtn.disabled=true;_gcBtn.textContent=T('btn_loading');
       // If only 1 specialist selected, check for existing direct chat first
       if(selected.size===1){
         const _soloSpecId=[...selected][0];
@@ -17063,11 +17078,12 @@ function showCreateGroupChatModal(){
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
           // Notify all participants about the new group chat
           try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
-        }catch(e){console.error('create group chat:',e);toast(T('chat_could_not_create'),'error');return;}
+        }catch(e){console.error('create group chat:',e);toast(T('chat_could_not_create'),'error');_gcBtn.disabled=false;_gcBtn.textContent=T('chat_create_group_btn');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
         close();re();toast(T('chat_group_created',{name}));
       })();
-    }));
+    });
+    mb.appendChild(_gcBtn);
   },480);
 }
 
