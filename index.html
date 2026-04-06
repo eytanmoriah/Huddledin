@@ -7839,6 +7839,7 @@ function _renderSpecDtPatientDetail(child,specId){
     btn.onclick=()=>{
       _pushNav();
       S.activeTab=t.id;
+      if(t.id==='calendar')S.calendarMode='child';
       if(child&&child.id)_markSeen(child.id,t.id==='vault'?'notes':t.id);
       if(t.id==='chat'){S.activeChatChildId=child.id;S.activeChatId=null;S.chatsLoaded=false;}
       if(t.id==='files')S.activeFolderId=null;
