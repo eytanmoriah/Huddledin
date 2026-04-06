@@ -9185,8 +9185,10 @@ function renderGlobalVault(){
 
   const files=DB.globalInboxFiles||[];
   if(!files.length){
-    const emptyMsg=el('div',{class:'gv-empty',style:{cursor:'pointer'}});
+    const emptyMsg=el('div',{class:'gv-empty',style:{cursor:'pointer','-webkit-tap-highlight-color':'transparent'}});
+    emptyMsg.setAttribute('role','button');emptyMsg.setAttribute('tabindex','0');
     emptyMsg.onclick=()=>{
+      console.log('INBOX EMPTY TAPPED');
       const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
       inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const files=DB.globalInboxFiles;files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});DB.globalInboxFiles=files;toast(T('welcome_file_added'));re();};
       document.body.appendChild(inp);inp.click();
