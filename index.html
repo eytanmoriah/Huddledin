@@ -8964,7 +8964,7 @@ function renderMiniCalendar(children,allApts,onExpand){
   }
 
   // Tap whole card to expand
-  card.onclick=()=>{_pushNav();S.calFullscreen=true;re();};
+  card.onclick=()=>{if(onExpand){onExpand();}else{_pushNav();S.calFullscreen=true;re();}};
   return card;
 }
 
