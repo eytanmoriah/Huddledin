@@ -9272,7 +9272,7 @@ function aptDisplayTitle(apt){
   }
   // Parent: show title. If a specialist is associated, append their name.
   if(apt.specialistId&&apt.specialist&&apt.specialist!=='TBD'){
-    return typeLabel+' · '+apt.specialist;
+    return (apt.title||typeLabel)+' · '+apt.specialist;
   }
   return apt.title||typeLabel;
 }
@@ -11141,7 +11141,7 @@ function showAptDetailModal(apt,child){
     const hdrInfo=el('div',{style:{flex:1}});
     hdrInfo.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.02rem',marginBottom:'4px'}},[aptDisplayTitle(apt)]));
     hdrInfo.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--teal)',fontWeight:700}},[dateLabel]));
-    hdrInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'3px'}},[typeLabel]));
+    hdrInfo.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'3px'}},[apt.title||typeLabel]));
     hdr.appendChild(hdrInfo);
     if(child)hdr.appendChild(el('span',{style:{fontSize:'1.8rem',flexShrink:0}},[child.avatar]));
     mb.appendChild(hdr);
