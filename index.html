@@ -3458,6 +3458,10 @@ team_invite_long:'Generate a connection code or send an email invitation to brin
 notif_new_task:'\uD83D\uDCCB New task for {child}: "{title}"',
 notif_new_apt:'\uD83D\uDCC5 New appointment for {child}: {title}',
 notif_task_completed:'\u2705 {child} completed: "{title}"',
+notif_hw_comment:'\uD83D\uDCAC {specialist} commented on "{title}" for {child}',
+notif_hw_accepted:'\u2713 Parent accepted "{title}" for {child}',
+notif_apt_rsvp_yes:'\u2705 {parent} confirmed attending: "{title}" for {child}',
+notif_apt_rsvp_no:'\u274C {parent} cannot attend: "{title}" for {child}',
 notif_note_published:'\uD83D\uDCDD New note published for {child}',
 notif_spec_joined:'\uD83E\uDD1D {name} joined {child}\u2019s care team',
 notif_coparent_task:'\uD83D\uDCCB {name} assigned you a task: "{title}"',
@@ -4691,6 +4695,10 @@ team_invite_long:'\u05E6\u05E8\u05D5 \u05E7\u05D5\u05D3 \u05D7\u05D9\u05D1\u05D5
 notif_new_task:'\uD83D\uDCCB \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05DC{child}: "{title}"',
 notif_new_apt:'\uD83D\uDCC5 \u05EA\u05D5\u05E8 \u05D7\u05D3\u05E9 \u05DC{child}: {title}',
 notif_task_completed:'\u2705 {child} \u05D1\u05D9\u05E6\u05E2: "{title}"',
+notif_hw_comment:'\uD83D\uDCAC {specialist} \u05D4\u05D2\u05D9\u05D1/\u05D4 \u05E2\u05DC "{title}" \u05E9\u05DC {child}',
+notif_hw_accepted:'\u2713 \u05D4\u05D5\u05E8\u05D4 \u05D0\u05D9\u05E9\u05E8/\u05D4 \u05D0\u05EA "{title}" \u05E9\u05DC {child}',
+notif_apt_rsvp_yes:'\u2705 {parent} \u05D0\u05D9\u05E9\u05E8/\u05D4 \u05D4\u05D2\u05E2\u05D4: "{title}" \u05E9\u05DC {child}',
+notif_apt_rsvp_no:'\u274C {parent} \u05DC\u05D0 \u05D9\u05D5\u05DB\u05DC/\u05EA\u05D5\u05DB\u05DC \u05DC\u05D4\u05D2\u05D9\u05E2: "{title}" \u05E9\u05DC {child}',
 notif_note_published:'\uD83D\uDCDD \u05E1\u05D9\u05DB\u05D5\u05DD \u05D7\u05D3\u05E9 \u05E4\u05D5\u05E8\u05E1\u05DD \u05E2\u05D1\u05D5\u05E8 {child}',
 notif_spec_joined:'\uD83E\uDD1D {name} \u05D4\u05E6\u05D8\u05E8\u05E3/\u05D4 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC {child}',
 notif_coparent_task:'\uD83D\uDCCB {name} \u05D4\u05E7\u05E6\u05D4 \u05DC\u05DA \u05DE\u05E9\u05D9\u05DE\u05D4: "{title}"',
@@ -11188,14 +11196,14 @@ function showAptDetailModal(apt,child){
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
         try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){}
-        await notifyOtherParty('appointments',`✅ ${session.name||'Parent'} confirmed attending: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
+        await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
         close();re();toast(T('apt_marked_attending'));
       });
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
         try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){}
-        await notifyOtherParty('appointments',`❌ ${session.name||'Parent'} cannot attend: "${apt.title}"`,apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
+        await notifyOtherParty('appointments',T('notif_apt_rsvp_no',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
         close();re();toast(T('apt_marked_not_attending'));
       });
       actRow.appendChild(attending);
@@ -14073,7 +14081,8 @@ function openTaskDetailModal(task,child){
                 mb2.appendChild(mkBtn('Send Comment','btn-lg btn-primary btn-full',async()=>{
                   if(!cta.value.trim()){toast('Write a comment first.','error');return;}
                   try{await _supa.from('homework_comments').insert({completion_id:comp.id,task_id:task.id,specialist_id:session?.specialistId||session?.id,comment:cta.value.trim(),household_id:task.householdId||null,child_id:task.childId||S.activeChild});
-                  await notifyOtherParty('homework','💬 '+(session?.name||'Specialist')+' commented on "'+task.title.slice(0,30)+'"',S.activeChild,'homework');
+                  const _cmtChild=DB.children.find(c=>c.id===(task.childId||S.activeChild))||(LS.get('children',[])||[]).find(c=>c.id===(task.childId||S.activeChild));
+                  await notifyOtherParty('homework',T('notif_hw_comment',{specialist:session?.name||'Specialist',title:task.title.slice(0,30),child:_cmtChild?.name||''}),S.activeChild,'homework');
                   close2();toast('Comment sent!');}catch(e){console.error('add comment:',e);toast('Could not send comment.','error');}
                 }));
               },420);
@@ -14316,7 +14325,8 @@ function _renderHwTaskDashboard(taskId){
                 if(!cta.value.trim()){toast('Write a comment first.','error');return;}
                 try{
                   await _supa.from('homework_comments').insert({completion_id:comp.id,task_id:taskId,specialist_id:session?.specialistId||session?.id,comment:cta.value.trim(),household_id:task.householdId||null,child_id:task.childId||S.activeChild});
-                  await notifyOtherParty('homework','💬 '+(session?.name||'Specialist')+' commented on "'+task.title.slice(0,30)+'"',S.activeChild,'homework');
+                  const _cmtChild2=DB.children.find(c=>c.id===(task.childId||S.activeChild))||(LS.get('children',[])||[]).find(c=>c.id===(task.childId||S.activeChild));
+                  await notifyOtherParty('homework',T('notif_hw_comment',{specialist:session?.name||'Specialist',title:task.title.slice(0,30),child:_cmtChild2?.name||''}),S.activeChild,'homework');
                   close2();toast('Comment sent!');
                 }catch(e){console.error('add comment:',e);toast('Could not send comment.','error');}
               }));
@@ -14538,7 +14548,7 @@ function showAddHomeworkTaskModal(existing,prefill){
           all.unshift({id:newTask.id,childId:newTask.child_id,householdId:newTask.household_id,specialistId:newTask.specialist_id,specialistName:specName,title,description:descInp.value.trim()||'',recurrence:selRec,specificDays:specificDays||[],durationType:selDur,endDate:selDur==='end_date'?endDateInp.value:null,timeOfDay:[...selTimes].join(','),difficulty:selDiff,isPinned:isPinned,isPaused:false,status:'active',attachedFileUrls:hwDraftUrls,attachedFileNames:hwDraftNames,createdAt:new Date().toISOString()});
           DB.homeworkTasks=all;
           const child=DB.children.find(c=>c.id===childId);
-          await notifyOtherParty('homework','📋 New task for '+(child?.name||'your child')+': "'+title.slice(0,42)+'"',childId,'homework');
+          await notifyOtherParty('homework',T('notif_new_task',{child:child?.name||'',title:title.slice(0,42)}),childId,'homework');
           close();re();toast(T('hw_task_assigned'));
         }
       }catch(e){console.error('save homework task:',e);toast(T('hw_could_not_save_task'),'error');saveBtn.disabled=false;saveBtn.textContent=existing?T('hw_save_changes_btn'):T('hw_assign_btn');}
@@ -14782,7 +14792,7 @@ function renderHomeworkParent(){
             const all=DB.homeworkOccurrences||[];
             all.forEach(o=>{if(unackedIds.includes(o.id))o.acknowledgedByParent=true;});
             DB.homeworkOccurrences=all;
-            await notifyOtherParty('homework','✓ Parent accepted: "'+task.title.slice(0,42)+'"',S.activeChild,'homework',null,task.specialistId||null);
+            await notifyOtherParty('homework',T('notif_hw_accepted',{child:child?.name||'',title:task.title.slice(0,42)}),S.activeChild,'homework',null,task.specialistId||null);
             toast('Task accepted!');re();
           }catch(e){console.error('ack task:',e);toast('Could not acknowledge.','error');}
         });
