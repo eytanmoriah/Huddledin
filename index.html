@@ -3119,6 +3119,7 @@ spec_dt_sign_out:'Sign out',
 // ── Header, Nav, Search (Chunk 6) ──
 hdr_back_family:'Back to Family Home',
 hdr_back_dashboard:'Back to Dashboard',
+hdr_child:'Child',
 notif_title:'Notifications',
 notif_see_all:'See all',
 sidenav_parent_badge:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 Parent',
@@ -4366,6 +4367,7 @@ spec_dt_sign_out:'\u05D4\u05EA\u05E0\u05EA\u05E7\u05D5\u05EA',
 // ── Header, Nav, Search ──
 hdr_back_family:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05D3\u05E3 \u05D4\u05D1\u05D9\u05EA \u05D4\u05DE\u05E9\u05E4\u05D7\u05EA\u05D9',
 hdr_back_dashboard:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05DC\u05D5\u05D7 \u05D4\u05D1\u05E7\u05E8\u05D4',
+hdr_child:'\u05D9\u05DC\u05D3',
 notif_title:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',
 notif_see_all:'\u05D4\u05E6\u05D2 \u05D4\u05DB\u05DC',
 sidenav_parent_badge:'\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \u05D4\u05D5\u05E8\u05D4',
@@ -8020,44 +8022,54 @@ function renderHeader(){
     logo.title=T('hdr_back_family');
     inner.appendChild(logo);
 
-    // -- Centre: Current child name --
+    // -- Centre: Child name or generic label --
     const child=DB.children.find(c=>c.id===S.activeChild);
-    if(child){
+    const allChildren=DB.children;
+    const _isTopLevelNav=S.calFullscreen||S.activeTab==='notifications'||(S.activeTab==='chat'&&!S.activeChatId);
+    if(allChildren.length){
       const centre=el('div',{style:{
-        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'
+        flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:_isTopLevelNav?'6px':'8px',cursor:'pointer'
       }});
-      const av=el('div',{style:{
-        width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',
-        background:child.color+'22',border:'2.5px solid '+(child.color||'var(--teal)'),
-        display:'flex',alignItems:'center',
-        justifyContent:'center',fontSize:'1rem',flexShrink:0
-      }});
-      if(child.photo){av.appendChild(el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));}
-      else {av.textContent=child.avatar;}
-      centre.appendChild(av);
-      centre.appendChild(el('span',{style:{
-        fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'
-      }},[child.name.split(' ')[0]]));
-      // Child switcher dropdown — always active
-      const allChildren=DB.children;
-      centre.style.cursor='pointer';
-      centre.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',marginLeft:'2px'}},['▾']));
+      if(!_isTopLevelNav&&child){
+        // Inside child profile — show child avatar + name
+        const av=el('div',{style:{
+          width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',
+          background:child.color+'22',border:'2.5px solid '+(child.color||'var(--teal)'),
+          display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0
+        }});
+        if(child.photo){av.appendChild(el('img',{src:child.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));}
+        else{av.textContent=child.avatar;}
+        centre.appendChild(av);
+        centre.appendChild(el('span',{style:{fontFamily:"'Fraunces',serif",fontWeight:800,fontSize:'.9rem',color:'var(--navy)'}},[child.name.split(' ')[0]]));
+      } else {
+        // Top-level section — show generic label
+        centre.appendChild(el('span',{style:{fontSize:'1rem'}},['\uD83E\uDDD2']));
+        centre.appendChild(el('span',{style:{fontFamily:"'Fraunces',serif",fontWeight:700,fontSize:'.88rem',color:'var(--slate)'}},[T('hdr_child')]));
+      }
+      centre.appendChild(el('span',{style:{fontSize:'.7rem',color:_isTopLevelNav?'var(--slate-l)':'var(--slate)',marginInlineStart:'2px'}},['▾']));
+      // Dropdown
       let csDd=null;
       centre.onclick=e=>{
         e.stopPropagation();
         if(csDd){csDd.remove();csDd=null;return;}
         csDd=el('div',{style:{position:'absolute',top:'56px',left:'50%',transform:'translateX(-50%)',background:'#fff',borderRadius:'16px',boxShadow:'0 8px 32px rgba(0,0,0,.12)',border:'1.5px solid var(--mint-l)',zIndex:1000,minWidth:'180px',overflow:'hidden'}});
         allChildren.forEach(ch=>{
-          const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:ch.id===S.activeChild?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
+          const item=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',background:(!_isTopLevelNav&&ch.id===S.activeChild)?'var(--mint-ll)':'#fff',borderBottom:'1px solid var(--mint-ll)'}});
           const av2=el('div',{style:{width:'32px',height:'32px',borderRadius:'50%',background:ch.color+'22',border:'2px solid '+(ch.color||'var(--teal)'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
           if(ch.photo){const img=el('img',{src:ch.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}});av2.appendChild(img);}
           else{av2.textContent=ch.avatar;}
           item.appendChild(av2);
           item.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[ch.name]));
-          if(ch.id===S.activeChild)item.appendChild(el('span',{style:{marginInlineStart:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
+          if(!_isTopLevelNav&&ch.id===S.activeChild)item.appendChild(el('span',{style:{marginInlineStart:'auto',color:'var(--teal)',fontWeight:800}},['✓']));
           item.onmouseenter=()=>item.style.background='var(--mint-ll)';
-          item.onmouseleave=()=>item.style.background=ch.id===S.activeChild?'var(--mint-ll)':'#fff';
-          item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).then(()=>re()).catch(()=>{});S.chatsLoaded=false;re();};
+          item.onmouseleave=()=>item.style.background=(!_isTopLevelNav&&ch.id===S.activeChild)?'var(--mint-ll)':'#fff';
+          if(_isTopLevelNav){
+            // Top-level: navigate into child's profile
+            item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChild=ch.id;S.calFullscreen=false;S.activeTab='dashboard';S.navLevel=1;csDd.remove();csDd=null;re();};
+          } else {
+            // Inside profile: switch child, stay on tab
+            item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).then(()=>re()).catch(()=>{});S.chatsLoaded=false;re();};
+          }
           csDd.appendChild(item);
         });
         (document.getElementById('header')||document.body).appendChild(csDd);
