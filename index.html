@@ -10353,6 +10353,8 @@ function showFolderModal(folder,isParent){
             }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
           }
         }));
+        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'move');}));
+        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'copy');}));
         actions.appendChild(mkBtn(T('files_manage'),'btn-sm btn-slate',()=>showFilePermModal(f,folder)));
         actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
           openConfirm(T('files_delete_file'),T('files_delete_file_msg',{name:f.name}),true,async()=>{
@@ -10362,8 +10364,6 @@ function showFolderModal(folder,isParent){
             }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
           });
         }));
-        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'move');}));
-        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'copy');}));
       }
       if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
         actions.appendChild(mkBtn('✏️ '+T('files_rename'),'btn-sm btn-ghost',async()=>{
@@ -10375,6 +10375,8 @@ function showFolderModal(folder,isParent){
             }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
           }
         }));
+        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'move');}));
+        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'copy');}));
         actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
           openConfirm(T('files_delete_file'),T('files_delete_file_msg',{name:f.name}),true,async()=>{
             try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
@@ -10383,8 +10385,6 @@ function showFolderModal(folder,isParent){
             }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
           });
         }));
-        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'move');}));
-        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'copy');}));
       }
       return actions;
     };
