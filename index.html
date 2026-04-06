@@ -404,7 +404,8 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
 /* -- CALENDAR -- */
 .cal-hd{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;padding:16px 18px;border-radius:var(--r-lg) var(--r-lg) 0 0}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:10px 8px;animation:calSlide .2s ease-out}
+@keyframes calSlide{from{opacity:0;transform:translateX(var(--cal-dir,0))}to{opacity:1;transform:none}}
 .cal-dl{text-align:center;font-size:.64rem;font-weight:800;color:var(--slate);padding:5px 0}
 .cal-day{min-height:44px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:8px;transition:background .12s}.cal-day:hover{background:var(--mint-ll)}.cal-day:active{background:var(--mint-l)}
 .cal-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600;transition:transform .12s}
@@ -8994,9 +8995,9 @@ function renderCalFullscreen(){
   // Month nav
   const monthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flex:1,justifyContent:'center'}});
   const prevMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},['‹']);
-  prevMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)-1;re();};
+  prevMonBtn.onclick=()=>_calNav('calFsMonth',-1);
   const nextMonBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},['›']);
-  nextMonBtn.onclick=()=>{S.calFsMonth=(S.calFsMonth||0)+1;re();};
+  nextMonBtn.onclick=()=>_calNav('calFsMonth',1);
   const calFsMonthLabel=now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   monthNav.appendChild(prevMonBtn);
   monthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'.95rem',color:'var(--navy)',minWidth:'130px',textAlign:'center'}},[calFsMonthLabel]));
@@ -11309,9 +11310,9 @@ function renderCalendar(){
   const _calPrevChev=_isRtl()?'›':'‹';
   const _calNextChev=_isRtl()?'‹':'›';
   const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
-  _calNavLeft.onclick=()=>{S.calMonth=(S.calMonth||0)-1;re();};
+  _calNavLeft.onclick=()=>_calNav('calMonth',-1);
   const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
-  _calNavRight.onclick=()=>{S.calMonth=(S.calMonth||0)+1;re();};
+  _calNavRight.onclick=()=>_calNav('calMonth',1);
   const _calMonthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
   _calMonthNav.appendChild(_calNavLeft);
   _calMonthNav.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center',color:'#fff'}},[_calMonthLabel]));
@@ -18451,6 +18452,12 @@ function _renderLoadingScreen(){
   return w;
 }
 // ── Swipe on calendar widget to change month (mobile only) ──
+function _calNav(monthKey,dir){
+  const sy=window.scrollY;
+  document.documentElement.style.setProperty('--cal-dir',dir>0?'-30px':'30px');
+  S[monthKey]=(S[monthKey]||0)+dir;re();
+  requestAnimationFrame(()=>window.scrollTo(0,sy));
+}
 function _addCalSwipe(calEl,monthKey){
   if(window.innerWidth>=1024)return;
   let sx=0,sy=0;
@@ -18460,7 +18467,7 @@ function _addCalSwipe(calEl,monthKey){
     const dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
     e.stopPropagation();
-    S[monthKey]=(S[monthKey]||0)+(dx<0?1:-1);re();
+    _calNav(monthKey,dx<0?1:-1);
   },{passive:false});
 }
 
