@@ -3237,6 +3237,17 @@ files_upload_first:'Upload the first file.',
 files_delete_file:'Delete File?',
 files_delete_file_msg:'Remove "{name}" permanently?',
 files_file_deleted:'\uD83D\uDDD1\uFE0F File deleted',
+files_move:'Move',
+files_copy:'Copy',
+files_move_title:'\uD83D\uDCC2 Move to Folder',
+files_copy_title:'\uD83D\uDCCB Copy to Folder',
+files_moving:'Moving\u2026',
+files_copying:'Copying\u2026',
+files_moved:'\u2705 File moved!',
+files_copied:'\u2705 File copied!',
+files_no_other_folders:'No other folders available',
+notif_file_moved:'\uD83D\uDCC1 {name} was moved to {folder}',
+notif_file_copied:'\uD83D\uDCC1 {name} was copied to {folder}',
 files_share:'Share',
 files_permissions:'Permissions',
 files_request_access:'Request Access',
@@ -4561,6 +4572,17 @@ files_upload_first:'\u05D4\u05E2\u05DC\u05D9 \u05D0\u05EA \u05D4\u05E7\u05D5\u05
 files_delete_file:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D1\u05E5?',
 files_delete_file_msg:'\u05DC\u05D4\u05E1\u05D9\u05E8 \u05D0\u05EA "{name}" \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA?',
 files_file_deleted:'\uD83D\uDDD1\uFE0F \u05D4\u05E7\u05D5\u05D1\u05E5 \u05E0\u05DE\u05D7\u05E7',
+files_move:'\u05D4\u05E2\u05D1\u05E8',
+files_copy:'\u05D4\u05E2\u05EA\u05E7',
+files_move_title:'\uD83D\uDCC2 \u05D4\u05E2\u05D1\u05E8 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4',
+files_copy_title:'\uD83D\uDCCB \u05D4\u05E2\u05EA\u05E7 \u05DC\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4',
+files_moving:'\u05DE\u05E2\u05D1\u05D9\u05E8\u2026',
+files_copying:'\u05DE\u05E2\u05EA\u05D9\u05E7\u2026',
+files_moved:'\u2705 \u05D4\u05E7\u05D5\u05D1\u05E5 \u05D4\u05D5\u05E2\u05D1\u05E8!',
+files_copied:'\u2705 \u05D4\u05E7\u05D5\u05D1\u05E5 \u05D4\u05D5\u05E2\u05EA\u05E7!',
+files_no_other_folders:'\u05D0\u05D9\u05DF \u05EA\u05D9\u05E7\u05D9\u05D5\u05EA \u05D0\u05D7\u05E8\u05D5\u05EA \u05D6\u05DE\u05D9\u05E0\u05D5\u05EA',
+notif_file_moved:'\uD83D\uDCC1 {name} \u05D4\u05D5\u05E2\u05D1\u05E8 \u05DC{folder}',
+notif_file_copied:'\uD83D\uDCC1 {name} \u05D4\u05D5\u05E2\u05EA\u05E7 \u05DC{folder}',
 files_share:'\u05E9\u05D9\u05EA\u05D5\u05E3',
 files_permissions:'\u05D4\u05E8\u05E9\u05D0\u05D5\u05EA',
 files_request_access:'\u05D1\u05E7\u05E9\u05EA \u05D2\u05D9\u05E9\u05D4',
@@ -9608,6 +9630,98 @@ function _fileThumbColors(f){
   return {icon:'📎',bg:'#f1f5f9'};
 }
 
+// ── Move & Copy files between folders ──
+function _getMovableFolders(currentFolderKey,isParent){
+  const folders=DB.folders.filter(f=>f.childId===S.activeChild&&f.key!==currentFolderKey);
+  if(isParent)return folders;
+  const myPerms=getMySpecialistRecord()?.permissions?.[S.activeChild]||LS.get('my_perms',{})[S.activeChild]||[];
+  return folders.filter(f=>myPerms.includes(f.key));
+}
+
+function _showFileMoveModal(file,srcFolder,isParent,mode){
+  const isMove=mode==='move';
+  const title=isMove?T('files_move_title'):T('files_copy_title');
+  const destFolders=_getMovableFolders(srcFolder.key,isParent);
+  openModal(title,(mb,close)=>{
+    mb.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate)',marginBottom:'14px',padding:'8px 12px',background:'var(--mint-ll)',borderRadius:'10px',display:'flex',alignItems:'center',gap:'8px'}},
+      [el('span',{style:{fontSize:'1.1rem'}},['📄']),el('span',{style:{fontWeight:600}},[file.name])]));
+    if(!destFolders.length){
+      mb.appendChild(el('div',{style:{textAlign:'center',padding:'24px 0',color:'var(--slate)',fontSize:'.84rem'}},[T('files_no_other_folders')]));
+      mb.appendChild(mkBtn(T('cal_cancel'),'btn-md btn-ghost btn-full',close));
+      return;
+    }
+    const list=el('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}});
+    destFolders.forEach(df=>{
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'13px 16px',background:'#fff',borderRadius:'12px',border:'1.5px solid var(--mint-l)',cursor:'pointer',transition:'all .15s'}});
+      row.onmouseenter=()=>{row.style.borderColor='var(--teal)';row.style.background='var(--mint-ll)';};
+      row.onmouseleave=()=>{row.style.borderColor='var(--mint-l)';row.style.background='#fff';};
+      row.appendChild(el('span',{style:{fontSize:'1.3rem',flexShrink:0}},[df.icon||'📁']));
+      const info=el('div',{style:{flex:1,minWidth:0}});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[df.name]));
+      info.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)'}},[df.files.length+' file'+(df.files.length!==1?'s':'')]));
+      row.appendChild(info);
+      row.appendChild(el('span',{style:{color:'var(--teal)',fontSize:'1rem',fontWeight:900,flexShrink:0}},['›']));
+      row.onclick=async()=>{
+        row.style.pointerEvents='none';row.style.opacity='.6';
+        try{
+          if(isMove){await _moveFile(file,srcFolder,df);}
+          else{await _copyFile(file,df);}
+          // Notify if destination is shared
+          _notifyFileAction(file,df,isMove);
+          close();re();toast(isMove?T('files_moved'):T('files_copied'));
+        }catch(e){console.error((isMove?'move':'copy')+' file:',e);toast('Could not '+(isMove?'move':'copy')+' file.','error');row.style.pointerEvents='';row.style.opacity='';}
+      };
+      list.appendChild(row);
+    });
+    mb.appendChild(list);
+  },420);
+}
+
+async function _moveFile(file,srcFolder,destFolder){
+  const{error}=await _supa.from('files').update({category:destFolder.key}).eq('id',file.id);
+  if(error)throw error;
+  const fls=DB.folders;
+  const src=fls.find(f=>f.id===srcFolder.id);
+  const dst=fls.find(f=>f.id===destFolder.id);
+  if(src)src.files=src.files.filter(f=>f.id!==file.id);
+  if(dst)dst.files.push(file);
+  DB.folders=fls;
+}
+
+async function _copyFile(file,destFolder){
+  if(!file.url)throw new Error('No file URL');
+  const resp=await fetch(file.url);
+  const blob=await resp.blob();
+  const newPath=S.activeChild+'/'+Date.now()+'_copy_'+file.name;
+  const{error:upErr}=await _supa.storage.from('huddledin-files').upload(newPath,blob,{contentType:blob.type||'application/octet-stream',upsert:false});
+  if(upErr)throw upErr;
+  const{data:saved,error:insErr}=await _supa.from('files').insert({
+    child_id:S.activeChild,uploaded_by:session.id,name:file.name,
+    storage_path:newPath,mime_type:blob.type||'application/octet-stream',
+    size_bytes:blob.size||0,category:destFolder.key,shared_with:[]
+  }).select('id').single();
+  if(insErr)throw insErr;
+  const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(newPath,900);
+  const fls=DB.folders;
+  const dst=fls.find(f=>f.id===destFolder.id);
+  if(dst)dst.files.push({id:saved.id,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url:signedData?.signedUrl||null});
+  DB.folders=fls;
+}
+
+function _notifyFileAction(file,destFolder,isMove){
+  const isParent=session?.role==='parent';
+  const key=destFolder.key;
+  // Specialist folder — notify that specialist
+  if(isParent&&key.startsWith('spec_')){
+    const specId=key.replace('spec_','');
+    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files',null,specId);
+  }
+  // General/shared folder — notify parents (from specialist)
+  if(!isParent&&(key==='general'||!key.startsWith('spec_'+session.id))){
+    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files');
+  }
+}
+
 function _fileActions(f,folder,isParent){
   const ext=(f.name||'').split('.').pop().toLowerCase();
   const acts=el('div',{style:{display:'flex',borderTop:'1px solid var(--mint-ll)',overflow:'hidden'}});
@@ -9639,6 +9753,8 @@ function _fileActions(f,folder,isParent){
         if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast(T('files_file_deleted'));
       });
     }));
+    acts.appendChild(mkAct('📂',T('files_move'),()=>_showFileMoveModal(f,folder,true,'move')));
+    acts.appendChild(mkAct('📋',T('files_copy'),()=>_showFileMoveModal(f,folder,true,'copy')));
   }
   if(!isParent&&f.uploadedBy===session?.id){
     acts.appendChild(mkAct('✏️',T('files_rename'),()=>{
@@ -9660,6 +9776,8 @@ function _fileActions(f,folder,isParent){
         }catch(e){console.error('delete failed:',e);toast(T('files_upload_failed'),'error');}
       });
     }));
+    acts.appendChild(mkAct('📂',T('files_move'),()=>_showFileMoveModal(f,folder,false,'move')));
+    acts.appendChild(mkAct('📋',T('files_copy'),()=>_showFileMoveModal(f,folder,false,'copy')));
   }
   return acts;
 }
