@@ -9072,6 +9072,7 @@ function renderCalFullscreen(){
     grid.appendChild(cell);
   }
   calCard.appendChild(grid);
+  _addCalSwipe(calCard,'calFsMonth');
   sec.appendChild(calCard);
 
   // Selected day panel (replaces "Upcoming Events")
@@ -11361,6 +11362,7 @@ function renderCalendar(){
     cg.appendChild(cell);
   }
   calCard.appendChild(cg);
+  _addCalSwipe(calCard,'calMonth');
   sec.appendChild(calCard);
 
   sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px',width:_isWeb?'100%':'auto'}},['Upcoming Events']));
@@ -18448,6 +18450,20 @@ function _renderLoadingScreen(){
   w.appendChild(ring);w.appendChild(logo);w.appendChild(msg);w.appendChild(dots);
   return w;
 }
+// ── Swipe on calendar widget to change month (mobile only) ──
+function _addCalSwipe(calEl,monthKey){
+  if(window.innerWidth>=1024)return;
+  let sx=0,sy=0;
+  calEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;e.stopPropagation();},{passive:false});
+  calEl.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    e.stopPropagation();
+    S[monthKey]=(S[monthKey]||0)+(dx<0?1:-1);re();
+  },{passive:false});
+}
+
 // ── Swipe navigation between bottom bar sections (mobile only) ──
 function _initSwipeNav(){
   if(window.innerWidth>=1024)return;
