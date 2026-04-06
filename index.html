@@ -12227,16 +12227,30 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
           }catch(e){console.error('msg notification:',e);}
         }catch(e){
           console.error('send message:',e);
-          // Rollback: remove the optimistic message from local cache
+          // Rollback: remove the optimistic message from local cache + DOM
           const rb=DB.chats,rci=rb.findIndex(c=>c.id===activeChat.id);
           if(rci>-1){rb[rci].messages=rb[rci].messages.filter(m=>m.id!==newMsg.id);DB.chats=rb;}
+          const _failedRow=document.querySelector('[data-msg-id="'+newMsg.id+'"]');
+          if(_failedRow)_failedRow.remove();
           toast('❌ Message failed to send. Please try again.','error',4000);
           return;
         }
       }
     }
-    S.chatMsg='';re();
-    requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;const _ni=document.querySelector('.chat-input-row input');if(_ni)_ni.focus();});
+    // In-place DOM append — no re(), keyboard stays open
+    const _ma=document.getElementById('msg-area');
+    if(_ma){
+      const _row=el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'6px',alignItems:'flex-end'}});
+      _row.dataset.msgId=newMsg.id;
+      const _bub=el('div',{class:'bubble-me'});
+      _bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[txt]));
+      const _tr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
+      _tr.appendChild(el('span',{class:'bubble-time'},[newMsg.time]));
+      _tr.appendChild(el('span',{class:'bubble-tick'},['vv']));
+      _bub.appendChild(_tr);_row.appendChild(_bub);
+      _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
+    }
+    mi.value='';S.chatMsg='';
     }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
