@@ -2231,7 +2231,7 @@ function setupHouseholdSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: files',p.eventType);_debouncedRefresh();})
       .subscribe();
     _supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
       .subscribe();
   });
 }
@@ -12200,6 +12200,20 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       }
       track('Message Sent');
       DB.chats=all;
+      // In-place DOM append — instant, no re(), keyboard stays open
+      const _ma=document.getElementById('msg-area');
+      if(_ma){
+        const _row=el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'6px',alignItems:'flex-end'}});
+        _row.dataset.msgId=newMsg.id;
+        const _bub=el('div',{class:'bubble-me'});
+        _bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[txt]));
+        const _tr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
+        _tr.appendChild(el('span',{class:'bubble-time'},[newMsg.time]));
+        _tr.appendChild(el('span',{class:'bubble-tick'},['vv']));
+        _bub.appendChild(_tr);_row.appendChild(_bub);
+        _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
+      }
+      mi.value='';S.chatMsg='';
       if(session?.id!=='demo'){
         try{
           await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
@@ -12237,20 +12251,6 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         }
       }
     }
-    // In-place DOM append — no re(), keyboard stays open
-    const _ma=document.getElementById('msg-area');
-    if(_ma){
-      const _row=el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'6px',alignItems:'flex-end'}});
-      _row.dataset.msgId=newMsg.id;
-      const _bub=el('div',{class:'bubble-me'});
-      _bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[txt]));
-      const _tr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
-      _tr.appendChild(el('span',{class:'bubble-time'},[newMsg.time]));
-      _tr.appendChild(el('span',{class:'bubble-tick'},['vv']));
-      _bub.appendChild(_tr);_row.appendChild(_bub);
-      _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
-    }
-    mi.value='';S.chatMsg='';
     }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
