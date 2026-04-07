@@ -18790,9 +18790,8 @@ function re(){
     if(!root)return;
     // Clean up stale modal overlays left in document.body — prevents "stuck" UI
     document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
-    root.innerHTML='';
-    if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
-    root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+    if(_appLoading&&session){root.replaceChildren(_renderLoadingScreen());return;}
+    root.replaceChildren(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
     _initSwipeNav();
     if(_sy>0)requestAnimationFrame(()=>window.scrollTo(0,_sy));
     const _t1=performance.now();
@@ -18805,8 +18804,7 @@ function reNow(){
   const root=document.getElementById('root');
   if(!root)return;
   document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
-  root.innerHTML='';
-  root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+  root.replaceChildren(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
 }
 
 initData();
