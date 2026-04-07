@@ -2334,8 +2334,14 @@ async function loadChatsFromSupabase(){
     const chatsWithMessages=(chatRows||[]).map(ch=>{
       const msgs=_msgsByChatId[ch.id]||[];
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,unreadFor:ch.unread_for||[],unreadCount:ch.unread_count||0,
-        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at}))};
+        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null}))};
     });
+    // Generate signed URLs for messages with images
+    for(const ch of chatsWithMessages){
+      for(const m of ch.messages){
+        if(m.imagePath){try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(m.imagePath,3600);m.imageUrl=_su?.signedUrl||null;}catch(e){m.imageUrl=null;}}
+      }
+    }
     LS.set('chats',chatsWithMessages);
   }catch(e){console.error('loadChatsFromSupabase:',e);}
 }
@@ -3315,6 +3321,9 @@ chat_no_chats:'No conversations yet',
 chat_no_chats_desc:'Start a chat with a specialist from your care team.',
 chat_new_message:'New Message',
 chat_type_message:'Type a message\u2026',
+chat_attach_image:'Photo',
+chat_sending_image:'Sending image\u2026',
+chat_image:'Photo',
 chat_send:'Send',
 chat_start_chat:'Start Chat',
 chat_select_specialist:'Select specialist',
@@ -4540,6 +4549,9 @@ chat_no_chats:'\u05D0\u05D9\u05DF \u05E9\u05D9\u05D7\u05D5\u05EA \u05E2\u05D3\u0
 chat_no_chats_desc:'\u05D4\u05EA\u05D7\u05D9\u05DC\u05D9 \u05E9\u05D9\u05D7\u05D4 \u05E2\u05DD \u05DE\u05D8\u05E4\u05DC/\u05EA \u05DE\u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD.',
 chat_new_message:'\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D7\u05D3\u05E9\u05D4',
 chat_type_message:'\u05DB\u05EA\u05D1\u05D9 \u05D4\u05D5\u05D3\u05E2\u05D4\u2026',
+chat_attach_image:'\u05EA\u05DE\u05D5\u05E0\u05D4',
+chat_sending_image:'\u05E9\u05D5\u05DC\u05D7 \u05EA\u05DE\u05D5\u05E0\u05D4\u2026',
+chat_image:'\u05EA\u05DE\u05D5\u05E0\u05D4',
 chat_send:'\u05E9\u05DC\u05D9\u05D7\u05D4',
 chat_start_chat:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4',
 chat_select_specialist:'\u05D1\u05D7\u05D9\u05E8\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA',
@@ -12294,7 +12306,18 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     if(!isMe){
       bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(m.sender)}},[senderName]));
     }
+    // Inline image (if present)
+    if(m.imageUrl||m.imagePath){
+      const imgSrc=m.imageUrl||(m.imagePath?null:null);
+      if(imgSrc){
+        const img=el('img',{src:imgSrc,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:(m.text?'6px':'0'),cursor:'pointer'}});
+        img.onerror=()=>{img.style.display='none';};
+        img.onclick=e=>{e.stopPropagation();_filePreview({name:T('chat_image'),url:imgSrc});};
+        bub.appendChild(img);
+      }
+    }
     // Render message text — highlight search matches inline
+    if(m.text){
     const _msgDiv=el('div',{style:{wordBreak:'break-word'}});
     if(_isMatch&&_searchQ){
       const txt=m.text||'';const tl=txt.toLowerCase();let pos=0;
@@ -12309,6 +12332,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       _msgDiv.appendChild(document.createTextNode(m.text||''));
     }
     bub.appendChild(_msgDiv);
+    }
     // Time row
     const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
     timeRow.appendChild(el('span',{class:'bubble-time'},[m.time]));
@@ -12346,7 +12370,9 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       if(msg.sender_id===session?.id)return;
       const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
       if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
-        all2[ci2].messages.push({id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at});
+        const _rtMsg={id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at,imagePath:msg.image_path||null,imageUrl:null};
+        if(_rtMsg.imagePath){(async()=>{try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(_rtMsg.imagePath,3600);_rtMsg.imageUrl=_su?.signedUrl||null;re();}catch(e){}})();}
+        all2[ci2].messages.push(_rtMsg);
         const uid=session?.id||'';
         all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
         if(!all2[ci2].unreadFor.includes(uid))all2[ci2].unreadFor.push(uid);
@@ -12358,27 +12384,56 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
 
   // -- Input row (sticky bottom) — hidden for locked/disconnected specialists
   if(locked)return wrap;
-  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',background:'#fff',padding:'10px 14px'}});
+  // Image attachment state
+  let _pendingImage=null; // {file, blobUrl}
+  const _imgPreviewWrap=el('div',{style:{display:'none',padding:'8px 14px',borderTop:'1.5px solid var(--mint-ll)',background:'#fafffe',flexShrink:0}});
+  const _imgPreviewImg=el('img',{style:{maxWidth:'120px',maxHeight:'100px',borderRadius:'10px',objectFit:'cover'}});
+  const _imgPreviewRemove=el('button',{style:{position:'absolute',top:'-6px',insetInlineEnd:'-6px',width:'22px',height:'22px',borderRadius:'50%',background:'var(--slate)',color:'#fff',border:'none',cursor:'pointer',fontSize:'.7rem',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
+  _imgPreviewRemove.onclick=()=>{if(_pendingImage?.blobUrl)URL.revokeObjectURL(_pendingImage.blobUrl);_pendingImage=null;_imgPreviewWrap.style.display='none';};
+  const _imgPreviewInner=el('div',{style:{position:'relative',display:'inline-block'}});
+  _imgPreviewInner.appendChild(_imgPreviewImg);_imgPreviewInner.appendChild(_imgPreviewRemove);
+  _imgPreviewWrap.appendChild(_imgPreviewInner);
+
+  const inputRow=el('div',{class:'chat-input-row',style:{flexShrink:0,borderTop:'1.5px solid var(--mint-ll)',background:'#fff',padding:'10px 14px',display:'flex',alignItems:'center',gap:'8px'}});
   const mi=el('input',{class:'inp',placeholder:T('chat_type_message'),style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
+
+  // Camera/image button
+  const camBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',padding:'4px',flexShrink:0,color:'var(--teal)',minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['📷']);
+  const _camInp=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+  _camInp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    if(_pendingImage?.blobUrl)URL.revokeObjectURL(_pendingImage.blobUrl);
+    const blobUrl=URL.createObjectURL(f);
+    _pendingImage={file:f,blobUrl};
+    _imgPreviewImg.src=blobUrl;
+    _imgPreviewWrap.style.display='block';
+    mi.focus();
+  };
+  camBtn.onclick=()=>_camInp.click();
+
   const sb2=el('button',{class:'send-btn',title:'Send'});
   sb2.innerHTML='&#10148;';
   let _sending=false;
   sb2.onmousedown=e=>e.preventDefault();
   sb2.onclick=async()=>{
     if(_sending)return;
-    const txt=mi.value.trim();if(!txt)return;
+    const txt=mi.value.trim();
+    const hasImage=!!_pendingImage;
+    const _imgFile=hasImage?_pendingImage.file:null;
+    const _imgBlobUrl=hasImage?_pendingImage.blobUrl:null;
+    if(!txt&&!hasImage)return;
     _sending=true;sb2.disabled=true;mi.focus();
     try{
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci>-1){
       const senderKey=myId||'unknown';
-      const senderName=session?.displayName||session?.name||'';const _now=new Date().toISOString();const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:_now.split('T')[0],createdAt:_now};
+      const senderName=session?.displayName||session?.name||'';const _now=new Date().toISOString();
+      const newMsg={id:'m_'+Date.now(),sender:senderKey,senderName,text:txt||'',time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:_now.split('T')[0],createdAt:_now,imageUrl:_imgBlobUrl,imagePath:null};
       all[ci].messages.push(newMsg);
       // Mark others as unread
       all[ci].unreadFor=[...(all[ci].unreadFor||[])];
       if(session?.role==='specialist'){
-        // Mark all household parent UUIDs as unread (real UUIDs only, no legacy 'parent' string)
         all[ci].participants.filter(p=>p!=='parent'&&p!==myId&&!DB.specialists?.find(s=>s.id===p)).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
       } else {
         all[ci].participants.filter(p=>p!=='parent'&&p!==myId).forEach(p=>{if(!all[ci].unreadFor.includes(p))all[ci].unreadFor.push(p);});
@@ -12391,17 +12446,27 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         const _row=el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'6px',alignItems:'flex-end'}});
         _row.dataset.msgId=newMsg.id;
         const _bub=el('div',{class:'bubble-me'});
-        _bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[txt]));
+        if(hasImage&&_imgBlobUrl){
+          const _img=el('img',{src:_imgBlobUrl,style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:txt?'6px':'0',cursor:'pointer'}});
+          _img.onclick=ev=>{ev.stopPropagation();_filePreview({name:T('chat_image'),url:_imgBlobUrl});};
+          _bub.appendChild(_img);
+        }
+        if(txt)_bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[txt]));
         const _tr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
         _tr.appendChild(el('span',{class:'bubble-time'},[newMsg.time]));
         _tr.appendChild(el('span',{class:'bubble-tick'},['vv']));
         _bub.appendChild(_tr);_row.appendChild(_bub);
         _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
       }
-      mi.value='';S.chatMsg='';
+      mi.value='';S.chatMsg='';_pendingImage=null;_imgPreviewWrap.style.display='none';
       if(session?.id!=='demo'){
         try{
-          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
+          // Upload image if present
+          let _imgPath=null;
+          if(hasImage&&_imgFile){
+            try{const{path}=await SB.uploadFile('chat/'+activeChat.id,_imgFile);_imgPath=path;}catch(e){console.error('image upload:',e);}
+          }
+          await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt||'',image_path:_imgPath,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
           // Insert notification for each recipient so it appears in the notification list
           try{
@@ -12439,7 +12504,8 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
-  inputRow.appendChild(mi);inputRow.appendChild(sb2);
+  inputRow.appendChild(mi);inputRow.appendChild(camBtn);inputRow.appendChild(_camInp);inputRow.appendChild(sb2);
+  wrap.appendChild(_imgPreviewWrap);
   wrap.appendChild(inputRow);
   return wrap;
 }
