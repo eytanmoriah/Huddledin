@@ -9944,7 +9944,8 @@ function renderFiles(){
     const rightEl=el('div',{style:{display:'flex',gap:'6px',flexShrink:0}});
     const _permBtn=mkBtn('⚙️','btn-sm btn-ghost',()=>{
       // Show a picker to select which specialist to manage permissions for
-      const specs=(DB.specialists||[]).filter(s=>{const p=s.permissions||{};return s.status==='active'||Object.keys(p).length>0;});
+      const _pmSeen=new Set();
+      const specs=(DB.specialists||[]).filter(s=>{const p=s.permissions||{};return s.status==='active'||Object.keys(p).length>0;}).filter(s=>{if(_pmSeen.has(s.id))return false;_pmSeen.add(s.id);return true;});
       if(!specs.length){toast(T('files_no_specs_connected'),'error');return;}
       if(specs.length===1){showPermModal(specs[0]);return;}
       openModal(T('files_manage_perms'),(mb)=>{
@@ -10504,7 +10505,8 @@ function showFilePermModal(file,folder){
   openModal('⚙️ '+T('files_permissions')+' — '+file.name,(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'16px',fontWeight:600}},[T('files_choose_spec_file')]));
     const rows=el('div',{class:'inp-group',style:{marginBottom:'20px'}});
-    DB.specialists.filter(s=>s.status==='active').forEach(s=>{
+    const _fpSeen=new Set();
+    DB.specialists.filter(s=>s.status==='active').filter(s=>{if(_fpSeen.has(s.id))return false;_fpSeen.add(s.id);return true;}).forEach(s=>{
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'11px',cursor:'pointer',padding:'10px 13px',borderRadius:'13px',background:'var(--mint-ll)',border:'2px solid var(--mint-l)'}});
       const cb=el('input',{type:'checkbox'});
       cb.checked=(file.sharedWith||[]).includes(s.id);
@@ -12377,7 +12379,8 @@ function showConsultModal(childId){
 
     (async()=>{
       await loadChildSpecialists(cid);
-      const otherSpecs=getChildTeam(cid).filter(s=>s.id!==mySpecId&&s.status!=='pending');
+      const _csSeen=new Set();
+      const otherSpecs=getChildTeam(cid).filter(s=>s.id!==mySpecId&&s.status!=='pending').filter(s=>{if(_csSeen.has(s.id))return false;_csSeen.add(s.id);return true;});
       listArea.remove();
 
     if(!otherSpecs.length){
