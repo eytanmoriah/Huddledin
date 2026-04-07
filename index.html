@@ -3324,6 +3324,8 @@ chat_type_message:'Type a message\u2026',
 chat_attach_image:'Photo',
 chat_sending_image:'Sending image\u2026',
 chat_image:'Photo',
+chat_camera:'Camera',
+chat_gallery:'Gallery',
 chat_send:'Send',
 chat_start_chat:'Start Chat',
 chat_select_specialist:'Select specialist',
@@ -4552,6 +4554,8 @@ chat_type_message:'\u05DB\u05EA\u05D1\u05D9 \u05D4\u05D5\u05D3\u05E2\u05D4\u2026
 chat_attach_image:'\u05EA\u05DE\u05D5\u05E0\u05D4',
 chat_sending_image:'\u05E9\u05D5\u05DC\u05D7 \u05EA\u05DE\u05D5\u05E0\u05D4\u2026',
 chat_image:'\u05EA\u05DE\u05D5\u05E0\u05D4',
+chat_camera:'\u05DE\u05E6\u05DC\u05DE\u05D4',
+chat_gallery:'\u05D2\u05DC\u05E8\u05D9\u05D4',
 chat_send:'\u05E9\u05DC\u05D9\u05D7\u05D4',
 chat_start_chat:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4',
 chat_select_specialist:'\u05D1\u05D7\u05D9\u05E8\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA',
@@ -12398,10 +12402,11 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   const mi=el('input',{class:'inp',placeholder:T('chat_type_message'),style:{flex:'1',fontSize:'16px'}});
   mi.value=S.chatMsg||'';mi.oninput=e=>S.chatMsg=e.target.value;
 
-  // Camera/image button
+  // Camera/image button with camera + gallery options
   const camBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',padding:'4px',flexShrink:0,color:'var(--teal)',minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['📷']);
-  const _camInp=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
-  _camInp.onchange=e=>{
+  const _camInp=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});
+  const _galInp=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+  const _handleImgPick=e=>{
     const f=e.target.files[0];if(!f)return;
     if(_pendingImage?.blobUrl)URL.revokeObjectURL(_pendingImage.blobUrl);
     const blobUrl=URL.createObjectURL(f);
@@ -12410,7 +12415,17 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     _imgPreviewWrap.style.display='block';
     mi.focus();
   };
-  camBtn.onclick=()=>_camInp.click();
+  _camInp.onchange=_handleImgPick;
+  _galInp.onchange=_handleImgPick;
+  camBtn.onclick=()=>{
+    const popup=el('div',{style:{position:'absolute',bottom:'100%',insetInlineEnd:'48px',marginBottom:'8px',background:'#fff',borderRadius:'12px',boxShadow:'0 4px 20px rgba(0,0,0,.15)',border:'1px solid var(--mint-l)',overflow:'hidden',zIndex:10}});
+    const _mkOpt=(icon,label,inp)=>{const opt=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'12px 16px',cursor:'pointer',transition:'background .1s'}});opt.onmouseenter=()=>opt.style.background='var(--mint-ll)';opt.onmouseleave=()=>opt.style.background='';opt.appendChild(el('span',{style:{fontSize:'1.1rem'}},[icon]));opt.appendChild(el('span',{style:{fontWeight:600,fontSize:'.84rem',color:'var(--navy)'}},[label]));opt.onclick=()=>{popup.remove();inp.click();};return opt;};
+    popup.appendChild(_mkOpt('📷',T('chat_camera'),_camInp));
+    popup.appendChild(_mkOpt('🖼️',T('chat_gallery'),_galInp));
+    inputRow.style.position='relative';
+    inputRow.appendChild(popup);
+    setTimeout(()=>{const _dis=ev=>{if(!popup.contains(ev.target)&&ev.target!==camBtn){popup.remove();document.removeEventListener('click',_dis);}};document.addEventListener('click',_dis);},10);
+  };
 
   const sb2=el('button',{class:'send-btn',title:'Send'});
   sb2.innerHTML='&#10148;';
@@ -12504,7 +12519,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
-  inputRow.appendChild(mi);inputRow.appendChild(camBtn);inputRow.appendChild(_camInp);inputRow.appendChild(sb2);
+  inputRow.appendChild(mi);inputRow.appendChild(camBtn);inputRow.appendChild(_camInp);inputRow.appendChild(_galInp);inputRow.appendChild(sb2);
   wrap.appendChild(_imgPreviewWrap);
   wrap.appendChild(inputRow);
   return wrap;
