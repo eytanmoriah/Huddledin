@@ -2210,23 +2210,23 @@ function setupHouseholdSync(){
       console.log('🔔 Realtime: parent_tasks INSERT');
       const arr=DB.parentTasks||[];
       if(p.new&&!arr.find(t=>t.id===p.new.id)){arr.unshift(p.new);DB.parentTasks=arr;}
+      _localParentTaskChanges.delete((p.new||{}).id);
       re();
-      setTimeout(()=>{const cid=(p.new||{}).id;if(_localParentTaskChanges.has(cid)){_localParentTaskChanges.delete(cid);return;}_debouncedRefresh();},1500);
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
       console.log('🔔 Realtime: parent_tasks UPDATE');
       const arr=DB.parentTasks||[];
       if(p.new){const idx=arr.findIndex(t=>t.id===p.new.id);if(idx>-1){arr[idx]=p.new;}else{arr.unshift(p.new);}DB.parentTasks=arr;}
+      _localParentTaskChanges.delete((p.new||{}).id);
       re();
-      setTimeout(()=>{const cid=(p.new||{}).id;if(_localParentTaskChanges.has(cid)){_localParentTaskChanges.delete(cid);return;}_debouncedRefresh();},1500);
     })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'parent_tasks'},(p)=>{
       // DELETE listener has NO filter — default replica identity may omit household_id from p.old
       console.log('🔔 Realtime: parent_tasks DELETE');
       if(p.old&&p.old.id){
         DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==p.old.id);
+        _localParentTaskChanges.delete(p.old.id);
         re();
-        setTimeout(()=>{if(_localParentTaskChanges.has(p.old.id)){_localParentTaskChanges.delete(p.old.id);return;}_debouncedRefresh();},1500);
       } else {
         // p.old missing or no id — full refresh as fallback
         _debouncedRefresh();
@@ -18775,11 +18775,16 @@ function _getSwipeTabs(){
   return null;
 }
 
+let _reLastTab=null,_reLastNav=null,_reLastChild=null,_reLastFs=null;
 function re(){
   // Debounce: collapse multiple rapid re() calls into one per animation frame
   if(_reTimer)cancelAnimationFrame(_reTimer);
   _reTimer=requestAnimationFrame(()=>{
     _reTimer=null;
+    // Detect navigation change — scroll to top. Otherwise preserve scroll.
+    const _navChanged=S.activeTab!==_reLastTab||S.navLevel!==_reLastNav||S.activeChild!==_reLastChild||S.calFullscreen!==_reLastFs;
+    const _sy=_navChanged?0:window.scrollY;
+    _reLastTab=S.activeTab;_reLastNav=S.navLevel;_reLastChild=S.activeChild;_reLastFs=S.calFullscreen;
     const _t0=performance.now();
     const root=document.getElementById('root');
     if(!root)return;
@@ -18789,6 +18794,7 @@ function re(){
     if(_appLoading&&session){root.appendChild(_renderLoadingScreen());return;}
     root.appendChild(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
     _initSwipeNav();
+    if(_sy>0)requestAnimationFrame(()=>window.scrollTo(0,_sy));
     const _t1=performance.now();
     if(_t1-_t0>80)console.warn('re() slow:',(_t1-_t0).toFixed(0)+'ms');
   });
