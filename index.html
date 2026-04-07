@@ -3470,6 +3470,8 @@ chat_search_placeholder:'Search conversations\u2026',
 chat_search_messages:'Search messages\u2026',
 chat_search_no_results:'No messages found',
 chat_search_results:'{n} result{s}',
+chat_search_matches:'{n} match{s}',
+chat_search_match_of:'Match {n} of {total}',
 // Specialist Requests
 sr_title:'Specialist Requests',
 sr_subtitle:'Specialists who want to join your care team',
@@ -4733,6 +4735,8 @@ chat_search_placeholder:'\u05D7\u05D9\u05E4\u05D5\u05E9 \u05E9\u05D9\u05D7\u05D5
 chat_search_messages:'\u05D7\u05D9\u05E4\u05D5\u05E9 \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA\u2026',
 chat_search_no_results:'\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D5 \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA',
 chat_search_results:'{n} \u05EA\u05D5\u05E6\u05D0\u05D5\u05EA',
+chat_search_matches:'{n} \u05D4\u05EA\u05D0\u05DE\u05D5\u05EA',
+chat_search_match_of:'\u05D4\u05EA\u05D0\u05DE\u05D4 {n} \u05DE\u05EA\u05D5\u05DA {total}',
 sr_title:'\u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
 sr_subtitle:'\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05E8\u05D5\u05E6\u05D9\u05DD \u05DC\u05D4\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05DC\u05DA',
 sr_no_pending:'\u05D0\u05D9\u05DF \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA',
@@ -11905,27 +11909,35 @@ function renderChat(){
     Array.from(listWrap.querySelectorAll('[data-chatname]')).forEach(item=>item.style.display='none');
     _searchTimer=setTimeout(()=>{
       const ql=q.toLowerCase();
-      const results=[];
+      // Collect all matches, group by chat
+      const grouped={};
       (DB.chats||[]).forEach(chat=>{
-        // Only search visible chats
         if(!visChats.find(vc=>vc.id===chat.id))return;
-        (chat.messages||[]).forEach(msg=>{
-          if((msg.text||'').toLowerCase().includes(ql))results.push({chat,msg});
-        });
+        const matches=[];
+        (chat.messages||[]).forEach(msg=>{if((msg.text||'').toLowerCase().includes(ql))matches.push(msg);});
+        if(matches.length){
+          matches.sort((a,b)=>(b.ts||b.createdAt||b.date||'').localeCompare(a.ts||a.createdAt||a.date||''));
+          grouped[chat.id]={chat,matches};
+        }
       });
-      results.sort((a,b)=>(b.msg.createdAt||b.msg.date||'').localeCompare(a.msg.createdAt||a.msg.date||''));
+      const groups=Object.values(grouped).sort((a,b)=>{
+        const aT=a.matches[0].ts||a.matches[0].createdAt||a.matches[0].date||'';
+        const bT=b.matches[0].ts||b.matches[0].createdAt||b.matches[0].date||'';
+        return bT.localeCompare(aT);
+      });
       _msgResultsWrap.innerHTML='';_msgResultsWrap.style.display='';
-      if(!results.length){
+      if(!groups.length){
         _msgResultsWrap.appendChild(el('div',{style:{textAlign:'center',padding:'24px 0',color:'var(--slate)',fontSize:'.84rem'}},[T('chat_search_no_results')]));
         return;
       }
-      _msgResultsWrap.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:700,marginBottom:'8px'}},[T('chat_search_results',{n:results.length,s:results.length!==1?'s':''})]));
-      results.slice(0,30).forEach(({chat,msg})=>{
+      const totalMatches=groups.reduce((s,g)=>s+g.matches.length,0);
+      _msgResultsWrap.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:700,marginBottom:'8px'}},[T('chat_search_results',{n:totalMatches,s:totalMatches!==1?'s':''})+' in '+groups.length+' chat'+(groups.length!==1?'s':'')]));
+      groups.forEach(({chat,matches})=>{
         const _ch=DB.children.find(c=>c.id===chat.childId);
         const _chatName=chat.name||(chat.type==='group'?'Group Chat':'Chat');
-        const _senderName=msg.sender===myId?'You':(msg.senderName||'');
-        // Build snippet with highlighted match
-        const txt=msg.text||'';const idx=txt.toLowerCase().indexOf(ql);
+        const newest=matches[0];
+        const _senderName=newest.sender===myId?'You':(newest.senderName||'');
+        const txt=newest.text||'';const idx=txt.toLowerCase().indexOf(ql);
         const start=Math.max(0,idx-20);const end=Math.min(txt.length,idx+q.length+30);
         const before=(start>0?'\u2026':'')+txt.slice(start,idx);
         const match=txt.slice(idx,idx+q.length);
@@ -11934,8 +11946,11 @@ function renderChat(){
         row.onmouseenter=()=>row.style.borderColor='var(--teal)';
         row.onmouseleave=()=>row.style.borderColor='var(--mint-l)';
         const top=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}});
-        top.appendChild(el('span',{style:{fontWeight:700,fontSize:'.82rem',color:'var(--navy)'}},[(_ch?.avatar||'')+' '+_chatName]));
-        top.appendChild(el('span',{style:{fontSize:'.66rem',color:'var(--slate-l)'}},[msg.time||'']));
+        const topLeft=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',minWidth:0,flex:1}});
+        topLeft.appendChild(el('span',{style:{fontWeight:700,fontSize:'.82rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[(_ch?.avatar||'')+' '+_chatName]));
+        if(matches.length>1)topLeft.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:'var(--teal)',background:'var(--mint-l)',padding:'1px 6px',borderRadius:'99px',flexShrink:0}},[T('chat_search_matches',{n:matches.length,s:matches.length!==1?'es':''})]));
+        top.appendChild(topLeft);
+        top.appendChild(el('span',{style:{fontSize:'.66rem',color:'var(--slate-l)',flexShrink:0}},[newest.time||'']));
         row.appendChild(top);
         const snippet=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.4'}});
         if(_senderName)snippet.appendChild(el('span',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.74rem'}},[_senderName+': ']));
@@ -11943,7 +11958,15 @@ function renderChat(){
         snippet.appendChild(el('mark',{style:{background:'var(--mint)',borderRadius:'2px',padding:'0 1px',fontWeight:700}},[match]));
         snippet.appendChild(document.createTextNode(after));
         row.appendChild(snippet);
-        row.onclick=()=>{S._msgSearch='';S.activeChatId=chat.id;S._scrollToMsgId=msg.id;re();};
+        row.onclick=()=>{
+          S._msgSearch='';
+          S.activeChatId=chat.id;
+          S._msgSearchMatches=matches.map(m=>m.id);
+          S._msgSearchIdx=0;
+          S._msgSearchQuery=q;
+          S._scrollToMsgId=matches[0].id;
+          re();
+        };
         _msgResultsWrap.appendChild(row);
       });
     },200);
@@ -12225,13 +12248,38 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   };
   wrap.appendChild(threadHd);
 
+  // -- Search match navigation bar --
+  const _hasSearchMatches=S._msgSearchMatches&&S._msgSearchMatches.length>0;
+  const _searchQ=(S._msgSearchQuery||'').toLowerCase();
+  if(_hasSearchMatches){
+    const _navBar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',background:'var(--mint-ll)',borderBottom:'1.5px solid var(--mint-l)',flexShrink:0}});
+    const _navLabel=el('span',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--navy)'}});
+    const _updLabel=()=>{_navLabel.textContent=T('chat_search_match_of',{n:(S._msgSearchIdx||0)+1,total:S._msgSearchMatches.length});};
+    _updLabel();
+    const _navLeft=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+    _navLeft.appendChild(el('span',{style:{fontSize:'.74rem',color:'var(--teal)',fontWeight:600}},['🔍 "'+S._msgSearchQuery+'\"']));
+    _navBar.appendChild(_navLeft);
+    const _navRight=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+    _navRight.appendChild(_navLabel);
+    const _mkNav=(label,delta)=>{const b=el('button',{style:{background:'var(--teal)',color:'#fff',border:'none',borderRadius:'50%',width:'28px',height:'28px',fontSize:'.8rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}});b.textContent=label;b.onclick=()=>{const ni=(S._msgSearchIdx||0)+delta;if(ni<0||ni>=S._msgSearchMatches.length)return;S._msgSearchIdx=ni;_updLabel();const tid=S._msgSearchMatches[ni];const te=document.querySelector('[data-msg-id="'+tid+'"]');if(te){te.scrollIntoView({block:'center',behavior:'smooth'});te.classList.remove('msg-hl');void te.offsetWidth;te.classList.add('msg-hl');}};return b;};
+    _navRight.appendChild(_mkNav('▲',1));
+    _navRight.appendChild(_mkNav('▼',-1));
+    const _closeSearch=el('button',{style:{background:'none',border:'none',color:'var(--slate)',cursor:'pointer',fontSize:'.9rem',padding:'2px 4px'}},['✕']);
+    _closeSearch.onclick=()=>{S._msgSearchMatches=null;S._msgSearchIdx=0;S._msgSearchQuery=null;S._scrollToMsgId=null;re();};
+    _navRight.appendChild(_closeSearch);
+    _navBar.appendChild(_navRight);
+    wrap.appendChild(_navBar);
+  }
+
   // -- Messages (scrollable, flex:1) --
   const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
-  const msgs=(activeChat.messages||[]).slice().sort((a,b)=>{const ta=a.createdAt||a.date||'';const tb=b.createdAt||b.date||'';return ta<tb?-1:ta>tb?1:0;});
+  const _matchSet=_hasSearchMatches?new Set(S._msgSearchMatches):null;
+  const msgs=(activeChat.messages||[]).slice().sort((a,b)=>{const ta=a.createdAt||a.ts||a.date||'';const tb=b.createdAt||b.ts||b.date||'';return ta<tb?-1:ta>tb?1:0;});
   msgs.forEach((m,mi)=>{
     const isMe=m.sender===myId;
     const senderName=_resolveSenderName(m,activeChat);
     const isLastMsg=mi===msgs.length-1;
+    const _isMatch=_matchSet&&_matchSet.has(m.id);
 
     const row=el('div',{style:{display:'flex',justifyContent:isMe?'flex-end':'flex-start',gap:'6px',alignItems:'flex-end'}});
     if(m.id)row.dataset.msgId=m.id;
@@ -12243,15 +12291,27 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       row.appendChild(av2);
     }
     const bub=el('div',{class:isMe?'bubble-me':'bubble-them'});
-    // Always show sender name for non-me bubbles (important in groups)
     if(!isMe){
       bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(m.sender)}},[senderName]));
     }
-    bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[m.text]));
+    // Render message text — highlight search matches inline
+    const _msgDiv=el('div',{style:{wordBreak:'break-word'}});
+    if(_isMatch&&_searchQ){
+      const txt=m.text||'';const tl=txt.toLowerCase();let pos=0;
+      while(pos<txt.length){
+        const idx=tl.indexOf(_searchQ,pos);
+        if(idx===-1){_msgDiv.appendChild(document.createTextNode(txt.slice(pos)));break;}
+        if(idx>pos)_msgDiv.appendChild(document.createTextNode(txt.slice(pos,idx)));
+        _msgDiv.appendChild(el('mark',{style:{background:isMe?'rgba(255,255,255,.35)':'var(--mint)',borderRadius:'2px',padding:'0 1px',fontWeight:700}},[txt.slice(idx,idx+_searchQ.length)]));
+        pos=idx+_searchQ.length;
+      }
+    } else {
+      _msgDiv.appendChild(document.createTextNode(m.text||''));
+    }
+    bub.appendChild(_msgDiv);
     // Time row
     const timeRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}});
     timeRow.appendChild(el('span',{class:'bubble-time'},[m.time]));
-    // Ticks: only on last sent message, only when actually read by others
     if(isMe&&isLastMsg){
       const noOneElseUnread=!(activeChat.unreadFor||[]).filter(id=>id!==myId).length;
       timeRow.appendChild(el('span',{class:'bubble-tick'+(noOneElseUnread?' read':'')},['vv']));
@@ -12268,16 +12328,16 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   wrap.appendChild(msgArea);
 
   // Scroll to bottom (or to specific message if search result)
-  requestAnimationFrame(()=>{
+  // Use setTimeout to ensure DOM is in the live document after re() appends
+  setTimeout(()=>{
     const ma=document.getElementById('msg-area');if(!ma)return;
     if(S._scrollToMsgId){
       const target=ma.querySelector('[data-msg-id="'+S._scrollToMsgId+'"]');
       if(target){target.scrollIntoView({block:'center'});target.classList.add('msg-hl');}
       else{ma.scrollTop=ma.scrollHeight;}
       S._scrollToMsgId=null;
-    } else {ma.scrollTop=ma.scrollHeight;}
-  });
-  setTimeout(()=>{const ma=document.getElementById('msg-area');if(ma&&!S._scrollToMsgId)ma.scrollTop=ma.scrollHeight;},50);
+    } else if(!_hasSearchMatches){ma.scrollTop=ma.scrollHeight;}
+  },120);
 
   // -- Real-time subscription --
   if(session?.id!=='demo'&&activeChat.childId){
