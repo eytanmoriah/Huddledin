@@ -1828,7 +1828,7 @@ const SB = {
     })));
   },
   async addFile(file){
-    const payload={child_id:file.childId,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
+    const payload={child_id:file.childId||null,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
     const {data,error}=await _supa.from('files').insert(payload).select('id').single();
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
     return data;
@@ -1897,6 +1897,17 @@ async function refreshFromSupabase(){
         const allFolders=folderResults.flat();
         if(allFolders.length>0)LS.set('folders',allFolders);
       }catch(e){}
+      // Load inbox files (child_id IS NULL, uploaded by current user)
+      try{
+        const{data:_ibxData}=await _supa.from('files').select('id,name,created_at,storage_path,mime_type,size_bytes').is('child_id',null).eq('category','inbox').eq('uploaded_by',session.id).order('created_at',{ascending:false});
+        if(_ibxData){
+          const _ibxMapped=await Promise.all(_ibxData.map(async f=>{
+            const _su=f.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(f.storage_path,900)).data?.signedUrl||null:null;
+            return{id:f.id,name:f.name,type:(f.name||'').split('.').pop()||'file',date:f.created_at?f.created_at.split('T')[0]:'',size:f.size_bytes?Math.round(f.size_bytes/1024)+' KB':'',storagePath:f.storage_path,url:_su};
+          }));
+          LS.set('globalInboxFiles',_ibxMapped);
+        }
+      }catch(e){console.error('refresh inbox files:',e);}
       // Load pending specialist requests from Supabase
       // Use multiple queries with OR logic — rows may be missing household_id or parent_id
       try{
@@ -3188,6 +3199,11 @@ gv_share_title:'Share with Specialist',
 gv_share_desc:'Grant a specialist direct access to this file',
 gv_choose_spec:'Choose Specialist',
 gv_share_btn:'\uD83D\uDCE4 Share File',
+gv_uploading:'Uploading\u2026',
+gv_sorting:'Moving\u2026',
+gv_upload_failed:'Upload failed. Please try again.',
+gv_select_child_spec:'Select Child',
+gv_select_spec:'Select Specialist',
 gv_delete_title:'Delete File',
 gv_delete_desc:'Remove this file permanently',
 gv_delete_confirm:'Delete File?',
@@ -4438,6 +4454,11 @@ gv_share_title:'\u05E9\u05D9\u05EA\u05D5\u05E3 \u05E2\u05DD \u05DE\u05D8\u05E4\u
 gv_share_desc:'\u05EA\u05E0\u05D9 \u05DC\u05DE\u05D8\u05E4\u05DC/\u05EA \u05D2\u05D9\u05E9\u05D4 \u05D9\u05E9\u05D9\u05E8\u05D4 \u05DC\u05E7\u05D5\u05D1\u05E5',
 gv_choose_spec:'\u05D1\u05D7\u05E8\u05D9 \u05DE\u05D8\u05E4\u05DC/\u05EA',
 gv_share_btn:'\uD83D\uDCE4 \u05E9\u05D9\u05EA\u05D5\u05E3 \u05E7\u05D5\u05D1\u05E5',
+gv_uploading:'\u05DE\u05E2\u05DC\u05D4\u2026',
+gv_sorting:'\u05DE\u05E2\u05D1\u05D9\u05E8\u2026',
+gv_upload_failed:'\u05D4\u05E2\u05DC\u05D0\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4. \u05E0\u05E1\u05D4 \u05E9\u05D5\u05D1.',
+gv_select_child_spec:'\u05D1\u05D7\u05E8 \u05D9\u05DC\u05D3/\u05D4',
+gv_select_spec:'\u05D1\u05D7\u05E8 \u05DE\u05D8\u05E4\u05DC/\u05EA',
 gv_delete_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05E7\u05D5\u05D1\u05E5',
 gv_delete_desc:'\u05D4\u05E1\u05E8\u05EA \u05E7\u05D5\u05D1\u05E5 \u05D6\u05D4 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA',
 gv_delete_confirm:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D1\u05E5?',
@@ -9163,6 +9184,27 @@ function renderCalFullscreen(){
 }
 
 /* -- Global Vault — Unsorted Inbox with Process File -- */
+function _gvUploadToInbox(){
+  const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f||session?.id==='demo')return;
+    toast(T('gv_uploading'),'info');
+    try{
+      const path='inbox/'+session.id+'/'+Date.now()+'_'+f.name;
+      const{error:upErr}=await _supa.storage.from('huddledin-files').upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});
+      if(upErr)throw upErr;
+      const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(path,900);
+      const{data:saved,error:insErr}=await _supa.from('files').insert({uploaded_by:session.id,name:f.name,storage_path:path,mime_type:f.type||'application/octet-stream',size_bytes:f.size||0,category:'inbox',child_id:null,shared_with:[]}).select('id').single();
+      if(insErr)throw insErr;
+      const files=DB.globalInboxFiles||[];
+      files.unshift({id:saved.id,name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB',storagePath:path,url:signedData?.signedUrl||null});
+      DB.globalInboxFiles=files;
+      toast(T('welcome_file_added'));re();
+    }catch(e){console.error('inbox upload:',e);toast(T('gv_upload_failed'),'error');}
+  };
+  document.body.appendChild(inp);inp.click();
+}
+
 function renderGlobalVault(){
   const wrap=el('div',{});
   const hd=el('div',{class:'global-vault-hd'});
@@ -9170,29 +9212,13 @@ function renderGlobalVault(){
   left.appendChild(el('div',{class:'global-vault-title'},[T('gv_title')]));
   left.appendChild(el('div',{class:'global-vault-sub'},[T('gv_sub')]));
   hd.appendChild(left);
-  hd.appendChild(mkBtn(T('gv_upload'),'btn-sm btn-secondary',()=>{
-    const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
-    inp.onchange=e=>{
-      const f=e.target.files[0];if(!f)return;
-      const files=DB.globalInboxFiles;
-      files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});
-      DB.globalInboxFiles=files;
-      toast(T('welcome_file_added'));re();
-    };
-    document.body.appendChild(inp);inp.click();
-  }));
+  hd.appendChild(mkBtn(T('gv_upload'),'btn-sm btn-secondary',()=>_gvUploadToInbox()));
   wrap.appendChild(hd);
 
   const files=DB.globalInboxFiles||[];
   if(!files.length){
-    const emptyMsg=el('div',{class:'gv-empty',style:{cursor:'pointer','-webkit-tap-highlight-color':'transparent'}});
-    emptyMsg.setAttribute('role','button');emptyMsg.setAttribute('tabindex','0');
-    emptyMsg.onclick=()=>{
-      console.log('INBOX EMPTY TAPPED');
-      const inp=el('input',{type:'file',accept:'*/*',style:{display:'none'}});
-      inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const files=DB.globalInboxFiles;files.unshift({id:'gi_'+Date.now(),name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB'});DB.globalInboxFiles=files;toast(T('welcome_file_added'));re();};
-      document.body.appendChild(inp);inp.click();
-    };
+    const emptyMsg=el('div',{class:'gv-empty',style:{cursor:'pointer'}});
+    emptyMsg.onclick=()=>_gvUploadToInbox();
     emptyMsg.appendChild(document.createTextNode(T('gv_empty_line1')));
     emptyMsg.appendChild(el('br'));
     emptyMsg.appendChild(document.createTextNode(T('gv_empty_line2')));
@@ -9208,6 +9234,12 @@ function renderGlobalVault(){
     info.appendChild(el('div',{class:'gv-file-name'},[f.name]));
     info.appendChild(el('div',{class:'gv-file-date'},[f.date+' · '+(f.size||'')]));
     item.appendChild(info);
+    // Preview button if url exists
+    if(f.url){
+      const pvBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'.9rem',padding:'4px 8px',flexShrink:0}},['👁']);
+      pvBtn.onclick=e=>{e.stopPropagation();_filePreview(f);};
+      item.appendChild(pvBtn);
+    }
     item.appendChild(el('span',{style:{color:'var(--slate-l)',fontWeight:800,fontSize:'1.1rem'}},['›']));
     item.onclick=()=>showProcessFileSheet(f);
     wrap.appendChild(item);
@@ -9219,13 +9251,13 @@ function renderGlobalVault(){
 /* -- Process File bottom-sheet -- */
 function showProcessFileSheet(file){
   const children=DB.children;
-  const folders=DB.folders;
+  const allFolders=DB.folders;
 
   openModal('📎 Process: '+file.name.slice(0,28)+'…',(mb,close)=>{
     mb.appendChild(el('p',{style:{fontSize:'.8rem',color:'var(--slate)',marginBottom:'16px',fontWeight:600}},
       [T('gv_process_choose')]));
 
-    // Option 1: Move/Copy to Child Folder
+    // Option 1: Move to Child Folder
     const opt1=el('div',{class:'pf-option'});
     opt1.appendChild(el('div',{class:'pf-icon',style:{background:'var(--mint-l)'}},['📂']));
     const o1t=el('div',{});
@@ -9238,28 +9270,29 @@ function showProcessFileSheet(file){
       const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
       children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;childSel.appendChild(o);});
       mb.appendChild(childSel);
-
       mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},[T('gv_select_folder')]));
       const folderSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
-      folders.forEach(f=>{const o=el('option');o.value=f.key;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});
+      const _populateFolders=()=>{folderSel.innerHTML='';allFolders.filter(f=>f.childId===childSel.value).forEach(f=>{const o=el('option');o.value=f.key;o.textContent=f.icon+' '+f.name;folderSel.appendChild(o);});};
+      childSel.onchange=_populateFolders;_populateFolders();
       mb.appendChild(folderSel);
-
-      mb.appendChild(mkBtn(T('gv_move_btn'),'btn-lg btn-primary btn-full',()=>{
-        // Remove from global inbox
-        const gi=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);DB.globalInboxFiles=gi;
-        // Add to target folder
-        const fArr=DB.folders;
-        const fi=fArr.findIndex(f2=>f2.key===folderSel.value);
-        if(fi>-1){
-          fArr[fi].files.push({id:'fl_'+Date.now(),name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:'parent'});
-          DB.folders=fArr;
-        }
-        close();toast('📂 Moved to '+folderSel.options[folderSel.selectedIndex].text+'!');re();
-      }));
+      const moveBtn=mkBtn(T('gv_move_btn'),'btn-lg btn-primary btn-full',async()=>{
+        if(!folderSel.value){toast('Select a folder.','error');return;}
+        moveBtn.disabled=true;moveBtn.textContent=T('gv_sorting');
+        try{
+          const childId=childSel.value;const folderKey=folderSel.value;
+          const{error}=await _supa.from('files').update({child_id:childId,category:folderKey}).eq('id',file.id);
+          if(error)throw error;
+          DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
+          const fArr=DB.folders;const fi=fArr.findIndex(f2=>f2.key===folderKey&&f2.childId===childId);
+          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,url:file.url||null});DB.folders=fArr;}
+          close();toast('📂 '+T('files_moved'));re();
+        }catch(e){console.error('sort file:',e);toast(T('gv_upload_failed'),'error');moveBtn.disabled=false;moveBtn.textContent=T('gv_move_btn');}
+      });
+      mb.appendChild(moveBtn);
     };
     mb.appendChild(opt1);
 
-    // Option 2: Share with Specialist
+    // Option 2: Share with Specialist (move to specialist's folder)
     const opt2=el('div',{class:'pf-option'});
     opt2.appendChild(el('div',{class:'pf-icon',style:{background:'var(--lav-l)'}},['🤝']));
     const o2t=el('div',{});
@@ -9268,16 +9301,30 @@ function showProcessFileSheet(file){
     opt2.appendChild(o2t);
     opt2.onclick=()=>{
       mb.innerHTML='';
-      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},[T('gv_choose_spec')]));
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},[T('gv_select_child_spec')]));
+      const childSel2=el('select',{class:'inp',style:{marginBottom:'14px'}});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;childSel2.appendChild(o);});
+      mb.appendChild(childSel2);
+      mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'10px'}},[T('gv_select_spec')]));
       const specSel=el('select',{class:'inp',style:{marginBottom:'18px'}});
-      DB.specialists.filter(s=>s.status==='active').forEach(s=>{
-        const o=el('option');o.value=s.id;o.textContent=s.avatar+' '+s.name+' — '+s.role;specSel.appendChild(o);
-      });
+      const _populateSpecs=()=>{specSel.innerHTML='';const _seen=new Set();(DB.specialists||[]).filter(s=>s.status==='active'&&(s.childId===childSel2.value||(s.permissions||{})[childSel2.value]?.length>0)).filter(s=>{if(_seen.has(s.id))return false;_seen.add(s.id);return true;}).forEach(s=>{const o=el('option');o.value=s.id;o.textContent=(s.avatar||'🩺')+' '+s.name+(s.role&&s.role!=='Specialist'?' — '+s.role:'');specSel.appendChild(o);});};
+      childSel2.onchange=_populateSpecs;_populateSpecs();
       mb.appendChild(specSel);
-      mb.appendChild(mkBtn(T('gv_share_btn'),'btn-lg btn-primary btn-full',()=>{
-        const spec=DB.specialists.find(s=>s.id===specSel.value);
-        close();toast('📤 Shared with '+(spec?.name||'specialist')+'!');
-      }));
+      const shareBtn=mkBtn(T('gv_share_btn'),'btn-lg btn-primary btn-full',async()=>{
+        if(!specSel.value){toast('Select a specialist.','error');return;}
+        shareBtn.disabled=true;shareBtn.textContent=T('gv_sorting');
+        try{
+          const childId=childSel2.value;const specId=specSel.value;const folderKey='spec_'+specId;
+          const{error}=await _supa.from('files').update({child_id:childId,category:folderKey}).eq('id',file.id);
+          if(error)throw error;
+          DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
+          const fArr=DB.folders;const fi=fArr.findIndex(f2=>f2.key===folderKey&&f2.childId===childId);
+          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,url:file.url||null});DB.folders=fArr;}
+          const spec=(DB.specialists||[]).find(s=>s.id===specId);
+          close();toast('📤 Shared with '+(spec?.name||'specialist')+'!');re();
+        }catch(e){console.error('share file:',e);toast(T('gv_upload_failed'),'error');shareBtn.disabled=false;shareBtn.textContent=T('gv_share_btn');}
+      });
+      mb.appendChild(shareBtn);
     };
     mb.appendChild(opt2);
 
@@ -9288,8 +9335,12 @@ function showProcessFileSheet(file){
     o3t.appendChild(el('div',{class:'pf-title',style:{color:'#be123c'}},[T('gv_delete_title')]));
     o3t.appendChild(el('div',{class:'pf-desc'},[T('gv_delete_desc')]));
     opt3.appendChild(o3t);
-    opt3.onclick=()=>openConfirm(T('gv_delete_confirm'),T('gv_delete_confirm_msg'),true,()=>{
-      DB.globalInboxFiles=DB.globalInboxFiles.filter(f2=>f2.id!==file.id);
+    opt3.onclick=()=>openConfirm(T('gv_delete_confirm'),T('gv_delete_confirm_msg'),true,async()=>{
+      try{
+        await _supa.from('files').delete().eq('id',file.id);
+        if(file.storagePath)await _supa.storage.from('huddledin-files').remove([file.storagePath]);
+      }catch(e){console.error('delete inbox file:',e);}
+      DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
       close();toast(T('gv_file_deleted'));re();
     });
     mb.appendChild(opt3);
