@@ -1,9 +1,18 @@
 // AI Report Generation + Two-Step Template Import
 
+async function _getAuthHeaders() {
+  const _supa = window.HUD?._supa;
+  if (!_supa) throw new Error('Not authenticated');
+  const { data: { session } } = await _supa.auth.getSession();
+  if (!session?.access_token) throw new Error('Session expired — please sign in again');
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token };
+}
+
 export async function generateReport({ reportType, formData, childInfo, specialistInfo, writingStyle, sections }) {
+  const headers = await _getAuthHeaders();
   const response = await fetch('/api/report-ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ action: 'generate', reportType, formData, childInfo, specialistInfo, writingStyle, sections }),
   });
   if (!response.ok) {
@@ -30,11 +39,13 @@ export async function importTemplate(file) {
     reader.readAsDataURL(file);
   });
 
+  const headers = await _getAuthHeaders();
+
   // Step 1: Extract text from document
   console.log('[import] Step 1: Extracting text...');
   const extractRes = await fetch('/api/report-ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ action: 'import-extract', documentBase64: base64, mimeType: file.type, fileName: file.name }),
   });
   if (!extractRes.ok) {
@@ -49,7 +60,7 @@ export async function importTemplate(file) {
   console.log('[import] Step 2: Analyzing template...');
   const analyzeRes = await fetch('/api/report-ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ action: 'import-analyze', documentText: originalText }),
   });
   if (!analyzeRes.ok) {
