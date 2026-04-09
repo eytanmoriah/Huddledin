@@ -8616,9 +8616,9 @@ function renderBottomNav(){
   if(session?.role==='parent'){
     // 4-icon fixed bar for parents
     const parentTabs=[
-      {id:'home',label:T('bnav_home'),icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.isDrawerOpen=false;re();}},
+      {id:'home',label:T('bnav_home'),icon:'🏠',isActive:S.navLevel===0&&!S.calFullscreen&&S.activeTab!=='chat'&&S.activeTab!=='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;S.activeTab='dashboard';S.isDrawerOpen=false;re();}},
       {id:'calendar',label:T('tab_calendar'),icon:'📅',isActive:!!S.calFullscreen,action:()=>{
-        _pushNav();S.calFullscreen=true;S.navLevel=1;
+        _pushNav();S.calFullscreen=true;S.navLevel=1;S.activeTab='calendar';
         // Mark ALL unread appointments as read when opening fullscreen calendar
         if(session?.id!=='demo'){
           const _allApts=DB.appointments||[];
