@@ -2362,11 +2362,11 @@ async function loadChatsFromSupabase(){
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,unreadFor:ch.unread_for||[],unreadCount:ch.unread_count||0,
         messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null}))};
     });
-    // Generate signed URLs for messages with images
-    for(const ch of chatsWithMessages){
-      for(const m of ch.messages){
-        if(m.imagePath){try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(m.imagePath,3600);m.imageUrl=_su?.signedUrl||null;}catch(e){m.imageUrl=null;}}
-      }
+    // Generate signed URLs for messages with images (batched)
+    const _imgMsgs=chatsWithMessages.flatMap(ch=>ch.messages.filter(m=>m.imagePath));
+    if(_imgMsgs.length){
+      const _urls=await Promise.all(_imgMsgs.map(m=>_supa.storage.from('huddledin-files').createSignedUrl(m.imagePath,3600).catch(()=>({data:null}))));
+      _imgMsgs.forEach((m,i)=>{m.imageUrl=_urls[i]?.data?.signedUrl||null;});
     }
     LS.set('chats',chatsWithMessages);
   }catch(e){console.error('loadChatsFromSupabase:',e);}
@@ -6258,7 +6258,9 @@ function showWebAuthModal(tab){
         c.onmouseenter=()=>{if(_role!==r.id)c.style.borderColor='#0d9488';};
         c.onmouseleave=()=>{if(_role!==r.id)c.style.borderColor='#e8f4f2';};
         c.onclick=()=>{_role=r.id;grid.querySelectorAll('div').forEach(d=>{d.style.borderColor='#e8f4f2';d.style.background='#fff';});c.style.borderColor='#0d9488';c.style.background='#f0fdf9';nextBtn.style.opacity='1';nextBtn.disabled=false;};
-        c.innerHTML='<div style="font-size:32px;margin-bottom:10px">'+r.icon+'</div><div style="font-weight:600;color:#0f1a18;font-size:15px;margin-bottom:4px">'+escapeHtml(r.label)+'</div><div style="font-size:13px;color:#7aaba5">'+escapeHtml(r.desc)+'</div>';
+        c.appendChild(el('div',{style:{fontSize:'32px',marginBottom:'10px'}},[r.icon]));
+        c.appendChild(el('div',{style:{fontWeight:600,color:'#0f1a18',fontSize:'15px',marginBottom:'4px'}},[r.label]));
+        c.appendChild(el('div',{style:{fontSize:'13px',color:'#7aaba5'}},[r.desc]));
         grid.appendChild(c);
       });
       fw.appendChild(grid);
@@ -11666,7 +11668,9 @@ function showGoogleSyncModal(){
     const opts=[{name:T('cal_sync_google'),icon:'📅',color:'var(--coral)'},{name:T('cal_sync_apple'),icon:'🍎',color:'var(--slate)'},{name:T('cal_sync_outlook'),icon:'📧',color:'#0078d4'}];
     opts.forEach(opt=>{
       const btn2=el('div',{class:'card hov click',style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'10px',padding:'14px 18px'}});
-      btn2.innerHTML=`<span style="font-size:1.6rem">${opt.icon}</span><div><div style="font-weight:800;color:var(--navy)">${opt.name}</div><div style="font-size:.78rem;color:var(--slate)">Sync all appointments to ${opt.name}</div></div>`;
+      btn2.appendChild(el('span',{style:{fontSize:'1.6rem'}},[opt.icon]));
+      const _syncInfo=el('div');_syncInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[opt.name]));_syncInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('cal_sync_all',{name:opt.name})]));
+      btn2.appendChild(_syncInfo);
       btn2.onclick=()=>{close();toast(`🔗 ${opt.name} sync — coming soon!`,'info');};
       mb.appendChild(btn2);
     });
