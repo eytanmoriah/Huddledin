@@ -23,7 +23,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   // Verify auth + subscription
-  const auth = await verifySpecAiAccess(req);
+  let auth;
+  try { auth = await verifySpecAiAccess(req); } catch (e) { console.error('Auth check failed:', e); return res.status(500).json({ error: 'Auth verification failed' }); }
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const { action } = req.body;
