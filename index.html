@@ -2197,8 +2197,11 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: invites',p.eventType);_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: appointments',p.eventType);_debouncedRefresh();})
     .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: homework',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ Household channel:',status);});
+  // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
+  _supa.channel('hh_notifs:'+session.id)
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();})
+    .subscribe();
   // Separate dedicated channels for new tables (1 listener per channel — proven pattern)
   const _hid=session.householdId;
   _supa.channel('hh_hw_tasks:'+_hid)
@@ -12489,9 +12492,17 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
           // Insert notification for each recipient so it appears in the notification list
           try{
-            const _senderDisplay=senderName||session?.displayName||session?.name||'Someone';
-            const _singleMsg=T('notif_new_message',{sender:_senderDisplay});
-            const _stackMsg=T('notif_messages_count',{n:'{n}',sender:_senderDisplay});
+            const _msgChild=DB.children.find(c=>c.id===activeChat.childId)||(LS.get('children',[])||[]).find(c=>c.id===activeChat.childId);
+            const _msgChildName=_msgChild?.name||'your child';
+            let _senderDesc;
+            if(session.role==='specialist'){
+              const _specProf=session.profession||getMySpecialistRecord()?.role||(DB.specialists||[]).find(s=>s.id===session.id)?.role||'Specialist';
+              _senderDesc=_msgChildName+"'s "+_specProf+' - '+senderName;
+            }else{
+              _senderDesc=_msgChildName+"'s parent "+((senderName||'').split(' ')[0]||'Parent');
+            }
+            const _singleMsg=T('notif_new_message',{sender:_senderDesc});
+            const _stackMsg=T('notif_messages_count',{n:'{n}',sender:_senderDesc});
             const _recipients=(activeChat.participants||[]).filter(p=>p!==myId&&p!=='parent');
             for(const uid of _recipients){
               await _upsertNotif(uid,{type:'message',message:_singleMsg,stackMessage:_stackMsg,childId:activeChat.childId,householdId:getChildHouseholdId(activeChat.childId),linkTab:'chat',linkData:{chatId:activeChat.id}});
