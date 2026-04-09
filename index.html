@@ -2201,7 +2201,6 @@ function setupHouseholdSync(){
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   _supa.channel('hh_notifs:'+session.id)
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{
-      console.log('🔔 hh_notifs handler fired:',p.eventType,p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
@@ -2301,7 +2300,6 @@ function setupSpecialistSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
-      console.log('🔔 spec_sync notif INSERT:',p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
@@ -2309,7 +2307,6 @@ function setupSpecialistSync(){
       _debouncedRefresh();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
-      console.log('🔔 spec_sync notif UPDATE:',p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
