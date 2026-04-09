@@ -2203,7 +2203,7 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{
       console.log('🔔 hh_notifs handler fired:',p.eventType,p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
-        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
       }
       console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();
@@ -2301,7 +2301,7 @@ function setupSpecialistSync(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
       console.log('🔔 spec_sync notif INSERT:',p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
-        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
       }
       _debouncedRefresh();
@@ -2309,7 +2309,7 @@ function setupSpecialistSync(){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
       console.log('🔔 spec_sync notif UPDATE:',p.new?.type,'activeTab:',S.activeTab,'activeChatId:',S.activeChatId);
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
-        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
       }
       _debouncedRefresh();
@@ -8584,7 +8584,7 @@ function switchTab(id){
         LS.set('chats',_chats);
         // Mark chat-type notifications as read so bell badge clears when user opens chat
         const _chatNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===_cid&&(n.type==='chat'||n.type==='message')).map(n=>n.id);
-        if(_chatNotifIds.length){const _ns=DB.notifications;_chatNotifIds.forEach(_nid=>{const _ni=_ns.findIndex(n=>n.id===_nid);if(_ni>-1)_ns[_ni].read=true;});DB.notifications=_ns;_chatNotifIds.forEach(_nid=>{_supa.from('notifications').update({read:true}).eq('id',_nid).catch(()=>{});});}
+        if(_chatNotifIds.length){const _ns=DB.notifications;_chatNotifIds.forEach(_nid=>{const _ni=_ns.findIndex(n=>n.id===_nid);if(_ni>-1)_ns[_ni].read=true;});DB.notifications=_ns;_chatNotifIds.forEach(_nid=>{try{_supa.from('notifications').update({read:true}).eq('id',_nid).then(()=>{});}catch(e){}});}
       }
     }
   }
@@ -12452,7 +12452,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         // Auto-mark message notification as read since user is actively viewing
         const _ns=DB.notifications||[];
         const _mni=_ns.findIndex(n=>!n.read&&(n.type==='message'||n.type==='chat')&&n.childId===activeChat.childId);
-        if(_mni>-1){_ns[_mni].read=true;DB.notifications=_ns;_supa.from('notifications').update({read:true}).eq('id',_ns[_mni].id).catch(()=>{});}
+        if(_mni>-1){_ns[_mni].read=true;DB.notifications=_ns;try{_supa.from('notifications').update({read:true}).eq('id',_ns[_mni].id).then(()=>{});}catch(e){}}
         // Load image signed URL asynchronously if needed
         if(_rtMsg.imagePath&&!_rtMsg.imageUrl){(async()=>{try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(_rtMsg.imagePath,3600);if(_su?.signedUrl){_rtMsg.imageUrl=_su.signedUrl;const _imgEl=_ma?.querySelector('[data-msg-id="'+_rtMsg.id+'"] img');if(!_imgEl){const _bubs=_ma?.querySelector('[data-msg-id="'+_rtMsg.id+'"] .bubble-them');if(_bubs){const _img=el('img',{src:_su.signedUrl,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:_rtMsg.text?'6px':'0',cursor:'pointer'}});_img.onclick=ev=>{ev.stopPropagation();_filePreview({name:T('chat_image'),url:_su.signedUrl});};_bubs.insertBefore(_img,_bubs.firstChild.nextSibling);}}}}catch(e){}})();}
       }
