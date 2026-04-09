@@ -2178,7 +2178,8 @@ function _debouncedRefresh(){
 }
 
 // Real-time household sync — subscribes to children/specialists changes
-let _householdChannel=null;
+let _householdChannel=null,_hhNotifsChannel=null,_hhHwTasksChannel=null,_hhParentTasksChannel=null;
+let _hhChildChannels=[];
 function setupHouseholdSync(){
   if(!session||session.role!=='parent'||!session.householdId)return;
   if(_householdChannel)_householdChannel.unsubscribe();
@@ -2191,7 +2192,8 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: homework',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ Household channel:',status);});
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
-  _supa.channel('hh_notifs:'+session.id)
+  if(_hhNotifsChannel)try{_hhNotifsChannel.unsubscribe();}catch(e){}
+  _hhNotifsChannel=_supa.channel('hh_notifs:'+session.id)
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
@@ -2202,12 +2204,12 @@ function setupHouseholdSync(){
     .subscribe();
   // Separate dedicated channels for new tables (1 listener per channel — proven pattern)
   const _hid=session.householdId;
-  _supa.channel('hh_hw_tasks:'+_hid)
+  if(_hhHwTasksChannel)try{_hhHwTasksChannel.unsubscribe();}catch(e){}
+  _hhHwTasksChannel=_supa.channel('hh_hw_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: homework_tasks',p.eventType);_debouncedRefresh();})
     .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
-  // Subscribe to INSERT/UPDATE separately (no filter needed — p.new always has all columns)
-  // DELETE uses a separate unfiltered listener since default replica identity may omit household_id from p.old
-  _supa.channel('hh_parent_tasks:'+_hid)
+  if(_hhParentTasksChannel)try{_hhParentTasksChannel.unsubscribe();}catch(e){}
+  _hhParentTasksChannel=_supa.channel('hh_parent_tasks:'+_hid)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
       console.log('🔔 Realtime: parent_tasks INSERT');
       const arr=DB.parentTasks||[];
@@ -2235,22 +2237,26 @@ function setupHouseholdSync(){
       }
     })
     .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
+  _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
   _hhChildren.forEach(cid=>{
-    _supa.channel('hh_vnotes:'+cid)
+    const _cv=_supa.channel('hh_vnotes:'+cid)
       .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: vault_notes',p.eventType);_debouncedRefresh();})
       .subscribe();
-    _supa.channel('hh_files:'+cid)
+    _hhChildChannels.push(_cv);
+    const _cf=_supa.channel('hh_files:'+cid)
       .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: files',p.eventType);_debouncedRefresh();})
       .subscribe();
-    _supa.channel('hh_msgs:'+cid)
+    _hhChildChannels.push(_cf);
+    const _cm=_supa.channel('hh_msgs:'+cid)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
       .subscribe();
+    _hhChildChannels.push(_cm);
   });
 }
 
 // Real-time subscription sync — reacts to webhook-driven status changes
-let _subscriptionChannel=null;
+let _subscriptionChannel=null,_specSubChannel=null;
 function setupSubscriptionSync(){
   if(!session||session.role!=='parent'||session.id==='demo')return;
   if(_subscriptionChannel)_subscriptionChannel.unsubscribe();
@@ -2705,6 +2711,11 @@ async function doLogin(email,password,role,name='',profession='',mode='signin'){
 }
 
 async function doLogout(){
+  // Unsubscribe all realtime channels
+  [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_subscriptionChannel,_specPermsChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
+  _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
+  _specChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_specChildChannels=[];
+  _householdChannel=null;_hhNotifsChannel=null;_hhHwTasksChannel=null;_hhParentTasksChannel=null;_subscriptionChannel=null;_specPermsChannel=null;_specSubChannel=null;_chatSub=null;
   // Reset nav state immediately — prevents stale view flashing before login screen appears
   S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.webCal=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
@@ -7021,7 +7032,8 @@ function renderSpecTrialBanner(){
 
 function setupSpecSubscriptionSync(){
   if(!session||session.role!=='specialist'||session.id==='demo')return;
-  _supa.channel('spec_sub:'+session.id)
+  if(_specSubChannel)try{_specSubChannel.unsubscribe();}catch(e){}
+  _specSubChannel=_supa.channel('spec_sub:'+session.id)
     .on('postgres_changes',{event:'*',schema:'public',table:'subscriptions',filter:'user_id=eq.'+session.id},async(payload)=>{
       console.log('✅ Specialist subscription changed:',payload.new?.status);
       try{await _checkSpecAiSubscription();re();}catch(e){console.error('spec sub sync:',e);}
@@ -9836,63 +9848,73 @@ function _notifyFileAction(file,destFolder,isMove){
   }
 }
 
-function _fileActions(f,folder,isParent){
-  const ext=(f.name||'').split('.').pop().toLowerCase();
-  const acts=el('div',{style:{display:'flex',borderTop:'1px solid var(--mint-ll)',overflow:'hidden'}});
-  const mkAct=(icon,label,fn)=>{
-    const b=el('button',{style:{flex:1,background:'none',border:'none',padding:'6px 2px',cursor:'pointer',fontSize:'.65rem',color:'var(--slate)',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',transition:'background .1s'}},[el('span',{style:{fontSize:'.9rem'}},[icon]),label]);
-    b.onmouseover=()=>{b.style.background='var(--mint-ll)';};b.onmouseout=()=>{b.style.background='none';};
-    b.onclick=e=>{e.stopPropagation();fn();};return b;
-  };
+// Shared action definitions for files — used by both _fileActions (inline) and _mkFileActions (modal)
+function _getFileActionDefs(f,folder,isParent,opts={}){
+  const {onClose}=opts;
+  const defs=[];
   if(f.url){
-    acts.appendChild(mkAct('👁','View',()=>_filePreview(f,folder,isParent)));
-    acts.appendChild(mkAct('⬇','Save',async()=>{
-      try{const resp=await fetch(f.url);const blob=await resp.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click();}catch(e){window.open(f.url,'_blank');}
-    }));
+    defs.push({icon:'👁',label:T('files_view_btn')||'View',fn:()=>{if(onClose)onClose();_filePreview(f,folder,isParent);}});
+    defs.push({icon:'⬇',label:T('files_download')||'Save',fn:async()=>{try{const resp=await fetch(f.url);const blob=await resp.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}catch(e){window.open(f.url,'_blank');}}});
   }
-  if(isParent){
-    acts.appendChild(mkAct('✏️',T('files_rename'),()=>{
-      openModal(T('files_rename_title'),(mb,close)=>{
-        mb.appendChild(el('div',{class:'inp-label'},[T('files_new_name')]));
-        const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
-        mb.appendChild(mkBtn(T('btn_save'),'btn-lg btn-primary btn-full',()=>{
-          if(!ni.value.trim())return;const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
-          if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast(T('files_file_renamed'));
-        }));
-      },380);
-    }));
-    acts.appendChild(mkAct('🗑',T('btn_delete'),()=>{
-      openConfirm(T('files_delete_file'),T('files_delete_confirm_long'),true,async()=>{
-        const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
-        if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast(T('files_file_deleted'));
-      });
-    }));
-    acts.appendChild(mkAct('📂',T('files_move'),()=>_showFileMoveModal(f,folder,true,'move')));
-    acts.appendChild(mkAct('📋',T('files_copy'),()=>_showFileMoveModal(f,folder,true,'copy')));
-  }
-  if(!isParent&&f.uploadedBy===session?.id){
-    acts.appendChild(mkAct('✏️',T('files_rename'),()=>{
-      openModal(T('files_rename_title'),(mb,close)=>{
+  if(isParent&&!f.locked){
+    defs.push({icon:'✏️',label:T('files_rename'),fn:()=>{
+      openModal(T('files_rename_title'),(mb,close2)=>{
         mb.appendChild(el('div',{class:'inp-label'},[T('files_new_name')]));
         const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
         mb.appendChild(mkBtn(T('btn_save'),'btn-lg btn-primary btn-full',async()=>{
           if(!ni.value.trim())return;
-          try{await SB.renameFile(f.id,ni.value.trim());const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);const ff=fi3?.files.find(x=>x.id===f.id);
-            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close();re();toast(T('files_file_renamed'));
-          }catch(e){console.error('rename failed:',e);toast(T('files_rename_failed'),'error');}
+          try{await SB.renameFile(f.id,ni.value.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);const ff=fo?.files.find(x=>x.id===f.id);
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close2();if(onClose)onClose();re();toast(T('files_file_renamed'));
+          }catch(e){console.error('rename failed:',e);toast(T('files_rename_failed')||'Rename failed.','error');}
         }));
       },380);
-    }));
-    acts.appendChild(mkAct('🗑',T('btn_delete'),()=>{
-      openConfirm(T('files_delete_file'),T('files_delete_confirm_undo'),true,async()=>{
-        try{await SB.deleteFile(f.id);const fls=DB.folders;const fi3=fls.find(x=>x.id===folder.id);
-          if(fi3){fi3.files=fi3.files.filter(x=>x.id!==f.id);DB.folders=fls;}re();toast(T('files_file_deleted'));
-        }catch(e){console.error('delete failed:',e);toast(T('files_upload_failed'),'error');}
+    }});
+    defs.push({icon:'📂',label:T('files_move'),fn:()=>{if(onClose)onClose();_showFileMoveModal(f,folder,true,'move');}});
+    defs.push({icon:'📋',label:T('files_copy'),fn:()=>{if(onClose)onClose();_showFileMoveModal(f,folder,true,'copy');}});
+    if(opts.showManage)defs.push({icon:'⚙️',label:T('files_manage'),fn:()=>showFilePermModal(f,folder),style:'slate'});
+    defs.push({icon:'🗑',label:T('btn_delete'),fn:()=>{
+      openConfirm(T('files_delete_file'),T('files_delete_file_msg')||T('files_delete_confirm_long'),true,async()=>{
+        try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+          if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}if(onClose)onClose();re();toast(T('files_file_deleted'));
+        }catch(e){console.error('delete failed:',e);toast('Delete failed.','error');}
       });
-    }));
-    acts.appendChild(mkAct('📂',T('files_move'),()=>_showFileMoveModal(f,folder,false,'move')));
-    acts.appendChild(mkAct('📋',T('files_copy'),()=>_showFileMoveModal(f,folder,false,'copy')));
+    },style:'danger'});
   }
+  if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
+    defs.push({icon:'✏️',label:T('files_rename'),fn:()=>{
+      openModal(T('files_rename_title'),(mb,close2)=>{
+        mb.appendChild(el('div',{class:'inp-label'},[T('files_new_name')]));
+        const ni=el('input',{class:'inp',value:f.name,style:{marginBottom:'12px'}});mb.appendChild(ni);
+        mb.appendChild(mkBtn(T('btn_save'),'btn-lg btn-primary btn-full',async()=>{
+          if(!ni.value.trim())return;
+          try{await SB.renameFile(f.id,ni.value.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);const ff=fo?.files.find(x=>x.id===f.id);
+            if(ff){ff.name=ni.value.trim();DB.folders=fls;}close2();if(onClose)onClose();re();toast(T('files_file_renamed'));
+          }catch(e){console.error('rename failed:',e);toast(T('files_rename_failed')||'Rename failed.','error');}
+        }));
+      },380);
+    }});
+    defs.push({icon:'📂',label:T('files_move'),fn:()=>{if(onClose)onClose();_showFileMoveModal(f,folder,false,'move');}});
+    defs.push({icon:'📋',label:T('files_copy'),fn:()=>{if(onClose)onClose();_showFileMoveModal(f,folder,false,'copy');}});
+    defs.push({icon:'🗑',label:T('btn_delete'),fn:()=>{
+      openConfirm(T('files_delete_file'),T('files_delete_file_msg')||T('files_delete_confirm_long'),true,async()=>{
+        try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
+          if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}if(onClose)onClose();re();toast(T('files_file_deleted'));
+        }catch(e){console.error('delete failed:',e);toast('Delete failed.','error');}
+      });
+    },style:'danger'});
+  }
+  return defs;
+}
+
+function _fileActions(f,folder,isParent){
+  const acts=el('div',{style:{display:'flex',borderTop:'1px solid var(--mint-ll)',overflow:'hidden'}});
+  const defs=_getFileActionDefs(f,folder,isParent);
+  defs.forEach(d=>{
+    const b=el('button',{style:{flex:1,background:'none',border:'none',padding:'6px 2px',cursor:'pointer',fontSize:'.65rem',color:d.style==='danger'?'var(--rose)':'var(--slate)',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px',transition:'background .1s'}},[el('span',{style:{fontSize:'.9rem'}},[d.icon]),d.label]);
+    b.onmouseover=()=>{b.style.background='var(--mint-ll)';};b.onmouseout=()=>{b.style.background='none';};
+    b.onclick=e=>{e.stopPropagation();d.fn();};
+    acts.appendChild(b);
+  });
   return acts;
 }
 
@@ -10435,64 +10457,11 @@ function showFolderModal(folder,isParent){
     // Helper: build action buttons for a file
     const _mkFileActions=(f)=>{
       const actions=el('div',{style:{display:'flex',gap:'7px',flexWrap:'wrap'}});
-      if(f.url){
-        actions.appendChild(mkBtn(T('files_view_btn'),'btn-sm btn-ghost',()=>_filePreview(f)));
-        const dlBtn=mkBtn(T('files_download'),'btn-sm btn-ghost',async()=>{
-          try{
-            dlBtn.textContent='⏳…';dlBtn.disabled=true;
-            const resp=await fetch(f.url);if(!resp.ok)throw new Error('Failed');
-            const blob=await resp.blob();const blobUrl=URL.createObjectURL(blob);
-            const a=document.createElement('a');a.href=blobUrl;a.download=f.name;
-            document.body.appendChild(a);a.click();
-            setTimeout(()=>{URL.revokeObjectURL(blobUrl);a.remove();},1000);
-            dlBtn.textContent=T('files_download');dlBtn.disabled=false;
-          }catch(e){window.open(f.url,'_blank');dlBtn.textContent=T('files_download');dlBtn.disabled=false;}
-        });
-        actions.appendChild(dlBtn);
-      }
-      if(isParent&&!f.locked){
-        actions.appendChild(mkBtn('✏️ '+T('files_rename'),'btn-sm btn-ghost',async()=>{
-          const newName=prompt('Rename file:',f.name);
-          if(newName&&newName.trim()){
-            try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast(T('files_file_renamed'));
-            }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
-          }
-        }));
-        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'move');}));
-        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,true,'copy');}));
-        actions.appendChild(mkBtn(T('files_manage'),'btn-sm btn-slate',()=>showFilePermModal(f,folder)));
-        actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
-          openConfirm(T('files_delete_file'),T('files_delete_file_msg',{name:f.name}),true,async()=>{
-            try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-              close();re();toast(T('files_file_deleted'));
-            }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
-          });
-        }));
-      }
-      if(!isParent&&!f.locked&&f.uploadedBy===session?.id){
-        actions.appendChild(mkBtn('✏️ '+T('files_rename'),'btn-sm btn-ghost',async()=>{
-          const newName=prompt('Rename file:',f.name);
-          if(newName&&newName.trim()){
-            try{await SB.renameFile(f.id,newName.trim());const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-              if(fo){const fi2=fo.files.find(x=>x.id===f.id);if(fi2){fi2.name=newName.trim();DB.folders=fls;}}
-              close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);toast(T('files_file_renamed'));
-            }catch(e){console.error('rename failed:',e);toast('❌ Rename failed.','error');}
-          }
-        }));
-        actions.appendChild(mkBtn('📂 '+T('files_move'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'move');}));
-        actions.appendChild(mkBtn('📋 '+T('files_copy'),'btn-sm btn-ghost',()=>{close();_showFileMoveModal(f,folder,false,'copy');}));
-        actions.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{
-          openConfirm(T('files_delete_file'),T('files_delete_file_msg',{name:f.name}),true,async()=>{
-            try{await SB.deleteFile(f.id);const fls=DB.folders;const fo=fls.find(x=>x.id===folder.id);
-              if(fo){fo.files=fo.files.filter(x=>x.id!==f.id);DB.folders=fls;}
-              close();re();toast(T('files_file_deleted'));
-            }catch(e){console.error('delete failed:',e);toast('❌ Delete failed.','error');}
-          });
-        }));
-      }
+      const defs=_getFileActionDefs(f,folder,isParent,{onClose:close,showManage:isParent});
+      defs.forEach(d=>{
+        const cls=d.style==='danger'?'btn-sm btn-danger':d.style==='slate'?'btn-sm btn-slate':'btn-sm btn-ghost';
+        actions.appendChild(mkBtn(d.icon+' '+d.label,cls,d.fn));
+      });
       return actions;
     };
 
