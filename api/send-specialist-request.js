@@ -16,7 +16,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   // Verify caller is authenticated (no subscription check — free feature)
-  const user = await verifyAuth(req);
+  let user;
+  try { user = await verifyAuth(req); } catch (e) { console.error('Auth check failed:', e); return res.status(500).json({ error: 'Auth verification failed' }); }
   if (!user) return res.status(401).json({ error: 'Authentication required' });
 
   const { to, specialistName, specialistRole, childNameHint, requestId } = req.body;
