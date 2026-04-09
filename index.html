@@ -6011,19 +6011,7 @@ const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f5
 const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
 const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗',appointments:'📅',message:'💬',reconnected:'🔗'};
 
-// Auto-prune old notifications: keep last 50 per user (fire-and-forget)
-async function _pruneOldNotifications(userId){
-  if(!userId||userId==='demo'||!_supa)return;
-  try{
-    const{data:rows}=await _supa.from('notifications').select('id,created_at').eq('user_id',userId).order('created_at',{ascending:false});
-    if(!rows||rows.length<=50)return;
-    const toDelete=rows.slice(50).map(r=>r.id);
-    if(toDelete.length){
-      await _supa.from('notifications').delete().in('id',toDelete);
-      console.log('✅ Pruned '+toDelete.length+' old notifications for '+userId.slice(0,8)+'…');
-    }
-  }catch(e){console.error('prune notifications:',e);}
-}
+// Pruning is now handled inside the upsert_notification SECURITY DEFINER function
 
 function pushNotif(type,msg,childId,linkTab=null){
   // Auto-derive linkTab from type if not provided
@@ -6045,18 +6033,17 @@ function pushNotif(type,msg,childId,linkTab=null){
 // Upsert notification: if an unread notification of the same type+child exists for this user, update its count. Otherwise insert new.
 async function _upsertNotif(uid,{type,message,stackMessage,childId,householdId,linkTab,linkData}){
   try{
-    const{data:ex}=await _supa.from('notifications').select('id,meta_count').eq('user_id',uid).eq('type',type).eq('read',false).eq('child_id',childId||'').order('created_at',{ascending:false}).limit(1);
-    if(ex&&ex.length>0){
-      const nc=(ex[0].meta_count||1)+1;
-      const countedMsg=stackMessage?stackMessage.replace(/\{n\}/g,String(nc)):T('notif_stacked',{msg:message,n:nc-1});
-      const upd={message:countedMsg,meta_count:nc,created_at:new Date().toISOString()};
-      if(linkData)upd.link_data=JSON.stringify(linkData);
-      const{error}=await _supa.from('notifications').update(upd).eq('id',ex[0].id);
-      if(error)console.error('❌ upsertNotif update:',error);
-    } else {
-      const{error}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+uid,user_id:uid,household_id:householdId||null,child_id:childId||null,type,message,read:false,link_tab:linkTab||null,link_data:linkData?JSON.stringify(linkData):null,meta_count:1});
-      if(error)console.error('❌ upsertNotif insert:',error);
-    }
+    const{error}=await _supa.rpc('upsert_notification',{
+      p_user_id:uid,
+      p_type:type,
+      p_message:message,
+      p_stack_message:stackMessage||null,
+      p_child_id:childId||null,
+      p_household_id:householdId||null,
+      p_link_tab:linkTab||null,
+      p_link_data:linkData?JSON.stringify(linkData):null
+    });
+    if(error)console.error('❌ upsertNotif:',error);
   }catch(e){console.warn('_upsertNotif:',e);}
 }
 
@@ -6108,8 +6095,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
         await _upsertNotif(uid,{type,message:msg,childId,householdId:hid,linkTab,linkData});
       }
     }
-    // Fire-and-forget prune for all recipients
-    _notifRecipients.forEach(uid=>_pruneOldNotifications(uid));
+    // Pruning handled inside upsert_notification SECURITY DEFINER function
   }catch(e){console.warn('notifyOtherParty:',e);}
 }
 
