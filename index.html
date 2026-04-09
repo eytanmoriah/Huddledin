@@ -13225,7 +13225,9 @@ function renderVault(){
             if(!ta.value||!ta.value.trim()){toast(T('vault_write_first'),'error');return;}
             aiSumBtn.disabled=true;aiSumBtn.textContent=T('vault_ai_generating');
             try{
-              const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:ta.value,childName:child?.name||'the child'})});
+              const _aiSess=await _supa.auth.getSession();const _aiTok=_aiSess?.data?.session?.access_token;
+              if(!_aiTok){toast('Session expired — please sign in again.','error');aiSumBtn.disabled=false;aiSumBtn.textContent='✨ '+T('vault_ai_summary');return;}
+              const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_aiTok},body:JSON.stringify({notes:ta.value,childName:child?.name||'the child'})});
               const result=await resp.json();
               if(result.summary){
                 S.vaultSummary=result.summary;
@@ -17079,7 +17081,7 @@ function renderSpecialistRequest(){
       });
       if(insErr){console.error('❌ insert specialist_request:',insErr);toast('Failed to send request. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';return;}
       // Send email
-      try{await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
+      try{const _srSess=await _supa.auth.getSession();const _srTok=_srSess?.data?.session?.access_token||'';await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_srTok},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
       toast('✅ Request sent to '+parentEmail+'!');pi.value='';ni.value='';
       _srBtn.disabled=false;_srBtn.textContent='📨 Send Request';re();
     }catch(e){console.error('send specialist request:',e);toast('Something went wrong. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';}
