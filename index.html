@@ -2285,11 +2285,13 @@ let _chatSub=null;
 
 // Real-time permissions sync for specialist — picks up permission grants instantly
 let _specPermsChannel=null;
+let _specChildChannels=[];
 function setupSpecialistSync(){
   if(!session||session.role!=='specialist'||!_supa)return;
   const specId=session.specialistId||session.id;
   if(!specId)return;
   if(_specPermsChannel)_specPermsChannel.unsubscribe();
+  _specChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_specChildChannels=[];
   // Subscribe to all specialist-relevant tables in one channel
   const childIds=(LS.get('children',[])||[]).map(c=>c.id);
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
@@ -2320,17 +2322,20 @@ function setupSpecialistSync(){
   // Subscribe to per-child tables for each patient
   const childIds2=(LS.get('children',[])||[]).map(c=>c.id);
   childIds2.forEach(cid=>{
-    _supa.channel('spec_apts:'+cid)
+    const _ca=_supa.channel('spec_apts:'+cid)
       .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
-    _supa.channel('spec_msgs:'+cid)
+    _specChildChannels.push(_ca);
+    const _cm=_supa.channel('spec_msgs:'+cid)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
       .subscribe();
+    _specChildChannels.push(_cm);
     // Vault notes and files for this child
-    _supa.channel('spec_child_data:'+cid)
+    const _cd=_supa.channel('spec_child_data:'+cid)
       .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
+    _specChildChannels.push(_cd);
   });
 }
 
