@@ -1616,14 +1616,6 @@ const LS={
 
 /* -- Logo — swap to '/logo.png' when ready -- */
 const HUD_LOGO_SRC = null; // set to image URL to use logo image, null = emoji + text fallback
-function _hudLogo(size){
-  if(HUD_LOGO_SRC)return el('img',{src:HUD_LOGO_SRC,alt:'Huddledin',style:{height:(size||32)+'px'}});
-  const w=el('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
-  w.appendChild(el('div',{style:{width:(size||32)+'px',height:(size||32)+'px',background:'#0d9488',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:((size||32)*.55)+'px'}},['🤝']));
-  w.appendChild(el('span',{style:{fontSize:((size||32)*.6)+'px',fontWeight:600,color:'#0f1a18'}},['Huddledin']));
-  return w;
-}
-
 /* -- Paddle config — replace placeholders once Paddle approves -- */
 const PADDLE_ENV = 'production';
 const PADDLE_CLIENT_TOKEN = 'live_903ba43df97634845305971b2be';
@@ -1769,7 +1761,7 @@ const SB = {
     const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
     return data;
   },
-  async updateChild(id,patch){await _supa.from('children').update(patch).eq('id',id);},
+  async updateChild(id,patch){const{error}=await _supa.from('children').update(patch).eq('id',id);if(error){console.error('❌ updateChild:',error);return false;}return true;},
   async deleteChild(id){
     // Only remove access/permission records — clinical records (messages, appointments,
     // homework, files, folders) are retained for legal/compliance purposes on the specialist side.
@@ -1777,7 +1769,7 @@ const SB = {
       _supa.from('folder_permissions').delete().eq('child_id',id),
       _supa.from('specialist_requests').delete().eq('child_id',id),
     ]);
-    await _supa.from('children').delete().eq('id',id);
+    const{error}=await _supa.from('children').delete().eq('id',id);if(error){console.error('❌ deleteChild:',error);return false;}return true;
   },
   async getSpecialists(parentId,householdId){
     // Two separate queries to avoid .or() type-casting issues with UUID columns
@@ -1834,9 +1826,9 @@ const SB = {
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
     return data;
   },
-  async renameFile(fileId,name){await _supa.from('files').update({name}).eq('id',fileId);},
-  async deleteFile(fileId){await _supa.from('files').delete().eq('id',fileId);},
-  async deleteFolder(folderId){await _supa.from('folders').delete().eq('id',folderId);},
+  async renameFile(fileId,name){const{error}=await _supa.from('files').update({name}).eq('id',fileId);if(error){console.error('❌ renameFile:',error);return false;}return true;},
+  async deleteFile(fileId){const{error}=await _supa.from('files').delete().eq('id',fileId);if(error){console.error('❌ deleteFile:',error);return false;}return true;},
+  async deleteFolder(folderId){const{error}=await _supa.from('folders').delete().eq('id',folderId);if(error){console.error('❌ deleteFolder:',error);return false;}return true;},
   async addFolder(folder){
     const folderId=folder.id||('f_'+folder.childId+'_'+folder.key+'_'+Date.now());
     const {data,error}=await _supa.from('folders').insert({id:folderId,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
@@ -1918,10 +1910,10 @@ async function refreshFromSupabase(){
         const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
         // Parallel: 4 request sources (4th = specialist-initiated by email hint)
         const [_reqR1,_reqR2,_reqR3,_reqR4]=await Promise.all([
-          _hid?_supa.from('specialist_requests').select('*').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
-          _supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_id',session.id),
-          _childIds.length?_supa.from('specialist_requests').select('*').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
-          session.email?_supa.from('specialist_requests').select('*').eq('status','pending').eq('parent_email_hint',session.email):Promise.resolve({data:[]}),
+          _hid?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
+          _supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_id',session.id),
+          _childIds.length?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+          session.email?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_email_hint',session.email):Promise.resolve({data:[]}),
         ]);
         _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);_dedup(_reqR4.data);
         const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join',parentEmailHint:r.parent_email_hint||null,childNameHint:r.child_name_hint||null,parentSeenAt:r.parent_seen_at||null}));
@@ -1977,7 +1969,7 @@ async function refreshFromSupabase(){
               .catch(e=>console.error('refresh homework_reminders:',e))
           : Promise.resolve(),
         // Notifications
-        _supa.from('notifications').select('*').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
+        _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
           .then(({data:notifs})=>{
             // Merge: if we marked something read locally, keep it read even if Supabase hasn't confirmed yet
             const localNotifs=LS.get('notifications',[]);
@@ -2113,7 +2105,7 @@ async function refreshFromSupabase(){
       // Load specialist secondary data in parallel
       await Promise.allSettled([
         // Notifications — specialist receives via user_id
-        _supa.from('notifications').select('*').eq('user_id',specId).order('created_at',{ascending:false}).limit(50)
+        _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',specId).order('created_at',{ascending:false}).limit(50)
           .then(({data:notifs})=>{
             const localNotifs=LS.get('notifications',[]);
             const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
@@ -3630,7 +3622,6 @@ cal_select_child_specs:'Select a child to see their specialists.',
 cal_no_specs_child:'No specialists connected to this child.',
 cal_add_child_first_long:'Add a child profile first.',
 cal_specialist_schedule:'My Schedule \u2014 {month}',
-cal_sync_google_btn:'\uD83D\uDCC5 Sync Google',
 cal_add_event_btn:'\u2795 Add Event',
 cal_start_label:'Start',
 cal_end_label:'End',
@@ -3670,7 +3661,6 @@ files_open_folder:'Open Folder',
 files_hold_hint:'Hold a folder to rename, upload, or delete',
 files_personal_vaults:'Personal Vaults',files_personal_vault:'Personal Vault',
 files_your_vault:'Your Vault',files_private_vault:'Private Vault',
-files_owner_grant:'Owner must grant access',
 files_vault_private_desc:'This is your private vault. Files uploaded here are not visible to other specialists.',
 files_authorize_view:'Authorize another specialist to view:',
 files_auth_updated:'Authorization updated for {name}!',
@@ -3737,7 +3727,6 @@ team_requesting_access:'Requesting access to: {folder}',
 team_grant_access:'\u2705 Grant Access',
 team_decline:'Decline',
 team_consult_reqs:'\uD83E\uDD1D Consultation Requests',
-team_consult_desc:'{spec} has requested to consult with {target} regarding {child}.',
 team_consult_approved:'\u2705 Consultation approved! Chat created.',
 team_consult_error:'Error approving. Try again.',
 team_pending_team_reqs:'\uD83D\uDC65 Pending Team Requests',
@@ -4926,7 +4915,6 @@ cal_sync_apple:'Apple iCal',
 cal_sync_coming_soon:'\uD83D\uDD17 סנכרון {name} \u2014 בקרוב!',
 cal_sync_desc:'סנכרני את התורים של Huddledin עם היומן החיצוני שלך. בחרי ספק:',
 cal_sync_google:'Google Calendar',
-cal_sync_google_btn:'\uD83D\uDCC5 סנכרון Google',
 cal_sync_outlook:'Outlook',
 cal_sync_title:'סנכרון יומן',
 cal_upcoming_label:'אירועים קרובים',
@@ -5035,7 +5023,6 @@ files_no_matching_desc:'נסי מונח חיפוש אחר',
 files_no_specs_connected:'אין מטפלים מחוברים עדיין.',
 files_only_you:'\uD83D\uDC41 גלוי רק לך (אין למטפלים גישה לתיקייה זו עדיין)',
 files_open_folder:'פתיחת תיקייה',
-files_owner_grant:'הבעלים צריך/כה להעניק גישה',
 files_perms_updated:'\u2705 ההרשאות עודכנו!',
 files_personal_vaults:'כספות אישיות',files_personal_vault:'כספת אישית',
 files_preview_unavail:'תצוגה מקדימה לא זמינה',
@@ -5246,7 +5233,6 @@ team_care_team_label:'צוות המטפלים',
 team_choose_folders:'בחרי אילו תיקיות לשתף:',
 team_connected_label:'מחובר/ת {date}',
 team_consult_approved:'\u2705 הייעוץ אושר! צ\'אט נוצר.',
-team_consult_desc:'{spec} ביקש/ה להתייעץ עם {target} בנוגע ל-{child}.',
 team_consult_error:'שגיאה באישור. נסי שוב.',
 team_consult_reqs:'\uD83E\uDD1D בקשות ייעוץ',
 team_consult_stub:'ייעוצים מתבקשים על ידי מטפלים \u2014 בדקי בדף צוות המטפלים אם יש בקשות ממתינות.',
