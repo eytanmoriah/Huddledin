@@ -1,5 +1,30 @@
+import { createClient } from '@supabase/supabase-js';
+
+async function verifySpecAiAccess(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return { ok: false, error: 'Missing auth token', status: 401 };
+  const token = authHeader.split(' ')[1];
+  const url = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) { console.error('SUPABASE_SERVICE_ROLE_KEY not set'); return { ok: false, error: 'Server misconfigured', status: 500 }; }
+  const supa = createClient(url, serviceKey);
+  const { data: { user }, error } = await supa.auth.getUser(token);
+  if (error || !user) return { ok: false, error: 'Invalid or expired auth token', status: 401 };
+  const { data: subs } = await supa.from('subscriptions').select('status,exempt,trial_ends_at').eq('user_id', user.id).eq('plan', 'specialist_ai').limit(1);
+  const sub = subs?.[0];
+  if (!sub) return { ok: false, error: 'No AI subscription found', status: 403 };
+  if (sub.exempt) return { ok: true, user };
+  if (sub.status === 'active') return { ok: true, user };
+  if (sub.status === 'trial' && sub.trial_ends_at && new Date(sub.trial_ends_at) > new Date()) return { ok: true, user };
+  return { ok: false, error: 'AI subscription expired', status: 403 };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  // Verify auth + subscription
+  const auth = await verifySpecAiAccess(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const { notes, childName } = req.body;
 
