@@ -1,5 +1,23 @@
+import { createClient } from '@supabase/supabase-js';
+
+async function verifyAuth(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  const url = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
+  const supa = createClient(url, serviceKey);
+  const { data: { user }, error } = await supa.auth.getUser(token);
+  return (error || !user) ? null : user;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  // Verify caller is authenticated (no subscription check — free feature)
+  const user = await verifyAuth(req);
+  if (!user) return res.status(401).json({ error: 'Authentication required' });
 
   const { to, specialistName, specialistRole, childNameHint, requestId } = req.body;
 
