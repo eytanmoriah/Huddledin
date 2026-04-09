@@ -3275,6 +3275,8 @@ files_no_other_folders:'No other folders available',
 notif_file_moved:'\uD83D\uDCC1 {name} was moved to {folder}',
 notif_file_copied:'\uD83D\uDCC1 {name} was copied to {folder}',
 notif_stacked:'{msg} (+{n} more)',
+notif_new_message:'\uD83D\uDCAC New message from {sender}',
+notif_messages_count:'\uD83D\uDCAC {n} new messages from {sender}',
 files_share:'Share',
 files_permissions:'Permissions',
 files_request_access:'Request Access',
@@ -4631,6 +4633,8 @@ files_no_other_folders:'\u05D0\u05D9\u05DF \u05EA\u05D9\u05E7\u05D9\u05D5\u05EA 
 notif_file_moved:'\uD83D\uDCC1 {name} \u05D4\u05D5\u05E2\u05D1\u05E8 \u05DC{folder}',
 notif_file_copied:'\uD83D\uDCC1 {name} \u05D4\u05D5\u05E2\u05EA\u05E7 \u05DC{folder}',
 notif_stacked:'{msg} (+{n} \u05E2\u05D5\u05D3)',
+notif_new_message:'\uD83D\uDCAC \u05D4\u05D5\u05D3\u05E2\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05DE{sender}',
+notif_messages_count:'\uD83D\uDCAC {n} \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D7\u05D3\u05E9\u05D5\u05EA \u05DE{sender}',
 files_share:'\u05E9\u05D9\u05EA\u05D5\u05E3',
 files_permissions:'\u05D4\u05E8\u05E9\u05D0\u05D5\u05EA',
 files_request_access:'\u05D1\u05E7\u05E9\u05EA \u05D2\u05D9\u05E9\u05D4',
@@ -6017,13 +6021,15 @@ function pushNotif(type,msg,childId,linkTab=null){
 
 /* Push a notification to the OTHER party (not the current user) */
 // Upsert notification: if an unread notification of the same type+child exists for this user, update its count. Otherwise insert new.
-async function _upsertNotif(uid,{type,message,childId,householdId,linkTab,linkData}){
+async function _upsertNotif(uid,{type,message,stackMessage,childId,householdId,linkTab,linkData}){
   try{
-    const{data:ex}=await _supa.from('notifications').select('id,meta_count,message').eq('user_id',uid).eq('type',type).eq('read',false).eq('child_id',childId||'').order('created_at',{ascending:false}).limit(1);
+    const{data:ex}=await _supa.from('notifications').select('id,meta_count').eq('user_id',uid).eq('type',type).eq('read',false).eq('child_id',childId||'').order('created_at',{ascending:false}).limit(1);
     if(ex&&ex.length>0){
       const nc=(ex[0].meta_count||1)+1;
-      const countedMsg=T('notif_stacked',{msg:message,n:nc-1});
-      const{error}=await _supa.from('notifications').update({message:countedMsg,meta_count:nc,created_at:new Date().toISOString()}).eq('id',ex[0].id);
+      const countedMsg=stackMessage?stackMessage.replace(/\{n\}/g,String(nc)):T('notif_stacked',{msg:message,n:nc-1});
+      const upd={message:countedMsg,meta_count:nc,created_at:new Date().toISOString()};
+      if(linkData)upd.link_data=JSON.stringify(linkData);
+      const{error}=await _supa.from('notifications').update(upd).eq('id',ex[0].id);
       if(error)console.error('❌ upsertNotif update:',error);
     } else {
       const{error}=await _supa.from('notifications').insert({id:'n_op_'+Date.now()+'_'+uid,user_id:uid,household_id:householdId||null,child_id:childId||null,type,message,read:false,link_tab:linkTab||null,link_data:linkData?JSON.stringify(linkData):null,meta_count:1});
@@ -12483,19 +12489,12 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
           _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
           // Insert notification for each recipient so it appears in the notification list
           try{
-            const _msgChild=DB.children.find(c=>c.id===activeChat.childId)||(LS.get('children',[])||[]).find(c=>c.id===activeChat.childId);
-            const _msgChildName=_msgChild?.name||'your child';
-            let _msgText;
-            if(session.role==='specialist'){
-              const _specProf=session.profession||getMySpecialistRecord()?.role||(DB.specialists||[]).find(s=>s.id===session.id)?.role||'Specialist';
-              _msgText='💬 New message from '+_msgChildName+"'s "+_specProf+' - '+senderName;
-            }else{
-              const _firstName=(senderName||'').split(' ')[0]||'Parent';
-              _msgText='💬 New message from '+_msgChildName+"'s parent "+_firstName;
-            }
+            const _senderDisplay=senderName||session?.displayName||session?.name||'Someone';
+            const _singleMsg=T('notif_new_message',{sender:_senderDisplay});
+            const _stackMsg=T('notif_messages_count',{n:'{n}',sender:_senderDisplay});
             const _recipients=(activeChat.participants||[]).filter(p=>p!==myId&&p!=='parent');
             for(const uid of _recipients){
-              await _upsertNotif(uid,{type:'message',message:_msgText,childId:activeChat.childId,householdId:getChildHouseholdId(activeChat.childId),linkTab:'chat',linkData:{chatId:activeChat.id}});
+              await _upsertNotif(uid,{type:'message',message:_singleMsg,stackMessage:_stackMsg,childId:activeChat.childId,householdId:getChildHouseholdId(activeChat.childId),linkTab:'chat',linkData:{chatId:activeChat.id}});
             }
           }catch(e){console.error('msg notification:',e);}
         }catch(e){
