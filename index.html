@@ -2200,7 +2200,13 @@ function setupHouseholdSync(){
     .subscribe((status)=>{console.log('✅ Household channel:',status);});
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   _supa.channel('hh_notifs:'+session.id)
-    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{
+      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        return;
+      }
+      console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();
+    })
     .subscribe();
   // Separate dedicated channels for new tables (1 listener per channel — proven pattern)
   const _hid=session.householdId;
@@ -2291,8 +2297,20 @@ function setupSpecialistSync(){
     // Triggers immediate cache refresh so specialist sees new patients without page reload
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},()=>{_debouncedRefresh();})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
+      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        return;
+      }
+      _debouncedRefresh();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
+      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+        if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
+        return;
+      }
+      _debouncedRefresh();
+    })
     // homework_tasks changes — fires on all events (INSERT, UPDATE, DELETE) so specialist sees new, archived, and deleted tasks
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     .subscribe();
