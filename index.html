@@ -11827,18 +11827,24 @@ function markChatRead(chatId){
         _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(e=>console.error('mark read:',e));
       }
     }
-    // Also mark message/chat notifications as read for this child — resets stacking counter
-    const _childId=all[ci].childId;
-    if(_childId&&session?.id!=='demo'){
+    // Mark message/chat notifications as read — scoped by chatId, not child
+    if(session?.id!=='demo'){
+      // Local cache: match by linkData.chatId
       const ns=DB.notifications||[];
       let _changed=false;
       ns.forEach(n=>{
-        if(!n.read&&n.childId===_childId&&(n.type==='message'||n.type==='chat')){
+        if(!n.read&&(n.type==='message'||n.type==='chat')&&n.linkData?.chatId===chatId){
           n.read=true;_changed=true;
-          _supa.from('notifications').update({read:true}).eq('id',n.id).catch(()=>{});
         }
       });
       if(_changed)DB.notifications=ns;
+      // Supabase: catch notifications not yet in local cache
+      _supa.from('notifications').select('id,link_data')
+        .eq('user_id',session.id).eq('read',false).in('type',['message','chat'])
+        .then(({data})=>{
+          const ids=(data||[]).filter(n=>{try{return JSON.parse(n.link_data)?.chatId===chatId;}catch(e){return false;}}).map(n=>n.id);
+          if(ids.length)_supa.from('notifications').update({read:true}).in('id',ids).then(({error})=>{if(error)console.error('❌ markChatRead notif:',error);}).catch(e=>console.error('markChatRead notif:',e));
+        }).catch(()=>{});
     }
   }
 }
