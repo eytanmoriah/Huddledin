@@ -2642,10 +2642,9 @@ function showVerificationPendingScreen(email){
       const _pi=localStorage.getItem('pendingInviteToken');
       if(_pi){setTimeout(()=>_processPendingInvite(),800);}
       await _checkSubscription();
-      re();
       setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
-      refreshFromSupabase().then(()=>re()).catch(()=>{});
+      refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
     }
     if(event==='SIGNED_OUT'){session=null;S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;re();}
   });
@@ -5561,7 +5560,7 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       if(!session.householdId&&row.household_id&&session.role!=='specialist'){
         session.householdId=row.household_id;
         console.log('\uD83D\uDCDD Writing to profiles (redeemConnectionCode household UPDATE):', JSON.stringify({household_id:row.household_id,userId:session.id,session_role:session.role}));
-        try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){}
+        try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){console.error('❌ updateHouseholdId:',e);}
       } else if(session.role==='specialist'){
         console.log('\uD83D\uDEAB redeemConnectionCode: SKIPPED profiles update (user is specialist) household_id='+row.household_id);
       }
@@ -6717,7 +6716,7 @@ function renderAuth(){
       if(_pi){setTimeout(()=>_processPendingInvite(),300);}
       setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();
       // Background full-data refresh ensures specialist dashboard populates on first login
-      refreshFromSupabase().then(()=>re()).catch(()=>{});
+      refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
     });
     ig.appendChild(sb);
     formArea.appendChild(ig);
@@ -7644,7 +7643,7 @@ function renderSpecDesktop(){
   fOut.title=T('spec_dt_sign_out');
   fOut.onmouseenter=()=>fOut.style.color='var(--coral)';
   fOut.onmouseleave=()=>fOut.style.color='var(--slate)';
-  fOut.onclick=async()=>{try{await doLogout();}catch(e){}re();};
+  fOut.onclick=async()=>{try{await doLogout();}catch(e){console.error('❌ logout:',e);}re();};
   footer.appendChild(fAv); footer.appendChild(fInfo); footer.appendChild(fOut);
   sidebar.appendChild(footer);
   shell.appendChild(sidebar);
@@ -7800,7 +7799,7 @@ function renderSpecDesktop(){
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
         _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';S._patientDrawerOpen=false;
-        re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});
+        re();loadChildSpecialists(c.id).then(()=>re()).catch(e=>console.error('❌ loadChildSpecs:',e));
       };
       plList.appendChild(row);
     });
@@ -8228,7 +8227,7 @@ function renderNotifBell(){
         if(i>-1){ns[i].read=true;DB.notifications=ns;}
         const lsN=LS.get('notifications',[]);const li=lsN.findIndex(x=>x.id===n.id);
         if(li>-1){lsN[li].read=true;LS.set('notifications',lsN);}
-        if(session?.id!=='demo'){try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}}
+        if(session?.id!=='demo'){try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){console.error('❌ markNotifRead:',e);}}
         dd.remove();dd=null;
         // Deep-link — same logic as full notification page
         const tab=n.linkTab||n.link_tab;
@@ -8265,7 +8264,7 @@ function renderNotifBell(){
           S.calFullscreen=false;S.activeTab=tab;
           // Refresh data when deep-linking to team (so consult requests are loaded)
           if(tab==='team'&&session?.role==='parent'&&session?.id!=='demo'){
-            refreshFromSupabase().then(()=>re()).catch(()=>{});
+            refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
           }
         } else {
           S.activeTab='notifications';
@@ -8581,15 +8580,15 @@ function switchTab(id){
   re();
   // Refresh folders+files from Supabase when opening File Manager
   if(id==='files'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(()=>{});
+    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
   }
   // Refresh published summaries when parent opens session-summaries view
   if(id==='session-summaries'&&session?.role==='parent'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(()=>{});
+    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
   }
   // Refresh team/requests when parent opens Care Team (ensures consult requests are fresh)
   if(id==='team'&&session?.role==='parent'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(()=>{});
+    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
   }
 }
 
@@ -11434,7 +11433,7 @@ function showAptDetailModal(apt,child){
       actRow.appendChild(mkBtn(T('apt_edit'),'btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
       actRow.appendChild(mkBtn('🗑️ '+T('cal_delete'),'btn-md btn-danger',()=>{
         openConfirm(T('cal_delete_confirm'),'Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
-          try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){}
+          try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){console.error('❌ deleteApt:',e);}
           DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);
           close();re();toast(T('cal_deleted'));
         });
@@ -11445,14 +11444,14 @@ function showAptDetailModal(apt,child){
       const attending=mkBtn(T('apt_attending'),'btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
-        try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){}
+        try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpYes:',e);}
         await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
         close();re();toast(T('apt_marked_attending'));
       });
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
-        try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){}
+        try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpNo:',e);}
         await notifyOtherParty('appointments',T('notif_apt_rsvp_no',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
         close();re();toast(T('apt_marked_not_attending'));
       });
@@ -13544,7 +13543,7 @@ function _renderSpecTaskCard(task,container,specId,children){
     const nowDone=!task.completed;
     const all=DB.specTasks,i=all.findIndex(t=>t.id===task.id);
     if(i>-1){all[i].completed=nowDone;all[i].completedAt=nowDone?new Date().toISOString():null;DB.specTasks=all;}
-    try{await _supa.from('spec_tasks').update({completed:nowDone,completed_at:nowDone?new Date().toISOString():null}).eq('id',task.id);}catch(e){}
+    try{await _supa.from('spec_tasks').update({completed:nowDone,completed_at:nowDone?new Date().toISOString():null}).eq('id',task.id);}catch(e){console.error('❌ specTaskToggle:',e);}
     re();
   };
   card.appendChild(chk);
@@ -13677,7 +13676,7 @@ function showSpecTaskModal(existing=null){
     if(existing){
       const delBtn=mkBtn(T('stodo_delete_task'),'btn-sm btn-ghost',async()=>{
         const all=DB.specTasks.filter(t=>t.id!==existing.id);DB.specTasks=all;
-        try{await _supa.from('spec_tasks').delete().eq('id',existing.id);}catch(e){}
+        try{await _supa.from('spec_tasks').delete().eq('id',existing.id);}catch(e){console.error('❌ deleteSpecTask:',e);}
         close();re();toast(T('stodo_task_deleted'));
       });
       delBtn.style.cssText='margin-top:6px;width:100%;color:var(--coral);';
@@ -15541,7 +15540,7 @@ function renderPatients(){
           });
         };
       } else {
-        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(()=>{});};
+        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(e=>console.error('❌ loadChildSpecs:',e));};
       }
       stack.appendChild(card);
     });
@@ -16341,7 +16340,7 @@ function renderNotifications(){
     hd.appendChild(mkBtn(T('notif_mark_all_read'),'btn-sm btn-ghost',async()=>{
       const ns=DB.notifications;ns.forEach(n=>n.read=true);DB.notifications=ns;
       const lsN=LS.get('notifications',[]);lsN.forEach(n=>n.read=true);LS.set('notifications',lsN);
-      if(session?.id!=='demo')try{await _supa.from('notifications').update({read:true}).eq('user_id',session.id);}catch(e){}
+      if(session?.id!=='demo')try{await _supa.from('notifications').update({read:true}).eq('user_id',session.id);}catch(e){console.error('❌ markAllNotifsRead:',e);}
       re();
     }));
   }
@@ -16377,7 +16376,7 @@ function renderNotifications(){
       if(li>-1){lsNotifs[li].read=true;LS.set('notifications',lsNotifs);}
       // Persist to Supabase (awaited so it completes before the next refresh)
       if(session?.id!=='demo'){
-        try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){}
+        try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){console.error('❌ markNotifRead:',e);}
       }
       // Deep-link navigation
       const tab=n.linkTab||n.link_tab;
@@ -16412,7 +16411,7 @@ function renderNotifications(){
           S.calFullscreen=false;S.activeTab=tab;
           // Refresh data when deep-linking to team (so consult requests are loaded)
           if(tab==='team'&&session?.role==='parent'&&session?.id!=='demo'){
-            refreshFromSupabase().then(()=>re()).catch(()=>{});
+            refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
           }
         }
       }
@@ -16691,7 +16690,7 @@ function showChildPhotoModal(child){
     row.appendChild(mkBtn(T('child_photo_upload'),'btn-md btn-primary',async()=>{
       const ch=DB.children,i=ch.findIndex(c=>c.id===child.id);
       if(i>-1){ch[i].photo=photoData;DB.children=ch;}
-      if(session&&session.id!=='demo'){try{await SB.updateChild(child.id,{photo_url:photoData});}catch(e){}}
+      if(session&&session.id!=='demo'){try{await SB.updateChild(child.id,{photo_url:photoData});}catch(e){console.error('❌ updateChildPhoto:',e);}}
       close();re();toast(T('child_photo_updated'));
     }));
     mb.appendChild(row);
@@ -16720,7 +16719,7 @@ function showDeleteChildModal(child){
         }
       });
       DB.legacyArchive=archive;
-      if(session&&session.id!=='demo'){try{await SB.deleteChild(child.id);}catch(e){}}
+      if(session&&session.id!=='demo'){try{await SB.deleteChild(child.id);}catch(e){console.error('❌ deleteChild:',e);}}
       const ch=DB.children.filter(c=>c.id!==child.id);DB.children=ch;
       // Remove all data for this child
       DB.homework=DB.homework.filter(h=>h.childId!==child.id);
