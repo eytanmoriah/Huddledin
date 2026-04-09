@@ -2246,7 +2246,7 @@ function setupHouseholdSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: files',p.eventType);_debouncedRefresh();})
       .subscribe();
     _supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeChatId)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
       .subscribe();
   });
 }
@@ -2303,7 +2303,7 @@ function setupSpecialistSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
     _supa.channel('spec_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
       .subscribe();
     // Vault notes and files for this child
     _supa.channel('spec_child_data:'+cid)
@@ -11800,12 +11800,27 @@ function markChatRead(chatId){
   if(!myId)return;
   const all=DB.chats;
   const ci=all.findIndex(c=>c.id===chatId);
-  if(ci>-1&&(all[ci].unreadFor||[]).includes(myId)){
-    all[ci].unreadFor=(all[ci].unreadFor||[]).filter(id=>id!==myId);
-    all[ci].unreadCount=0;
-    DB.chats=all;
-    if(session?.id!=='demo'){
-      _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(e=>console.error('mark read:',e));
+  if(ci>-1){
+    if((all[ci].unreadFor||[]).includes(myId)){
+      all[ci].unreadFor=(all[ci].unreadFor||[]).filter(id=>id!==myId);
+      all[ci].unreadCount=0;
+      DB.chats=all;
+      if(session?.id!=='demo'){
+        _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',chatId).then(()=>{}).catch(e=>console.error('mark read:',e));
+      }
+    }
+    // Also mark message/chat notifications as read for this child — resets stacking counter
+    const _childId=all[ci].childId;
+    if(_childId&&session?.id!=='demo'){
+      const ns=DB.notifications||[];
+      let _changed=false;
+      ns.forEach(n=>{
+        if(!n.read&&n.childId===_childId&&(n.type==='message'||n.type==='chat')){
+          n.read=true;_changed=true;
+          _supa.from('notifications').update({read:true}).eq('id',n.id).catch(()=>{});
+        }
+      });
+      if(_changed)DB.notifications=ns;
     }
   }
 }
@@ -12382,13 +12397,37 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
       if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
         const _rtMsg={id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at,imagePath:msg.image_path||null,imageUrl:null};
-        if(_rtMsg.imagePath){(async()=>{try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(_rtMsg.imagePath,3600);_rtMsg.imageUrl=_su?.signedUrl||null;re();}catch(e){}})();}
         all2[ci2].messages.push(_rtMsg);
-        const uid=session?.id||'';
-        all2[ci2].unreadFor=[...(all2[ci2].unreadFor||[])];
-        if(!all2[ci2].unreadFor.includes(uid))all2[ci2].unreadFor.push(uid);
-        all2[ci2].unreadCount=(all2[ci2].unreadCount||0)+1;
-        DB.chats=all2;re();
+        DB.chats=all2;
+        // In-place DOM append — no re(), no jump
+        const _ma=document.getElementById('msg-area');
+        if(_ma){
+          const _isMe=false;
+          const _sName=_resolveSenderName(_rtMsg,activeChat);
+          const _row=el('div',{style:{display:'flex',justifyContent:'flex-start',gap:'6px',alignItems:'flex-end'}});
+          if(_rtMsg.id)_row.dataset.msgId=_rtMsg.id;
+          const _av2=el('div',{style:{width:'26px',height:'26px',borderRadius:'50%',background:'var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.75rem',flexShrink:0,marginBottom:'2px'}});
+          const _spec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===_rtMsg.sender);
+          _av2.textContent=_spec?.avatar||_sName[0]?.toUpperCase()||'?';
+          _row.appendChild(_av2);
+          const _bub=el('div',{class:'bubble-them'});
+          _bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(_rtMsg.sender)}},[_sName]));
+          if(_rtMsg.imageUrl){
+            const _img=el('img',{src:_rtMsg.imageUrl,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:_rtMsg.text?'6px':'0',cursor:'pointer'}});
+            _img.onclick=ev=>{ev.stopPropagation();_filePreview({name:T('chat_image'),url:_rtMsg.imageUrl});};
+            _bub.appendChild(_img);
+          }
+          if(_rtMsg.text)_bub.appendChild(el('div',{style:{wordBreak:'break-word'}},[_rtMsg.text]));
+          _bub.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}},[el('span',{class:'bubble-time'},[_rtMsg.time])]));
+          _row.appendChild(_bub);
+          _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
+        }
+        // Auto-mark message notification as read since user is actively viewing
+        const _ns=DB.notifications||[];
+        const _mni=_ns.findIndex(n=>!n.read&&(n.type==='message'||n.type==='chat')&&n.childId===activeChat.childId);
+        if(_mni>-1){_ns[_mni].read=true;DB.notifications=_ns;_supa.from('notifications').update({read:true}).eq('id',_ns[_mni].id).catch(()=>{});}
+        // Load image signed URL asynchronously if needed
+        if(_rtMsg.imagePath&&!_rtMsg.imageUrl){(async()=>{try{const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(_rtMsg.imagePath,3600);if(_su?.signedUrl){_rtMsg.imageUrl=_su.signedUrl;const _imgEl=_ma?.querySelector('[data-msg-id="'+_rtMsg.id+'"] img');if(!_imgEl){const _bubs=_ma?.querySelector('[data-msg-id="'+_rtMsg.id+'"] .bubble-them');if(_bubs){const _img=el('img',{src:_su.signedUrl,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:_rtMsg.text?'6px':'0',cursor:'pointer'}});_img.onclick=ev=>{ev.stopPropagation();_filePreview({name:T('chat_image'),url:_su.signedUrl});};_bubs.insertBefore(_img,_bubs.firstChild.nextSibling);}}}}catch(e){}})();}
       }
     });
   }
