@@ -2201,7 +2201,7 @@ function setupHouseholdSync(){
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   _supa.channel('hh_notifs:'+session.id)
     .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'user_id=eq.'+session.id},(p)=>{
-      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+      if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
         return;
       }
@@ -2252,7 +2252,7 @@ function setupHouseholdSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: files',p.eventType);_debouncedRefresh();})
       .subscribe();
     _supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeChatId)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
       .subscribe();
   });
 }
@@ -2298,14 +2298,14 @@ function setupSpecialistSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
-      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+      if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
         return;
       }
       _debouncedRefresh();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
-      if(S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
+      if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}_supa.from('notifications').update({read:true}).eq('id',p.new.id).catch(()=>{});}
         return;
       }
@@ -2321,7 +2321,7 @@ function setupSpecialistSync(){
       .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
       .subscribe();
     _supa.channel('spec_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
       .subscribe();
     // Vault notes and files for this child
     _supa.channel('spec_child_data:'+cid)
@@ -19059,7 +19059,7 @@ function re(){
     const _sy=_navChanged?0:window.scrollY;
     _reLastTab=S.activeTab;_reLastNav=S.navLevel;_reLastChild=S.activeChild;_reLastFs=S.calFullscreen;
     // Clear chat search state when leaving chats
-    if(S.activeTab!=='chat'){S._msgSearch='';S._msgSearchMatches=null;S._msgSearchIdx=0;S._msgSearchQuery=null;}
+    if(S.activeTab!=='chat'){S._msgSearch='';S._msgSearchMatches=null;S._msgSearchIdx=0;S._msgSearchQuery=null;S.activeChatId=null;S.activeChatChildId=null;}
     const _t0=performance.now();
     const root=document.getElementById('root');
     if(!root)return;
