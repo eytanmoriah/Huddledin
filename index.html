@@ -1614,7 +1614,8 @@ const _PHI_SCRUB={
   appointments:v=>(v||[]).map(a=>({...a,notes:null})),
   homework:v=>(v||[]).map(h=>({...h,task:'',category:''})),
   homeworkTasks:v=>(v||[]).map(t=>({...t,description:''})),
-  specTasks:v=>(v||[]).map(t=>({...t,notes:''}))
+  specTasks:v=>(v||[]).map(t=>({...t,notes:''})),
+  vaultNotes:v=>(v||[]).map(n=>({...n,content:''}))
 };
 const LS={
   get(k,d){try{const v=localStorage.getItem('hd9_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
@@ -1680,6 +1681,11 @@ async function _fetchSpecTaskNotes(id){
   if(!id||!_supa)return '';
   try{const {data}=await _supa.from('spec_tasks').select('notes').eq('id',id).single();return data?.notes||'';}
   catch(e){console.error('❌ fetchSpecTaskNotes:',e);return '';}
+}
+async function _fetchVaultNoteContent(id){
+  if(!id||!_supa)return '';
+  try{const {data}=await _supa.from('vault_notes').select('content').eq('id',id).single();return data?.content||'';}
+  catch(e){console.error('❌ fetchVaultNoteContent:',e);return '';}
 }
 
 /* -- Supabase DB helpers (async) -- */
@@ -2148,8 +2154,8 @@ async function refreshFromSupabase(){
           .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);})
           .catch(()=>{}),
         // Vault notes
-        _supa.from('vault_notes').select('*').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
-          .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:n.content||'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
+        _supa.from('vault_notes').select('id,child_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
+          .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
           .catch(e=>console.error('refresh vaultNotes:',e)),
         // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
         // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages with [].
@@ -8693,7 +8699,7 @@ function renderSearchOverlay(){
     // Search notes
     const specId=session?.specialistId||null;
     DB.vaultNotes.filter(n=>{
-      if(!n.title.toLowerCase().includes(q.toLowerCase())&&!n.content.toLowerCase().includes(q.toLowerCase()))return false;
+      if(!n.title.toLowerCase().includes(q.toLowerCase()))return false;
       if(!specId)return false; // parents have no vault tab — skip vault notes in search
       if(n.specialistId===specId)return true; // own notes always visible
       const vault=(DB.specialistVaults||[]).find(v=>v.specialistId===n.specialistId&&v.childId===n.childId);
@@ -13169,17 +13175,17 @@ function renderVault(){
         lockedBox.appendChild(mkBtn(T('vault_unlock_trial'),'btn-sm btn-primary',()=>_showSpecAiUpgradeModal('Session Notes')));
         lockedBox.onclick=e=>{if(!e.target.closest('button'))_showSpecAiUpgradeModal('Session Notes');};
         body.appendChild(lockedBox);
-        ta=el('textarea',{style:{display:'none'}});ta.value=note.content||'';
+        ta=el('textarea',{style:{display:'none'}});
+        // Content fetched on demand (PHI not cached)
+        _fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';});
       } else {
         ta=el('textarea',{class:'inp',style:{minHeight:'120px',background:note.locked?'#f8fafc':''}});
         ta.id='vault-notes-'+note.id;
-        ta.value=note.content;
         ta.readOnly=note.locked;
-        ta.oninput=e=>{
-          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-          if(i>-1){ns[i].content=e.target.value;DB.vaultNotes=ns;}
-          S.vaultHasUnsaved=true;
-        };
+        // Content fetched on demand (PHI not cached). Disable while loading to prevent blank-save.
+        ta.disabled=true;ta.placeholder='Loading…';
+        _fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';ta.disabled=false;ta.placeholder='';});
+        ta.oninput=()=>{S.vaultHasUnsaved=true;};
         body.appendChild(ta);
       }
 
@@ -13189,6 +13195,7 @@ function renderVault(){
 
         // Save draft
         const saveDraftBtn=mkBtn(T('vault_save'),'btn-sm btn-slate',async()=>{
+          if(ta.disabled){toast('Still loading note — please wait a moment.','error');return;}
           saveDraftBtn.disabled=true;
           const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
           // Read live values from DOM (closure `note` is stale after oninput edits)
@@ -13239,6 +13246,7 @@ function renderVault(){
 
         // Lock session notes button
         const lockBtn=mkBtn(T('vault_lock_notes'),'btn-sm btn-ghost',()=>{
+          if(ta.disabled){toast('Still loading note — please wait a moment.','error');return;}
           const hasSummary=!!(S.vaultSummary||(note.summary||''));
           if(!hasSummary){
             // Warn: no parent summary written
@@ -13338,6 +13346,7 @@ function renderVault(){
           if(_sumLocked){ab.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'4px'}},[T('vault_summary_sent')]));}
           if(!note.published&&!_vaultRemoved){
             const pubBtn=mkBtn(T('vault_publish'),'btn-md btn-primary',()=>{
+              if(ta.disabled){toast('Still loading note — please wait a moment.','error');return;}
               if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
               pubBtn.disabled=true;
               openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,async()=>{
