@@ -2,7 +2,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
-    "api/report-ai.js": { "memory": 1024, "maxDuration": 60 },
+    "api/report-ai.mjs": { "memory": 1024, "maxDuration": 60 },
+    "api/ai-summary.mjs": { "memory": 1024, "maxDuration": 10 },
+    "api/send-specialist-request.mjs": { "memory": 1024, "maxDuration": 10 },
     "api/*.js": { "memory": 1024, "maxDuration": 10 }
   }
 }
