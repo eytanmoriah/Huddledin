@@ -13191,10 +13191,16 @@ function renderVault(){
         const saveDraftBtn=mkBtn(T('vault_save'),'btn-sm btn-slate',async()=>{
           saveDraftBtn.disabled=true;
           const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-          const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-          if(i>-1){ns[i].isDraft=true;ns[i].lastSaved=new Date().toISOString().split('T')[0]+' '+now;DB.vaultNotes=ns;}
+          // Read live values from DOM (closure `note` is stale after oninput edits)
+          const _title=ti.value;
+          const _content=ta.value;
+          const _summary=S.vaultSummary||note.summary||null;
+          const _lastSaved=new Date().toISOString().split('T')[0]+' '+now;
           try{
-            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+            // Update cache to match what was saved
+            const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+            if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].isDraft=true;ns[i].lastSaved=_lastSaved;DB.vaultNotes=ns;}
             S.vaultHasUnsaved=false;re();toast(T('vault_draft_saved'));
           }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');saveDraftBtn.disabled=false;}
         });
@@ -13246,9 +13252,14 @@ function renderVault(){
                   T('vault_lock_msg'),
                   true,
                   async()=>{
+                    // Read live values from DOM (closure `note` is stale after oninput edits)
+                    const _title=ti.value;
+                    const _content=ta.value;
+                    const _summary=S.vaultSummary||note.summary||null;
+                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                    // Update cache to match what was saved
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-                    if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
-                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                    if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                     S.vaultHasUnsaved=false;re();toast(T('vault_locked_toast'));
                   }
                 );
@@ -13259,9 +13270,14 @@ function renderVault(){
               T('vault_lock_msg'),
               true,
               async()=>{
+                // Read live values from DOM (closure `note` is stale after oninput edits)
+                const _title=ti.value;
+                const _content=ta.value;
+                const _summary=S.vaultSummary||note.summary||null;
+                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                // Update cache to match what was saved
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-                if(i>-1){ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
-                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:note.summary||null,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                 S.vaultHasUnsaved=false;re();toast(T('vault_locked_toast'));
               }
             );
@@ -13325,10 +13341,15 @@ function renderVault(){
               if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
               pubBtn.disabled=true;
               openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,async()=>{
-                const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-                if(i>-1){ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+                // Read live values from DOM (closure `note` is stale after oninput edits)
+                const _title=ti.value;
+                const _content=ta.value;
+                const _summary=S.vaultSummary||note.summary||null;
                 try{
-                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:note.title,content:note.content,summary:S.vaultSummary||note.summary||null,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+                  // Update cache to match what was saved
+                  const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
+                  if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                   // Notify ALL household members (not just primary parent)
                   const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
                   await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
