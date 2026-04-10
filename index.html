@@ -1882,7 +1882,6 @@ async function refreshFromSupabase(){
       // Merge local permissions so approvals survive a Supabase sync
       const localSpecs=DB.specialists||[];
       (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
-      console.log('📝 DB.specialists set:',(specs||[]).length,'items from refreshFromSupabase');
       LS.set('specialists',specs||[]);
       // Load folders for all children in parallel
       try{
@@ -1946,7 +1945,6 @@ async function refreshFromSupabase(){
           ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
         ).then(({data:hwt})=>{
-          console.log('[Huddledin] homework_tasks loaded from Supabase:',hwt?.length||0);
           // Diagnostic: log any once-off task whose DB status doesn't match expected
           LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));
         }).catch(e=>console.error('refresh homework_tasks:',e)),
@@ -2020,7 +2018,6 @@ async function refreshFromSupabase(){
               _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
               if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
             });
-            console.log('\u2705 Seen timestamps loaded:',(rows||[]).length,'rows');
             // Clear stale legacy homework cache — prevents stuck badges
             DB.homework=[];
           }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
@@ -2135,7 +2132,7 @@ async function refreshFromSupabase(){
           .catch(e=>console.error('refresh spec_tasks:',e)),
         // Homework Tasks — specialist loads their own created tasks (was missing, causing tasks to vanish on reload)
         _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-          .then(({data:hwt})=>{console.log('[Huddledin] specialist homework_tasks loaded:',hwt?.length||0);LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
+          .then(({data:hwt})=>{LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
           .catch(e=>console.error('refresh specialist homework_tasks:',e)),
         // Seen timestamps — loaded in same batch so badges are accurate on first render
         (async()=>{
@@ -2146,14 +2143,13 @@ async function refreshFromSupabase(){
               _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
               if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
             });
-            console.log('\u2705 Seen timestamps loaded:',(rows||[]).length,'rows');
           }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
         })()
       ]);
       // Removed connections loaded in main children list (connectionStatus='removed').
       // hd9_inactive_children controls which tab removed patients appear in.
     }
-  }catch(e){console.log('refreshFromSupabase error:',e);}
+  }catch(e){console.error('❌ refreshFromSupabase:',e);}
   // After all data loaded: show co-parent invite once per session if no co-parent exists
   if(session?.role==='parent'&&!S._hhModalChecked&&shouldShowHouseholdModal()){
     S._hhModalChecked=true;
@@ -2184,13 +2180,13 @@ function setupHouseholdSync(){
   if(!session||session.role!=='parent'||!session.householdId)return;
   if(_householdChannel)_householdChannel.unsubscribe();
   _householdChannel=_supa.channel('household:'+session.householdId)
-    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: children',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: specialists',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: specialist_requests',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: invites',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: appointments',p.eventType);_debouncedRefresh();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},(p)=>{console.log('🔔 Realtime event fired: homework',p.eventType);_debouncedRefresh();})
-    .subscribe((status)=>{console.log('✅ Household channel:',status);});
+    .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .subscribe();
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   if(_hhNotifsChannel)try{_hhNotifsChannel.unsubscribe();}catch(e){}
   _hhNotifsChannel=_supa.channel('hh_notifs:'+session.id)
@@ -2199,26 +2195,24 @@ function setupHouseholdSync(){
         if(p.new?.id&&!p.new?.read){const ns=DB.notifications||[];const ni=ns.findIndex(n=>n.id===p.new.id);if(ni>-1){ns[ni].read=true;DB.notifications=ns;}try{_supa.from('notifications').update({read:true}).eq('id',p.new.id).then(()=>{});}catch(e){}}
         return;
       }
-      console.log('🔔 Realtime: notifications',p.eventType);_debouncedRefresh();
+      _debouncedRefresh();
     })
     .subscribe();
   // Separate dedicated channels for new tables (1 listener per channel — proven pattern)
   const _hid=session.householdId;
   if(_hhHwTasksChannel)try{_hhHwTasksChannel.unsubscribe();}catch(e){}
   _hhHwTasksChannel=_supa.channel('hh_hw_tasks:'+_hid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},(p)=>{console.log('🔔 Realtime: homework_tasks',p.eventType);_debouncedRefresh();})
-    .subscribe((status)=>{console.log('✅ homework_tasks channel:',status);});
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},()=>_debouncedRefresh())
+    .subscribe();
   if(_hhParentTasksChannel)try{_hhParentTasksChannel.unsubscribe();}catch(e){}
   _hhParentTasksChannel=_supa.channel('hh_parent_tasks:'+_hid)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
-      console.log('🔔 Realtime: parent_tasks INSERT');
       const arr=DB.parentTasks||[];
       if(p.new&&!arr.find(t=>t.id===p.new.id)){arr.unshift(p.new);DB.parentTasks=arr;}
       _localParentTaskChanges.delete((p.new||{}).id);
       re();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'parent_tasks',filter:'household_id=eq.'+_hid},(p)=>{
-      console.log('🔔 Realtime: parent_tasks UPDATE');
       const arr=DB.parentTasks||[];
       if(p.new){const idx=arr.findIndex(t=>t.id===p.new.id);if(idx>-1){arr[idx]=p.new;}else{arr.unshift(p.new);}DB.parentTasks=arr;}
       _localParentTaskChanges.delete((p.new||{}).id);
@@ -2226,7 +2220,6 @@ function setupHouseholdSync(){
     })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'parent_tasks'},(p)=>{
       // DELETE listener has NO filter — default replica identity may omit household_id from p.old
-      console.log('🔔 Realtime: parent_tasks DELETE');
       if(p.old&&p.old.id){
         DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==p.old.id);
         _localParentTaskChanges.delete(p.old.id);
@@ -2236,20 +2229,20 @@ function setupHouseholdSync(){
         _debouncedRefresh();
       }
     })
-    .subscribe((status)=>{console.log('✅ parent_tasks channel:',status);});
+    .subscribe();
   _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
   const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
   _hhChildren.forEach(cid=>{
     const _cv=_supa.channel('hh_vnotes:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: vault_notes',p.eventType);_debouncedRefresh();})
+      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>_debouncedRefresh())
       .subscribe();
     _hhChildChannels.push(_cv);
     const _cf=_supa.channel('hh_files:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},(p)=>{console.log('🔔 Realtime: files',p.eventType);_debouncedRefresh();})
+      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>_debouncedRefresh())
       .subscribe();
     _hhChildChannels.push(_cf);
     const _cm=_supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;console.log('🔔 Realtime: messages',p.eventType);loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
       .subscribe();
     _hhChildChannels.push(_cm);
   });
@@ -2263,7 +2256,6 @@ function setupSubscriptionSync(){
   _subscriptionChannel=_supa.channel('sub:'+session.id)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'subscriptions',filter:'user_id=eq.'+session.id},async(payload)=>{
       const ns=payload.new?.status;
-      console.log('✅ Subscription status changed:',ns);
       if(ns==='active'){
         S._showPaywall=false;
         toast('✅ Your subscription is active!','success',4000);
@@ -2439,7 +2431,6 @@ async function _loadSessionFromSupabase(s){
           const{data:_inv}=await _supa.from('invites').select('specialist_role').eq('token',_pit).maybeSingle();
           // specialist_role column holds the specialty label; the auth role is always 'specialist'
           _fallbackRole='specialist';
-          console.log('\u2705 Profile auto-create: pending invite detected \u2192 role=specialist',_inv?.specialist_role?'('+_inv.specialist_role+')':'');
         }catch(e){
           // Invite lookup failed — still safer to default to specialist than parent for this path
           _fallbackRole='specialist';
@@ -2454,8 +2445,6 @@ async function _loadSessionFromSupabase(s){
       ||s.user.email.split('@')[0];
     try{
       const _autoCreateData={id:s.user.id,email:s.user.email,role:_fallbackRole,display_name:_fallbackName};
-      console.log('\uD83D\uDCDD Writing to profiles (auto-create INSERT):', JSON.stringify(_autoCreateData));
-      console.log('\uD83D\uDD0D Auto-create triggered by: user_metadata.role='+s.user.user_metadata?.role+' pending_role='+new URLSearchParams(window.location.search).get('pending_role')+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
       await _supa.from('profiles').insert(_autoCreateData);
       const{data:p2}=await _supa.from('profiles').select('*').eq('id',s.user.id).single();
       if(p2)profile=p2;
@@ -2499,7 +2488,6 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
         if(specs&&specs.length>0){
           const localSpecs2=DB.specialists||[];
           specs.forEach(s=>{const local=localSpecs2.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
-          console.log('📝 DB.specialists set:',specs.length,'items from refreshFromSupabase (specialist branch)');
           LS.set('specialists',specs);
         }
       }catch(e){}
@@ -2528,7 +2516,7 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
             }
           }
         }
-      }catch(e){console.log('Specialist children load error:',e);}
+      }catch(e){console.error('❌ Specialist children load:',e);}
     }
   }
 }
@@ -2543,7 +2531,6 @@ function _migratePastPatients(){
       const _inact=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
       _pp.forEach(p=>{if(p&&p.id)_inact.add(p.id);});
       localStorage.setItem('hd9_inactive_children',JSON.stringify([..._inact]));
-      console.log('\u2705 Migrated pastPatients \u2192 hd9_inactive_children:',_pp.length,'entries');
     }
     localStorage.setItem('hd9_past_migrated','1');
   }catch(e){console.error('\u274C _migratePastPatients:',e);}
@@ -2624,13 +2611,10 @@ function showVerificationPendingScreen(email){
         }catch(e){console.error('onAuthStateChange existing profile check:',e);}
         if(_existingRole==='specialist'){
           // Specialist already has a profile — never touch role or household_id
-          console.log('\uD83D\uDD10 onAuthStateChange: existing role=specialist \u2014 will not overwrite with pendingRole='+pendingRole+'. Profile left unchanged.');
         } else {
           // New user or existing parent — safe to upsert role
           try{
             const _oauthUpsertData={id:s2.user.id,email:s2.user.email,role:pendingRole,display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]};
-            console.log('\uD83D\uDCDD Writing to profiles (onAuthStateChange UPSERT):', JSON.stringify(_oauthUpsertData));
-            console.log('\uD83D\uDD0D pendingRole source: localStorage='+_pendingRoleRaw+' url='+new URLSearchParams(window.location.search).get('pending_role')+' user_metadata='+s2.user.user_metadata?.role+' existingRole='+_existingRole+' pendingInviteToken='+localStorage.getItem('pendingInviteToken'));
             await _supa.from('profiles').upsert(_oauthUpsertData,{onConflict:'id'});
           }catch(e){console.error('Google OAuth profile upsert error:',e);}
         }
@@ -5557,23 +5541,18 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
   // Try Supabase
   if(session&&session.id!=='demo'){
     let row=null;
-    console.log('\uD83D\uDD0D Looking up code:',code.toUpperCase());
     try{const r=await _supa.from('connection_codes').select('*').eq('code',code.toUpperCase()).eq('used',false).single();row=r.data;}catch(e){if(e?.code!=='PGRST116')console.error('Code lookup error:',e);}
     if(!row){
       // Also try case-insensitive search as fallback
       try{const r=await _supa.from('connection_codes').select('*').ilike('code',code).eq('used',false).single();row=r.data;}catch(e){if(e?.code!=='PGRST116')console.error('Code lookup fallback error:',e);}
     }
     if(row){
-      console.log('\u2705 Code found for child:',row.child_id);
       if(new Date(row.expires_at)<new Date())return{error:'This code has expired. Ask the family for a new one.'};
       try{await _supa.from('connection_codes').update({used:true}).eq('id',row.id);}catch(e){console.error('Code mark-used error:',e);}
       childId=row.child_id;
       if(!session.householdId&&row.household_id&&session.role!=='specialist'){
         session.householdId=row.household_id;
-        console.log('\uD83D\uDCDD Writing to profiles (redeemConnectionCode household UPDATE):', JSON.stringify({household_id:row.household_id,userId:session.id,session_role:session.role}));
         try{await _supa.from('profiles').update({household_id:row.household_id}).eq('id',session.id);}catch(e){console.error('❌ updateHouseholdId:',e);}
-      } else if(session.role==='specialist'){
-        console.log('\uD83D\uDEAB redeemConnectionCode: SKIPPED profiles update (user is specialist) household_id='+row.household_id);
       }
       const parentId=row.parent_id;
       // Save specialist request to Supabase so parent sees it cross-device
@@ -5614,7 +5593,6 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
           }
         }
       }catch(e){console.error('specialist_requests insert error:',e);return{error:'Connection failed. Please try again.'};}
-      console.log('\u2705 Connection approved for child:',childId);
       // Update specialist profile in specialists table (single row per specialist — profile info only)
       // NEVER write household_id or role to profiles table — specialist profile protection
       try{
@@ -5634,7 +5612,6 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
       try{const r=await _supa.from('children').select('*').eq('id',childId).single();if(r.data)child=r.data;}catch(e){}
       return{ok:true,childId,child:{name:child.name,avatar:child.avatar_emoji||'🧒'}};
     }
-    console.log('\u274C Code not found or already used:',code.toUpperCase());
     return{error:'Code not found. Please check and try again.'};
   }
   // Fallback: localStorage
@@ -5654,7 +5631,6 @@ async function redeemConnectionCode(code,specialistId,specialistName,role){
 
 async function approveSpecialistRequest(requestId,selectedFolders){
   const requests=DB.specialistRequests||[];
-  console.log('🔍 approveSpecialistRequest fired for child:', requests.find(r=>r.id===requestId)?.childId, 'specialist:', requests.find(r=>r.id===requestId)?.specialistId);
   const reqIdx=requests.findIndex(r=>r.id===requestId);
   if(reqIdx===-1)return;
   const req=requests[reqIdx];
@@ -5691,7 +5667,6 @@ async function approveSpecialistRequest(requestId,selectedFolders){
     }
   }catch(e){console.error('approve specialist request:',e);}
   // Auto-create folder — key is always spec_[uuid] so each specialist gets a unique folder
-  console.log('🗂️ folder creation block reached, childId:', req.childId, 'specialistId:', req.specialistId);
   const prof=PROFESSIONS.find(p=>p.label===req.role||p.label===req.reason);
   const folderKey='spec_'+req.specialistId;
   const folderName=prof
@@ -5710,10 +5685,6 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   if(_supa&&req.specialistId&&selectedFolders.length){
     try{
       await Promise.all(selectedFolders.map(key=>_supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:key,granted_at:new Date().toISOString()}).then(({error:_e})=>{if(_e)console.error('❌ upsert folder_permissions (selected):',_e);})));
-      selectedFolders.forEach(key=>{
-        const _f=DB.folders.find(f=>f.key===key&&f.childId===req.childId);
-        console.log('✅ Folder access granted:',(_f?.name||key),'to',req.specialistName);
-      });
     }catch(e){
       console.error('❌ Failed to grant folder permissions:',e);
       console.error('folder permissions save:',e);toast('❌ Could not save folder permissions. Please try again.','error');
@@ -5775,7 +5746,6 @@ async function approveFolderRequest(req){
   if(_supa&&req.specialistId){
     try{
       const{error:_fpErr3}=await _supa.from('folder_permissions').upsert({specialist_id:String(req.specialistId),child_id:req.childId,folder_key:req.requestedFolder,granted_at:new Date().toISOString()});if(_fpErr3)throw _fpErr3;
-      console.log('✅ Folder access granted:',req.requestedFolder,'to',req.specialistName);
     }catch(e){console.error('❌ Failed to grant folder access:',e);toast('❌ Could not grant access. Please try again.','error');}
     try{await _supa.from('specialist_requests').update({status:'approved'}).eq('id',req.id);}catch(e){console.error('approveFolderRequest req:',e);}
   }
@@ -7021,7 +6991,6 @@ function setupSpecSubscriptionSync(){
   if(_specSubChannel)try{_specSubChannel.unsubscribe();}catch(e){}
   _specSubChannel=_supa.channel('spec_sub:'+session.id)
     .on('postgres_changes',{event:'*',schema:'public',table:'subscriptions',filter:'user_id=eq.'+session.id},async(payload)=>{
-      console.log('✅ Specialist subscription changed:',payload.new?.status);
       try{await _checkSpecAiSubscription();re();}catch(e){console.error('spec sub sync:',e);}
     })
     .subscribe();
@@ -8761,7 +8730,6 @@ function _markSeen(cid,s,cnt){
   _seenTimestamps[k]=now;
   LS.set('seen_'+cid+'_'+s,String(Date.now()));
   if(cnt!=null){LS.set('seen_'+cid+'_'+s+'_cnt',String(cnt));_seenTimestamps[k+'_cnt']=cnt;}
-  console.log('\u2705 Badge cleared:',s,'for',cid);
   if(session&&session.id!=='demo'){
     (async()=>{try{
       const{error}=await _supa.from('seen_timestamps').upsert({user_id:session.id,child_id:cid,section:sbSec,seen_at:now},{onConflict:'user_id,child_id,section'});
@@ -10806,7 +10774,6 @@ function renderTeam(){
       try{
         const _parentId=session.id;
         const _hhId=session.householdId;
-        console.log('[renderTeam] querying with householdId:',_hhId,'parentId:',_parentId);
         // Four-query fetch: approved/pending by parent_id, approved/pending by household_id,
         // removed by household_id (for Past Specialists), and pending invites not yet accepted
         const [_r1,_r2,_r3,_invRes]=await Promise.all([
@@ -10825,12 +10792,10 @@ function renderTeam(){
         });
         // Safety filter — belt-and-suspenders: queries already filter by child_id but ensure it here too
         const filtered=_rows.filter(r=>r.child_id===S.activeChild);
-        console.log('[renderTeam] after dedup+filter:',filtered.map(r=>({specialist_id:r.specialist_id,child_id:r.child_id,status:r.status,specialist_name:r.specialist_name})));
         // Populate DB.specialistRequests for pending approval cards
         const mapped=filtered.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join'}));
         const prevReqs=JSON.stringify(DB.specialistRequests);
         DB.specialistRequests=mapped;
-        console.log('[renderTeam] specialist_requests fetched:',mapped.length,'rows for child',S.activeChild);
         // Update DB.specialists from approved rows — use filtered so only active child's specialists are set
         const _approvedRows=filtered.filter(r=>r.status==='approved');
         const prevSpecs=JSON.stringify(DB.specialists);
@@ -10844,7 +10809,6 @@ function renderTeam(){
           const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
           const _newIds=new Set(_newSpecs.map(s=>s.id));
           DB.specialists=_newSpecs; // Replace (not merge) — clears stale specialists from previous child
-          console.log('[renderTeam] DB.specialists updated:',DB.specialists.length,'specialists for child',S.activeChild);
         }
         // Store removed specialists for Past Specialists section
         const prevRemoved=JSON.stringify(DB.removedSpecialists);
@@ -10852,14 +10816,12 @@ function renderTeam(){
         // Store pending invites so team list shows "Invited" cards immediately
         const prevInvites=JSON.stringify(DB.pendingInvites);
         DB.pendingInvites=(_invRes.data||[]);
-        console.log('[renderTeam] pending invites:',DB.pendingInvites.length,DB.pendingInvites);
         // Patch team list DOM directly — never call re() here.
         // re() would re-render renderTeam → fire another async fetch → infinite loop.
         const _tc=document.getElementById('team-list-container');
         if(_tc){
           _tc.innerHTML='';
           _tc.appendChild(buildTeamList(child));
-          console.log('[renderTeam] patched team list directly, no re()');
         }
         // Also patch folder request section with freshly fetched data
         const _frDiv=document.getElementById('team-folder-reqs');
@@ -11218,10 +11180,6 @@ function showPermModal(spec){
           if(upErr){saveBtn.disabled=false;saveBtn.innerHTML=T('files_save_perms');toast(T('team_perms_save_failed',{msg:upErr.message}),'error');return;}
         }
       }
-      // Log what changed for audit trail
-      const _fldMap=Object.fromEntries(childFolders.map(f=>[f.key||f.id,f.name]));
-      curPerms.filter(k=>!_origPerms.includes(k)).forEach(k=>console.log('✅ Folder access granted:',(_fldMap[k]||k),'to',spec.name));
-      _origPerms.filter(k=>!curPerms.includes(k)).forEach(k=>console.log('✅ Folder access revoked:',(_fldMap[k]||k),'from',spec.name));
       close();re();toast(T('team_perms_updated',{name:spec.name}));
     });
     mb.appendChild(saveBtn);
@@ -11269,11 +11227,9 @@ function showInviteModal(){
           expires_at:expires.toISOString(),
           accepted:false
         };
-        console.log('📧 Sending invite:',_invObj);
         try{
           const{data:_invData,error}=await _supa.from('invites').insert(_invObj).select().single();
           if(error)throw error;
-          console.log('✅ Invite saved:',_invData);
           // Optimistically add to DB.pendingInvites so "Invited" card appears immediately
           const _newInv=_invData||{..._invObj,id:'local_inv_'+Date.now()};
           DB.pendingInvites=[...(DB.pendingInvites||[]),_newInv];
@@ -12765,7 +12721,6 @@ function showConsultModal(childId){
             if(_ch?.parent_id)childParentId=_ch.parent_id;
           }catch(e2){console.error('child lookup:',e2);}
         }
-        console.log('[consult insert] cid:',cid,'hhid:',hhid,'parentId:',childParentId,'mySpecId:',mySpecId);
         const visLabel=state.inclusive?'inclusive':'private';
         const visText=state.inclusive
           ?'inclusive — you will be included in the conversation'
@@ -12797,7 +12752,6 @@ function showConsultModal(childId){
           toast('Could not send request: '+insertErr.message,'error');
           return;
         }
-        console.log('[consult insert] success');
         await notifyOtherParty('consult',
           `${spec?.name||'A specialist'} has requested to consult with ${state.targetName} regarding ${child?.name||'your patient'}. This conversation will be ${visText}.`,
           cid,'team');
@@ -14252,7 +14206,7 @@ function showAddTodoModal(childId,existing){
             child_id:todo.childId||null,
             sent:false
           },{onConflict:'todo_id'});
-        }catch(e){console.log('todo reminder save:',e);}
+        }catch(e){console.error('❌ todo reminder save:',e);}
       }
 
       close();re();
@@ -15016,7 +14970,6 @@ function showAddHomeworkTaskModal(existing,prefill){
         } else {
           const {data:newTask,error:taskErr}=await _supa.from('homework_tasks').insert(payload).select().single();
           if(taskErr)throw taskErr;
-          console.log('[Huddledin] homework_task saved to Supabase:',newTask);
           await _generateOccurrences(newTask);
           if(saveTemplate&&(tmplNameInp.value.trim()||title)){
             try{await _supa.from('homework_templates').insert({specialist_id:specId,title:tmplNameInp.value.trim()||title,description:descInp.value.trim()||null,recurrence:selRec,specific_days:specificDays,duration_type:selDur,time_of_day:[...selTimes].join(','),difficulty:selDiff});}catch(e){console.error('save template:',e);}
@@ -17508,7 +17461,6 @@ async function processHouseholdInvite(token){
 
   // Link this user to the household
   try{
-    console.log('\uD83D\uDCDD Writing to profiles (processHouseholdInvite household UPDATE):', JSON.stringify({household_id:data.household_id,is_primary:false,userId:session.id,session_role:session.role}));
     await _supa.from('profiles').update({
       household_id:data.household_id,
       is_primary:false
@@ -17790,7 +17742,6 @@ function renderSpecialistSettings(){
         const f=ev.target.files?.[0];if(!f){fi.remove();return;}
         if(f.size>500*1024){toast('Logo must be under 500KB.','error');fi.remove();return;}
         const path=session.id+'/report_logo_'+Date.now()+'.'+f.name.split('.').pop();
-        console.log('[logo] Uploading to',path,'size:',f.size);
         try{
           const{error}=await _supa.storage.from('specialist-storage').upload(path,f,{contentType:f.type,upsert:false});
           if(error){console.error('[logo] upload error:',error);throw error;}
@@ -19086,8 +19037,6 @@ initData();
   const childId=params.get('child');
   const inviteEmail=params.get('email');
   if(token){
-    console.log('\uD83D\uDD17 Invite detected: '+token);
-    console.log('\uD83D\uDC64 Current user at invite detection:', JSON.stringify(session ? {id:session.id,email:session.email,role:session.role} : null));
     // Store token so we can use it after login/signup
     localStorage.setItem('pendingInviteToken', token);
     if(childId) localStorage.setItem('pendingInviteChild', childId);
@@ -19273,7 +19222,6 @@ let _inviteProcessing=false;
 async function _processPendingInvite(){
   if(_inviteProcessing)return; // Guard: prevent double execution from multiple callers
   _inviteProcessing=true;
-  console.log('🔍 _processPendingInvite fired for child:', localStorage.getItem('pendingInviteChild'), 'specialist:', session?.id);
   const token=localStorage.getItem('pendingInviteToken');
   const childId=localStorage.getItem('pendingInviteChild');
   if(!token){_inviteProcessing=false;return;}
@@ -19281,13 +19229,10 @@ async function _processPendingInvite(){
   // Guards against session.role being wrong (e.g. set to 'parent' by auto-create race during signup).
   // If profile.role === 'specialist': ONLY write specialist_requests, NEVER touch profiles table.
   // If profile.role === 'parent':    co-parent invite flow, household linking is fine.
-  console.log('\uD83D\uDD17 _processPendingInvite: token='+token+' childId='+childId);
-  console.log('\uD83D\uDC64 Current user:', JSON.stringify(session ? {id:session.id,email:session.email,role:session.role,householdId:session.householdId} : null));
   let _verifiedRole=session?.role||null;
   if(session&&session.id!=='demo'){
     try{
       const{data:_pr}=await _supa.from('profiles').select('*').eq('id',session.id).single();
-      console.log('\uD83D\uDCCB Current profile from DB:', JSON.stringify(_pr));
       if(_pr?.role){
         _verifiedRole=_pr.role;
         if(_verifiedRole!==session.role){
@@ -19322,7 +19267,6 @@ async function _processPendingInvite(){
             role:data.specialist_role||'Specialist',
             status:'active'
           },{onConflict:'id'});
-          console.log('\u2705 Specialist record updated for invite acceptance');
         }catch(e){console.error('Specialists upsert error:',e);}
       }
       // Also write an approved specialist_requests row so this specialist appears
@@ -19380,11 +19324,9 @@ async function _processPendingInvite(){
                 _supa.from('chats').update({participants:[...(c.participants||[]),session.id]}).eq('id',c.id)
               ));
             }
-            console.log('\u2705 Specialist reconnected via invite, chat access restored');
           }catch(e){console.error('reconnect chat restore:',e);}
         }
         // Auto-create folder — key is always spec_[uuid] so each specialist gets a unique folder
-        console.log('🗂️ folder creation block reached, childId:', data.child_id, 'specialistId:', session.id);
         const _invProf=PROFESSIONS.find(p=>p.label===_specRealRole);
         const _invFolderKey='spec_'+session.id;
         const _invFolderName=_invProf?(_invProf.label+' - '+_specRealName):(_specRealRole?_specRealRole+' - '+_specRealName:_specRealName+"'s Folder");
