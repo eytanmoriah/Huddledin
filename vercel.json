@@ -6,5 +6,16 @@
     "api/ai-summary.mjs": { "memory": 1024, "maxDuration": 10 },
     "api/send-specialist-request.mjs": { "memory": 1024, "maxDuration": 10 },
     "api/*.js": { "memory": 1024, "maxDuration": 10 }
-  }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.paddle.com https://browser.sentry-cdn.com https://plausible.io https://*.paddle.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.pexels.com https://smgbojgrdezasxciloll.supabase.co https://*.paddle.com; connect-src 'self' https://smgbojgrdezasxciloll.supabase.co wss://smgbojgrdezasxciloll.supabase.co https://*.ingest.us.sentry.io https://plausible.io https://*.paddle.com; frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com https://docs.google.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        }
+      ]
+    }
+  ]
 }
