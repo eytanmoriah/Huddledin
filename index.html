@@ -1608,9 +1608,17 @@ const DEMO_SEED={
    PERSISTENCE — hybrid: Supabase for auth/profile,
    localStorage for UI state & demo data cache.
 ----------------------------------------------- */
+// PHI scrubber: strip clinical free-text fields before persisting to localStorage.
+// Metadata (ids, names, times, titles) stays cached; clinical content is fetched on demand.
+const _PHI_SCRUB={
+  appointments:v=>(v||[]).map(a=>({...a,notes:null})),
+  homework:v=>(v||[]).map(h=>({...h,task:'',category:''})),
+  homeworkTasks:v=>(v||[]).map(t=>({...t,description:''})),
+  specTasks:v=>(v||[]).map(t=>({...t,notes:''}))
+};
 const LS={
   get(k,d){try{const v=localStorage.getItem('hd9_'+k);return v!=null?JSON.parse(v):d;}catch{return d;}},
-  set(k,v){try{localStorage.setItem('hd9_'+k,JSON.stringify(v));}catch{}},
+  set(k,v){try{const vv=_PHI_SCRUB[k]?_PHI_SCRUB[k](v):v;localStorage.setItem('hd9_'+k,JSON.stringify(vv));}catch{}},
   del(k){localStorage.removeItem('hd9_'+k);}
 };
 
@@ -1653,6 +1661,26 @@ if(window.Paddle){
 const SUPABASE_URL  = 'https://smgbojgrdezasxciloll.supabase.co';   // e.g. https://xxxx.supabase.co
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtZ2JvamdyZGV6YXN4Y2lsb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDE4MjUsImV4cCI6MjA4ODAxNzgyNX0.TsfWwph6jHpoROzwQzwta50ZBO9tVboTz-uFTOKUnw4';
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── PHI fetch-on-demand helpers ──
+// Clinical free-text (appointment notes, task descriptions, spec task notes) is scrubbed
+// from localStorage by _PHI_SCRUB. These helpers fetch the single field from Supabase when
+// a detail view opens. Failures return '' / null so UI degrades gracefully.
+async function _fetchAppointmentNotes(id){
+  if(!id||!_supa)return null;
+  try{const {data}=await _supa.from('appointments').select('notes').eq('id',id).single();return data?.notes||null;}
+  catch(e){console.error('❌ fetchAppointmentNotes:',e);return null;}
+}
+async function _fetchHomeworkTaskDescription(id){
+  if(!id||!_supa)return '';
+  try{const {data}=await _supa.from('homework_tasks').select('description').eq('id',id).single();return data?.description||'';}
+  catch(e){console.error('❌ fetchHomeworkTaskDescription:',e);return '';}
+}
+async function _fetchSpecTaskNotes(id){
+  if(!id||!_supa)return '';
+  try{const {data}=await _supa.from('spec_tasks').select('notes').eq('id',id).single();return data?.notes||'';}
+  catch(e){console.error('❌ fetchSpecTaskNotes:',e);return '';}
+}
 
 /* -- Supabase DB helpers (async) -- */
 
@@ -2713,7 +2741,7 @@ async function doLogout(){
     if(_keepPfx.some(p=>k.startsWith(p)))return false;
     return k.startsWith('hd9_');
   }).forEach(k=>localStorage.removeItem(k));
-  ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole'].forEach(k=>localStorage.removeItem(k));
+  ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole','hd_pending_plan','hd_pending_spec_plan','pendingSpecialistRequestId','pendingSR_name','pendingSR_role','pendingSR_child'].forEach(k=>localStorage.removeItem(k));
 }
 
 /* -----------------------------------------------
@@ -11321,9 +11349,12 @@ function showAptDetailModal(apt,child){
       row.appendChild(el('div',{style:{flex:1}},[ el('span',{style:{fontSize:'.76rem',color:'var(--slate)',fontWeight:600}},[ label+': ' ]), el('span',{style:{fontSize:'.8rem',color:'var(--navy)',fontWeight:700}},[val]) ]));
       mb.appendChild(row);
     });
-    if(apt.notes){
-      mb.appendChild(el('div',{style:{marginTop:'10px',padding:'10px 12px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.6'}},[apt.notes]));
-    }
+    // Notes fetched on demand (PHI not cached in localStorage)
+    const _notesHolder=el('div',{style:{marginTop:'10px'}});
+    mb.appendChild(_notesHolder);
+    _fetchAppointmentNotes(apt.id).then(_n=>{
+      if(_n)_notesHolder.appendChild(el('div',{style:{padding:'10px 12px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.6'}},[_n]));
+    });
     // Action buttons — permission-based
     const actRow=el('div',{style:{display:'flex',gap:'8px',marginTop:'16px',flexWrap:'wrap'}});
     if(isCreator){
@@ -11390,9 +11421,12 @@ function showEditAptModal(apt){
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_location')]));
     const loci=el('input',{class:'inp',value:apt.location||'',placeholder:T('apt_loc_placeholder'),style:{marginBottom:'10px'}});mb.appendChild(loci);
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_notes')]));
-    const notesI=el('textarea',{class:'inp',style:{marginBottom:'14px',minHeight:'56px',resize:'vertical'}},[apt.notes||'']);mb.appendChild(notesI);
+    const notesI=el('textarea',{class:'inp',style:{marginBottom:'14px',minHeight:'56px',resize:'vertical'}},['']);mb.appendChild(notesI);
+    // Fetch notes from Supabase (PHI not cached). Disable while loading to prevent blank-save.
+    if(apt.id){notesI.disabled=true;notesI.placeholder='Loading…';_fetchAppointmentNotes(apt.id).then(_n=>{notesI.value=_n||'';notesI.disabled=false;notesI.placeholder='';});}
     mb.appendChild(mkBtn(T('cal_save'),'btn-lg btn-primary btn-full',async()=>{
       if(!ti.value||!di.value){toast(T('apt_title_date_required'),'error');return;}
+      if(notesI.disabled){toast('Still loading notes — please wait a moment.','error');return;}
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):(apt.time||'TBD');
       try{
         await _supa.from('appointments').update({title:ti.value,date:di.value,time:timeStr,end_time:endTmi.value||null,location:loci.value||null,notes:notesI.value||null}).eq('id',apt.id);
@@ -13480,11 +13514,6 @@ function _renderSpecTaskCard(task,container,specId,children){
   if(task.reminder&&task.reminder!=='none')meta.appendChild(el('span',{style:{fontSize:'.7rem',color:'var(--slate)',fontWeight:600}},['🔔 '+task.reminder.replace(/-/g,' ')]));
   if(meta.childNodes.length)info.appendChild(meta);
 
-  // Notes preview
-  if(task.notes&&!task.completed){
-    info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginTop:'5px',lineHeight:'1.4',fontStyle:'italic'}},[task.notes.slice(0,80)+(task.notes.length>80?'…':'')]));
-  }
-
   card.appendChild(info);
 
   if(!task.completed){
@@ -13520,7 +13549,8 @@ function showSpecTaskModal(existing=null){
     // Notes
     mb.appendChild(el('div',{class:'inp-label'},[T('stodo_notes_optional')]));
     const notesInp=el('textarea',{class:'inp',style:{minHeight:'60px'},placeholder:'Add any context or details…'});
-    if(existing)notesInp.value=existing.notes||'';
+    // Notes fetched on demand when editing (PHI not cached). Disable while loading to prevent blank-save.
+    if(existing&&existing.id){notesInp.disabled=true;notesInp.placeholder='Loading…';_fetchSpecTaskNotes(existing.id).then(_n=>{notesInp.value=_n||'';notesInp.disabled=false;notesInp.placeholder='Add any context or details…';});}
     mb.appendChild(notesInp);
 
     // Category
@@ -13597,6 +13627,7 @@ function showSpecTaskModal(existing=null){
     const saveBtn=mkBtn(existing?T('stodo_save_changes'):T('stodo_add_task_btn'),'btn-lg btn-primary btn-full',async()=>{
       const taskTitle=titleInp.value.trim();
       if(!taskTitle){toast(T('stodo_enter_title'),'error');return;}
+      if(notesInp.disabled){toast('Still loading notes — please wait a moment.','error');return;}
       saveBtn.disabled=true;saveBtn.textContent=T('vault_saving');
       const now=new Date().toISOString();
 
@@ -14426,7 +14457,9 @@ function openTaskDetailModal(task,child){
       actRow.appendChild(mkBtn('🗑 Delete','btn-sm btn-danger',()=>{document.getElementById('modal-overlay')?.remove();openConfirm('Delete Task','Permanently delete this task and all its history?',true,async()=>{if(session?.id==='demo'){toast('Demo mode.','error');return;}try{const{error:_e}=await _supa.from('homework_tasks').update({status:'deleted'}).eq('id',task.id);if(_e)throw _e;DB.homeworkTasks=(DB.homeworkTasks||[]).filter(t=>t.id!==task.id);re();toast('Task deleted.');}catch(e){console.error('delete task:',e);toast('Could not delete.','error');}});}));
       mb.appendChild(actRow);
       const details=el('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}});
-      if(task.description){details.appendChild(el('div',{},[el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'4px'}},['Description']),el('div',{style:{fontSize:'.88rem',color:'var(--navy)',lineHeight:'1.6'}},[task.description])]));}
+      // Description fetched on demand (PHI not cached)
+      const _descHolder1=el('div');details.appendChild(_descHolder1);
+      _fetchHomeworkTaskDescription(task.id).then(_d=>{if(_d)_descHolder1.appendChild(el('div',{},[el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'4px'}},['Description']),el('div',{style:{fontSize:'.88rem',color:'var(--navy)',lineHeight:'1.6'}},[_d])]));});
       const grid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}});
       grid.appendChild(_mkField('Difficulty',task.difficulty||'—'));
       grid.appendChild(_mkField('Frequency',_hwRecLabel(task)));
@@ -14455,7 +14488,9 @@ function openTaskDetailModal(task,child){
       metaRow.appendChild(badge(_hwRecLabel(task),'teal'));
       if(task.isPaused)metaRow.appendChild(badge('Paused','slate'));
       mb.appendChild(metaRow);
-      if(task.description)mb.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'16px',padding:'12px',background:'var(--mint-ll)',borderRadius:'var(--r)'}},[task.description]));
+      // Description fetched on demand (PHI not cached)
+      const _descHolder2=el('div');mb.appendChild(_descHolder2);
+      _fetchHomeworkTaskDescription(task.id).then(_d=>{if(_d)_descHolder2.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'16px',padding:'12px',background:'var(--mint-ll)',borderRadius:'var(--r)'}},[_d]));});
       const loadDiv=el('div',{style:{padding:'20px',textAlign:'center',color:'var(--slate)',fontSize:'.84rem'}},['Loading completion data…']);
       mb.appendChild(loadDiv);
       (async()=>{
@@ -14638,7 +14673,9 @@ function _mkHwSpecCard(task,allOccs,child){
   }
   if(isExpanded){
     const _det=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
-    if(task.description)_det.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[task.description]));
+    // Description fetched on demand (PHI not cached)
+    const _descHolder3=el('div');_det.appendChild(_descHolder3);
+    _fetchHomeworkTaskDescription(task.id).then(_d=>{if(_d)_descHolder3.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[_d]));});
     if(task.attachedFileUrls&&task.attachedFileUrls.length>0){
       _det.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},['📎 Attachments']));
       const _fRow=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'8px'}});
@@ -14679,7 +14716,9 @@ function _renderHwTaskDashboard(taskId){
   metaRow.appendChild(badge(_hwRecLabel(task),'teal'));
   if(task.isPaused)metaRow.appendChild(badge('Paused','slate'));
   sec.appendChild(metaRow);
-  if(task.description)sec.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'16px',padding:'12px',background:'var(--mint-ll)',borderRadius:'var(--r)'}},[task.description]));
+  // Description fetched on demand (PHI not cached)
+  const _descHolder4=el('div');sec.appendChild(_descHolder4);
+  _fetchHomeworkTaskDescription(task.id).then(_d=>{if(_d)_descHolder4.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'16px',padding:'12px',background:'var(--mint-ll)',borderRadius:'var(--r)'}},[_d]));});
   const loadDiv=el('div',{style:{padding:'20px',textAlign:'center',color:'var(--slate)',fontSize:'.84rem'}},['Loading completion data…']);
   sec.appendChild(loadDiv);
   (async()=>{
@@ -14812,7 +14851,8 @@ function showAddHomeworkTaskModal(existing,prefill){
     // Description
     ig.appendChild(el('div',{class:'inp-label'},[T('hw_instructions_label')]));
     const descInp=el('textarea',{class:'inp',placeholder:'Describe how to do this task...',style:{minHeight:'70px'}});
-    if(_pre)descInp.value=_pre.description||'';
+    // Description fetched on demand when editing (PHI not cached). Disable while loading to prevent blank-save.
+    if(_pre&&_pre.id){descInp.disabled=true;descInp.placeholder='Loading…';_fetchHomeworkTaskDescription(_pre.id).then(_d=>{descInp.value=_d||'';descInp.disabled=false;descInp.placeholder='Describe how to do this task...';});}
     ig.appendChild(descInp);
     ig.appendChild(el('div',{class:'inp-label'},[T('hw_attach_files')]));
     ig.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',margin:'-4px 0 8px 0'}},[T('hw_attach_desc')]));
@@ -14952,6 +14992,7 @@ function showAddHomeworkTaskModal(existing,prefill){
       if(!title){toast(T('hw_title_required'),'error');return;}
       if(selRec==='specific_days'&&selDays.size===0){toast(T('hw_select_day'),'error');return;}
       if(selRec!=='once'&&selDur==='end_date'&&!endDateInp.value){toast(T('hw_select_end_date'),'error');return;}
+      if(descInp.disabled){toast('Still loading description — please wait a moment.','error');return;}
       if(session?.id==='demo'){toast('Demo mode — no changes saved.','error');return;}
       saveBtn.disabled=true;saveBtn.textContent=T('btn_loading');
       const specId=session?.specialistId||session?.id;
@@ -15020,7 +15061,7 @@ function generateICS(task,occs,reminderTime,slotTimesMap){
   return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Huddledin//Homework Reminders//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',...events,'END:VCALENDAR'].join('\r\n');
 }
 
-function addTaskToCalendar(taskId){
+async function addTaskToCalendar(taskId){
   const task=(DB.homeworkTasks||[]).find(t=>t.id===taskId);
   if(!task)return;
   const _slots=(task.timeOfDay||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -15029,7 +15070,9 @@ function addTaskToCalendar(taskId){
   const _tnow2=new Date();const today=_tnow2.getFullYear()+'-'+String(_tnow2.getMonth()+1).padStart(2,'0')+'-'+String(_tnow2.getDate()).padStart(2,'0');
   const occs=(DB.homeworkOccurrences||[]).filter(o=>o.taskId===taskId&&(o.date||'')>=today).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   if(!occs.length){toast('No upcoming scheduled days found for this task.','error',4000);return;}
-  const ics=generateICS(task,occs,reminderTime,slotTimesMap);
+  // Fetch description from Supabase (PHI not cached)
+  const _taskForIcs={...task,description:await _fetchHomeworkTaskDescription(task.id)};
+  const ics=generateICS(_taskForIcs,occs,reminderTime,slotTimesMap);
   const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -15161,7 +15204,9 @@ function renderHomeworkParent(){
     // Expanded detail
     if(isExpanded){
       const detail=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)'}});
-      if(task.description)detail.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[task.description]));
+      // Description fetched on demand (PHI not cached)
+      const _descHolder5=el('div');detail.appendChild(_descHolder5);
+      _fetchHomeworkTaskDescription(task.id).then(_d=>{if(_d)_descHolder5.appendChild(el('p',{style:{fontSize:'.84rem',color:'var(--slate)',lineHeight:'1.65',marginBottom:'12px'}},[_d]));});
       if(task.attachedFileUrls&&task.attachedFileUrls.length>0){
         detail.appendChild(el('div',{style:{fontSize:'.68rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},['📎 Attachments']));
         const _fRow=el('div',{style:{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'12px'}});
@@ -15532,7 +15577,6 @@ function renderPastPatientView(child,specId){
     myTasks.forEach(t=>{
       const tc=el('div',{class:'card',style:{marginBottom:'8px',background:'#fafbfc',border:'1.5px solid #e2e8f0'}});
       tc.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[t.title]));
-      if(t.description)tc.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',marginTop:'4px',lineHeight:'1.5'}},[t.description]));
       sec.appendChild(tc);
     });
   }
