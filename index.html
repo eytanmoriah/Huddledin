@@ -12424,10 +12424,24 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       });
       // Fetch any remaining unknown profiles (e.g. parents on specialist side)
       if(unknownIds.length){
-        try{
-          const {data:profs}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',unknownIds);
-          (profs||[]).forEach(p=>members.push({id:p.id,name:p.display_name||'Member',role:p.role||'unknown',profession:p.profession||''}));
-        }catch(e){}
+        // Household-based lookup — more reliable than per-ID because RLS on profiles
+        // may block co-parent lookups by ID but allows household-scoped queries
+        const _hhId=getChildHouseholdId(activeChat.childId);
+        if(_hhId){
+          try{
+            const {data:hhProfs}=await _supa.from('profiles').select('id,display_name,role,profession').eq('household_id',_hhId).eq('role','parent');
+            const _unknownSet=new Set(unknownIds);
+            (hhProfs||[]).filter(p=>_unknownSet.has(p.id)).forEach(p=>members.push({id:p.id,name:p.display_name||'Parent',role:'parent',profession:p.profession||''}));
+          }catch(e){console.error('❌ member list household fetch:',e);}
+        }
+        // Fallback: direct ID lookup for any still-unresolved (non-parent participants)
+        const _stillUnknown=unknownIds.filter(uid=>!members.find(m=>m.id===uid));
+        if(_stillUnknown.length){
+          try{
+            const {data:profs}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',_stillUnknown);
+            (profs||[]).forEach(p=>members.push({id:p.id,name:p.display_name||'Member',role:p.role||'unknown',profession:p.profession||''}));
+          }catch(e){console.error('❌ member list profile fetch:',e);}
+        }
         unknownIds.forEach(uid=>{if(!members.find(m=>m.id===uid))members.push({id:uid,name:'Member',role:'unknown',profession:''});});
       }
       // Render
