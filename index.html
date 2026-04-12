@@ -8058,6 +8058,8 @@ function _renderSpecDtPatientDetail(child,specId){
     _tabBadges.homework=(typeof _hwBadge==='function')?_hwBadge(child.id):0;
     const _cFiles=(DB.folders||[]).filter(f=>f.childId===child.id).flatMap(f=>f.files||[]);
     _tabBadges.files=(typeof _newSince==='function')?_newSince(_cFiles,f=>f.date||f.uploadedAt,child.id,'files'):0;
+    _tabBadges.calendar=(typeof _unreadApts==='function')?_unreadApts(child.id):0;
+    _tabBadges.vault=(typeof _unreadNotes==='function')?_unreadNotes(child.id):0;
   }
   PTABS.forEach(t=>{
     const isAct=S.activeTab===t.id||(t.id==='vault'&&S.activeTab==='patient-detail');
@@ -15824,7 +15826,8 @@ function renderPatientDashboard(){
   _snb['vault']=_newSince(_notes,n=>n.date,_cid,'vault');
   _snb['homework']=_hwBadge(_cid);
   _snb['files']=_newSince(_fls,f=>f.date||f.uploadedAt,_cid,'files');
-  _snb['chat']=_chatBadge(_cid);}
+  _snb['chat']=_chatBadge(_cid);
+  _snb['calendar']=(typeof _unreadApts==='function')?_unreadApts(_cid):0;}
   _dashBubbles.forEach(({icon,label,color,bg,tab,locked})=>{
     const sq=el('div',{class:'card hov',style:{
       cursor:'pointer',padding:'20px 16px',display:'flex',
