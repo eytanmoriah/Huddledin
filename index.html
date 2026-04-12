@@ -9187,7 +9187,7 @@ function renderMiniCalendar(children,allApts,onExpand){
   if(_miniEvts.length===0&&!_miniUpcoming){
     const _selDayName=new Date(_miniSel+'T12:00').toLocaleDateString('en-US',{weekday:'long'});
     const _emptyRow=el('div',{style:{textAlign:'center',padding:'14px 12px'}});
-    _emptyRow.appendChild(el('div',{style:{fontSize:'.78rem',color:'rgba(255,255,255,.55)',marginBottom:'10px',lineHeight:'1.4'}},['📅 '+T('cal_no_events_day_name',{day:_selDayName})]));
+    _emptyRow.appendChild(el('div',{style:{fontSize:'.86rem',color:'#fff',fontWeight:600,marginBottom:'10px',lineHeight:'1.4',opacity:'.85'}},[T('cal_no_events_day_name',{day:_selDayName})]));
     const _addBtn=el('button',{style:{background:'rgba(255,255,255,.18)',color:'#fff',border:'1.5px solid rgba(255,255,255,.3)',borderRadius:'8px',fontSize:'.76rem',fontWeight:700,padding:'6px 14px',cursor:'pointer'}},['➕ '+T('cal_add_event')]);
     _addBtn.onclick=e2=>{e2.stopPropagation();showAddEventModal(_miniSel);};
     _emptyRow.appendChild(_addBtn);
