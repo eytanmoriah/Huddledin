@@ -4011,6 +4011,26 @@ settings_privacy_policy:'Privacy Policy',
 settings_terms:'Terms of Service',
 settings_cookies:'Cookie Policy',
 settings_contact:'Contact Us',
+// ── Subscription management ──
+sub_title:'Subscription',
+sub_plan_family:'Family Plan',
+sub_plan_specialist_ai:'Specialist AI',
+sub_status_active:'Active',
+sub_status_trial:'Trial',
+sub_status_expired:'Expired',
+sub_status_past_due:'Past Due',
+sub_status_exempt:'Complimentary',
+sub_cycle_label:'Billing Cycle',
+sub_cycle_monthly:'Monthly',
+sub_cycle_yearly:'Yearly',
+sub_price_label:'Price',
+sub_renews:'Renews',
+sub_trial_remaining:'{n} days remaining',
+sub_cancel:'Cancel Subscription',
+sub_cancel_contact:'To cancel, email support@huddledin.com',
+sub_upgrade:'Upgrade Now',
+sub_resubscribe:'Resubscribe',
+sub_no_plan:'No active subscription',
 // ── Removed connection popup ──
 removed_title:'Family Disconnected',
 removed_msg:'This family has disconnected you from {name}. You can still view your own notes and files. Would you like to move them to your Inactive list?',
@@ -5134,6 +5154,25 @@ settings_clear_data_desc:'איפוס הכל. לא ניתן לבטל.',
 settings_clear_data_title:'ניקוי כל הנתונים',
 settings_contact:'צרי קשר',
 settings_cookies:'מדיניות עוגיות',
+sub_title:'מנוי',
+sub_plan_family:'מנוי משפחתי',
+sub_plan_specialist_ai:'AI למטפלים',
+sub_status_active:'פעיל',
+sub_status_trial:'תקופת ניסיון',
+sub_status_expired:'פג תוקף',
+sub_status_past_due:'תשלום באיחור',
+sub_status_exempt:'חינם',
+sub_cycle_label:'מחזור חיוב',
+sub_cycle_monthly:'חודשי',
+sub_cycle_yearly:'שנתי',
+sub_price_label:'מחיר',
+sub_renews:'חידוש',
+sub_trial_remaining:'{n} ימים נותרו',
+sub_cancel:'ביטול מנוי',
+sub_cancel_contact:'לביטול, שלחו מייל ל-support@huddledin.com',
+sub_upgrade:'שדרוג עכשיו',
+sub_resubscribe:'הרשמה מחדש',
+sub_no_plan:'אין מנוי פעיל',
 settings_data_cleared:'כל הנתונים נוקו.',
 settings_demo_btn:'טעינת דמו',
 settings_demo_confirm:'פעולה זו מחליפה את הנתונים הנוכחיים בנתוני דמו. בטוחה?',
@@ -6785,9 +6824,9 @@ async function _checkSubscription(){
     const{data:_subRows}=await _supa.from('subscriptions').select('*').eq('user_id',session.id).eq('plan','family').limit(1);
     const sub=_subRows&&_subRows.length>0?_subRows[0]:null;
     if(sub){
-      if(sub.exempt){S.subscription={status:'active',exempt:true};return;}
+      if(sub.exempt){S.subscription={status:'active',exempt:true,cancelUrl:sub.cancel_url||null};return;}
       if(sub.status==='active'){
-        S.subscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};
+        S.subscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at,cancelUrl:sub.cancel_url||null};
         return;
       }
       if(sub.status==='trial'){
@@ -6811,7 +6850,7 @@ async function _checkSubscription(){
             // Active or exempt household member → grant access
             const activeSub=_hhSubs.find(s=>s.exempt||s.status==='active');
             if(activeSub){
-              S.subscription={status:'active',exempt:activeSub.exempt||false,billingCycle:activeSub.billing_cycle,periodEndsAt:activeSub.current_period_ends_at};
+              S.subscription={status:'active',exempt:activeSub.exempt||false,billingCycle:activeSub.billing_cycle,periodEndsAt:activeSub.current_period_ends_at,cancelUrl:activeSub.cancel_url||null};
               return;
             }
             // Active trial in household → share it
@@ -6852,6 +6891,106 @@ async function _checkSubscription(){
   }catch(e){console.error('_checkSubscription:',e);}finally{re();}
 }
 
+// Shared subscription card for settings — works for both parent (family) and specialist (specialist_ai)
+function _renderSubscriptionCard(sub,planType,onUpgrade){
+  const card=el('div',{class:'card',style:{marginBottom:'16px'}});
+  card.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},['💳 '+T('sub_title')]));
+
+  if(!sub){
+    card.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem'}},[T('sub_no_plan')]));
+    if(onUpgrade)card.appendChild(mkBtn(T('sub_upgrade'),'btn-md btn-primary',onUpgrade));
+    return card;
+  }
+
+  // Status row
+  const statusColors={active:'#166534',trial:'#b45309',expired:'#991b1b',past_due:'#be123c'};
+  const statusDots={active:'🟢',trial:'🟡',expired:'⚫',past_due:'🔴'};
+  const statusKey=sub.exempt?'exempt':sub.status;
+  const statusLabel=sub.exempt?T('sub_status_exempt'):T('sub_status_'+sub.status)||sub.status;
+  const grid=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'14px'}});
+
+  // Status
+  const statusRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
+  statusRow.appendChild(el('span',{style:{fontSize:'1rem'}},[statusDots[sub.status]||'⚪']));
+  statusRow.appendChild(el('span',{style:{fontWeight:700,color:statusColors[sub.status]||'var(--navy)',fontSize:'.9rem'}},[statusLabel]));
+  grid.appendChild(statusRow);
+
+  // Plan name
+  const planLabel=planType==='family'?T('sub_plan_family'):T('sub_plan_specialist_ai');
+  const _mkRow=(label,val)=>{
+    const r=el('div',{style:{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--mint-ll)',fontSize:'.84rem'}});
+    r.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600}},[label]));
+    r.appendChild(el('span',{style:{color:'var(--navy)',fontWeight:700}},[val]));
+    return r;
+  };
+  grid.appendChild(_mkRow(T('sub_title'),planLabel));
+
+  // Billing cycle + price (active/past_due only)
+  if((sub.status==='active'||sub.status==='past_due')&&sub.billingCycle){
+    const cycleLabel=sub.billingCycle==='yearly'?T('sub_cycle_yearly'):T('sub_cycle_monthly');
+    grid.appendChild(_mkRow(T('sub_cycle_label'),cycleLabel));
+    // Hardcoded prices per CLAUDE.md
+    let price='';
+    if(planType==='family'){price=sub.billingCycle==='yearly'?'$5/mo':'$7/mo';}
+    else{price=sub.billingCycle==='yearly'?'$9/mo':'$11/mo';}
+    grid.appendChild(_mkRow(T('sub_price_label'),price));
+  }
+
+  // Next billing date (active only)
+  if(sub.status==='active'&&sub.periodEndsAt){
+    const d2=new Date(sub.periodEndsAt);
+    const fmt=d2.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    grid.appendChild(_mkRow(T('sub_renews'),fmt));
+  }
+
+  // Trial remaining
+  if(sub.status==='trial'&&sub.daysRemaining){
+    grid.appendChild(_mkRow(T('sub_status_trial'),T('sub_trial_remaining',{n:sub.daysRemaining})));
+  }
+
+  card.appendChild(grid);
+
+  // Action buttons
+  const btns=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap'}});
+
+  // Cancel (active + has cancel_url)
+  if(sub.status==='active'&&!sub.exempt){
+    if(sub.cancelUrl){
+      const cancelBtn=mkBtn(T('sub_cancel'),'btn-md btn-ghost',()=>{
+        openConfirm(T('sub_cancel'),T('sub_cancel')+'?',true,()=>{window.open(sub.cancelUrl,'_blank');});
+      });
+      cancelBtn.style.color='var(--coral)';
+      btns.appendChild(cancelBtn);
+    } else {
+      btns.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},[T('sub_cancel_contact')]));
+    }
+  }
+
+  // Past due — show cancel or contact
+  if(sub.status==='past_due'){
+    if(sub.cancelUrl){
+      const cancelBtn=mkBtn(T('sub_cancel'),'btn-md btn-ghost',()=>{window.open(sub.cancelUrl,'_blank');});
+      cancelBtn.style.color='var(--coral)';
+      btns.appendChild(cancelBtn);
+    } else {
+      btns.appendChild(el('p',{style:{fontSize:'.78rem',color:'var(--slate)',lineHeight:'1.5'}},[T('sub_cancel_contact')]));
+    }
+  }
+
+  // Upgrade (trial)
+  if(sub.status==='trial'&&onUpgrade){
+    btns.appendChild(mkBtn(T('sub_upgrade'),'btn-md btn-primary',onUpgrade));
+  }
+
+  // Resubscribe (expired)
+  if(sub.status==='expired'&&onUpgrade){
+    btns.appendChild(mkBtn(T('sub_resubscribe'),'btn-md btn-primary',onUpgrade));
+  }
+
+  if(btns.childNodes.length)card.appendChild(btns);
+  return card;
+}
+
 function _handlePlanSelect(plan){
   localStorage.setItem('hd_pending_plan',plan);
   const priceId=plan==='yearly'?PADDLE_PRICE_YEARLY:PADDLE_PRICE_MONTHLY;
@@ -6882,8 +7021,8 @@ async function _checkSpecAiSubscription(){
     if(error){console.error('❌ spec AI sub check:',error);return;}
     const sub=data&&data.length>0?data[0]:null;
     if(!sub){S.specAiSubscription=null;return;}
-    if(sub.exempt){S.specAiSubscription={status:'active',exempt:true};return;}
-    if(sub.status==='active'){S.specAiSubscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at};return;}
+    if(sub.exempt){S.specAiSubscription={status:'active',exempt:true,cancelUrl:sub.cancel_url||null};return;}
+    if(sub.status==='active'){S.specAiSubscription={status:'active',exempt:false,billingCycle:sub.billing_cycle,periodEndsAt:sub.current_period_ends_at,cancelUrl:sub.cancel_url||null};return;}
     if(sub.status==='trial'){
       const _days=Math.ceil((new Date(sub.trial_ends_at)-new Date())/(1000*60*60*24));
       if(_days>0){S.specAiSubscription={status:'trial',daysRemaining:_days,exempt:false};return;}
@@ -17964,6 +18103,9 @@ function renderSpecialistSettings(){
   ac.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   sec.appendChild(ac);
 
+  // Specialist AI subscription management card
+  sec.appendChild(_renderSubscriptionCard(S.specAiSubscription,'specialist_ai',()=>_showSpecAiUpgradeModal('Manage Subscription')));
+
   // Language picker (only visible if multiple langs, e.g. Israel)
   const _specLpCard=renderLangPicker({fontSize:'15px',gap:'10px'});
   if(_specLpCard){
@@ -18720,6 +18862,9 @@ function renderSettings(){
   acBtns.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
   acBtns.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
   ac.appendChild(acBtns);sec.appendChild(ac);
+
+  // Subscription management card
+  sec.appendChild(_renderSubscriptionCard(S.subscription,'family',()=>{S._showPaywall=true;re();}));
 
   // Language picker (only visible if multiple langs available, e.g. Israel)
   const _lpCard=renderLangPicker({fontSize:'15px',gap:'10px'});
