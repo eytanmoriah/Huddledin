@@ -410,6 +410,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .cal-day{min-height:44px;padding:2px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:8px;transition:background .12s}.cal-day:hover{background:var(--mint-ll)}.cal-day:active{background:var(--mint-l)}
 .cal-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:.8rem;font-weight:600;transition:transform .12s}
 .cal-num.today{background:var(--lav-l);color:var(--lav-d);font-weight:900}
+.cal-num.selected{outline:2.5px solid var(--teal);outline-offset:1px;font-weight:900}
 .cal-num.has-event{background:linear-gradient(135deg,var(--teal),var(--teal-l));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(13,148,136,.3)}
 .cal-num.has-event:active{transform:scale(1.15)}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:var(--teal);margin:1px auto 0}
@@ -3347,6 +3348,8 @@ team_request_join:'Request to Join',
 cal_month_view:'Month',
 cal_week_view:'Week',
 cal_no_events:'No events on this day',
+cal_view_upcoming:'View all upcoming \u25B8',
+cal_view_day:'Back to day view',
 cal_add_event_for:'Add event for {date}',
 cal_event_title:'Event title',
 cal_event_time:'Time',
@@ -4594,6 +4597,8 @@ cal_no_upcoming_events:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\
 cal_month_view:'\u05D7\u05D5\u05D3\u05E9',
 cal_week_view:'\u05E9\u05D1\u05D5\u05E2',
 cal_no_events:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05D1\u05D9\u05D5\u05DD \u05D6\u05D4',
+cal_view_upcoming:'\u05DB\u05DC \u05D4\u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD \u25C2',
+cal_view_day:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05EA\u05E6\u05D5\u05D2\u05EA \u05D9\u05D5\u05DD',
 cal_add_event_for:'\u05D4\u05D5\u05E1\u05E4\u05EA \u05D0\u05D9\u05E8\u05D5\u05E2 \u05DC-{date}',
 cal_event_title:'\u05E9\u05DD \u05D4\u05D0\u05D9\u05E8\u05D5\u05E2',
 cal_event_time:'\u05E9\u05E2\u05D4',
@@ -8670,6 +8675,8 @@ function switchTab(id){
   _pushNav();
   S.calFullscreen=false; // always exit fullscreen when switching tabs
   S.calMonth=0; // reset per-child calendar month offset
+  S.calSelectedDate=null; // reset day selection so it defaults to today on next open
+  S._calUpcomingView=false;
   if(id==='calendar'){
     S.calendarMode='joint';S.calFullscreen=false;
     if(session?.role==='specialist'){
@@ -11586,6 +11593,8 @@ function showEditAptModal(apt){
 }
 
 function renderCalendar(){
+  // Default selected day to today when calendar opens
+  if(!S.calSelectedDate)S.calSelectedDate=new Date().toISOString().split('T')[0];
   const isParent=session?.role==='parent';
   const allChildren=DB.children;
   const _allApts=LS.get('appointments',[]);
@@ -11663,11 +11672,11 @@ function renderCalendar(){
       const da=apts.filter(a=>a.date===ds);
       const cell=el('div',{class:'cal-day'});
       const isToday=day===tDay&&m===tMon&&y===tYr;
-      const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(isToday?' today':'')},[String(day)]);
+      const isSel=ds===S.calSelectedDate;
+      const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(isToday?' today':'')+(isSel?' selected':'')},[String(day)]);
       num.style.cursor='pointer';
-      const _openDay=()=>{const evtLabel=new Date(ds+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});openModal('📅 '+evtLabel,(mb,close)=>{if(da.length){da.forEach(apt=>{const chip=el('div',{class:'card hov',style:{marginBottom:'10px',padding:'14px 16px'}});chip.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[aptDisplayTitle(apt)]));chip.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)'}},[aptDisplaySub(apt)+' · '+(apt.time||'')]));mb.appendChild(chip);});mb.appendChild(el('div',{style:{height:'12px'}}));}else{mb.appendChild(el('div',{class:'empty-inline',style:{marginBottom:'16px'}},[T('cal_no_events')]));}mb.appendChild(mkBtn('➕ Add Appointment','btn-lg btn-primary btn-full',()=>{close();showAddEventModal(ds);}));},400);};
-      num.onclick=e=>{e.stopPropagation();_openDay();};
-      cell.onclick=()=>_openDay();
+      num.onclick=e=>{e.stopPropagation();S.calSelectedDate=ds;S._calUpcomingView=false;re();};
+      cell.onclick=()=>{S.calSelectedDate=ds;S._calUpcomingView=false;re();};
       cell.appendChild(num);
       da.forEach(a=>{
         const dotColor=(isParent&&S.calendarMode==='joint')?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)'):(TC[a.type]||'var(--teal)');
@@ -11701,10 +11710,38 @@ function renderCalendar(){
   _addCalSwipe(calCard,'calMonth');
   sec.appendChild(calCard);
 
-  sec.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px',width:_isWeb?'100%':'auto'}},['Upcoming Events']));
-  const stack=el('div',{class:'stack',style:{width:_isWeb?'100%':'auto'}});
+  // Events section — day view (default) or upcoming view (toggle)
+  const _selDate=S.calSelectedDate;
+  const _showUpcoming=!!S._calUpcomingView;
   const todayStr2=new Date().toISOString().split('T')[0];
-  [...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date)).forEach(apt=>{
+
+  // Header with toggle
+  const _evtHdRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px',width:_isWeb?'100%':'auto'}});
+  if(_showUpcoming){
+    _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},['Upcoming Events']));
+    const _backLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'4px 0'}},[T('cal_view_day')]);
+    _backLink.onclick=()=>{S._calUpcomingView=false;re();};
+    _evtHdRow.appendChild(_backLink);
+  } else {
+    const _selLabel=_selDate?new Date(_selDate+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):'';
+    _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},[_selLabel]));
+  }
+  sec.appendChild(_evtHdRow);
+
+  const stack=el('div',{class:'stack',style:{width:_isWeb?'100%':'auto'}});
+  const _evtList=_showUpcoming
+    ?[...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date))
+    :[...childApts].filter(a=>a.date===_selDate).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+
+  if(_evtList.length===0&&!_showUpcoming){
+    const _emptyDay=el('div',{style:{textAlign:'center',padding:'24px 0'}});
+    _emptyDay.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['📅']));
+    _emptyDay.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',marginBottom:'14px',fontSize:'.88rem'}},[T('cal_no_events')]));
+    _emptyDay.appendChild(mkBtn('➕ Add Appointment','btn-md btn-primary',()=>showAddEventModal(_selDate)));
+    stack.appendChild(_emptyDay);
+  }
+
+  _evtList.forEach(apt=>{
     const ch=DB.children.find(c=>c.id===apt.childId);
     const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer'}});
     const barColor=ch?.color||TC[apt.type]||'var(--teal)';
@@ -11717,10 +11754,9 @@ function renderCalendar(){
     if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
     card.appendChild(info);
     const right=d('',[], {textAlign:'right'});
-    right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
+    if(_showUpcoming)right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
     right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
     card.appendChild(right);
-    // Tap to open detail modal with permission-based actions
     // RSVP pill for specialist view
     if(session?.role==='specialist'){
       if(apt.rsvp==='yes'){
@@ -11734,6 +11770,14 @@ function renderCalendar(){
     card.onclick=()=>showAptDetailModal(apt,ch||child);
     stack.appendChild(card);
   });
+
+  // Toggle link: day view → "View all upcoming ▸" / upcoming → handled in header above
+  if(!_showUpcoming){
+    const _upLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'10px 0',display:'block',width:'100%',textAlign:'center'}},[T('cal_view_upcoming')]);
+    _upLink.onclick=()=>{S._calUpcomingView=true;re();};
+    stack.appendChild(_upLink);
+  }
+
   sec.appendChild(stack);
   return sec;
 }
