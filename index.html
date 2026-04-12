@@ -9566,7 +9566,8 @@ function aptDisplayTitle(apt){
 function aptDisplaySub(apt){
   if(session?.role==='specialist'){
     const typeLabel={speech:T('apt_type_speech'),ot:T('apt_type_ot'),pt:T('apt_type_pt'),psychology:T('apt_type_psychology'),general:T('apt_type_general')}[apt.type]||T('apt_type_general');
-    return typeLabel+(apt.location?' · '+apt.location:'');
+    const label=apt.title||typeLabel;
+    return label+(apt.location?' · '+apt.location:'');
   }
   return apt.location||apt.specialist||'';
 }
