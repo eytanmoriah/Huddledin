@@ -18962,13 +18962,6 @@ function renderSettings(){
     sec.appendChild(mc);
   }
 
-  // Privacy
-  const pv=el('div',{class:'card'});
-  pv.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_privacy')]));
-  pv.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.7',fontWeight:500}},
-    [T('settings_privacy_desc')]));
-  sec.appendChild(pv);
-
   // Onboarding & Demo
   const od=el('div',{class:'card',style:{marginTop:'16px'}});
   od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('settings_onboarding')]));
