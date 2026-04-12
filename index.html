@@ -9116,6 +9116,10 @@ function renderMiniCalendar(children,allApts,onExpand){
     .filter(a=>a.date>=today&&a.date<=cutoffStr)
     .sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
 
+  // Selected date — default to today
+  const _miniSel=S.calSelectedDate||today;
+  const _miniUpcoming=!!S._calUpcomingView;
+
   const card=el('div',{class:'mini-cal-card'});
 
   // Header
@@ -9147,10 +9151,6 @@ function renderMiniCalendar(children,allApts,onExpand){
   calHdRight.appendChild(expandBtn);
   hd.appendChild(calHdRight);
   card.appendChild(hd);
-
-  // Selected date — default to today
-  const _miniSel=S.calSelectedDate||today;
-  const _miniUpcoming=!!S._calUpcomingView;
 
   // 7-day strip
   const week=el('div',{class:'mini-cal-week'});
