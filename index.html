@@ -3349,6 +3349,7 @@ team_request_join:'Request to Join',
 cal_month_view:'Month',
 cal_week_view:'Week',
 cal_no_events:'No events on this day',
+cal_no_events_day_name:'No events on {day}',
 cal_view_upcoming:'View all upcoming \u25B8',
 cal_view_day:'Back to day view',
 cal_add_event_for:'Add event for {date}',
@@ -4598,6 +4599,7 @@ cal_no_upcoming_events:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\
 cal_month_view:'\u05D7\u05D5\u05D3\u05E9',
 cal_week_view:'\u05E9\u05D1\u05D5\u05E2',
 cal_no_events:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05D1\u05D9\u05D5\u05DD \u05D6\u05D4',
+cal_no_events_day_name:'\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05D1\u05D9\u05D5\u05DD {day}',
 cal_view_upcoming:'\u05DB\u05DC \u05D4\u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05D4\u05E7\u05E8\u05D5\u05D1\u05D9\u05DD \u25C2',
 cal_view_day:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05EA\u05E6\u05D5\u05D2\u05EA \u05D9\u05D5\u05DD',
 cal_add_event_for:'\u05D4\u05D5\u05E1\u05E4\u05EA \u05D0\u05D9\u05E8\u05D5\u05E2 \u05DC-{date}',
@@ -9121,8 +9123,14 @@ function renderMiniCalendar(children,allApts,onExpand){
   const hl=el('div',{class:'mini-cal-hd-left'});
   hl.appendChild(el('div',{class:'mini-cal-month'},
     [now.toLocaleDateString('en-US',{month:'long',year:'numeric'})]));
-  hl.appendChild(el('div',{class:'mini-cal-sub'},
-    [T('cal_events_upcoming',{n:upcoming.length,s:upcoming.length!==1?'s':''})]));
+  if(_miniUpcoming){
+    hl.appendChild(el('div',{class:'mini-cal-sub'},
+      [T('cal_events_upcoming',{n:upcoming.length,s:upcoming.length!==1?'s':''})]));
+  } else {
+    const _selD=new Date(_miniSel+'T12:00');
+    hl.appendChild(el('div',{class:'mini-cal-sub'},
+      [_selD.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})]));
+  }
   hd.appendChild(hl);
   const calHdRight=el('div',{style:{display:'flex',gap:'7px',alignItems:'center'}});
   // Add Event shortcut for parents (Task 5 — editable calendar)
@@ -9177,10 +9185,12 @@ function renderMiniCalendar(children,allApts,onExpand){
 
   const evList=el('div',{class:'mini-cal-events'});
   if(_miniEvts.length===0&&!_miniUpcoming){
-    const _emptyRow=el('div',{style:{textAlign:'center',padding:'10px 0'}});
-    _emptyRow.appendChild(el('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.7)',marginBottom:'8px'}},[T('cal_no_events')]));
-    _emptyRow.appendChild(mkBtn('➕ Add','btn-sm btn-ghost',e2=>{e2.stopPropagation();showAddEventModal(_miniSel);}));
-    _emptyRow.lastChild.style.cssText='background:rgba(255,255,255,.2);color:#fff;border:none;font-size:.74rem;padding:4px 12px;';
+    const _selDayName=new Date(_miniSel+'T12:00').toLocaleDateString('en-US',{weekday:'long'});
+    const _emptyRow=el('div',{style:{textAlign:'center',padding:'14px 12px'}});
+    _emptyRow.appendChild(el('div',{style:{fontSize:'.78rem',color:'rgba(255,255,255,.55)',marginBottom:'10px',lineHeight:'1.4'}},['📅 '+T('cal_no_events_day_name',{day:_selDayName})]));
+    const _addBtn=el('button',{style:{background:'rgba(255,255,255,.18)',color:'#fff',border:'1.5px solid rgba(255,255,255,.3)',borderRadius:'8px',fontSize:'.76rem',fontWeight:700,padding:'6px 14px',cursor:'pointer'}},['➕ '+T('cal_add_event')]);
+    _addBtn.onclick=e2=>{e2.stopPropagation();showAddEventModal(_miniSel);};
+    _emptyRow.appendChild(_addBtn);
     evList.appendChild(_emptyRow);
   }
   _miniEvts.forEach(a=>{
