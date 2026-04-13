@@ -3583,12 +3583,15 @@ settings_photo_btn:'\uD83D\uDCF7 Photo',
 settings_delete_btn:'\uD83D\uDDD1\uFE0F Delete',
 settings_add_child_btn:'\u2795 Add Child',
 settings_name_prompt:'Enter your display name:',
-settings_photo_change:'Change Photo',
-settings_photo_upload:'Upload Photo',
+settings_photo_title:'Profile Photo',
+settings_photo_take:'Take Photo',
+settings_photo_choose:'Choose from Gallery',
+settings_photo_save:'Save Photo',
 settings_photo_remove:'Remove Photo',
 settings_photo_updated:'Profile photo updated!',
 settings_photo_removed:'Profile photo removed.',
-settings_photo_tap:'Tap to add photo',
+settings_photo_no_camera:'Camera not available on this device.',
+settings_photo_none_selected:'Select a photo first.',
 settings_name_updated:'Name updated!',
 settings_name_failed:'Could not save name.',
 settings_email_label:'Email: {email}',
@@ -4875,12 +4878,15 @@ settings_photo_btn:'\uD83D\uDCF7 \u05EA\u05DE\u05D5\u05E0\u05D4',
 settings_delete_btn:'\uD83D\uDDD1\uFE0F \u05DE\u05D7\u05D9\u05E7\u05D4',
 settings_add_child_btn:'\u2795 \u05D4\u05D5\u05E1\u05E4\u05EA \u05D9\u05DC\u05D3/\u05D4',
 settings_name_prompt:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05D0\u05EA \u05E9\u05DD \u05D4\u05EA\u05E6\u05D5\u05D2\u05D4:',
-settings_photo_change:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05EA\u05DE\u05D5\u05E0\u05D4',
-settings_photo_upload:'\u05D4\u05E2\u05DC\u05D0\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_photo_title:'\u05EA\u05DE\u05D5\u05E0\u05EA \u05E4\u05E8\u05D5\u05E4\u05D9\u05DC',
+settings_photo_take:'\u05E6\u05D9\u05DC\u05D5\u05DD',
+settings_photo_choose:'\u05D1\u05D7\u05D9\u05E8\u05D4 \u05DE\u05D4\u05D2\u05DC\u05E8\u05D9\u05D4',
+settings_photo_save:'\u05E9\u05DE\u05D9\u05E8\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
 settings_photo_remove:'\u05D4\u05E1\u05E8\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
 settings_photo_updated:'\u05EA\u05DE\u05D5\u05E0\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',
 settings_photo_removed:'\u05EA\u05DE\u05D5\u05E0\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05D4\u05D5\u05E1\u05E8\u05D4.',
-settings_photo_tap:'\u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05D5\u05E1\u05E4\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_photo_no_camera:'\u05DE\u05E6\u05DC\u05DE\u05D4 \u05DC\u05D0 \u05D6\u05DE\u05D9\u05E0\u05D4 \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D6\u05D4.',
+settings_photo_none_selected:'\u05D1\u05D7\u05E8\u05D5 \u05EA\u05DE\u05D5\u05E0\u05D4 \u05E7\u05D5\u05D3\u05DD.',
 settings_name_updated:'\u05D4\u05E9\u05DD \u05E2\u05D5\u05D3\u05DB\u05DF!',
 settings_name_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05D0\u05EA \u05D4\u05E9\u05DD.',
 settings_email_label:'\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC: {email}',
@@ -17904,75 +17910,133 @@ async function renderHouseholdCard(){
 }
 
 function _showSpecPhotoModal(){
-  openModal(session?.photo?T('settings_photo_change'):T('settings_photo_upload'),(mb,close)=>{
+  const _isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  openModal(T('settings_photo_title'),(mb,close)=>{
     let photoData=session?.photo||null;
-    const photoWrap=el('div',{style:{width:'120px',height:'120px',borderRadius:'50%',background:'var(--mint-ll)',border:'2px dashed var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',cursor:'pointer',overflow:'hidden',position:'relative'}});
-    if(photoData){
-      photoWrap.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
-    } else {
-      photoWrap.appendChild(el('div',{style:{textAlign:'center'}},[
-        el('div',{style:{fontSize:'2rem',marginBottom:'4px'}},['📷']),
-        el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},[T('settings_photo_tap')])
-      ]));
-    }
-    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
-    photoInput.onchange=e=>{
-      const f=e.target.files[0];if(!f)return;
-      const reader=new FileReader();
-      reader.onload=ev=>{
-        // Fullscreen crop overlay (reuses Cropper.js pattern from showChildPhotoModal)
+    let _hasNewPhoto=false;
+    // Hidden file inputs — appended to body for mobile reliability
+    const _camInput=el('input',{type:'file',accept:'image/*',capture:'environment',style:{display:'none'}});
+    const _galInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+    document.body.appendChild(_camInput);document.body.appendChild(_galInput);
+    const _cleanup=()=>{_camInput.remove();_galInput.remove();};
+
+    // Shared: open Cropper.js overlay on image selected
+    const _onImagePicked=dataUrl=>{
+      const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
+      const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+      bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},[T('child_drag_crop')]));
+      const xBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},[T('child_cancel')]);
+      xBtn.onclick=()=>{cropper.destroy();ov.remove();};
+      bar.appendChild(xBtn);ov.appendChild(bar);
+      const imgWrap=el('div',{style:{flex:1,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+      const img=el('img',{src:dataUrl,style:{maxWidth:'100%',maxHeight:'100%'}});
+      imgWrap.appendChild(img);ov.appendChild(imgWrap);
+      const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
+      const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},[T('child_use_crop')]);
+      useBtn.onclick=()=>{
+        const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
+        photoData=canvas.toDataURL('image/jpeg',0.88);
+        _hasNewPhoto=true;
+        // Update preview
+        preview.innerHTML='';preview.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+        saveBtn.disabled=false;
+        cropper.destroy();ov.remove();
+      };
+      foot.appendChild(useBtn);ov.appendChild(foot);
+      document.body.appendChild(ov);
+      const cropper=new Cropper(img,{aspectRatio:1,viewMode:1,dragMode:'move',autoCropArea:0.9,restore:false,guides:true,center:true,highlight:false,cropBoxMovable:false,cropBoxResizable:false,toggleDragModeOnDblclick:false});
+    };
+
+    const _handleFile=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>_onImagePicked(ev.target.result);r.readAsDataURL(f);};
+    _camInput.onchange=_handleFile;
+    _galInput.onchange=_handleFile;
+
+    // ── Action buttons: Take Photo + Choose from Gallery ──
+    const actionRow=el('div',{style:{display:'flex',gap:'10px',marginBottom:'18px'}});
+    const _mkAction=(icon,label,fn)=>{
+      const btn=el('button',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'6px',padding:'16px 10px',background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'14px',cursor:'pointer',transition:'all .15s'}});
+      btn.appendChild(el('span',{style:{fontSize:'1.5rem'}},[icon]));
+      btn.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:700,color:'var(--navy)'}},[label]));
+      btn.onmouseenter=()=>{btn.style.borderColor='var(--teal)';btn.style.background='#ecfdf5';};
+      btn.onmouseleave=()=>{btn.style.borderColor='var(--mint-l)';btn.style.background='var(--mint-ll)';};
+      btn.onclick=fn;
+      return btn;
+    };
+
+    // Take Photo
+    actionRow.appendChild(_mkAction('📷',T('settings_photo_take'),()=>{
+      if(_isMobile){
+        // Mobile: open native camera via file input with capture
+        _camInput.click();
+      } else {
+        // Desktop: webcam via getUserMedia
+        if(!navigator.mediaDevices?.getUserMedia){toast(T('settings_photo_no_camera'),'error');return;}
         const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
         const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
-        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},[T('child_drag_crop')]));
-        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},[T('child_cancel')]);
-        cancelBtn.onclick=()=>ov.remove();
-        bar.appendChild(cancelBtn);
-        ov.appendChild(bar);
-        const imgWrap=el('div',{style:{flex:1,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
-        const img=el('img',{src:ev.target.result,style:{maxWidth:'100%',maxHeight:'100%'}});
-        imgWrap.appendChild(img);
-        ov.appendChild(imgWrap);
-        const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
-        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},[T('child_use_crop')]);
-        useBtn.onclick=()=>{
-          const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
-          photoData=canvas.toDataURL('image/jpeg',0.88);
-          photoWrap.innerHTML='';
-          photoWrap.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
-          cropper.destroy();ov.remove();
-        };
-        foot.appendChild(useBtn);
-        ov.appendChild(foot);
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},[T('settings_photo_take')]));
+        const xBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},[T('child_cancel')]);
+        bar.appendChild(xBtn);ov.appendChild(bar);
+        const vidWrap=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}});
+        const video=el('video',{style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',transform:'scaleX(-1)'}});
+        video.setAttribute('autoplay','');video.setAttribute('playsinline','');
+        vidWrap.appendChild(video);ov.appendChild(vidWrap);
+        const foot=el('div',{style:{padding:'14px 16px',display:'flex',justifyContent:'center',flexShrink:0}});
+        const snapBtn=el('button',{style:{width:'64px',height:'64px',borderRadius:'50%',background:'#fff',border:'4px solid var(--teal)',cursor:'pointer',boxShadow:'0 4px 16px rgba(0,0,0,.3)'}});
+        foot.appendChild(snapBtn);ov.appendChild(foot);
         document.body.appendChild(ov);
-        const cropper=new Cropper(img,{aspectRatio:1,viewMode:1,dragMode:'move',autoCropArea:0.9,restore:false,guides:true,center:true,highlight:false,cropBoxMovable:false,cropBoxResizable:false,toggleDragModeOnDblclick:false});
-      };
-      reader.readAsDataURL(f);
-    };
-    // Append file input to document.body for reliable .click() on mobile (modal z-index can block it)
-    document.body.appendChild(photoInput);
-    photoWrap.onclick=()=>photoInput.click();
-    mb.appendChild(photoWrap);
+        let stream=null;
+        navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:640}}})
+          .then(s=>{stream=s;video.srcObject=s;})
+          .catch(()=>{ov.remove();toast(T('settings_photo_no_camera'),'error');});
+        const _stopStream=()=>{if(stream)stream.getTracks().forEach(t=>t.stop());};
+        xBtn.onclick=()=>{_stopStream();ov.remove();};
+        snapBtn.onclick=()=>{
+          const canvas=document.createElement('canvas');
+          canvas.width=video.videoWidth||640;canvas.height=video.videoHeight||640;
+          const ctx=canvas.getContext('2d');
+          ctx.translate(canvas.width,0);ctx.scale(-1,1); // mirror to match preview
+          ctx.drawImage(video,0,0,canvas.width,canvas.height);
+          _stopStream();ov.remove();
+          _onImagePicked(canvas.toDataURL('image/jpeg',0.92));
+        };
+      }
+    }));
+
+    // Choose from Gallery
+    actionRow.appendChild(_mkAction('🖼️',T('settings_photo_choose'),()=>_galInput.click()));
+    mb.appendChild(actionRow);
+
+    // ── Preview area ──
+    const preview=el('div',{style:{width:'120px',height:'120px',borderRadius:'50%',background:'var(--mint-ll)',border:'2px solid var(--mint-l)',margin:'0 auto 18px',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+    if(photoData){
+      preview.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+    } else {
+      preview.appendChild(el('div',{style:{fontSize:'2.2rem'}},['🩺']));
+    }
+    mb.appendChild(preview);
+
+    // ── Bottom buttons ──
     const btns=el('div',{style:{display:'flex',gap:'10px',justifyContent:'center'}});
     if(session?.photo){
       btns.appendChild(mkBtn(T('settings_photo_remove'),'btn-md btn-danger',async()=>{
         try{await _supa.from('profiles').update({photo_url:null}).eq('id',session.id);}catch(e){console.error('❌ removePhoto:',e);}
-        photoInput.remove();
-        session.photo=null;close();re();toast(T('settings_photo_removed'));
+        _cleanup();session.photo=null;close();re();toast(T('settings_photo_removed'));
       }));
     }
-    const _uploadBtn=mkBtn(T('settings_photo_upload'),'btn-md btn-primary',async()=>{
-      if(!photoData){toast(T('settings_photo_tap'),'error');return;}
-      _uploadBtn.disabled=true;_uploadBtn.textContent=T('btn_loading');
-      try{await _supa.from('profiles').update({photo_url:photoData}).eq('id',session.id);}catch(e){console.error('❌ savePhoto:',e);_uploadBtn.disabled=false;_uploadBtn.textContent=T('settings_photo_upload');toast('Could not save photo.','error');return;}
-      photoInput.remove();
-      session.photo=photoData;close();re();toast(T('settings_photo_updated'));
+    const saveBtn=mkBtn(T('settings_photo_save'),'btn-md btn-primary',async()=>{
+      if(!photoData||!_hasNewPhoto){toast(T('settings_photo_none_selected'),'error');return;}
+      saveBtn.disabled=true;saveBtn.textContent=T('btn_loading');
+      try{await _supa.from('profiles').update({photo_url:photoData}).eq('id',session.id);}catch(e){console.error('❌ savePhoto:',e);saveBtn.disabled=false;saveBtn.textContent=T('settings_photo_save');toast('Could not save photo.','error');return;}
+      _cleanup();session.photo=photoData;close();re();toast(T('settings_photo_updated'));
     });
-    btns.appendChild(_uploadBtn);
+    saveBtn.disabled=!_hasNewPhoto;
+    btns.appendChild(saveBtn);
     mb.appendChild(btns);
-    // Cleanup file input if modal closed without saving
+
+    // Cleanup inputs on modal close
     const _origClose=close;
-    close=()=>{photoInput.remove();_origClose();};
-  },380);
+    close=()=>{_cleanup();_origClose();};
+  },400);
 }
 
 function renderSpecialistSettings(){
