@@ -3404,6 +3404,9 @@ chat_family_chat:'\u2019s Family',
 chat_group_chat:'Care Team Group Chat',
 chat_consult_label:'Consultation',
 chat_members_title:'Chat Members',
+chat_consult_info_title:'Specialist Consultation',
+chat_consult_info_desc:'This is a private consultation about {child}. Messages are not visible to parents.',
+chat_consult_preview:'Private consultation',
 chat_member_parent:'Parent',
 chat_member_specialist:'Specialist',
 // ── Vault Notes (Chunk 13) ──
@@ -4665,6 +4668,9 @@ chat_family_chat:'\u05D4\u05DE\u05E9\u05E4\u05D7\u05D4 \u05E9\u05DC ',
 chat_group_chat:'\u05E6\u05F3\u05D0\u05D8 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9 \u2014 \u05E6\u05D5\u05D5\u05EA \u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
 chat_consult_label:'\u05D9\u05D9\u05E2\u05D5\u05E5',
 chat_members_title:'\u05DE\u05E9\u05EA\u05EA\u05E4\u05D9 \u05D4\u05E6\u05F3\u05D0\u05D8',
+chat_consult_info_title:'\u05D4\u05EA\u05D9\u05D9\u05E2\u05E6\u05D5\u05EA \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD',
+chat_consult_info_desc:'\u05D6\u05D5\u05D4\u05D9 \u05D4\u05EA\u05D9\u05D9\u05E2\u05E6\u05D5\u05EA \u05E4\u05E8\u05D8\u05D9\u05EA \u05E2\u05DC {child}. \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA \u05D0\u05D9\u05E0\u05DF \u05D2\u05DC\u05D5\u05D9\u05D5\u05EA \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD.',
+chat_consult_preview:'\u05D4\u05EA\u05D9\u05D9\u05E2\u05E6\u05D5\u05EA \u05E4\u05E8\u05D8\u05D9\u05EA',
 chat_member_parent:'\u05D4\u05D5\u05E8\u05D4',
 chat_member_specialist:'\u05DE\u05D8\u05E4\u05DC/\u05EA',
 // ── Vault Notes ──
@@ -12290,7 +12296,7 @@ function renderChat(){
     const _chatChild=DB.children.find(c=>c.id===chat.childId);
     const _parentDynamic=otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist';
     const _specDynamic=_chatChild?(_chatChild.name+"'s Family"):'Family';
-    const chatName=isConsult?'Specialist Consult':isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
+    const chatName=isConsult?(chat.name||'Specialist Consult'):isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -12332,12 +12338,49 @@ function renderChat(){
     // Private consult: parent can see it exists but not open it
     const isPrivateConsult=isConsult&&role==='parent'&&!chat.participants.includes('parent')&&!chat.participants.includes(myId);
     if(isPrivateConsult){
-      // Override name and preview to show lock state
+      // Override name and preview to show lock state with specialist names
       body.querySelector('.chat-list-name').textContent='🔒 '+chatName;
-      body.querySelector('.chat-list-preview').textContent='Private specialist conversation';
+      body.querySelector('.chat-list-preview').textContent=T('chat_consult_preview')+(childName?' · '+childName:'');
       body.querySelector('.chat-list-preview').style.fontStyle='italic';
       item.style.opacity='0.7';
-      item.onclick=()=>{toast('This is a private specialist consultation — you can see it exists for transparency, but the messages are not accessible.','info');};
+      item.onclick=()=>{
+        const _consultChild=DB.children.find(c=>c.id===chat.childId);
+        openModal('🔒 '+T('chat_consult_info_title'),async(mb2,close2)=>{
+          mb2.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',lineHeight:'1.65',marginBottom:'16px'}},[T('chat_consult_info_desc',{child:_consultChild?.name||childName||'your child'})]));
+          // Resolve participants
+          const _cPids=chat.participants.filter(p=>p&&p!=='parent'&&p!==myId);
+          const _cMembers=[];const _cUnknown=[];
+          _cPids.forEach(pid=>{
+            const spec=getChildTeam(chat.childId).find(s=>s.id===pid)||(DB.specialists||[]).find(s=>s.id===pid);
+            if(spec){_cMembers.push({id:pid,name:spec.name||'Specialist',role:spec.role||'',photo:spec.photo||null});return;}
+            _cUnknown.push(pid);
+          });
+          // Fetch unknowns via household lookup
+          if(_cUnknown.length){
+            const _cHhId=getChildHouseholdId(chat.childId);
+            if(_cHhId){try{const{data:_hp}=await _supa.from('profiles').select('id,display_name,role,profession').eq('household_id',_cHhId).eq('role','parent');(_hp||[]).filter(p=>_cUnknown.includes(p.id)).forEach(p=>_cMembers.push({id:p.id,name:p.display_name||'Parent',role:'parent',photo:null}));}catch(e){console.error('❌ consult member fetch:',e);}}
+            const _still=_cUnknown.filter(uid=>!_cMembers.find(m=>m.id===uid));
+            if(_still.length){try{const{data:_pr}=await _supa.from('profiles').select('id,display_name,role,profession').in('id',_still);(_pr||[]).forEach(p=>_cMembers.push({id:p.id,name:p.display_name||'Specialist',role:p.profession||p.role||'',photo:null}));}catch(e){console.error('❌ consult profile fetch:',e);}}
+            _cUnknown.forEach(uid=>{if(!_cMembers.find(m=>m.id===uid))_cMembers.push({id:uid,name:'Specialist',role:'',photo:null});});
+          }
+          // Fetch photos via RPC
+          const _cPhotoIds=_cMembers.filter(m=>!m.photo).map(m=>m.id);
+          if(_cPhotoIds.length){try{const{data:_cPh}=await _supa.rpc('get_specialist_photos',{p_specialist_ids:_cPhotoIds});(_cPh||[]).forEach(p=>{const m=_cMembers.find(x=>x.id===p.id);if(m)m.photo=p.photo_url;});}catch(e){}}
+          // Render members
+          if(_cMembers.length){
+            mb2.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'8px'}},[T('chat_members_title')]));
+            _cMembers.forEach(p=>{
+              const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 4px',borderBottom:'1px solid var(--mint-ll)'}});
+              row.appendChild(mkAvatar(p.role==='parent'?'👨‍👩‍👧':'🩺',36,'var(--teal)',p.photo));
+              const info2=el('div',{style:{flex:1,minWidth:0}});
+              info2.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.88rem'}},[p.name]));
+              if(p.role)info2.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[p.role]));
+              row.appendChild(info2);
+              mb2.appendChild(row);
+            });
+          }
+        },380);
+      };
     } else {
       item.onclick=()=>{
         S.activeChatId=chat.id;
