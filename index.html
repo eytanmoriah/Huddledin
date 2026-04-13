@@ -1710,8 +1710,11 @@ async function loadChildSpecialists(childId){
     // Get their profiles
     const specIds=reqs.map(r=>r.specialist_id).filter(Boolean);
     const {data:profiles}=await _supa.from('profiles')
-      .select('id,display_name,email,role,photo_url')
+      .select('id,display_name,email,role')
       .in('id',specIds);
+    // Fetch photos via RPC (bypasses RLS)
+    const _photoMap4={};
+    if(specIds.length){try{const{data:_ph4}=await _supa.rpc('get_specialist_photos',{p_specialist_ids:specIds});(_ph4||[]).forEach(p=>{_photoMap4[p.id]=p.photo_url;});}catch(e){console.error('❌ get_specialist_photos:',e);}}
     // Get their folder permissions for this child
     const {data:perms}=await _supa.from('folder_permissions')
       .select('specialist_id,folder_key')
@@ -1724,7 +1727,7 @@ async function loadChildSpecialists(childId){
       const name=prof?.display_name||r.specialist_name||'Specialist';
       // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
       return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
-        avatar:'🩺',photo:prof?.photo_url||null,status:r.status==='approved'?'active':r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
+        avatar:'🩺',photo:_photoMap4[r.specialist_id]||null,status:r.status==='approved'?'active':r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
     });
     // Also pick up any specialists in the specialists table for this child
     // who may have joined via email invite (no specialist_requests row)
@@ -1734,9 +1737,8 @@ async function loadChildSpecialists(childId){
         .eq('child_id',childId).eq('status','active');
       (directSpecs||[]).forEach(ds=>{
         if(!specs.find(s=>s.id===ds.id)){
-          const _dsProf=(profiles||[]).find(p=>p.id===ds.id);
           specs.push({id:ds.id,name:ds.name||'Specialist',role:ds.role||'Specialist',
-            email:ds.email||'',avatar:'🩺',photo:_dsProf?.photo_url||null,status:'active',
+            email:ds.email||'',avatar:'🩺',photo:_photoMap4[ds.id]||null,status:'active',
             permissions:{[childId]:permMap[ds.id]||[]},childId});
         }
       });
@@ -1822,10 +1824,10 @@ const SB = {
     // DO NOT deduplicate by specialist_id alone: a specialist may treat multiple children,
     // and renderTeam filters by s.childId===child.id so each child needs its own entry
     const reqs=_all.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
-    // Batch-fetch profile photos for all specialist IDs
+    // Batch-fetch profile photos via RPC (bypasses RLS)
     const _specIds2=[...new Set(reqs.map(r=>r.specialist_id).filter(Boolean))];
-    const {data:_specProfs}=_specIds2.length?await _supa.from('profiles').select('id,photo_url').in('id',_specIds2):{data:[]};
-    const _photoMap={};(_specProfs||[]).forEach(p=>{if(p.photo_url)_photoMap[p.id]=p.photo_url;});
+    const _photoMap={};
+    if(_specIds2.length){try{const{data:_ph}=await _supa.rpc('get_specialist_photos',{p_specialist_ids:_specIds2});(_ph||[]).forEach(p=>{_photoMap[p.id]=p.photo_url;});}catch(e){console.error('❌ get_specialist_photos:',e);}}
     // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
     // Set both childId and child_id so filter works regardless of which field is checked
     const specs=reqs.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_photoMap[r.specialist_id]||null,permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
@@ -1840,10 +1842,10 @@ const SB = {
     const _sorted=(reqs||[]).sort((a,b)=>(a.request_type==='join'?0:1)-(b.request_type==='join'?0:1));
     // Keep one entry per specialist per child
     const _deduped=_sorted.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
-    // Batch-fetch profile photos
+    // Batch-fetch profile photos via RPC (bypasses RLS)
     const _specIds3=[...new Set(_deduped.map(r=>r.specialist_id).filter(Boolean))];
-    const {data:_specProfs3}=_specIds3.length?await _supa.from('profiles').select('id,photo_url').in('id',_specIds3):{data:[]};
-    const _photoMap3={};(_specProfs3||[]).forEach(p=>{if(p.photo_url)_photoMap3[p.id]=p.photo_url;});
+    const _photoMap3={};
+    if(_specIds3.length){try{const{data:_ph3}=await _supa.rpc('get_specialist_photos',{p_specialist_ids:_specIds3});(_ph3||[]).forEach(p=>{_photoMap3[p.id]=p.photo_url;});}catch(e){console.error('❌ get_specialist_photos:',e);}}
     const specs=_deduped.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_photoMap3[r.specialist_id]||null,permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
@@ -11041,10 +11043,10 @@ function renderTeam(){
             if(!_specMap.has(r.specialist_id)||r.child_id===S.activeChild)
               _specMap.set(r.specialist_id,r);
           });
-          // Batch-fetch profile photos for approved specialists
+          // Batch-fetch profile photos via RPC (bypasses RLS)
           const _rtSpecIds=[..._specMap.keys()];
           let _rtPhotoMap={};
-          try{const{data:_rtProfs}=_rtSpecIds.length?await _supa.from('profiles').select('id,photo_url').in('id',_rtSpecIds):{data:[]};(_rtProfs||[]).forEach(p=>{if(p.photo_url)_rtPhotoMap[p.id]=p.photo_url;});}catch(e){}
+          if(_rtSpecIds.length){try{const{data:_rtPh}=await _supa.rpc('get_specialist_photos',{p_specialist_ids:_rtSpecIds});(_rtPh||[]).forEach(p=>{_rtPhotoMap[p.id]=p.photo_url;});}catch(e){console.error('❌ get_specialist_photos:',e);}}
           const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_rtPhotoMap[r.specialist_id]||null,permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
           const _newIds=new Set(_newSpecs.map(s=>s.id));
           DB.specialists=_newSpecs; // Replace (not merge) — clears stale specialists from previous child
