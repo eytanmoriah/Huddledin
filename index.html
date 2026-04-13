@@ -13153,9 +13153,16 @@ function renderVault(){
     header.appendChild(chevron);
     header.onclick=()=>{
       if(S.vaultHasUnsaved&&!isOpen){
-        openConfirm(T('vault_unsaved_changes'),T('vault_switch_note'),true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();});
+        openConfirm(T('vault_unsaved_changes'),T('vault_switch_note'),true,()=>{
+          // Clear drafts for the note being discarded
+          const _prevId=S.activeVaultId;
+          if(_prevId){if(S._vaultDraftContent)delete S._vaultDraftContent[_prevId];if(S._vaultDraftTitle)delete S._vaultDraftTitle[_prevId];}
+          S.vaultHasUnsaved=false;S.activeVaultId=note.id;S.vaultSummary=note.summary||'';re();
+        });
         return;
       }
+      // Clear drafts when closing a note normally
+      if(isOpen){if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];}
       S.activeVaultId=isOpen?null:note.id;
       if(!isOpen)S.vaultSummary=note.summary||'';
       re();
@@ -13180,19 +13187,24 @@ function renderVault(){
       // Editable title
       const titleRow=el('div',{style:{display:'flex',gap:'8px',alignItems:'center'}});
       const ti=el('input',{class:'inp',style:{fontWeight:800,fontSize:'.95rem',marginBottom:'0',flex:1}});
-      ti.value=note.title||'';
+      // Read from in-flight draft (survives re()) or fall back to cached title
+      ti.value=(S._vaultDraftTitle&&S._vaultDraftTitle[note.id]!=null)?S._vaultDraftTitle[note.id]:(note.title||'');
       ti.disabled=note.locked;
       ti.placeholder=_formatNoteTitle(note.lastSaved||note.date||new Date());
       ti.oninput=e=>{
-        const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-        if(i>-1){ns[i].title=e.target.value;DB.vaultNotes=ns;}
+        if(!S._vaultDraftTitle)S._vaultDraftTitle={};
+        S._vaultDraftTitle[note.id]=e.target.value;
         S.vaultHasUnsaved=true;
       };
       const minBtn=mkBtn(T('vault_minimise'),'btn-sm btn-ghost',()=>{
         if(S.vaultHasUnsaved){
-          openConfirm(T('vault_unsaved_changes'),T('vault_minimise_unsaved'),true,()=>{S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();});
+          openConfirm(T('vault_unsaved_changes'),T('vault_minimise_unsaved'),true,()=>{
+            if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
+            S.vaultHasUnsaved=false;S.activeVaultId=null;S.vaultSummary='';re();
+          });
           return;
         }
+        if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
         S.activeVaultId=null;S.vaultSummary='';re();
       });
       titleRow.appendChild(ti);
@@ -13434,16 +13446,25 @@ function renderVault(){
         lockedBox.onclick=e=>{if(!e.target.closest('button'))_showSpecAiUpgradeModal('Session Notes');};
         body.appendChild(lockedBox);
         ta=el('textarea',{style:{display:'none'}});
-        // Content fetched on demand (PHI not cached)
-        _fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';});
+        // Read from in-flight draft or fetch from Supabase
+        if(S._vaultDraftContent&&S._vaultDraftContent[note.id]!=null){ta.value=S._vaultDraftContent[note.id];}
+        else{_fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';});}
       } else {
         ta=el('textarea',{class:'inp',style:{minHeight:'120px',background:note.locked?'#f8fafc':''}});
         ta.id='vault-notes-'+note.id;
         ta.readOnly=note.locked;
-        // Content fetched on demand (PHI not cached). Disable while loading to prevent blank-save.
-        ta.disabled=true;ta.placeholder='Loading…';
-        _fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';ta.disabled=false;ta.placeholder='';});
-        ta.oninput=()=>{S.vaultHasUnsaved=true;};
+        // Read from in-flight draft (survives re()) or fetch from Supabase
+        if(S._vaultDraftContent&&S._vaultDraftContent[note.id]!=null){
+          ta.value=S._vaultDraftContent[note.id];
+        } else {
+          ta.disabled=true;ta.placeholder='Loading…';
+          _fetchVaultNoteContent(note.id).then(_c=>{ta.value=_c||'';ta.disabled=false;ta.placeholder='';});
+        }
+        ta.oninput=()=>{
+          if(!S._vaultDraftContent)S._vaultDraftContent={};
+          S._vaultDraftContent[note.id]=ta.value;
+          S.vaultHasUnsaved=true;
+        };
         body.appendChild(ta);
       }
 
@@ -13466,6 +13487,9 @@ function renderVault(){
             // Update cache to match what was saved
             const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
             if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].isDraft=true;ns[i].lastSaved=_lastSaved;DB.vaultNotes=ns;}
+            // Clear in-flight drafts (content is now saved to Supabase)
+            if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];
+            if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
             S.vaultHasUnsaved=false;re();toast(T('vault_draft_saved'));
           }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');saveDraftBtn.disabled=false;}
         });
@@ -13526,6 +13550,7 @@ function renderVault(){
                     // Update cache to match what was saved
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                     if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
+                    if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
                     S.vaultHasUnsaved=false;re();toast(T('vault_locked_toast'));
                   }
                 );
@@ -13569,6 +13594,7 @@ function renderVault(){
                 }catch(e){console.error('delete note:',e);}
               }
               const ns=DB.vaultNotes.filter(n=>n.id!==note.id);DB.vaultNotes=ns;
+              if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
               S.activeVaultId=null;S.vaultHasUnsaved=false;re();toast(T('vault_note_deleted'));
             });
           });
@@ -13620,6 +13646,7 @@ function renderVault(){
                   // Notify ALL household members (not just primary parent)
                   const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
                   await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
+                  if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
                   S.vaultHasUnsaved=false;re();toast(T('vault_published'));
                 }catch(e){console.error('publish note:',e);toast(T('vault_could_not_publish'),'error');}
               });
