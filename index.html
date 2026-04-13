@@ -1710,7 +1710,7 @@ async function loadChildSpecialists(childId){
     // Get their profiles
     const specIds=reqs.map(r=>r.specialist_id).filter(Boolean);
     const {data:profiles}=await _supa.from('profiles')
-      .select('id,display_name,email,role')
+      .select('id,display_name,email,role,photo_url')
       .in('id',specIds);
     // Get their folder permissions for this child
     const {data:perms}=await _supa.from('folder_permissions')
@@ -1724,7 +1724,7 @@ async function loadChildSpecialists(childId){
       const name=prof?.display_name||r.specialist_name||'Specialist';
       // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
       return{id:r.specialist_id,name,role:r.role||'Specialist',email:prof?.email||'',
-        avatar:'🩺',status:r.status==='approved'?'active':r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
+        avatar:'🩺',photo:prof?.photo_url||null,status:r.status==='approved'?'active':r.status,permissions:{[childId]:permMap[r.specialist_id]||[]},childId};
     });
     // Also pick up any specialists in the specialists table for this child
     // who may have joined via email invite (no specialist_requests row)
@@ -1734,8 +1734,9 @@ async function loadChildSpecialists(childId){
         .eq('child_id',childId).eq('status','active');
       (directSpecs||[]).forEach(ds=>{
         if(!specs.find(s=>s.id===ds.id)){
+          const _dsProf=(profiles||[]).find(p=>p.id===ds.id);
           specs.push({id:ds.id,name:ds.name||'Specialist',role:ds.role||'Specialist',
-            email:ds.email||'',avatar:'🩺',status:'active',
+            email:ds.email||'',avatar:'🩺',photo:_dsProf?.photo_url||null,status:'active',
             permissions:{[childId]:permMap[ds.id]||[]},childId});
         }
       });
@@ -1766,6 +1767,7 @@ function getMySpecialistRecord(){
     role:session?.profession||session?.role||'Specialist',
     email:session?.email||'',
     avatar:'🩺',
+    photo:session?.photo||null,
     status:'active',
     permissions:LS.get('my_perms',{}),
     credentials:LS.get('my_credentials',[])
@@ -1820,9 +1822,13 @@ const SB = {
     // DO NOT deduplicate by specialist_id alone: a specialist may treat multiple children,
     // and renderTeam filters by s.childId===child.id so each child needs its own entry
     const reqs=_all.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
+    // Batch-fetch profile photos for all specialist IDs
+    const _specIds2=[...new Set(reqs.map(r=>r.specialist_id).filter(Boolean))];
+    const {data:_specProfs}=_specIds2.length?await _supa.from('profiles').select('id,photo_url').in('id',_specIds2):{data:[]};
+    const _photoMap={};(_specProfs||[]).forEach(p=>{if(p.photo_url)_photoMap[p.id]=p.photo_url;});
     // Map 'approved'→'active' so UI filters like s.status==='active' work correctly
     // Set both childId and child_id so filter works regardless of which field is checked
-    const specs=reqs.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
+    const specs=reqs.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_photoMap[r.specialist_id]||null,permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -1834,7 +1840,11 @@ const SB = {
     const _sorted=(reqs||[]).sort((a,b)=>(a.request_type==='join'?0:1)-(b.request_type==='join'?0:1));
     // Keep one entry per specialist per child
     const _deduped=_sorted.filter((r,i,a)=>a.findIndex(x=>x.specialist_id===r.specialist_id&&x.child_id===r.child_id)===i);
-    const specs=_deduped.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
+    // Batch-fetch profile photos
+    const _specIds3=[...new Set(_deduped.map(r=>r.specialist_id).filter(Boolean))];
+    const {data:_specProfs3}=_specIds3.length?await _supa.from('profiles').select('id,photo_url').in('id',_specIds3):{data:[]};
+    const _photoMap3={};(_specProfs3||[]).forEach(p=>{if(p.photo_url)_photoMap3[p.id]=p.photo_url;});
+    const specs=_deduped.map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_photoMap3[r.specialist_id]||null,permissions:{},status:r.status==='approved'?'active':r.status,credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
     await _loadSpecPermissions(specs);
     return specs;
   },
@@ -5994,7 +6004,11 @@ function mkBtn(label,cls,onClick,attrs={}){
   b.addEventListener('click',onClick);return b;
 }
 function badge(t,c='teal'){return el('span',{class:`badge badge-${c}`},[t]);}
-function mkAvatar(emoji,sz=40,bg='#d1fae5'){
+function mkAvatar(emoji,sz=40,bg='#d1fae5',photo=null){
+  if(photo){
+    return el('div',{class:'avatar',style:{width:sz+'px',height:sz+'px',background:bg,overflow:'hidden',padding:'0'}},
+      [el('img',{src:photo,style:{width:'100%',height:'100%',objectFit:'cover'}})]);
+  }
   return el('div',{class:'avatar',style:{width:sz+'px',height:sz+'px',background:bg,fontSize:(sz*.42)+'px'}},[emoji]);
 }
 function mkChildAvatar(child,sz=48,radius='12px'){
@@ -10375,7 +10389,7 @@ function renderFiles(){
                       }
                     };
                     row.appendChild(cb);
-                    row.appendChild(mkAvatar(s.avatar||'🩺',32,'#d1fae5'));
+                    row.appendChild(mkAvatar(s.avatar||'🩺',32,'#d1fae5',s.photo));
                     row.appendChild(el('div',{style:{flex:1}},[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role||'Specialist'])]));
                     if(_has)row.appendChild(el('span',{style:{color:'var(--teal)',fontWeight:800,fontSize:'.8rem'}},['✓']));
                     mb.appendChild(row);
@@ -10476,7 +10490,7 @@ function renderFiles(){
                   toast(T('files_auth_updated',{name:os.name}));
                 };
                 lbl.appendChild(cb);
-                lbl.appendChild(mkAvatar(os.avatar||'🩺',30,'#d1fae5'));
+                lbl.appendChild(mkAvatar(os.avatar||'🩺',30,'#d1fae5',os.photo));
                 lbl.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:700}},[os.name]));
                 mb.appendChild(lbl);
               });
@@ -10759,7 +10773,7 @@ function showFilePermModal(file,folder){
         else{fi2.sharedWith=fi2.sharedWith.filter(x=>x!==s.id);}
         DB.folders=fls;
       };
-      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar||'🩺',32,'#d1fae5',s.photo));
       lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
       rows.appendChild(lbl);
     });
@@ -10858,7 +10872,7 @@ function buildTeamList(child){
         const pb=el('div',{style:{position:'absolute',top:'-10px',[_endSide()]:'13px'}});
         pb.appendChild(badge('⏳ '+T('team_pending'),'amber'));card.appendChild(pb);
       }
-      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5'));
+      card.appendChild(mkAvatar(s.avatar||'🩺',48,'#d1fae5',s.photo));
       const info=d('',[], {flex:1});
       const _sCardChild=DB.children.find(c=>c.id===s.childId||c.id===s.child_id);
       info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'2px'}},[s.name]));
@@ -11027,7 +11041,11 @@ function renderTeam(){
             if(!_specMap.has(r.specialist_id)||r.child_id===S.activeChild)
               _specMap.set(r.specialist_id,r);
           });
-          const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
+          // Batch-fetch profile photos for approved specialists
+          const _rtSpecIds=[..._specMap.keys()];
+          let _rtPhotoMap={};
+          try{const{data:_rtProfs}=_rtSpecIds.length?await _supa.from('profiles').select('id,photo_url').in('id',_rtSpecIds):{data:[]};(_rtProfs||[]).forEach(p=>{if(p.photo_url)_rtPhotoMap[p.id]=p.photo_url;});}catch(e){}
+          const _newSpecs=[..._specMap.values()].map(r=>({id:r.specialist_id,name:r.specialist_name,role:r.role,email:'',avatar:'🩺',photo:_rtPhotoMap[r.specialist_id]||null,permissions:{},status:'active',credentials:[],inviteToken:null,childId:r.child_id,child_id:r.child_id}));
           const _newIds=new Set(_newSpecs.map(s=>s.id));
           DB.specialists=_newSpecs; // Replace (not merge) — clears stale specialists from previous child
         }
@@ -12922,7 +12940,7 @@ function showConsultModal(childId){
       rb.value=s.id; rb.checked=(s.id===state.targetId);
       rb.onchange=()=>{state.targetId=s.id;state.targetName=s.name;};
       row.appendChild(rb);
-      row.appendChild(mkAvatar(s.avatar||'🩺',34,'#d1fae5'));
+      row.appendChild(mkAvatar(s.avatar||'🩺',34,'#d1fae5',s.photo));
       const si=d('',[], {flex:1});
       si.appendChild(el('div',{style:{fontWeight:700,fontSize:'.84rem',color:'var(--navy)'}},[s.name]));
       si.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role]));
@@ -17109,7 +17127,8 @@ function renderSpecialistRequests(){
       recent.forEach(r2=>{
         const child2=DB.children.find(c=>c.id===r2.child_id);
         const card2=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',background:'#fff',borderRadius:'10px',border:'1px solid var(--mint-l)',marginBottom:'6px'}});
-        card2.appendChild(el('span',{style:{fontSize:'1.2rem'}},['🩺']));
+        const _r2Spec=(DB.specialists||[]).find(s=>s.name===r2.specialist_name);
+        card2.appendChild(mkAvatar('🩺',32,'#d1fae5',_r2Spec?.photo));
         const info2=el('div',{style:{flex:1,minWidth:0}});
         info2.appendChild(el('div',{style:{fontWeight:700,fontSize:'.82rem',color:'var(--navy)'}},[r2.specialist_name||'Specialist']));
         info2.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[(r2.role||'')+(child2?' · '+child2.name:r2.child_name_hint?' · '+r2.child_name_hint:'')]));
@@ -17409,14 +17428,14 @@ function renderSessionSummaries(){
         display:'flex',alignItems:'center',gap:'14px',cursor:'pointer',
         padding:'16px',border:'1.5px solid var(--mint-l)'
       }});
-      // Avatar circle
-      const av=el('div',{style:{
-        width:'48px',height:'48px',borderRadius:'50%',
-        background:'linear-gradient(135deg,var(--teal),var(--lavender))',
-        display:'flex',alignItems:'center',justifyContent:'center',
-        fontSize:'1.4rem',flexShrink:0
-      }},[spec.avatar||'🔬']);
-      card.appendChild(av);
+      // Avatar circle — shows specialist photo if available
+      if(spec.photo){
+        const av=el('div',{style:{width:'48px',height:'48px',borderRadius:'50%',background:'var(--mint-ll)',overflow:'hidden',flexShrink:0}});
+        av.appendChild(el('img',{src:spec.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+        card.appendChild(av);
+      } else {
+        card.appendChild(el('div',{style:{width:'48px',height:'48px',borderRadius:'50%',background:'linear-gradient(135deg,var(--teal),var(--lavender))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',flexShrink:0}},[spec.avatar||'🔬']));
+      }
       // Info
       const info=el('div',{style:{flex:1,minWidth:0}});
       info.appendChild(el('div',{style:{fontWeight:800,fontSize:'.92rem',color:'var(--navy)',marginBottom:'3px'}},[spec.name]));
@@ -17545,7 +17564,7 @@ function _showParentNewChatModal(){
     mb.appendChild(el('p',{style:{fontSize:'.85rem',color:'var(--slate)',marginBottom:'14px'}},[T('chat_select_spec_msg')]));
     specs.forEach(s=>{
       const row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px',cursor:'pointer'}});
-      row.appendChild(mkAvatar(s.avatar||'🩺',36,'#d1fae5'));
+      row.appendChild(mkAvatar(s.avatar||'🩺',36,'#d1fae5',s.photo));
       row.appendChild(el('div',{style:{flex:1}},[el('div',{style:{fontWeight:700,fontSize:'.88rem',color:'var(--navy)'}},[s.name||'Specialist']),el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[s.role||''])]));
       row.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem'}},['›']));
       row.onclick=()=>{close();_openOrCreateDirectChat(_cid,s.id,s.name,s.role);};
@@ -17609,7 +17628,7 @@ function showCreateGroupChatModal(){
       const lbl=el('label',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'9px 13px',borderRadius:'12px',background:'var(--mint-ll)',marginBottom:'8px'}});
       const cb=el('input',{type:'checkbox'});
       cb.onchange=e=>e.target.checked?selected.add(s.id):selected.delete(s.id);
-      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar,32,'#d1fae5'));
+      lbl.appendChild(cb);lbl.appendChild(mkAvatar(s.avatar||'🩺',32,'#d1fae5',s.photo));
       lbl.appendChild(d('',[el('div',{style:{fontWeight:700,fontSize:'.84rem'}},[s.name]),el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},[s.role])]));
       mb.appendChild(lbl);
     });
