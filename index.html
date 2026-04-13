@@ -1982,13 +1982,8 @@ async function refreshFromSupabase(){
             LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null})));
           })
           .catch(e=>console.error('refresh appointments:',e)),
-        // Homework — legacy simple table (kept for backward compat)
-        (hid
-          ? _supa.from('homework').select('*').eq('household_id',hid)
-          : _supa.from('homework').select('*').eq('specialist_id',session.id)
-        ).then(({data:hw})=>LS.set('homework',(hw||[]).map(h=>({id:h.id,childId:h.child_id,task:h.task,category:h.category,due:h.due,completed:h.completed,specialist:h.specialist_name||'',specialistId:h.specialist_id||''}))))
-          .catch(e=>console.error('refresh homework:',e)),
-        // Homework Tasks — new recurring task system
+        // Homework Tasks — recurring task system (replaces legacy homework table)
+        Promise.resolve(), // legacy homework table removed — RLS deny-all
         (hid
           ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
           : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
@@ -2033,14 +2028,9 @@ async function refreshFromSupabase(){
         _supa.from('todos').select('*').eq('user_id',session.id)
           .then(({data:tds})=>LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}}))))
           .catch(e=>console.error('refresh todos:',e)),
-        // Milestones
-        _supa.from('milestones').select('*').eq('household_id',hid||session.id)
-          .then(({data:miles})=>LS.set('milestones',(miles||[]).map(m=>({id:m.id,childId:m.child_id,title:m.label,date:m.date||'',achieved:m.achieved||false,category:m.category||'General',specialistId:m.specialist_id||null}))))
-          .catch(e=>console.error('refresh milestones:',e)),
-        // Progress
-        _supa.from('progress').select('*').eq('household_id',hid||session.id)
-          .then(({data:prog})=>LS.set('progress',(prog||[]).map(p=>({id:p.id,childId:p.child_id,category:p.category||'General',label:p.label||'',value:p.value||0,maxValue:p.max_value||100,unit:p.unit||'',date:p.date||'',specialistId:p.specialist_id||null}))))
-          .catch(e=>console.error('refresh progress:',e)),
+        // Milestones + Progress — legacy tables, RLS deny-all, skip queries
+        Promise.resolve(),
+        Promise.resolve(),
         // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
         // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages/unreadFor with stale data.
         Promise.resolve(),
