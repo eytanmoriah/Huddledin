@@ -2765,6 +2765,74 @@ async function doLogout(){
   ['pendingInviteToken','pendingInviteChild','pendingInviteEmail','pendingHouseholdToken','pendingHouseholdEmail','pendingGoogleRole','hd_pending_plan','hd_pending_spec_plan','pendingSpecialistRequestId','pendingSR_name','pendingSR_role','pendingSR_child'].forEach(k=>localStorage.removeItem(k));
 }
 
+// Delete account via Edge Function — handles data cleanup, storage, Paddle, auth deletion
+async function _deleteAccountRequest(mode){
+  const {data:{session:s}}=await _supa.auth.getSession();
+  if(!s?.access_token)throw new Error('Session expired');
+  const SUPA_URL=SUPABASE_URL||'https://smgbojgrdezasxciloll.supabase.co';
+  const res=await fetch(SUPA_URL+'/functions/v1/delete-account',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.access_token},
+    body:JSON.stringify({mode})
+  });
+  if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error||'Deletion failed');}
+  return true;
+}
+
+function _showDeleteParentModal(){
+  openConfirm(T('settings_delete_account'),T('delete_parent_msg'),true,async()=>{
+    toast(T('delete_processing'),'info',10000);
+    try{
+      await _deleteAccountRequest('parent');
+      // Clear everything locally
+      Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+      await _supa.auth.signOut();session=null;
+      toast(T('delete_success'),'info');re();
+    }catch(e){console.error('❌ delete account:',e);toast(T('delete_failed'),'error');}
+  });
+}
+
+function _showDeleteSpecialistModal(){
+  openModal(T('settings_delete_account'),(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',lineHeight:'1.65',marginBottom:'20px'}},[T('delete_spec_choice')]));
+    // Option 1: Keep records
+    const opt1=el('div',{class:'card hov',style:{cursor:'pointer',padding:'16px',marginBottom:'10px',border:'1.5px solid var(--mint-l)'}});
+    opt1.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},['📋 '+T('delete_spec_keep')]));
+    opt1.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.5'}},[T('delete_spec_keep_desc')]));
+    opt1.onclick=()=>{
+      close();
+      openConfirm(T('settings_delete_account'),T('delete_spec_keep')+' — '+T('settings_delete_confirm'),true,async()=>{
+        toast(T('delete_processing'),'info',10000);
+        try{
+          await _deleteAccountRequest('specialist_keep');
+          Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+          await _supa.auth.signOut();session=null;
+          toast(T('delete_success'),'info');re();
+        }catch(e){console.error('❌ delete account:',e);toast(T('delete_failed'),'error');}
+      });
+    };
+    mb.appendChild(opt1);
+    // Option 2: Delete everything
+    const opt2=el('div',{class:'card hov',style:{cursor:'pointer',padding:'16px',marginBottom:'10px',border:'1.5px solid #fca5a5'}});
+    opt2.appendChild(el('div',{style:{fontWeight:800,color:'#991b1b',marginBottom:'4px'}},['🗑️ '+T('delete_spec_delete_all')]));
+    opt2.appendChild(el('div',{style:{fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.5'}},[T('delete_spec_delete_all_desc')]));
+    opt2.onclick=()=>{
+      close();
+      openConfirm(T('settings_delete_account'),T('delete_spec_delete_all')+' — '+T('settings_delete_confirm'),true,async()=>{
+        toast(T('delete_processing'),'info',10000);
+        try{
+          await _deleteAccountRequest('specialist_delete');
+          Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
+          await _supa.auth.signOut();session=null;
+          toast(T('delete_success'),'info');re();
+        }catch(e){console.error('❌ delete account:',e);toast(T('delete_failed'),'error');}
+      });
+    };
+    mb.appendChild(opt2);
+    mb.appendChild(mkBtn(T('btn_cancel'),'btn-md btn-ghost btn-full',close));
+  },420);
+}
+
 /* -----------------------------------------------
    APP STATE
 ----------------------------------------------- */
@@ -3503,6 +3571,15 @@ settings_danger:'Danger Zone',
 settings_sign_out:'Sign Out',
 settings_delete_account:'Delete Account',
 settings_delete_confirm:'Delete your account? This cannot be undone.',
+delete_parent_msg:'This will permanently delete your account and anonymize your children\'s profiles. Specialists will retain their clinical records. Active subscriptions will be cancelled.\n\nThis cannot be undone.',
+delete_spec_choice:'How would you like to handle your clinical records?',
+delete_spec_keep:'Keep records for families',
+delete_spec_keep_desc:'Your notes, reports, and tasks will remain available to families. Your profile will be removed.',
+delete_spec_delete_all:'Delete everything',
+delete_spec_delete_all_desc:'All your records will be permanently deleted. Families will lose access to your notes and reports.',
+delete_processing:'Deleting account...',
+delete_failed:'Account deletion failed. Please try again or contact support.',
+delete_success:'Your account has been deleted.',
 // ── Child Modals (Chunk 14) ──
 child_add_title:'Add a Child',
 child_add_name:'Child\u2019s Name',
@@ -4813,6 +4890,15 @@ settings_danger:'\u05D0\u05D6\u05D5\u05E8 \u05DE\u05E1\u05D5\u05DB\u05DF',
 settings_sign_out:'\u05D4\u05EA\u05E0\u05EA\u05E7\u05D5\u05EA',
 settings_delete_account:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05D7\u05E9\u05D1\u05D5\u05DF',
 settings_delete_confirm:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05D7\u05E9\u05D1\u05D5\u05DF \u05E9\u05DC\u05DA? \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC \u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5.',
+delete_parent_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05DE\u05D7\u05E7 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u05D0\u05EA \u05D4\u05D7\u05E9\u05D1\u05D5\u05DF \u05D5\u05EA\u05E2\u05E8\u05D5\u05E3 \u05D0\u05EA \u05E4\u05E8\u05D5\u05E4\u05D9\u05DC\u05D9 \u05D4\u05D9\u05DC\u05D3\u05D9\u05DD. \u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05D9\u05E9\u05DE\u05E8\u05D5 \u05E2\u05DC \u05D4\u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05D4\u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA. \u05DE\u05E0\u05D5\u05D9\u05D9\u05DD \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD \u05D9\u05D1\u05D5\u05D8\u05DC\u05D5.\n\n\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',
+delete_spec_choice:'\u05D0\u05D9\u05DA \u05DC\u05D8\u05E4\u05DC \u05D1\u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05D4\u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA?',
+delete_spec_keep:'\u05E9\u05DE\u05D9\u05E8\u05EA \u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05DC\u05DE\u05E9\u05E4\u05D7\u05D5\u05EA',
+delete_spec_keep_desc:'\u05D4\u05D4\u05E2\u05E8\u05D5\u05EA, \u05D3\u05D5\u05D7\u05D5\u05EA \u05D5\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D9\u05D9\u05E9\u05D0\u05E8\u05D5 \u05D6\u05DE\u05D9\u05E0\u05D9\u05DD \u05DC\u05DE\u05E9\u05E4\u05D7\u05D5\u05EA. \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05D9\u05D5\u05E1\u05E8.',
+delete_spec_delete_all:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05D4\u05DB\u05DC',
+delete_spec_delete_all_desc:'\u05DB\u05DC \u05D4\u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05D9\u05D9\u05DE\u05D7\u05E7\u05D5 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA. \u05D4\u05DE\u05E9\u05E4\u05D7\u05D5\u05EA \u05D9\u05D0\u05D1\u05D3\u05D5 \u05D2\u05D9\u05E9\u05D4.',
+delete_processing:'\u05DE\u05D5\u05D7\u05E7 \u05D7\u05E9\u05D1\u05D5\u05DF...',
+delete_failed:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05D4\u05D7\u05E9\u05D1\u05D5\u05DF \u05E0\u05DB\u05E9\u05DC\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1 \u05D0\u05D5 \u05E4\u05E0\u05D5 \u05DC\u05EA\u05DE\u05D9\u05DB\u05D4.',
+delete_success:'\u05D4\u05D7\u05E9\u05D1\u05D5\u05DF \u05E0\u05DE\u05D7\u05E7.',
 // ── Child Modals ──
 child_add_title:'\u05D4\u05D5\u05E1\u05E4\u05EA \u05D9\u05DC\u05D3/\u05D4',
 child_add_name:'\u05E9\u05DD \u05D4\u05D9\u05DC\u05D3/\u05D4',
@@ -18470,7 +18556,7 @@ function renderSpecialistSettings(){
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'4px',fontWeight:600}},[T('settings_email_label',{email:session?.email||''})]));
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},[T('settings_role_specialist')]));
   ac.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
-  ac.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
+  ac.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>{if(session?.id==='demo'){toast('Demo mode.','error');return;}_showDeleteSpecialistModal();}));
   sec.appendChild(ac);
 
   // Specialist AI subscription management card
@@ -19230,7 +19316,7 @@ function renderSettings(){
   ac.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.86rem',marginBottom:'14px',fontWeight:500}},[session?.role==='parent'?T('settings_role_parent'):T('settings_role_specialist')]));
   const acBtns=d('',[], {display:'flex',gap:'10px',flexWrap:'wrap'});
   acBtns.appendChild(mkBtn(T('settings_sign_out'),'btn-md btn-danger',async()=>{await doLogout();re();}));
-  acBtns.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>openConfirm(T('settings_delete_account'),T('settings_delete_confirm'),true,async()=>{if(session&&session.id!=='demo'){try{await _supa.from('profiles').delete().eq('id',session.id);}catch(e){console.error(e);}}await doLogout();re();})));
+  acBtns.appendChild(mkBtn(T('settings_delete_account'),'btn-md btn-ghost',()=>{if(session?.id==='demo'){toast('Demo mode.','error');return;}_showDeleteParentModal();}));
   ac.appendChild(acBtns);sec.appendChild(ac);
 
   // Subscription management card
