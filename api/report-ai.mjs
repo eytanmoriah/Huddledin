@@ -81,8 +81,9 @@ ${styleInstruction}`;
     if (!documentBase64) return res.status(400).json({ error: 'No document provided' });
 
     const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-    const docxTypes = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
-    const isDocx = docxTypes.includes(mimeType);
+    const isDocx = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const isLegacyDoc = mimeType === 'application/msword';
+    if (isLegacyDoc) return res.status(400).json({ error: 'Legacy .doc format is not supported. Please save as .docx in Microsoft Word and try again.' });
     if (!isDocx && !supported.includes(mimeType)) return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF, DOCX, or image.' });
 
     console.log('[import-extract]', fileName, mimeType, 'base64:', documentBase64.length);
@@ -90,8 +91,6 @@ ${styleInstruction}`;
     // DOCX: extract text directly from the ZIP/XML (no AI needed)
     if (isDocx) {
       try {
-        const { Readable } = await import('stream');
-        const { createInflateRaw } = await import('zlib');
         const buf = Buffer.from(documentBase64, 'base64');
         const text = await extractDocxText(buf);
         console.log('[import-extract] DOCX text extracted:', text.length, 'chars');
@@ -200,30 +199,48 @@ Rules: identify ALL sections, use appropriate field types, capture writing voice
 }
 
 // Extract text from DOCX (ZIP of XML) — no external dependencies
+// Uses the Central Directory (at end of ZIP) for reliable entry parsing.
+// Local file headers can have size=0 when data descriptors are used,
+// but the Central Directory always has correct sizes.
 async function extractDocxText(buf) {
   const { inflateRawSync } = await import('zlib');
 
-  // Minimal ZIP parser — find entries, locate word/document.xml
-  const entries = [];
-  let i = 0;
-  while (i < buf.length - 4) {
-    // Local file header signature: PK\x03\x04
-    if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x03 && buf[i+3] === 0x04) {
-      const method = buf.readUInt16LE(i + 8);
-      const compSize = buf.readUInt32LE(i + 18);
-      const uncompSize = buf.readUInt32LE(i + 22);
-      const nameLen = buf.readUInt16LE(i + 26);
-      const extraLen = buf.readUInt16LE(i + 28);
-      const name = buf.toString('utf8', i + 30, i + 30 + nameLen);
-      const dataStart = i + 30 + nameLen + extraLen;
-      entries.push({ name, method, compSize, uncompSize, dataStart });
-      i = dataStart + compSize;
-    } else {
-      i++;
+  // ── Locate End of Central Directory record (EOCD) ──
+  // EOCD signature: PK\x05\x06 — scan backwards from end of file
+  let eocdOff = -1;
+  for (let i = buf.length - 22; i >= 0 && i >= buf.length - 65557; i--) {
+    if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x05 && buf[i+3] === 0x06) {
+      eocdOff = i; break;
     }
   }
+  if (eocdOff === -1) throw new Error('Not a valid ZIP file (no EOCD record)');
 
-  // Find word/document.xml
+  const cdEntries = buf.readUInt16LE(eocdOff + 10); // total entries in central directory
+  const cdSize = buf.readUInt32LE(eocdOff + 12);     // size of central directory
+  const cdOff = buf.readUInt32LE(eocdOff + 16);      // offset of central directory
+
+  // ── Parse Central Directory entries ──
+  // CD entry signature: PK\x01\x02
+  const entries = [];
+  let pos = cdOff;
+  for (let n = 0; n < cdEntries && pos < buf.length - 4; n++) {
+    if (buf[pos] !== 0x50 || buf[pos+1] !== 0x4b || buf[pos+2] !== 0x01 || buf[pos+3] !== 0x02) break;
+    const method = buf.readUInt16LE(pos + 10);
+    const compSize = buf.readUInt32LE(pos + 20);
+    const nameLen = buf.readUInt16LE(pos + 28);
+    const extraLen = buf.readUInt16LE(pos + 30);
+    const commentLen = buf.readUInt16LE(pos + 32);
+    const localHeaderOff = buf.readUInt32LE(pos + 42);
+    const name = buf.toString('utf8', pos + 46, pos + 46 + nameLen);
+    // Compute data offset from the local file header (skip past it to the actual data)
+    const lfNameLen = buf.readUInt16LE(localHeaderOff + 26);
+    const lfExtraLen = buf.readUInt16LE(localHeaderOff + 28);
+    const dataStart = localHeaderOff + 30 + lfNameLen + lfExtraLen;
+    entries.push({ name, method, compSize, dataStart });
+    pos += 46 + nameLen + extraLen + commentLen;
+  }
+
+  // ── Find and decompress word/document.xml ──
   const docEntry = entries.find(e => e.name === 'word/document.xml');
   if (!docEntry) throw new Error('No word/document.xml found in DOCX');
 
@@ -237,10 +254,8 @@ async function extractDocxText(buf) {
     throw new Error('Unsupported compression method: ' + docEntry.method);
   }
 
-  // Extract text from XML — get content of all <w:t> tags
+  // ── Extract text from XML — get content of all <w:t> tags ──
   const parts = [];
-  let inParagraph = false;
-  // Split by paragraph boundaries
   const paragraphs = xml.split(/<\/w:p>/);
   for (const para of paragraphs) {
     const texts = [];
