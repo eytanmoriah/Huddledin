@@ -2502,7 +2502,8 @@ async function _loadSessionFromSupabase(s){
       profession:profile.profession||null,
       googleCalendarEnabled:profile.google_calendar_enabled||false,
 phone:profile.phone||null,address_line1:profile.address_line1||null,address_line2:profile.address_line2||null,city:profile.city||null,zip:profile.zip||null,country:profile.country||null,
-      credentials_title:profile.credentials_title||null,credentials_license:profile.credentials_license||null,credentials_certs:profile.credentials_certs||null};
+      credentials_title:profile.credentials_title||null,credentials_license:profile.credentials_license||null,credentials_certs:profile.credentials_certs||null,
+      photo:profile.photo_url||null};
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
@@ -3582,6 +3583,12 @@ settings_photo_btn:'\uD83D\uDCF7 Photo',
 settings_delete_btn:'\uD83D\uDDD1\uFE0F Delete',
 settings_add_child_btn:'\u2795 Add Child',
 settings_name_prompt:'Enter your display name:',
+settings_photo_change:'Change Photo',
+settings_photo_upload:'Upload Photo',
+settings_photo_remove:'Remove Photo',
+settings_photo_updated:'Profile photo updated!',
+settings_photo_removed:'Profile photo removed.',
+settings_photo_tap:'Tap to add photo',
 settings_name_updated:'Name updated!',
 settings_name_failed:'Could not save name.',
 settings_email_label:'Email: {email}',
@@ -4868,6 +4875,12 @@ settings_photo_btn:'\uD83D\uDCF7 \u05EA\u05DE\u05D5\u05E0\u05D4',
 settings_delete_btn:'\uD83D\uDDD1\uFE0F \u05DE\u05D7\u05D9\u05E7\u05D4',
 settings_add_child_btn:'\u2795 \u05D4\u05D5\u05E1\u05E4\u05EA \u05D9\u05DC\u05D3/\u05D4',
 settings_name_prompt:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05D0\u05EA \u05E9\u05DD \u05D4\u05EA\u05E6\u05D5\u05D2\u05D4:',
+settings_photo_change:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_photo_upload:'\u05D4\u05E2\u05DC\u05D0\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_photo_remove:'\u05D4\u05E1\u05E8\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
+settings_photo_updated:'\u05EA\u05DE\u05D5\u05E0\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',
+settings_photo_removed:'\u05EA\u05DE\u05D5\u05E0\u05EA \u05D4\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05D4\u05D5\u05E1\u05E8\u05D4.',
+settings_photo_tap:'\u05DC\u05D7\u05E6\u05D5 \u05DC\u05D4\u05D5\u05E1\u05E4\u05EA \u05EA\u05DE\u05D5\u05E0\u05D4',
 settings_name_updated:'\u05D4\u05E9\u05DD \u05E2\u05D5\u05D3\u05DB\u05DF!',
 settings_name_failed:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05D0\u05EA \u05D4\u05E9\u05DD.',
 settings_email_label:'\u05D0\u05D9\u05DE\u05D9\u05D9\u05DC: {email}',
@@ -7735,12 +7748,21 @@ function renderSpecDesktop(){
   logo.onclick=()=>{S.activeTab='dashboard';re();};
   sidebar.appendChild(logo);
 
-  // Info card
-  const ic=el('div',{class:'spec-dt-info-card'});
+  // Info card with profile photo
+  const ic=el('div',{class:'spec-dt-info-card',style:{display:'flex',gap:'12px',alignItems:'center'}});
+  const icAv=el('div',{style:{width:'42px',height:'42px',borderRadius:'50%',background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.2rem',color:'#fff',flexShrink:0,overflow:'hidden'}});
+  if(session?.photo){
+    icAv.appendChild(el('img',{src:session.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+  } else {
+    icAv.textContent=initials||'🩺';
+  }
+  ic.appendChild(icAv);
+  const icInfo=el('div',{style:{flex:1,minWidth:0}});
   const icN=el('div',{class:'spec-dt-info-name'}); icN.textContent=specName;
   const icR=el('div',{class:'spec-dt-info-role'}); icR.textContent=specProf;
   const icC=el('div',{class:'spec-dt-info-count'},['👤 '+activeCount+' '+(activeCount!==1?T('spec_dt_patients_pl'):T('spec_dt_patient'))]);
-  ic.appendChild(icN); ic.appendChild(icR); ic.appendChild(icC);
+  icInfo.appendChild(icN); icInfo.appendChild(icR); icInfo.appendChild(icC);
+  ic.appendChild(icInfo);
   sidebar.appendChild(ic);
 
   // Nav
@@ -17879,6 +17901,69 @@ async function renderHouseholdCard(){
   return card;
 }
 
+function _showSpecPhotoModal(){
+  openModal(session?.photo?T('settings_photo_change'):T('settings_photo_upload'),(mb,close)=>{
+    let photoData=session?.photo||null;
+    const photoWrap=el('div',{style:{width:'120px',height:'120px',borderRadius:'50%',background:'var(--mint-ll)',border:'2px dashed var(--mint-l)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',cursor:'pointer',overflow:'hidden',position:'relative'}});
+    if(photoData){
+      photoWrap.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+    } else {
+      photoWrap.appendChild(el('div',{style:{textAlign:'center'}},[
+        el('div',{style:{fontSize:'2rem',marginBottom:'4px'}},['📷']),
+        el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},[T('settings_photo_tap')])
+      ]));
+    }
+    const photoInput=el('input',{type:'file',accept:'image/*',style:{display:'none'}});
+    photoInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        // Fullscreen crop overlay (reuses Cropper.js pattern from showChildPhotoModal)
+        const ov=el('div',{style:{position:'fixed',inset:'0',background:'#000',zIndex:10000,display:'flex',flexDirection:'column'}});
+        const bar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',flexShrink:0}});
+        bar.appendChild(el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.9rem'}},[T('child_drag_crop')]));
+        const cancelBtn=el('button',{style:{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'20px',padding:'6px 14px',cursor:'pointer',fontWeight:700}},[T('child_cancel')]);
+        cancelBtn.onclick=()=>ov.remove();
+        bar.appendChild(cancelBtn);
+        ov.appendChild(bar);
+        const imgWrap=el('div',{style:{flex:1,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}});
+        const img=el('img',{src:ev.target.result,style:{maxWidth:'100%',maxHeight:'100%'}});
+        imgWrap.appendChild(img);
+        ov.appendChild(imgWrap);
+        const foot=el('div',{style:{padding:'14px 16px',flexShrink:0}});
+        const useBtn=el('button',{style:{width:'100%',background:'var(--teal)',color:'#fff',border:'none',borderRadius:'14px',padding:'14px',fontWeight:800,fontSize:'1rem',cursor:'pointer'}},[T('child_use_crop')]);
+        useBtn.onclick=()=>{
+          const canvas=cropper.getCroppedCanvas({width:400,height:400,imageSmoothingQuality:'high'});
+          photoData=canvas.toDataURL('image/jpeg',0.88);
+          photoWrap.innerHTML='';
+          photoWrap.appendChild(el('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+          cropper.destroy();ov.remove();
+        };
+        foot.appendChild(useBtn);
+        ov.appendChild(foot);
+        document.body.appendChild(ov);
+        const cropper=new Cropper(img,{aspectRatio:1,viewMode:1,dragMode:'move',autoCropArea:0.9,restore:false,guides:true,center:true,highlight:false,cropBoxMovable:false,cropBoxResizable:false,toggleDragModeOnDblclick:false});
+      };
+      reader.readAsDataURL(f);
+    };
+    photoWrap.onclick=()=>photoInput.click();
+    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    const btns=el('div',{style:{display:'flex',gap:'10px',justifyContent:'center'}});
+    if(session?.photo){
+      btns.appendChild(mkBtn(T('settings_photo_remove'),'btn-md btn-danger',async()=>{
+        try{await _supa.from('profiles').update({photo_url:null}).eq('id',session.id);}catch(e){console.error('❌ removePhoto:',e);}
+        session.photo=null;close();re();toast(T('settings_photo_removed'));
+      }));
+    }
+    btns.appendChild(mkBtn(T('settings_photo_upload'),'btn-md btn-primary',async()=>{
+      if(!photoData){toast(T('settings_photo_tap'),'error');return;}
+      try{await _supa.from('profiles').update({photo_url:photoData}).eq('id',session.id);}catch(e){console.error('❌ savePhoto:',e);toast('Could not save photo.','error');return;}
+      session.photo=photoData;close();re();toast(T('settings_photo_updated'));
+    }));
+    mb.appendChild(btns);
+  },380);
+}
+
 function renderSpecialistSettings(){
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},[T('settings_title')]));
@@ -17886,7 +17971,16 @@ function renderSpecialistSettings(){
   // Profile card
   const pr=el('div',{class:'card',style:{marginBottom:'16px'}});
   const prHeader=el('div',{style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
-  const av=el('div',{style:{width:'54px',height:'54px',borderRadius:'50%',background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6rem',color:'#fff',flexShrink:0}},['🩺']);
+  // Clickable profile photo / avatar
+  const av=el('div',{style:{width:'54px',height:'54px',borderRadius:'50%',background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.6rem',color:'#fff',flexShrink:0,position:'relative',cursor:'pointer',overflow:'hidden'}});
+  if(session?.photo){
+    av.appendChild(el('img',{src:session.photo,style:{width:'100%',height:'100%',objectFit:'cover'}}));
+  } else {
+    av.appendChild(document.createTextNode('\uD83E\uDE7A'));
+  }
+  // Camera badge
+  av.appendChild(el('div',{style:{position:'absolute',bottom:'-1px',right:'-1px',width:'20px',height:'20px',borderRadius:'50%',background:'var(--navy)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.6rem',border:'2px solid #fff'}},['📷']));
+  av.onclick=e=>{e.stopPropagation();_showSpecPhotoModal();};
   const prInfo=el('div',{style:{flex:1}});
   prInfo.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem'}},[session?.name||'Specialist']));
   prInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},[session?.email||'']));
