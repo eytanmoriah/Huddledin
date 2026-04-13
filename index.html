@@ -7756,6 +7756,8 @@ function renderSpecDesktop(){
   } else {
     icAv.textContent=initials||'🩺';
   }
+  icAv.style.cursor='pointer';
+  icAv.onclick=e=>{e.stopPropagation();_showSpecPhotoModal();};
   ic.appendChild(icAv);
   const icInfo=el('div',{style:{flex:1,minWidth:0}});
   const icN=el('div',{class:'spec-dt-info-name'}); icN.textContent=specName;
@@ -17946,21 +17948,30 @@ function _showSpecPhotoModal(){
       };
       reader.readAsDataURL(f);
     };
+    // Append file input to document.body for reliable .click() on mobile (modal z-index can block it)
+    document.body.appendChild(photoInput);
     photoWrap.onclick=()=>photoInput.click();
-    mb.appendChild(photoWrap);mb.appendChild(photoInput);
+    mb.appendChild(photoWrap);
     const btns=el('div',{style:{display:'flex',gap:'10px',justifyContent:'center'}});
     if(session?.photo){
       btns.appendChild(mkBtn(T('settings_photo_remove'),'btn-md btn-danger',async()=>{
         try{await _supa.from('profiles').update({photo_url:null}).eq('id',session.id);}catch(e){console.error('❌ removePhoto:',e);}
+        photoInput.remove();
         session.photo=null;close();re();toast(T('settings_photo_removed'));
       }));
     }
-    btns.appendChild(mkBtn(T('settings_photo_upload'),'btn-md btn-primary',async()=>{
+    const _uploadBtn=mkBtn(T('settings_photo_upload'),'btn-md btn-primary',async()=>{
       if(!photoData){toast(T('settings_photo_tap'),'error');return;}
-      try{await _supa.from('profiles').update({photo_url:photoData}).eq('id',session.id);}catch(e){console.error('❌ savePhoto:',e);toast('Could not save photo.','error');return;}
+      _uploadBtn.disabled=true;_uploadBtn.textContent=T('btn_loading');
+      try{await _supa.from('profiles').update({photo_url:photoData}).eq('id',session.id);}catch(e){console.error('❌ savePhoto:',e);_uploadBtn.disabled=false;_uploadBtn.textContent=T('settings_photo_upload');toast('Could not save photo.','error');return;}
+      photoInput.remove();
       session.photo=photoData;close();re();toast(T('settings_photo_updated'));
-    }));
+    });
+    btns.appendChild(_uploadBtn);
     mb.appendChild(btns);
+    // Cleanup file input if modal closed without saving
+    const _origClose=close;
+    close=()=>{photoInput.remove();_origClose();};
   },380);
 }
 
