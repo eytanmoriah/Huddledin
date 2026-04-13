@@ -12000,7 +12000,7 @@ function showAddEventModal(prefilledDate=null){
         type:typeSel.value,sharedWith};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({
+          const _aptInsertObj={
             id:newApt.id,child_id:newApt.childId,
             parent_id:childRec?.parentId||session.id,
             household_id:childRec?.householdId||getChildHouseholdId(newApt.childId),
@@ -12011,7 +12011,11 @@ function showAddEventModal(prefilledDate=null){
             notes:newApt.notes,recurrence:newApt.recurrence,
             type:newApt.type,shared_with:newApt.sharedWith,
             specialist_name:si.value||(session?.role==='specialist'?session?.name:null)||null
-          });
+          };
+          console.log('🔍 [DEBUG] Appointment insert object:', JSON.stringify(_aptInsertObj));
+          const {error:_aptErr}=await _supa.from('appointments').insert(_aptInsertObj);
+          if(_aptErr)console.error('❌ [DEBUG] Appointment insert error:',_aptErr);
+          else console.log('✅ [DEBUG] Appointment inserted, created_by:',_aptInsertObj.created_by);
           const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
           // Notify only when specialist books — parents booking their own child's appointment skip notification to other parents
           if(session?.role==='specialist'){
