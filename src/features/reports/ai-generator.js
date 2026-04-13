@@ -25,9 +25,12 @@ export async function generateReport({ reportType, formData, childInfo, speciali
 
 // Two-step import: extract text first, then analyze into template
 export async function importTemplate(file) {
-  // Validate file type
+  // Validate file type (.doc legacy format not supported — only .docx)
   const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  if (file.type === 'application/msword') {
+    throw new Error('Legacy .doc format is not supported. Please save as .docx in Microsoft Word and try again.');
+  }
   if (!supported.includes(file.type)) {
     throw new Error('Please upload a PDF, DOCX, or image file.');
   }
