@@ -9220,7 +9220,11 @@ function renderMiniCalendar(children,allApts,onExpand){
       if(seen.has(a.childId))return;seen.add(a.childId);
       const ci=children.findIndex(c=>c.id===a.childId);
       const color=children[ci]?.color||getChildColor(ci);
-      dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
+      if(a.rsvp==='no'){
+        dots.appendChild(el('div',{class:'mcw-dot',style:{background:'transparent',border:'1.5px solid rgba(255,255,255,.5)',boxSizing:'border-box'}}));
+      } else {
+        dots.appendChild(el('div',{class:'mcw-dot',style:{background:color}}));
+      }
     });
     col.appendChild(dots);
     col.onclick=e=>{e.stopPropagation();S.calSelectedDate=ds;S._calUpcomingView=false;re();};
@@ -9247,13 +9251,19 @@ function renderMiniCalendar(children,allApts,onExpand){
     const ci=children.findIndex(c=>c.id===a.childId);
     const ch=children[ci];
     const color=ch?.color||getChildColor(ci);
-    const row=el('div',{class:'mce-item',style:{cursor:'pointer'}});
-    row.appendChild(el('div',{class:'mce-dot',style:{background:color}}));
+    const _mDeclined=a.rsvp==='no';
+    const row=el('div',{class:'mce-item',style:{cursor:'pointer',opacity:_mDeclined?'0.55':'1'}});
+    if(_mDeclined){
+      row.appendChild(el('div',{class:'mce-dot',style:{background:'transparent',border:'1.5px solid var(--slate-l)',boxSizing:'border-box'}}));
+    } else {
+      row.appendChild(el('div',{class:'mce-dot',style:{background:color}}));
+    }
     const info=el('div',{style:{flex:1}});
     info.appendChild(el('div',{class:'mce-title'},[aptDisplayTitle(a)]));
     const whenParts=[];
     if(_miniUpcoming){const aptDate=new Date(a.date+'T12:00');whenParts.push(a.date===today?T('cal_today'):aptDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));}
     if(a.time)whenParts.push(a.time);
+    if(_mDeclined)whenParts.push('Declined');
     info.appendChild(el('div',{class:'mce-when'},[whenParts.join(' · ')]));
     row.appendChild(info);
     if(ch){
@@ -11761,7 +11771,11 @@ function renderCalendar(){
       cell.appendChild(num);
       da.forEach(a=>{
         const dotColor=(isParent&&S.calendarMode==='joint')?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)'):(TC[a.type]||'var(--teal)');
-        cell.appendChild(el('div',{class:'cal-dot',style:{background:dotColor}}));
+        if(a.rsvp==='no'){
+          cell.appendChild(el('div',{class:'cal-dot',style:{background:'transparent',border:'1.5px solid #94a3b8',width:'5px',height:'5px',boxSizing:'border-box'}}));
+        } else {
+          cell.appendChild(el('div',{class:'cal-dot',style:{background:dotColor}}));
+        }
       });
       g.appendChild(cell);
     }
@@ -11824,7 +11838,8 @@ function renderCalendar(){
 
   _evtList.forEach(apt=>{
     const ch=DB.children.find(c=>c.id===apt.childId);
-    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer'}});
+    const _isDeclined=apt.rsvp==='no';
+    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer',opacity:_isDeclined?'0.6':'1'}});
     const barColor=ch?.color||TC[apt.type]||'var(--teal)';
     const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
     card.appendChild(bar);
@@ -11838,7 +11853,7 @@ function renderCalendar(){
     if(_showUpcoming)right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
     right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
     card.appendChild(right);
-    // RSVP pill for specialist view
+    // RSVP status pill
     if(session?.role==='specialist'){
       if(apt.rsvp==='yes'){
         card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['✅']));
@@ -11847,6 +11862,8 @@ function renderCalendar(){
       } else {
         card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['⏳']));
       }
+    } else if(_isDeclined){
+      card.appendChild(el('span',{style:{fontSize:'.66rem',fontWeight:700,color:'var(--slate-l)',background:'#f1f5f9',padding:'2px 8px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['Declined']));
     }
     card.onclick=()=>showAptDetailModal(apt,ch||child);
     stack.appendChild(card);
