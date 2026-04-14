@@ -18653,6 +18653,28 @@ function renderSpecialistSettings(){
   });
   sec.appendChild(nc);
 
+  // Push status
+  const pc2=el('div',{class:'card',style:{marginBottom:'16px'}});
+  pc2.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_push')]));
+  const pushStatus=typeof Notification!=='undefined'?Notification.permission:'not-supported';
+  const statusColors={granted:'#166534',denied:'#be123c',default:'var(--slate)'};
+  pc2.appendChild(el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',borderRadius:'14px',background:'var(--mint-ll)'}},[
+    el('span',{style:{fontSize:'1.3rem'}},['📱']),
+    el('div',{style:{flex:1}},[
+      el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?T('settings_push_enabled'):pushStatus==='denied'?T('settings_push_blocked'):T('settings_push_not_enabled')]),
+      el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},[T('settings_push_status',{status:pushStatus})])
+    ]),
+    pushStatus==='default'?mkBtn(T('settings_push_enable_btn'),'btn-sm btn-primary',async()=>{
+      try{
+        const p=await Notification.requestPermission();
+        if(p!=='granted'){toast(T('push_blocked_msg'),'info');return;}
+        await _subscribePush();
+        DB.pushEnabled=true;re();toast(T('settings_push_toast'));
+      }catch(e){console.error('❌ subscribePush:',e);toast('Could not enable push notifications.','error');}
+    }):el('span')
+  ]));
+  sec.appendChild(pc2);
+
   // Working hours
   const wh=el('div',{class:'card',style:{marginBottom:'16px'}});
   wh.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'12px'}},[T('settings_spec_hours')]));
