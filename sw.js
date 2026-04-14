@@ -1,3 +1,4 @@
+// Preview workflow test — safe to remove
 // Huddledin Service Worker v1.0
 const CACHE_NAME = 'huddledin-v1';
 
