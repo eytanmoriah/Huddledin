@@ -281,6 +281,38 @@ Paddle production. Webhook: `supabase/functions/paddle-webhook/index.ts`. Plan-a
 
 ---
 
+## Git & Deployment Workflow
+
+- **Repo:** https://github.com/eytanmoriah/Huddledin
+- **Production:** www.huddledin.com (Vercel auto-deploys `main`)
+- **Database:** Supabase project `smgbojgrdezasxciloll`
+- **Supabase GitHub integration:** enabled — auto-runs migrations in `supabase/migrations/` and deploys Edge Functions in `supabase/functions/` when pushed
+
+### Rules
+1. **NEVER push directly to `main`.** All changes go through a feature branch + PR.
+2. Create a feature branch before making changes:
+   ```
+   git checkout -b feature/description-of-work
+   ```
+3. Make changes, commit, and push the feature branch:
+   ```
+   git add .
+   git commit -m "..."
+   git push origin feature/description-of-work
+   ```
+4. After pushing, **tell the user to open a PR on GitHub** for testing.
+5. **Vercel auto-deploys a preview URL** on every PR (posted as a commit status / PR comment).
+6. **Supabase auto-runs migrations and deploys Edge Functions** when `supabase/` files change on the PR branch.
+7. **Only merge to `main` when the user confirms** the preview is tested and approved.
+8. After merging, switch back to `main` and pull:
+   ```
+   git checkout main && git pull origin main
+   ```
+
+Docs-only edits to `CLAUDE.md` / `README.md` may be pushed directly to `main` when the user explicitly says so.
+
+---
+
 ## XSS Fix Warning
 March 23, 2026. If child photos, appointment chips, button labels, avatar emojis, ✕ buttons, or modal buttons break → check XSS fix first.
 
