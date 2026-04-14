@@ -9972,10 +9972,13 @@ function renderSpecDashboard(){
 ----------------------------------------------- */
 function mkSubHeader(title,rightEl=null){
   const hd=el('div',{class:'sec-hd',style:{alignItems:'center',marginBottom:'18px'}});
-  if(!(window.innerWidth>=1024&&session?.role==='parent')&&S.activeChild){
+  if(!(window.innerWidth>=1024&&session?.role==='parent')&&S.activeChild&&!S.calFullscreen){
     const backBtn=mkBtn(T('files_back_profile'),'btn-sm btn-ghost',()=>{S.activeTab='dashboard';re();});
     backBtn.style.cssText='flex-shrink:0;font-size:.78rem;padding:6px 10px';
     hd.appendChild(backBtn);
+  } else if(S.calFullscreen){
+    // Balance placeholder so the 'Calendar' title stays centered when back button is hidden
+    hd.appendChild(el('div',{style:{width:'80px',flexShrink:0}}));
   }
   // Child color chip in center alongside title
   const titleRow=el('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}});
