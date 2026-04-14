@@ -1,1 +1,0 @@
--- Test migration: Supabase GitHub integration working
