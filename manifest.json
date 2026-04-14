@@ -23,5 +23,8 @@
   ],
   "categories": ["health", "medical", "productivity"],
   "lang": "en",
-  "dir": "ltr"
+  "dir": "ltr",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
