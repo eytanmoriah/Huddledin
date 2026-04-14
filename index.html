@@ -20176,6 +20176,10 @@ window.dispatchEvent(new Event('hud-ready'));
           _lastVisRefresh=Date.now();
           refreshFromSupabase().then(()=>re());
         }
+      } else if(e.data?.type==='push-received'){
+        // Push arrived but SW suppressed the OS notification because app is focused.
+        // Refresh in-app state so the badge + list update immediately.
+        if(session?.id&&session.id!=='demo')_debouncedRefresh();
       }
     });
   }
