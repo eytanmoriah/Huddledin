@@ -81,32 +81,47 @@ self.addEventListener('push', event => {
   const body = data.body || '';
   const tag = data.tag || 'default';
   const url = data.url || '/';
-  event.waitUntil(
-    self.registration.showNotification(title, {
+  event.waitUntil((async () => {
+    // Suppress OS notification if any tab/window is focused AND visible — the
+    // in-app realtime + 'push-received' message will refresh the UI instead.
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const focusedClients = clientList.filter(c =>
+      c.url.includes(self.location.origin) && c.focused && c.visibilityState === 'visible'
+    );
+    if (focusedClients.length > 0) {
+      focusedClients.forEach(c => {
+        try { c.postMessage({ type: 'push-received', data }); } catch (_) {}
+      });
+      return;
+    }
+    await self.registration.showNotification(title, {
       body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag,
       renotify: true,
       data: { url }
-    })
-  );
+    });
+  })());
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // Focus an existing tab if one is open
-      for (const client of list) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.postMessage({ type: 'notification-click', url });
-          return client.focus();
-        }
-      }
-      // Otherwise open a new tab
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
-  );
+  event.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // Prefer a CURRENTLY visible client — that's the one the user can actually see.
+    // Background Chrome tabs are ignored so the OS can route to the installed PWA via openWindow.
+    const visible = list.find(c =>
+      c.url.includes(self.location.origin) &&
+      c.visibilityState === 'visible' &&
+      'focus' in c
+    );
+    if (visible) {
+      try { visible.postMessage({ type: 'notification-click', url }); } catch (_) {}
+      return visible.focus();
+    }
+    // No visible client — let the OS pick the right app to launch (PWA preferred over Chrome)
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
 });
