@@ -64,3 +64,41 @@ self.addEventListener('fetch', event => {
       })
   );
 });
+
+// ── Web Push ──────────────────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data?.text() || '' }; }
+  const title = data.title || 'Huddledin';
+  const body = data.body || '';
+  const tag = data.tag || 'default';
+  const url = data.url || '/';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag,
+      renotify: true,
+      data: { url }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Focus an existing tab if one is open
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({ type: 'notification-click', url });
+          return client.focus();
+        }
+      }
+      // Otherwise open a new tab
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
