@@ -20155,6 +20155,8 @@ window.HUD={
 window.dispatchEvent(new Event('hud-ready'));
 </script>
 <script>
+  // Tracks last refresh time for debounce across both visibility and SW-message handlers
+  let _lastVisRefresh=0;
   // Register service worker for PWA offline support
   if('serviceWorker' in navigator){
     window.addEventListener('load',()=>{
@@ -20162,7 +20164,32 @@ window.dispatchEvent(new Event('hud-ready'));
         .then(reg=>console.log('SW registered'))
         .catch(err=>console.log('SW registration failed:', err));
     });
+    // Listen for messages from the SW (e.g. notification click → refresh state + deep link)
+    navigator.serviceWorker.addEventListener('message',e=>{
+      if(e.data?.type==='notification-click'){
+        try{
+          const url=new URL(e.data.url||'/',window.location.origin);
+          const tab=url.searchParams.get('tab');
+          if(tab)S.activeTab=tab;
+        }catch(_){}
+        if(session?.id&&session.id!=='demo'){
+          _lastVisRefresh=Date.now();
+          refreshFromSupabase().then(()=>re());
+        }
+      }
+    });
   }
+  // Visibility change: refresh on tab wake (covers Realtime WS drops on phone sleep)
+  // Debounced to 5s to prevent refresh storms from rapid tab switching
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)return;
+    if(!session?.id||session.id==='demo')return;
+    const now=Date.now();
+    if(now-_lastVisRefresh<5000)return;
+    _lastVisRefresh=now;
+    refreshFromSupabase().then(()=>re());
+    if(S.chatsLoaded)loadChatsFromSupabase().then(()=>re());
+  });
 </script>
 <script src="/app.bundle.js" defer></script>
 </body>
