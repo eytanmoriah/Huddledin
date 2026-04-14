@@ -8919,7 +8919,7 @@ function renderBottomNav(){
         }
         re();
       }},
-      {id:'chat',label:T('bnav_chats'),icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');}},
+      {id:'chat',label:T('bnav_chats'),icon:'💬',isActive:S.activeTab==='chat',action:()=>{S.calFullscreen=false;S.activeChild=null;S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');}},
       {id:'notifications',label:T('nav_notifications'),icon:'🔔',isActive:S.activeTab==='notifications',action:()=>{_pushNav();S.calFullscreen=false;S.navLevel=1;S.activeTab='notifications';re();}},
     ];
     parentTabs.forEach(t=>{
@@ -19680,7 +19680,7 @@ function _getSwipeTabs(){
     // Only allow on top-level sections
     const isHome=S.navLevel===0&&!S.calFullscreen;
     const isCal=!!S.calFullscreen;
-    const isChat=S.activeTab==='chat'&&!S.activeChatId;
+    const isChat=S.activeTab==='chat'&&!S.activeChatId&&!S.activeChild;
     const isNotif=S.activeTab==='notifications';
     if(!isHome&&!isCal&&!isChat&&!isNotif)return null;
     return[
