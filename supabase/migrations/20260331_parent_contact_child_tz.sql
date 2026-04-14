@@ -1,0 +1,10 @@
+-- Parent contact info on profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address_line1 TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address_line2 TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS zip TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country TEXT;
+
+-- Child TZ (Israeli ID number)
+ALTER TABLE children ADD COLUMN IF NOT EXISTS tz_number TEXT;

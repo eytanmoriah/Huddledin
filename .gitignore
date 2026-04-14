@@ -1,0 +1,39 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Build / deploy artifacts
+.vercel
+node_modules/
+public/
+supabase/.temp/
+
+# Claude Code state
+.claude/
+
+# Backup HTML files
+index_backup_*.html
+index-backup.html.html
+testing_index.html
+privacy-policy.html.html
+
+# Internal handoff / status docs (CLAUDE.md is tracked, these are not)
+HANDOFF.md
+HUDDLEDIN_HANDOFF_*.md
+HUDDLEDIN_STATUS.md
+CLAUDE_MD_WEB_SECTION.md
+STEP2_*.md
+STEP3_*.md
+PADDLE_SETUP.md
+
+# One-off fix scripts
+_fix_*.js
+_perf_fix.py
+apply_fixes_*.js
+
+# Dev-only / tangential folders
+huddledin-video/
+Huddledin Report Feature/
+Compliance Documentation/
+landing/
