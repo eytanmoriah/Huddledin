@@ -2508,6 +2508,8 @@ async function _loadSessionFromSupabase(s){
 phone:profile.phone||null,address_line1:profile.address_line1||null,address_line2:profile.address_line2||null,city:profile.city||null,zip:profile.zip||null,country:profile.country||null,
       credentials_title:profile.credentials_title||null,credentials_license:profile.credentials_license||null,credentials_certs:profile.credentials_certs||null,
       photo:profile.photo_url||null};
+    // Sync server-side push prefs into local cache (DB.notifPrefs)
+    if(profile.notif_prefs)DB.notifPrefs=profile.notif_prefs;
     if(profile.role==='parent'){
       // Load children by household_id so co-parents see same children
       const hid=profile.household_id;
@@ -3656,6 +3658,8 @@ notif_spec_joined:'\uD83E\uDD1D {name} joined {child}\u2019s care team',
 notif_coparent_task:'\uD83D\uDCCB {name} assigned you a task: "{title}"',
 // Settings misc
 settings_notif_prefs:'\uD83D\uDD14 Notification Preferences',
+settings_push_prefs_title:'\uD83D\uDCF1 Push Notifications',
+settings_push_prefs_desc:'These control push notifications to your phone or desktop. All notifications still appear in the app.',
 settings_notif_for:'{key} notifications',
 settings_notif_alerts:'Alerts for {key} activity',
 settings_push_enabled:'Push notifications enabled \u2705',
@@ -4965,6 +4969,8 @@ notif_note_published:'\uD83D\uDCDD \u05E1\u05D9\u05DB\u05D5\u05DD \u05D7\u05D3\u
 notif_spec_joined:'\uD83E\uDD1D {name} \u05D4\u05E6\u05D8\u05E8\u05E3/\u05D4 \u05DC\u05E6\u05D5\u05D5\u05EA \u05E9\u05DC {child}',
 notif_coparent_task:'\uD83D\uDCCB {name} \u05D4\u05E7\u05E6\u05D4 \u05DC\u05DA \u05DE\u05E9\u05D9\u05DE\u05D4: "{title}"',
 settings_notif_prefs:'\uD83D\uDD14 \u05D4\u05E2\u05D3\u05E4\u05D5\u05EA \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',
+settings_push_prefs_title:'\uD83D\uDCF1 \u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05E4\u05D5\u05E9',
+settings_push_prefs_desc:'\u05D0\u05DC\u05D4 \u05E9\u05D5\u05DC\u05D8\u05D9\u05DD \u05D1\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05E4\u05D5\u05E9 \u05DC\u05D8\u05DC\u05E4\u05D5\u05DF \u05D0\u05D5 \u05DC\u05DE\u05D7\u05E9\u05D1. \u05DB\u05DC \u05D4\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05E2\u05D3\u05D9\u05D9\u05DF \u05DE\u05D5\u05E4\u05D9\u05E2\u05D5\u05EA \u05D1\u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4.',
 settings_notif_for:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA {key}',
 settings_notif_alerts:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05E2\u05DC \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA {key}',
 settings_push_enabled:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA \u05D3\u05D7\u05D9\u05E4\u05D4 \u05DE\u05D5\u05E4\u05E2\u05DC\u05D5\u05EA \u2705',
@@ -18570,17 +18576,21 @@ function renderSpecialistSettings(){
 
   sec.appendChild(pr);
 
-  // Notification Preferences
+  // Push Notification Preferences (in-app notifications always fire)
   const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},[T('settings_spec_notif')]));
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[T('settings_push_prefs_title')]));
+  nc.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',marginBottom:'14px',lineHeight:'1.5'}},[T('settings_push_prefs_desc')]));
   const prefs=DB.notifPrefs;
-  const specNotifKeys={homework:T('settings_spec_hw_label'),appointments:T('settings_spec_apt_label'),chat:T('settings_spec_chat_label'),report:T('settings_spec_report_label')};
+  const specNotifKeys={homework:T('settings_spec_hw_label'),appointments:T('settings_spec_apt_label'),chat:T('settings_spec_chat_label'),reports:T('settings_spec_report_label')};
   Object.entries(specNotifKeys).forEach(([key,label])=>{
     const val=prefs[key]!==false;
     const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
     row.appendChild(el('div',{},[ el('div',{style:{fontWeight:700,color:'var(--navy)'}},[label]) ]));
     const tog=el('button',{class:'toggle'+(val?' on':'')});
-    tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
+    tog.onclick=async()=>{
+      prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');
+      if(session?.id&&session.id!=='demo'){try{await _supa.from('profiles').update({notif_prefs:prefs}).eq('id',session.id);}catch(e){console.error('❌ saveNotifPrefs:',e);}}
+    };
     row.appendChild(tog);nc.appendChild(row);
   });
   sec.appendChild(nc);
@@ -19320,7 +19330,8 @@ function renderSettings(){
 
   // Notif prefs
   const nc=el('div',{class:'card',style:{marginBottom:'16px'}});
-  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},[T('settings_notif_prefs')]));
+  nc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'4px'}},[T('settings_push_prefs_title')]));
+  nc.appendChild(el('p',{style:{fontSize:'.74rem',color:'var(--slate)',marginBottom:'14px',lineHeight:'1.5'}},[T('settings_push_prefs_desc')]));
   const prefs=DB.notifPrefs;
   Object.entries(prefs).forEach(([key,val])=>{
     const row=d('',[], {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--mint-ll)'});
@@ -19329,7 +19340,10 @@ function renderSettings(){
       el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[T('settings_notif_alerts',{key})])
     ]));
     const tog=el('button',{class:'toggle'+(val?' on':'')});
-    tog.onclick=()=>{prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');};
+    tog.onclick=async()=>{
+      prefs[key]=!prefs[key];DB.notifPrefs=prefs;tog.className='toggle'+(prefs[key]?' on':'');
+      if(session?.id&&session.id!=='demo'){try{await _supa.from('profiles').update({notif_prefs:prefs}).eq('id',session.id);}catch(e){console.error('❌ saveNotifPrefs:',e);}}
+    };
     row.appendChild(tog);nc.appendChild(row);
   });
   sec.appendChild(nc);
