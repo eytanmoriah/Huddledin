@@ -1911,291 +1911,307 @@ async function _provisionDefaultFolders(){
   return[];
 }
 
-async function refreshFromSupabase(){
+// Progressive loading flags — track which data categories have loaded at least once.
+// Used by per-tab render functions to decide between "loading spinner" vs "empty state".
+const _loaded={
+  children:false,notifications:false,seenTimestamps:false,
+  specialists:false,folders:false,appointments:false,
+  homeworkTasks:false,vaultNotes:false,specTasks:false,
+  specialistRequests:false,parentTasks:false,coParents:false,
+  inboxFiles:false,todos:false,pastSpecialists:false,
+  careTeam:false,folderPermissions:false
+};
+
+// ── Phase 1: critical path for home render (children + notifications + seen_timestamps) ──
+async function refreshPhase1(){
   if(!session||session.id==='demo')return;
   try{
-    if(session.role==='parent'){
-      // Always use household_id so co-parents see the same data
-      const hid=session.householdId;
-      let children=[];
-      if(hid){
-        const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-        children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
-      } else {
-        children=await SB.getChildren(session.id);
-      }
-      const _lcKids=LS.get('children',[]);const _fsSet=new Set(children.map(c=>c.id));const _pendKids=_lcKids.filter(c=>!_fsSet.has(c.id));LS.set('children',[...children,..._pendKids]);
-      // Load co-parents (other household members) for message name resolution
-      if(hid){try{const {data:_cpData}=await _supa.from('profiles').select('id,display_name').eq('household_id',hid).neq('id',session.id).eq('role','parent');DB.coParents=(_cpData||[]).map(p=>({id:p.id,name:p.display_name||'Co-Parent'}));}catch(e){console.error('refresh coParents:',e);}}
-      // Load specialists — always pass both parentId and householdId to catch rows from either invite path
-      const specs=await SB.getSpecialists(session.id,hid||null);
-      // Merge local permissions so approvals survive a Supabase sync
-      const localSpecs=DB.specialists||[];
-      (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
-      LS.set('specialists',specs||[]);
-      // Load folders for all children in parallel
+    if(session.role==='parent')await _refreshPhase1Parent();
+    else if(session.role==='specialist')await _refreshPhase1Specialist();
+  }catch(e){console.error('❌ refreshPhase1:',e);}
+}
+
+async function _refreshPhase1Parent(){
+  const hid=session.householdId;
+  let children=[];
+  if(hid){
+    const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
+    children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
+  } else {
+    children=await SB.getChildren(session.id);
+  }
+  const _lcKids=LS.get('children',[]);const _fsSet=new Set(children.map(c=>c.id));const _pendKids=_lcKids.filter(c=>!_fsSet.has(c.id));LS.set('children',[...children,..._pendKids]);
+  _loaded.children=true;
+  await Promise.allSettled([
+    _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
+      .then(({data:notifs})=>{
+        const localNotifs=LS.get('notifications',[]);
+        const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
+        LS.set('notifications',(notifs||[]).map(n=>({id:n.id,type:n.type,msg:n.message,read:n.read||localReadIds.has(n.id),childId:n.child_id,linkTab:n.link_tab||null,linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,time:new Date(n.created_at).toLocaleDateString()})));
+        _loaded.notifications=true;
+      })
+      .catch(e=>console.error('refresh notifications:',e)),
+    (async()=>{
       try{
-        const folderResults=await Promise.all(children.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
-        const allFolders=folderResults.flat();
-        if(allFolders.length>0)LS.set('folders',allFolders);
-      }catch(e){}
-      // Load inbox files (child_id IS NULL, uploaded by current user)
-      try{
-        const{data:_ibxData}=await _supa.from('files').select('id,name,created_at,storage_path,mime_type,size_bytes').is('child_id',null).eq('category','inbox').eq('uploaded_by',session.id).order('created_at',{ascending:false});
-        if(_ibxData){
-          const _ibxMapped=await Promise.all(_ibxData.map(async f=>{
-            const _su=f.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(f.storage_path,900)).data?.signedUrl||null:null;
-            return{id:f.id,name:f.name,type:(f.name||'').split('.').pop()||'file',date:f.created_at?f.created_at.split('T')[0]:'',size:f.size_bytes?Math.round(f.size_bytes/1024)+' KB':'',storagePath:f.storage_path,url:_su};
-          }));
-          LS.set('globalInboxFiles',_ibxMapped);
-        }
-      }catch(e){console.error('refresh inbox files:',e);}
-      // Load pending specialist requests from Supabase
-      // Use multiple queries with OR logic — rows may be missing household_id or parent_id
-      try{
-        const _hid=session.householdId;
-        const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
-        let _allReqs=[];
-        const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
-        // Parallel: 4 request sources (4th = specialist-initiated by email hint)
-        const [_reqR1,_reqR2,_reqR3,_reqR4]=await Promise.all([
-          _hid?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
-          _supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_id',session.id),
-          _childIds.length?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
-          session.email?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_email_hint',session.email):Promise.resolve({data:[]}),
-        ]);
-        _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);_dedup(_reqR4.data);
-        const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join',parentEmailHint:r.parent_email_hint||null,childNameHint:r.child_name_hint||null,parentSeenAt:r.parent_seen_at||null}));
-        DB.specialistRequests=mapped;
-      }catch(e){console.error('load specialist_requests:',e);}
-      // Parent tasks (household to-do list)
-      try{
-        const{data:ptData}=await _supa.from('parent_tasks').select('*').eq('household_id',String(session.householdId)).order('created_at',{ascending:false});
-        DB.parentTasks=ptData||[];
-      }catch(e){console.error('load parent_tasks:',e);}
-      // Fetch all secondary data in parallel for speed
-      await Promise.allSettled([
-        // Appointments
-        _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
-          .then(({data:apts})=>{
-            // Merge: preserve locally-set parentReadAt (race condition on refresh)
-            const _localApts=LS.get('appointments',[])||[];
-            const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
-            LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null})));
-          })
-          .catch(e=>console.error('refresh appointments:',e)),
-        // Homework Tasks — recurring task system (replaces legacy homework table)
-        Promise.resolve(), // legacy homework table removed — RLS deny-all
-        (hid
-          ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-          : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-        ).then(({data:hwt})=>{
-          // Diagnostic: log any once-off task whose DB status doesn't match expected
-          LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));
-        }).catch(e=>console.error('refresh homework_tasks:',e)),
-        // Homework Occurrences — parent only (specialist loads per-task on demand)
-        hid
-          ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent,time_of_day').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-30*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+90*86400000).toISOString().split('T')[0])
-              .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false,timeOfDay:o.time_of_day||null}))))
-              .catch(e=>console.error('refresh homework_occurrences:',e))
-          : Promise.resolve(),
-        // Homework Comments (parent only)
-        hid
-          ? _supa.from('homework_comments').select('*').eq('household_id',hid)
-              .then(({data:hwcmt})=>LS.set('homeworkComments',(hwcmt||[]).map(c=>({id:c.id,taskId:c.task_id,completionId:c.completion_id,specialistId:c.specialist_id,comment:c.comment,createdAt:c.created_at}))))
-              .catch(e=>console.error('refresh homework_comments:',e))
-          : Promise.resolve(),
-        // Homework Reminders (parent only)
-        hid
-          ? _supa.from('homework_reminders').select('*').eq('parent_id',session.id)
-              .then(({data:hwrem})=>LS.set('homeworkReminders',(hwrem||[]).map(r=>({id:r.id,taskId:r.task_id,time:r.reminder_time,isEnabled:r.is_enabled}))))
-              .catch(e=>console.error('refresh homework_reminders:',e))
-          : Promise.resolve(),
-        // Notifications
-        _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',session.id).order('created_at',{ascending:false}).limit(50)
-          .then(({data:notifs})=>{
-            // Merge: if we marked something read locally, keep it read even if Supabase hasn't confirmed yet
-            const localNotifs=LS.get('notifications',[]);
-            const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
-            LS.set('notifications',(notifs||[]).map(n=>({
-              id:n.id,type:n.type,msg:n.message,
-              read:n.read||localReadIds.has(n.id),
-              childId:n.child_id,linkTab:n.link_tab||null,
-              linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,
-              time:new Date(n.created_at).toLocaleDateString()
-            })));
-          })
-          .catch(e=>console.error('refresh notifications:',e)),
-        // Todos
-        _supa.from('todos').select('*').eq('user_id',session.id)
-          .then(({data:tds})=>LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}}))))
-          .catch(e=>console.error('refresh todos:',e)),
-        // Milestones + Progress — legacy tables, RLS deny-all, skip queries
-        Promise.resolve(),
-        Promise.resolve(),
-        // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
-        // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages/unreadFor with stale data.
-        Promise.resolve(),
-        // Published session summaries — parents see only published:true, no clinical content
-        (async()=>{
-          try{
-            const childIds=(LS.get('children',[])||[]).map(c=>c.id);
-            if(childIds.length){
-              const {data:vnotes}=await _supa.from('vault_notes').select('id,specialist_id,child_id,title,summary,published,locked,created_at,parent_read_at').in('child_id',childIds).eq('published',true);
-              // Merge: never overwrite a locally-set parentReadAt with null from server (race condition on refresh)
-              const _localNotes=LS.get('vaultNotes',[])||[];
-              const _localReadMap={};_localNotes.forEach(n=>{if(n.parentReadAt)_localReadMap[n.id]=n.parentReadAt;});
-              LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||'',parentReadAt:n.parent_read_at||_localReadMap[n.id]||null})));
-            }
-          }catch(e){console.error('refresh parent vaultNotes:',e);}
-        })(),
-        // Seen timestamps — loaded in same batch so badges are accurate on first render
-        (async()=>{
-          try{
-            const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',session.id);
-            if(error)throw error;
-            (rows||[]).forEach(r=>{
-              _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
-              if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
-            });
-            // Clear stale legacy homework cache — prevents stuck badges
-            DB.homework=[];
-          }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
-        })()
-      ]);
-      // Load past specialists (removed connections) — shown in parent's Team section
-      try{
-        const _psHid=session.householdId;
-        const{data:_psRows}=await(_psHid
-          ?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('household_id',_psHid).eq('status','removed')
-          :_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('parent_id',session.id).eq('status','removed'));
-        LS.set('pastSpecialists',(_psRows||[]).map(r=>({specialistId:r.specialist_id,name:r.specialist_name||'Unknown',role:r.role||'Specialist',childId:r.child_id,connectedAt:r.requested_at})));
-      }catch(e){console.error('load past specialists:',e);}
-    } else if(session.role==='specialist'){
-      const specId=session.specialistId||session.id;
-      // Step 1: get child IDs from specialist_requests
-      // Load ALL connection states — approved (full access), pending (locked), removed (disconnected)
-      const {data:reqRows}=await _supa.from('specialist_requests').select('child_id,status').eq('specialist_id',specId).in('status',['approved','pending','removed']);
-      // Build connection status map — prefer highest-priority status when duplicate rows exist
-      const _connStatusMap={};
-      (reqRows||[]).forEach(r=>{
-        if(!r.child_id)return;
-        const cur=_connStatusMap[r.child_id];
-        if(!cur||(cur==='removed'&&r.status!=='removed')||(cur==='pending'&&r.status==='approved')){
-          _connStatusMap[r.child_id]=r.status;
-        }
-      });
-      const childIds=[...new Set(Object.keys(_connStatusMap))];
-      const approvedIds=childIds.filter(id=>_connStatusMap[id]==='approved');
-      if(childIds.length>0){
-        // Fetch children + appointments (appointments only for approved connections)
-        const [childrenRes,aptsRes]=await Promise.all([
-          _supa.from('children').select('*').in('id',childIds),
-          approvedIds.length?_supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date'):Promise.resolve({data:[]})
-        ]);
-        const children=childrenRes.data||[];
-        if(children.length>0){
-          const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved',tz_number:c.tz_number||null})));
-          // Keep ALL patients in LS.children — hd9_inactive_children controls tab visibility, not cache membership
-          // This ensures removed+inactive patients remain openable from their profile view
-          const _mappedVisible=mapped;
-          LS.set('children',_mappedVisible);
-          // Active child must be an approved patient — don't auto-navigate into pending/removed
-          const approvedMapped=_mappedVisible.filter(c=>c.connectionStatus==='approved');
-          if(!S.activeChild||!_mappedVisible.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
-          // Appointments for approved children only
-          if(aptsRes.data&&aptsRes.data.length>0){
-            LS.set('appointments',aptsRes.data.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
-          }
-          // Care team + folders: approved children only (pending/removed see no shared content)
-          if(approvedMapped.length>0){
-            Promise.all([
-              Promise.all(approvedMapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
-              Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
-            ]).then(([,folderResults2])=>{
-              const allFolders=folderResults2.flat();
-              if(allFolders.length>0){LS.set('folders',allFolders);if(S.activeTab==='files')re();}
-            });
-          }
-          setupSpecialistSync();
-          // Show popup ONLY when status transitions 'approved'→'removed', not on fresh login or reconnect.
-          // hd9_status_{id} tracks last known status per child — updated AFTER computing _newlyRemoved.
-          const _newlyRemoved=_mappedVisible.filter(c=>{
-            const _prevStatus=localStorage.getItem('hd9_status_'+c.id);
-            const _popupShown=localStorage.getItem('hd9_rm_popup_'+c.id);
-            if(_popupShown)return false;
-            if(c.connectionStatus!=='removed')return false;
-            if(_prevStatus==='approved')return true;
-            // Fresh login — no previous status stored, but connection is removed → show popup
-            if(_prevStatus===null)return true;
-            return false;
-          });
-          if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
-          // Update tracked status after popup decision — next refresh compares against this value
-          mapped.forEach(c=>localStorage.setItem('hd9_status_'+c.id,c.connectionStatus));
-        }
-      } else {
-        // No connections of any kind — evict stale children from previous session
-        LS.set('children',[]);
-        S.activeChild=null;
-      }
-      // Load specialist secondary data in parallel
-      await Promise.allSettled([
-        // Notifications — specialist receives via user_id
-        _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',specId).order('created_at',{ascending:false}).limit(50)
-          .then(({data:notifs})=>{
-            const localNotifs=LS.get('notifications',[]);
-            const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
-            LS.set('notifications',(notifs||[]).map(n=>({
-              id:n.id,type:n.type,msg:n.message,
-              read:n.read||localReadIds.has(n.id),
-              childId:n.child_id,linkTab:n.link_tab||null,
-              linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,
-              time:new Date(n.created_at).toLocaleDateString()
-            })));
-          })
-          .catch(e=>console.error('refresh spec notifications:',e)),
-        // Folder permissions
-        _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
-          .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);})
-          .catch(()=>{}),
-        // Vault notes
-        _supa.from('vault_notes').select('id,child_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
-          .then(({data:vnotes})=>LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''}))))
-          .catch(e=>console.error('refresh vaultNotes:',e)),
-        // Chats — loaded by loadChatsFromSupabase() which fetches messages too.
-        // Do NOT load chat metadata here — it races with loadChatsFromSupabase() and overwrites messages with [].
-        Promise.resolve(),
-        // Specialist clinical tasks (own table — separate from parent todos)
-        _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
-          .then(({data:tasks})=>LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at}))))
-          .catch(e=>console.error('refresh spec_tasks:',e)),
-        // Homework Tasks — specialist loads their own created tasks (was missing, causing tasks to vanish on reload)
-        _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
-          .then(({data:hwt})=>{LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));})
-          .catch(e=>console.error('refresh specialist homework_tasks:',e)),
-        // Seen timestamps — loaded in same batch so badges are accurate on first render
-        (async()=>{
-          try{
-            const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',specId);
-            if(error)throw error;
-            (rows||[]).forEach(r=>{
-              _seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;
-              if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;
-            });
-          }catch(e){console.error('\u274C Failed to load seen timestamps:',e);}
-        })()
-      ]);
-      // Removed connections loaded in main children list (connectionStatus='removed').
-      // hd9_inactive_children controls which tab removed patients appear in.
+        const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',session.id);
+        if(error)throw error;
+        (rows||[]).forEach(r=>{_seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;});
+        DB.homework=[]; // legacy cache
+        _loaded.seenTimestamps=true;
+      }catch(e){console.error('❌ Failed to load seen timestamps:',e);}
+    })()
+  ]);
+}
+
+async function _refreshPhase1Specialist(){
+  const specId=session.specialistId||session.id;
+  const {data:reqRows}=await _supa.from('specialist_requests').select('child_id,status').eq('specialist_id',specId).in('status',['approved','pending','removed']);
+  const _connStatusMap={};
+  (reqRows||[]).forEach(r=>{
+    if(!r.child_id)return;
+    const cur=_connStatusMap[r.child_id];
+    if(!cur||(cur==='removed'&&r.status!=='removed')||(cur==='pending'&&r.status==='approved')){
+      _connStatusMap[r.child_id]=r.status;
     }
-  }catch(e){console.error('❌ refreshFromSupabase:',e);}
-  // After all data loaded: show co-parent invite once per session if no co-parent exists
+  });
+  const childIds=[...new Set(Object.keys(_connStatusMap))];
+  const approvedIds=childIds.filter(id=>_connStatusMap[id]==='approved');
+  S._pendingApprovedIds=approvedIds; // Phase 2 uses this
+  if(childIds.length>0){
+    const {data:children}=await _supa.from('children').select('*').in('id',childIds);
+    if(children&&children.length>0){
+      const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved',tz_number:c.tz_number||null})));
+      const _mappedVisible=mapped;
+      LS.set('children',_mappedVisible);
+      _loaded.children=true;
+      const approvedMapped=_mappedVisible.filter(c=>c.connectionStatus==='approved');
+      if(!S.activeChild||!_mappedVisible.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
+      setupSpecialistSync();
+      const _newlyRemoved=_mappedVisible.filter(c=>{
+        const _prevStatus=localStorage.getItem('hd9_status_'+c.id);
+        const _popupShown=localStorage.getItem('hd9_rm_popup_'+c.id);
+        if(_popupShown)return false;
+        if(c.connectionStatus!=='removed')return false;
+        if(_prevStatus==='approved')return true;
+        if(_prevStatus===null)return true;
+        return false;
+      });
+      if(_newlyRemoved.length){_newlyRemoved.forEach(c=>setTimeout(()=>_showRemovedConnectionPopup(c),400));}
+      mapped.forEach(c=>localStorage.setItem('hd9_status_'+c.id,c.connectionStatus));
+    }
+  } else {
+    LS.set('children',[]);
+    S.activeChild=null;
+    _loaded.children=true;
+  }
+  await Promise.allSettled([
+    _supa.from('notifications').select('id,type,message,read,child_id,link_tab,link_data,created_at').eq('user_id',specId).order('created_at',{ascending:false}).limit(50)
+      .then(({data:notifs})=>{
+        const localNotifs=LS.get('notifications',[]);
+        const localReadIds=new Set(localNotifs.filter(n=>n.read).map(n=>n.id));
+        LS.set('notifications',(notifs||[]).map(n=>({id:n.id,type:n.type,msg:n.message,read:n.read||localReadIds.has(n.id),childId:n.child_id,linkTab:n.link_tab||null,linkData:n.link_data?(()=>{try{return JSON.parse(n.link_data);}catch(e){return null;}})():null,time:new Date(n.created_at).toLocaleDateString()})));
+        _loaded.notifications=true;
+      })
+      .catch(e=>console.error('refresh spec notifications:',e)),
+    (async()=>{
+      try{
+        const{data:rows,error}=await _supa.from('seen_timestamps').select('child_id,section,seen_at,meta_count').eq('user_id',specId);
+        if(error)throw error;
+        (rows||[]).forEach(r=>{_seenTimestamps[r.child_id+'_'+r.section]=r.seen_at;if(r.meta_count!=null)_seenTimestamps[r.child_id+'_'+r.section+'_cnt']=r.meta_count;});
+        _loaded.seenTimestamps=true;
+      }catch(e){console.error('❌ Failed to load seen timestamps:',e);}
+    })()
+  ]);
+}
+
+// ── Phase 2: background fill — everything else ──
+async function refreshPhase2(){
+  if(!session||session.id==='demo')return;
+  try{
+    if(session.role==='parent')await _refreshPhase2Parent();
+    else if(session.role==='specialist')await _refreshPhase2Specialist();
+  }catch(e){console.error('❌ refreshPhase2:',e);}
+  // After Phase 2 completes, if user is still on home, soft-refresh widgets
+  if(S.activeTab==='dashboard'&&S.navLevel===0){
+    try{re();}catch(e){}
+  }
+  // Household invite modal check (was at end of original refreshFromSupabase)
   if(session?.role==='parent'&&!S._hhModalChecked&&shouldShowHouseholdModal()){
     S._hhModalChecked=true;
     setTimeout(()=>showHouseholdInviteModal(false),2000);
   }
 }
+
+async function _refreshPhase2Parent(){
+  const hid=session.householdId;
+  // Co-parents (fast, independent)
+  if(hid){
+    try{
+      const {data:_cpData}=await _supa.from('profiles').select('id,display_name').eq('household_id',hid).neq('id',session.id).eq('role','parent');
+      DB.coParents=(_cpData||[]).map(p=>({id:p.id,name:p.display_name||'Co-Parent'}));
+      _loaded.coParents=true;
+    }catch(e){console.error('refresh coParents:',e);}
+  }
+  // Specialists (needed before folders/requests but independent of everything else)
+  try{
+    const specs=await SB.getSpecialists(session.id,hid||null);
+    const localSpecs=DB.specialists||[];
+    (specs||[]).forEach(s=>{const local=localSpecs.find(l=>l.id===s.id);if(local?.permissions)s.permissions={...local.permissions,...s.permissions};});
+    LS.set('specialists',specs||[]);
+    _loaded.specialists=true;
+  }catch(e){console.error('refresh specialists:',e);}
+  // Folders per child
+  try{
+    const children=LS.get('children',[])||[];
+    const folderResults=await Promise.all(children.map(ch=>SB.getFolders(ch.id).catch(()=>[])));
+    const allFolders=folderResults.flat();
+    if(allFolders.length>0)LS.set('folders',allFolders);
+    _loaded.folders=true;
+  }catch(e){}
+  // Inbox files
+  try{
+    const{data:_ibxData}=await _supa.from('files').select('id,name,created_at,storage_path,mime_type,size_bytes').is('child_id',null).eq('category','inbox').eq('uploaded_by',session.id).order('created_at',{ascending:false});
+    if(_ibxData){
+      const _ibxMapped=await Promise.all(_ibxData.map(async f=>{
+        const _su=f.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(f.storage_path,900)).data?.signedUrl||null:null;
+        return{id:f.id,name:f.name,type:(f.name||'').split('.').pop()||'file',date:f.created_at?f.created_at.split('T')[0]:'',size:f.size_bytes?Math.round(f.size_bytes/1024)+' KB':'',storagePath:f.storage_path,url:_su};
+      }));
+      LS.set('globalInboxFiles',_ibxMapped);
+    }
+    _loaded.inboxFiles=true;
+  }catch(e){console.error('refresh inbox files:',e);}
+  // Pending specialist requests (4 parallel sources)
+  try{
+    const _hid=session.householdId;
+    const _childIds=(LS.get('children',[])||[]).map(c=>c.id);
+    let _allReqs=[];
+    const _dedup=rows=>{rows&&rows.forEach(r=>{if(!_allReqs.find(x=>x.id===r.id))_allReqs.push(r);});};
+    const [_reqR1,_reqR2,_reqR3,_reqR4]=await Promise.all([
+      _hid?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('household_id',_hid):Promise.resolve({data:[]}),
+      _supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_id',session.id),
+      _childIds.length?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').in('child_id',_childIds):Promise.resolve({data:[]}),
+      session.email?_supa.from('specialist_requests').select('id,specialist_id,specialist_name,role,child_id,requested_at,status,requested_folder,requested_folder_name,request_type,parent_email_hint,child_name_hint,parent_seen_at').eq('status','pending').eq('parent_email_hint',session.email):Promise.resolve({data:[]}),
+    ]);
+    _dedup(_reqR1.data);_dedup(_reqR2.data);_dedup(_reqR3.data);_dedup(_reqR4.data);
+    const mapped=_allReqs.map(r=>({id:r.id,specialistId:r.specialist_id,specialistName:r.specialist_name,role:r.role,childId:r.child_id,requestedAt:r.requested_at,status:r.status,requestedFolder:r.requested_folder||null,requestedFolderName:r.requested_folder_name||null,requestType:r.request_type||'join',parentEmailHint:r.parent_email_hint||null,childNameHint:r.child_name_hint||null,parentSeenAt:r.parent_seen_at||null}));
+    DB.specialistRequests=mapped;
+    _loaded.specialistRequests=true;
+  }catch(e){console.error('load specialist_requests:',e);}
+  // Parent tasks
+  try{
+    const{data:ptData}=await _supa.from('parent_tasks').select('*').eq('household_id',String(session.householdId)).order('created_at',{ascending:false});
+    DB.parentTasks=ptData||[];
+    _loaded.parentTasks=true;
+  }catch(e){console.error('load parent_tasks:',e);}
+  // Everything else in one parallel batch
+  await Promise.allSettled([
+    _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
+      .then(({data:apts})=>{
+        const _localApts=LS.get('appointments',[])||[];
+        const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
+        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null})));
+        _loaded.appointments=true;
+      })
+      .catch(e=>console.error('refresh appointments:',e)),
+    (hid
+      ? _supa.from('homework_tasks').select('*').eq('household_id',hid).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+      : _supa.from('homework_tasks').select('*').eq('specialist_id',session.id).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+    ).then(({data:hwt})=>{
+      LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));
+      _loaded.homeworkTasks=true;
+    }).catch(e=>console.error('refresh homework_tasks:',e)),
+    hid
+      ? _supa.from('homework_occurrences').select('id,task_id,child_id,household_id,scheduled_date,status,acknowledged_by_parent,time_of_day').eq('household_id',hid).gte('scheduled_date',new Date(Date.now()-30*86400000).toISOString().split('T')[0]).lte('scheduled_date',new Date(Date.now()+90*86400000).toISOString().split('T')[0])
+          .then(({data:hwoc})=>LS.set('homeworkOccurrences',(hwoc||[]).map(o=>({id:o.id,taskId:o.task_id,childId:o.child_id,date:o.scheduled_date,status:o.status||'pending',acknowledgedByParent:o.acknowledged_by_parent||false,timeOfDay:o.time_of_day||null}))))
+          .catch(e=>console.error('refresh homework_occurrences:',e))
+      : Promise.resolve(),
+    hid
+      ? _supa.from('homework_comments').select('*').eq('household_id',hid)
+          .then(({data:hwcmt})=>LS.set('homeworkComments',(hwcmt||[]).map(c=>({id:c.id,taskId:c.task_id,completionId:c.completion_id,specialistId:c.specialist_id,comment:c.comment,createdAt:c.created_at}))))
+          .catch(e=>console.error('refresh homework_comments:',e))
+      : Promise.resolve(),
+    hid
+      ? _supa.from('homework_reminders').select('*').eq('parent_id',session.id)
+          .then(({data:hwrem})=>LS.set('homeworkReminders',(hwrem||[]).map(r=>({id:r.id,taskId:r.task_id,time:r.reminder_time,isEnabled:r.is_enabled}))))
+          .catch(e=>console.error('refresh homework_reminders:',e))
+      : Promise.resolve(),
+    _supa.from('todos').select('*').eq('user_id',session.id)
+      .then(({data:tds})=>{LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}})));_loaded.todos=true;})
+      .catch(e=>console.error('refresh todos:',e)),
+    (async()=>{
+      try{
+        const childIds=(LS.get('children',[])||[]).map(c=>c.id);
+        if(childIds.length){
+          const {data:vnotes}=await _supa.from('vault_notes').select('id,specialist_id,child_id,title,summary,published,locked,created_at,parent_read_at').in('child_id',childIds).eq('published',true);
+          const _localNotes=LS.get('vaultNotes',[])||[];
+          const _localReadMap={};_localNotes.forEach(n=>{if(n.parentReadAt)_localReadMap[n.id]=n.parentReadAt;});
+          LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||n.created_at?.split('T')[0]||'',content:'',summary:n.summary||'',isDraft:false,locked:n.locked||false,published:true,lastSaved:'',specialistId:n.specialist_id,date:n.title||n.created_at?.split('T')[0]||'',parentReadAt:n.parent_read_at||_localReadMap[n.id]||null})));
+          _loaded.vaultNotes=true;
+        }
+      }catch(e){console.error('refresh parent vaultNotes:',e);}
+    })()
+  ]);
+  // Past specialists
+  try{
+    const _psHid=session.householdId;
+    const{data:_psRows}=await(_psHid
+      ?_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('household_id',_psHid).eq('status','removed')
+      :_supa.from('specialist_requests').select('specialist_id,specialist_name,role,child_id,requested_at').eq('parent_id',session.id).eq('status','removed'));
+    LS.set('pastSpecialists',(_psRows||[]).map(r=>({specialistId:r.specialist_id,name:r.specialist_name||'Unknown',role:r.role||'Specialist',childId:r.child_id,connectedAt:r.requested_at})));
+    _loaded.pastSpecialists=true;
+  }catch(e){console.error('load past specialists:',e);}
+}
+
+async function _refreshPhase2Specialist(){
+  const specId=session.specialistId||session.id;
+  const approvedIds=S._pendingApprovedIds||[];
+  // Appointments (approved children only)
+  if(approvedIds.length){
+    try{
+      const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date');
+      if(apts&&apts.length>0){
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
+      }
+      _loaded.appointments=true;
+    }catch(e){console.error('refresh spec appointments:',e);}
+    // Care team + folders per approved child (fire-and-forget inside Phase 2)
+    try{
+      const approvedMapped=(LS.get('children',[])||[]).filter(c=>c.connectionStatus==='approved');
+      const [,folderResults2]=await Promise.all([
+        Promise.all(approvedMapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
+        Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
+      ]);
+      const allFolders=folderResults2.flat();
+      if(allFolders.length>0){LS.set('folders',allFolders);if(S.activeTab==='files')re();}
+      _loaded.careTeam=true;_loaded.folders=true;
+    }catch(e){}
+  } else {
+    _loaded.appointments=true;_loaded.careTeam=true;_loaded.folders=true;
+  }
+  // Everything else in parallel
+  await Promise.allSettled([
+    _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
+      .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);_loaded.folderPermissions=true;})
+      .catch(()=>{}),
+    _supa.from('vault_notes').select('id,child_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
+      .then(({data:vnotes})=>{LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));_loaded.vaultNotes=true;})
+      .catch(e=>console.error('refresh vaultNotes:',e)),
+    _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
+      .then(({data:tasks})=>{LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at})));_loaded.specTasks=true;})
+      .catch(e=>console.error('refresh spec_tasks:',e)),
+    _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
+      .then(({data:hwt})=>{LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));_loaded.homeworkTasks=true;})
+      .catch(e=>console.error('refresh specialist homework_tasks:',e))
+  ]);
+}
+
+// Backwards-compatible wrapper — used by realtime, visibility change, and other refresh triggers.
+async function refreshFromSupabase(){
+  await refreshPhase1();
+  await refreshPhase2();
+}
+
+
 
 // Debounced refresh — collapses burst real-time events into one refresh
 let _refreshTimer=null;
@@ -2688,7 +2704,23 @@ function showVerificationPendingScreen(email){
   _detectGeoLanguage().then(()=>{if(_availableLangs.length>1)re();}); // re-render only if geo changed picker visibility
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);loadChatsFromSupabase().catch(e=>console.error('❌ bg chat preload:',e));});}
+  if(session){
+    // Phase 1: critical data (children + notifications + seen_ts + subscription). Render home ASAP.
+    // Phase 2: everything else fires in background after home is visible.
+    Promise.allSettled([
+      refreshPhase1(),
+      _checkSubscription(),
+      session?.role==='specialist'?_checkSpecAiSubscription():Promise.resolve()
+    ]).then(()=>{
+      _appLoading=false;
+      re(); // home visible ~300ms after login
+      setupHouseholdSync();setupSubscriptionSync();
+      if(session?.role==='specialist')setupSpecSubscriptionSync();
+      if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);
+      refreshPhase2().catch(e=>console.error('❌ phase2:',e));
+      loadChatsFromSupabase().catch(e=>console.error('❌ bg chat preload:',e));
+    });
+  }
 })();
 
 async function doGoogleSignIn(role){
@@ -10345,6 +10377,13 @@ function renderFiles(){
   const _dbFolders=DB.folders.filter(f=>f.childId===S.activeChild);
   const child=DB.children.find(c=>c.id===S.activeChild);
   const childColor=child?.color||'var(--teal)';
+  // Phase 2 loading state: if folders haven't loaded yet and cache is empty, show spinner
+  if(!_loaded.folders&&_dbFolders.length===0){
+    const sec=el('div',{class:'section'});
+    sec.appendChild(mkSubHeader(T('files_manager')));
+    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['⏳ '+T('btn_loading')]));
+    return sec;
+  }
 
   // If a folder is open, show file grid view instead
   if(S.activeFolderId){
@@ -11058,6 +11097,12 @@ function buildTeamList(child){
 function renderTeam(){
   const child=DB.children.find(c=>c.id===S.activeChild);
   const sec=el('div',{class:'section'});
+  // Phase 2 loading state: specialists not loaded yet and cache empty
+  if(!_loaded.specialists&&(DB.specialists||[]).length===0){
+    sec.appendChild(mkSubHeader(T('team_care_team_label')));
+    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['⏳ '+T('btn_loading')]));
+    return sec;
+  }
   // Helper — builds folder access request cards into a container.
   // Called on initial render AND after the async fetch so the banner appears even for new requests.
   function _buildFolderReqsSection(container,reqs){
@@ -15586,6 +15631,12 @@ function renderHomeworkParent(){
     const backBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'6px',background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0',minHeight:'44px'}},[T('ss_back')]);
     backBtn.onclick=()=>{S.activeTab='dashboard';re();};
     backBar.appendChild(backBtn);sec.appendChild(backBar);
+  }
+  // Phase 2 loading state: homework not loaded yet and no tasks cached
+  if(!_loaded.homeworkTasks&&allTasks.length===0){
+    sec.appendChild(el('h2',{class:'page-title'},[T('hw_title')]));
+    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},['⏳ '+T('btn_loading')]));
+    return sec;
   }
   sec.appendChild(el('h2',{class:'page-title'},[T('hw_title')]));
   sec.appendChild(el('p',{class:'page-sub'},[(child?.avatar||'')+' '+T('hw_child_tasks',{child:child?.name||''})]));
