@@ -31,37 +31,45 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch — network first, fall back to cache
+// Fetch — network first, fall back to cache. Always returns a Response (never undefined).
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests and browser extension requests
+  // Skip non-GET and non-http(s) requests
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
 
-  // Skip Supabase, Sentry, Plausible API calls — always go to network
+  // Skip Supabase, Sentry, Plausible, Resend — always go to network directly
   const url = new URL(event.request.url);
   const skipDomains = ['supabase.co', 'sentry.io', 'plausible.io', 'resend.com'];
   if (skipDomains.some(d => url.hostname.includes(d))) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Cache successful responses for the app shell
-        if (response.ok && event.request.url.includes(self.location.origin)) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+    (async () => {
+      try {
+        const response = await fetch(event.request);
+        // Cache successful same-origin responses for offline use
+        if (response && response.ok && event.request.url.includes(self.location.origin)) {
+          try {
+            const clone = response.clone();
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, clone);
+          } catch (_) { /* cache write failure shouldn't break the response */ }
         }
         return response;
-      })
-      .catch(() => {
+      } catch (_) {
         // Network failed — try cache
-        return caches.match(event.request).then(cached => {
+        try {
+          const cached = await caches.match(event.request);
           if (cached) return cached;
-          // Return offline page for navigation requests
+          // Navigation fallback: return cached app shell so the SPA can boot offline
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            const shell = await caches.match('/index.html');
+            if (shell) return shell;
           }
-        });
-      })
+        } catch (_) { /* fall through to error response */ }
+        // Last resort — return a real Response so the SW never throws
+        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+      }
+    })()
   );
 });
 
