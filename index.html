@@ -19734,7 +19734,7 @@ function _getSwipeTabs(){
     // Only allow on top-level sections
     const isHome=S.navLevel===0&&!S.calFullscreen;
     const isCal=!!S.calFullscreen;
-    const isChat=S.activeTab==='chat'&&!S.activeChatId&&!S.activeChild;
+    const isChat=S.activeTab==='chat'&&!S.activeChatId&&!S.activeChatChildId;
     const isNotif=S.activeTab==='notifications';
     if(!isHome&&!isCal&&!isChat&&!isNotif)return null;
     return[
