@@ -8410,7 +8410,7 @@ function renderHeader(){
     // -- Centre: Child name or generic label --
     const child=DB.children.find(c=>c.id===S.activeChild);
     const allChildren=DB.children;
-    const _isTopLevelNav=S.calFullscreen||S.activeTab==='notifications'||(S.activeTab==='chat'&&!S.activeChatId);
+    const _isTopLevelNav=S.calFullscreen||S.activeTab==='notifications'||(S.activeTab==='chat'&&!S.activeChatId&&!S.activeChild);
     if(allChildren.length){
       const centre=el('div',{style:{
         flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:_isTopLevelNav?'6px':'8px',cursor:'pointer',position:'relative'
