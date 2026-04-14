@@ -2623,6 +2623,7 @@ function showVerificationPendingScreen(email){
       re();showVerificationPendingScreen(s.user?.email);
     }else{
       await _loadSessionFromSupabase(s);_migratePastPatients();
+      _ensurePushSubscribed();
     }
   }
   // Handle Google OAuth redirect back
@@ -2661,6 +2662,7 @@ function showVerificationPendingScreen(email){
         }
       }
       await _loadSessionFromSupabase(s2);_migratePastPatients();
+      _ensurePushSubscribed();
       if(session){
         S.navLevel=session.role==='parent'?0:1;
         S.activeChild=LS.get('children',[])[0]?.id||null;
@@ -2732,6 +2734,7 @@ async function doLogin(email,password,role,name='',profession='',mode='signin'){
   }
   await _loadSessionFromSupabase(data.session||{user:data.user});
   if(!session)session={id:data.user.id,email,role,name:name||email.split('@')[0],specialistId:data.user.id,isNew:false};
+  _ensurePushSubscribed();
   return{ok:true,isNew:false};
 }
 
@@ -17201,6 +17204,30 @@ async function _subscribePush(){
   return true;
 }
 
+// Idempotent: ensures this device has a push_subscriptions row whenever permission is granted.
+// Run on every session load so each device auto-registers, even if permission was inherited.
+async function _ensurePushSubscribed(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  if(!session?.id||session.id==='demo')return;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(!sub){await _subscribePush();return;}
+    const json=sub.toJSON();
+    if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)return;
+    // Verify DB row exists; upsert if missing or rotated
+    const{data:existing}=await _supa.from('push_subscriptions')
+      .select('id').eq('user_id',session.id).eq('endpoint',json.endpoint).limit(1);
+    if(!existing||!existing.length){
+      await _supa.from('push_subscriptions').upsert({
+        user_id:session.id,endpoint:json.endpoint,p256dh:json.keys.p256dh,
+        auth:json.keys.auth,user_agent:navigator.userAgent
+      },{onConflict:'user_id,endpoint'});
+    }
+  }catch(e){console.error('❌ ensurePushSubscribed:',e);}
+}
+
 async function _unsubscribePush(){
   try{
     const reg=await navigator.serviceWorker.ready;
@@ -18040,7 +18067,7 @@ async function processHouseholdInvite(token){
 
   // Reload session with new household_id
   const {data:{session:s}}=await _supa.auth.getSession();
-  if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();setupSubscriptionSync();}
+  if(s){await _loadSessionFromSupabase(s);await refreshFromSupabase();setupHouseholdSync();setupSubscriptionSync();_ensurePushSubscribed();}
   // Add co-parent to all existing non-consultation household chats so they see history
   if(_supa&&data.household_id&&session?.id&&session.id!=='demo'){
     try{
