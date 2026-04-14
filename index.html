@@ -1628,6 +1628,8 @@ const LS={
 /* -- Logo — swap to '/logo.png' when ready -- */
 const HUD_LOGO_SRC = null; // set to image URL to use logo image, null = emoji + text fallback
 /* -- Paddle config — replace placeholders once Paddle approves -- */
+/* -- Web Push — VAPID public key (private key is Supabase Edge Function secret) -- */
+const VAPID_PUBLIC_KEY = 'BHiEcX6-dblFj77tpbFBGqDi6-GuzZEAsHsmerGSAjq9B6C5WgOy1Nk-8RqM8UNJGDPdIbZ_xo1tUOFlcFf6-iA';
 const PADDLE_ENV = 'production';
 const PADDLE_CLIENT_TOKEN = 'live_903ba43df97634845305971b2be';
 const PADDLE_PRICE_MONTHLY = 'pri_01kmxkcr56swaz1586k0h1dtgk';
@@ -2734,6 +2736,8 @@ async function doLogin(email,password,role,name='',profession='',mode='signin'){
 }
 
 async function doLogout(){
+  // Clean up push subscription for this device
+  try{await _unsubscribePush();}catch(e){}
   // Unsubscribe all realtime channels
   [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_subscriptionChannel,_specPermsChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
   _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
@@ -17167,38 +17171,76 @@ function showDeleteChildModal(child){
 /* -----------------------------------------------
    4. PUSH NOTIFICATION PERMISSION
 ----------------------------------------------- */
-function renderPushBanner(){
-  // FIX B7: use a separate 'pushDismissed' key so pushEnabled stays a clean boolean
-  if(DB.pushEnabled===true||!('Notification' in window))return null;
-  if(LS.get('pushDismissed',false))return null;
-  if(Notification.permission==='granted'){
-    // Already granted — persist state
-    DB.pushEnabled=true;
-    return null;
+// ── Web Push helpers ─────────────────────────────────────────────────────────
+function _urlBase64ToUint8Array(base64){
+  const padding='='.repeat((4-base64.length%4)%4);
+  const b64=(base64+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b64);const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+async function _subscribePush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('Push not supported');
+  if(!session?.id||session.id==='demo')throw new Error('Not signed in');
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub){
+    sub=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:_urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
   }
+  const json=sub.toJSON();
+  if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)throw new Error('Invalid subscription');
+  // Save to Supabase (UNIQUE on user_id+endpoint prevents duplicates)
+  const {error}=await _supa.from('push_subscriptions').upsert({
+    user_id:session.id,endpoint:json.endpoint,p256dh:json.keys.p256dh,auth:json.keys.auth,user_agent:navigator.userAgent
+  },{onConflict:'user_id,endpoint'});
+  if(error)throw error;
+  return true;
+}
+
+async function _unsubscribePush(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){
+      const ep=sub.endpoint;
+      await sub.unsubscribe();
+      if(session?.id&&session.id!=='demo'){
+        try{await _supa.from('push_subscriptions').delete().eq('user_id',session.id).eq('endpoint',ep);}catch(e){console.error('❌ unsubscribe cleanup:',e);}
+      }
+    }
+  }catch(e){console.error('❌ unsubscribePush:',e);}
+}
+
+function renderPushBanner(){
+  if(DB.pushEnabled===true||!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window))return null;
+  if(LS.get('pushDismissed',false))return null;
+  if(Notification.permission==='granted'){DB.pushEnabled=true;return null;}
   if(Notification.permission==='denied')return null;
   const banner=el('div',{class:'push-banner'});
   banner.innerHTML='<span style="font-size:1.6rem">🔔</span><div style="flex:1"><div style="font-weight:800;color:var(--navy)">'+T('push_title')+'</div><div style="font-size:.78rem;color:var(--slate);margin-top:2px">'+T('push_desc')+'</div></div>';
-  banner.appendChild(mkBtn(T('push_enable'),'btn-sm btn-primary',()=>{
-    Notification.requestPermission().then(perm=>{
-      if(perm==='granted'){
-        DB.pushEnabled=true;
-        new Notification('Huddledin 🤝',{body:T('push_enabled_body'),icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});
-        re();
-      } else {
-        toast(T('push_blocked_msg'),'info');
-      }
-    });
-  }));
-  // FIX B7: store dismissed state separately, keep pushEnabled as boolean
+  const enableBtn=mkBtn(T('push_enable'),'btn-sm btn-primary',async()=>{
+    enableBtn.disabled=true;
+    try{
+      const perm=await Notification.requestPermission();
+      if(perm!=='granted'){toast(T('push_blocked_msg'),'info');enableBtn.disabled=false;return;}
+      await _subscribePush();
+      DB.pushEnabled=true;
+      toast(T('push_enabled_body'),'success');re();
+    }catch(e){console.error('❌ subscribePush:',e);toast('Could not enable push notifications.','error');enableBtn.disabled=false;}
+  });
+  banner.appendChild(enableBtn);
   banner.appendChild(mkBtn(T('push_not_now'),'btn-sm btn-slate',()=>{LS.set('pushDismissed',true);re();}));
   return banner;
 }
 
-// Helper: send actual push if permission granted
+// Legacy in-tab notification — used by some flows when the tab is already open
 function sendPush(title,body){
   if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
-    try{new Notification(title,{body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">🤝</text></svg>'});}catch(e){}
+    try{new Notification(title,{body,icon:'/icon-192.png'});}catch(e){}
   }
 }
 
@@ -19276,8 +19318,13 @@ function renderSettings(){
       el('div',{style:{fontWeight:700,color:'var(--navy)'}},[pushStatus==='granted'?T('settings_push_enabled'):pushStatus==='denied'?T('settings_push_blocked'):T('settings_push_not_enabled')]),
       el('div',{style:{fontSize:'.76rem',color:statusColors[pushStatus]||'var(--slate)',marginTop:'2px'}},[T('settings_push_status',{status:pushStatus})])
     ]),
-    pushStatus==='default'?mkBtn(T('settings_push_enable_btn'),'btn-sm btn-primary',()=>{
-      Notification.requestPermission().then(p=>{if(p==='granted'){DB.pushEnabled=true;re();toast(T('settings_push_toast'));}});
+    pushStatus==='default'?mkBtn(T('settings_push_enable_btn'),'btn-sm btn-primary',async()=>{
+      try{
+        const p=await Notification.requestPermission();
+        if(p!=='granted'){toast(T('push_blocked_msg'),'info');return;}
+        await _subscribePush();
+        DB.pushEnabled=true;re();toast(T('settings_push_toast'));
+      }catch(e){console.error('❌ subscribePush:',e);toast('Could not enable push notifications.','error');}
     }):el('span')
   ]));
   sec.appendChild(pc2);
