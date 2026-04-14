@@ -2688,7 +2688,7 @@ function showVerificationPendingScreen(email){
   _detectGeoLanguage().then(()=>{if(_availableLangs.length>1)re();}); // re-render only if geo changed picker visibility
   re(); // initial render — shows loading screen if session, login screen if not
   // Refresh data from Supabase on boot (ensures cross-device consistency)
-  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);});}
+  if(session){refreshFromSupabase().then(async()=>{_appLoading=false;await _checkSubscription();if(session?.role==='specialist')await _checkSpecAiSubscription();re();setupHouseholdSync();setupSpecialistSync();setupSubscriptionSync();if(session?.role==='specialist')setupSpecSubscriptionSync();if(session?.role==='parent')setTimeout(()=>_showPendingSpecialistRequestsPopup(),1500);loadChatsFromSupabase().catch(e=>console.error('❌ bg chat preload:',e));});}
 })();
 
 async function doGoogleSignIn(role){
