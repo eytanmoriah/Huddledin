@@ -17238,14 +17238,18 @@ async function _unsubscribePush(){
   try{
     const reg=await navigator.serviceWorker.ready;
     const sub=await reg.pushManager.getSubscription();
-    if(sub){
-      const ep=sub.endpoint;
-      await sub.unsubscribe();
-      if(session?.id&&session.id!=='demo'){
-        try{await _supa.from('push_subscriptions').delete().eq('user_id',session.id).eq('endpoint',ep);}catch(e){console.error('❌ unsubscribe cleanup:',e);}
-      }
+    if(!sub)return;
+    const ep=sub.endpoint;
+    // Delete DB row FIRST — endpoint belongs to this browser, not to a user session.
+    // Stops future pushes from routing here even if the local unsubscribe below fails.
+    if(_supa){
+      try{await _supa.from('push_subscriptions').delete().eq('endpoint',ep);}
+      catch(e){console.error('❌ delete push_sub by endpoint:',e);}
     }
-  }catch(e){console.error('❌ unsubscribePush:',e);}
+    // Then revoke the local subscription (best-effort, may fail offline)
+    try{await sub.unsubscribe();}
+    catch(e){console.error('❌ local pushManager.unsubscribe:',e);}
+  }catch(e){console.error('❌ _unsubscribePush:',e);}
 }
 
 function renderPushBanner(){
