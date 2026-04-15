@@ -2419,7 +2419,7 @@ async function loadChatsFromSupabase(){
     const chatsWithMessages=(chatRows||[]).map(ch=>{
       const msgs=_msgsByChatId[ch.id]||[];
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,unreadFor:ch.unread_for||[],unreadCount:ch.unread_count||0,
-        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null}))};
+        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null,replyToId:m.reply_to_id||null}))};
     });
     // Generate signed URLs for messages with images (batched)
     const _imgMsgs=chatsWithMessages.flatMap(ch=>ch.messages.filter(m=>m.imagePath));
@@ -3508,6 +3508,8 @@ chat_gallery:'Gallery',
 chat_act_view:'View',
 chat_act_download:'Download',
 chat_act_copy:'Copy',
+chat_act_reply:'Reply',
+chat_reply_unavail:'Original message unavailable',
 chat_copied:'✅ Copied',
 chat_send:'Send',
 chat_start_chat:'Start Chat',
@@ -4787,6 +4789,8 @@ chat_gallery:'\u05D2\u05DC\u05E8\u05D9\u05D4',
 chat_act_view:'\u05E6\u05E4\u05D9\u05D9\u05D4',
 chat_act_download:'\u05D4\u05D5\u05E8\u05D3\u05D4',
 chat_act_copy:'\u05D4\u05E2\u05EA\u05E7\u05D4',
+chat_act_reply:'\u05EA\u05D2\u05D5\u05D1\u05D4',
+chat_reply_unavail:'\u05D4\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D4\u05DE\u05E7\u05D5\u05E8\u05D9\u05EA \u05D0\u05D9\u05E0\u05D4 \u05D6\u05DE\u05D9\u05E0\u05D4',
 chat_copied:'\u2705 \u05D4\u05D5\u05E2\u05EA\u05E7',
 chat_send:'\u05E9\u05DC\u05D9\u05D7\u05D4',
 chat_start_chat:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4',
@@ -12772,12 +12776,44 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     return {images,startIdx};
   };
 
+  // Reply state + UI: when user taps Reply on a message, store reference & show preview bar above input
+  let _replyTo=null, _replyBar=null, _replyBarText=null, _replyBarSender=null; // _replyTo = {id, text, imagePath} | null
+  const _clearReplyTo=()=>{_replyTo=null;if(_replyBar)_replyBar.style.display='none';};
+  const _setReplyTo=(msg)=>{
+    _replyTo={id:msg.id,text:msg.text||'',imagePath:msg.imagePath||null,imageUrl:msg.imageUrl||null,senderName:msg.senderName||''};
+    if(_replyBar){
+      _replyBarText.textContent=msg.text ? (msg.text.length>120?msg.text.slice(0,120)+'…':msg.text) : (msg.imageUrl||msg.imagePath?(T('chat_image')||'Photo'):'');
+      _replyBarSender.textContent=msg.senderName||'';
+      _replyBar.style.display='flex';
+    }
+    const mi2=document.querySelector('.chat-input-row .inp'); if(mi2)mi2.focus();
+  };
+
+  // Build a compact quote block shown above the bubble's content when msg.replyToId is set
+  const _buildQuoteBlock=(msg)=>{
+    if(!msg?.replyToId)return null;
+    const orig=(DB.chats.find(c=>c.id===activeChat.id)?.messages||[]).find(m=>m.id===msg.replyToId);
+    const bar=el('div',{style:{borderInlineStart:'3px solid rgba(13,148,136,.55)',background:'rgba(13,148,136,.08)',borderRadius:'8px',padding:'6px 9px',margin:'0 0 6px 0',fontSize:'.78rem',lineHeight:'1.35',maxWidth:'100%',overflow:'hidden'}});
+    if(!orig){
+      bar.appendChild(el('div',{style:{opacity:.7,fontStyle:'italic'}},[T('chat_reply_unavail')||'Original message unavailable']));
+      return bar;
+    }
+    if(orig.senderName)bar.appendChild(el('div',{style:{fontWeight:800,fontSize:'.72rem',marginBottom:'2px',opacity:.8}},[orig.senderName]));
+    if(orig.text){
+      bar.appendChild(el('div',{style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',opacity:.9}},[orig.text]));
+    } else if(orig.imageUrl||orig.imagePath){
+      bar.appendChild(el('div',{style:{opacity:.9}},['📷 '+(T('chat_image')||'Photo')]));
+    }
+    return bar;
+  };
+
   // Enhance a chat bubble with action menu (long-press mobile, hover ⋮ desktop).
   // msg = {id,text,imageUrl?,imagePath?}
   const _enhanceBubble=(bubble,msg)=>{
     const buildItems=()=>{
       const items=[];
       const hasImg=!!(msg.imageUrl||msg.imagePath);
+      items.push({icon:'↩️',label:T('chat_act_reply')||'Reply',onClick:()=>_setReplyTo(msg)});
       if(hasImg){
         items.push({icon:'👁️',label:T('chat_act_view')||'View',onClick:()=>{const g=_chatGallery(msg.id);_filePreview(g.images[g.startIdx]||{name:T('chat_image')+'.jpg',url:msg.imageUrl},null,null,g);}});
         items.push({icon:'⬇️',label:T('chat_act_download')||'Download',onClick:()=>_downloadImage(msg.imageUrl,T('chat_image')+'.jpg')});
@@ -12956,6 +12992,8 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     if(!isMe){
       bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(m.sender)}},[senderName]));
     }
+    // Quoted reply block (if present)
+    const _qb1=_buildQuoteBlock(m);if(_qb1)bub.appendChild(_qb1);
     // Inline image (if present)
     if(m.imageUrl||m.imagePath){
       const imgSrc=m.imageUrl||(m.imagePath?null:null);
@@ -13021,7 +13059,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       if(msg.sender_id===session?.id)return;
       const all2=DB.chats,ci2=all2.findIndex(c=>c.id===activeChat.id);
       if(ci2>-1&&!all2[ci2].messages.find(m=>m.id===msg.id)){
-        const _rtMsg={id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at,imagePath:msg.image_path||null,imageUrl:null};
+        const _rtMsg={id:msg.id,sender:msg.sender_id,senderName:msg.sender_name||'',text:msg.body,time:new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:msg.created_at.split('T')[0],createdAt:msg.created_at,imagePath:msg.image_path||null,imageUrl:null,replyToId:msg.reply_to_id||null};
         all2[ci2].messages.push(_rtMsg);
         DB.chats=all2;
         // In-place DOM append — no re(), no jump
@@ -13037,6 +13075,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
           _row.appendChild(_av2);
           const _bub=el('div',{class:'bubble-them'});
           _bub.appendChild(el('div',{class:'bubble-name',style:{color:_senderColor(_rtMsg.sender)}},[_sName]));
+          const _qb2=_buildQuoteBlock(_rtMsg);if(_qb2)_bub.appendChild(_qb2);
           if(_rtMsg.imageUrl){
             const _img=el('img',{src:_rtMsg.imageUrl,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:_rtMsg.text?'6px':'0',cursor:'pointer'}});
             _img.onclick=ev=>{ev.stopPropagation();const g=_chatGallery(_rtMsg.id);_filePreview(g.images[g.startIdx]||{name:T('chat_image')+'.jpg',url:_rtMsg.imageUrl},null,null,g);};
@@ -13110,14 +13149,14 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   let _sending=false;
   sb2.onmousedown=e=>e.preventDefault();
   // Send one message (text + optional single image). Called in a loop for multi-image sends.
-  async function _sendOneChatMsg(txt,_imgFile,_imgBlobUrl){
+  async function _sendOneChatMsg(txt,_imgFile,_imgBlobUrl,_replyToId){
     const hasImage=!!_imgFile;
     const all=DB.chats,ci=all.findIndex(c=>c.id===activeChat.id);
     if(ci<0)return;
     const senderKey=myId||'unknown';
     const senderName=session?.displayName||session?.name||'';
     const _now=new Date().toISOString();
-    const newMsg={id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),sender:senderKey,senderName,text:txt||'',time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:_now.split('T')[0],createdAt:_now,imageUrl:_imgBlobUrl,imagePath:null};
+    const newMsg={id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),sender:senderKey,senderName,text:txt||'',time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:_now.split('T')[0],createdAt:_now,imageUrl:_imgBlobUrl,imagePath:null,replyToId:_replyToId||null};
     all[ci].messages.push(newMsg);
     all[ci].unreadFor=[...(all[ci].unreadFor||[])];
     if(session?.role==='specialist'){
@@ -13132,6 +13171,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       const _row=el('div',{style:{display:'flex',justifyContent:'flex-end',gap:'6px',alignItems:'flex-end'}});
       _row.dataset.msgId=newMsg.id;
       const _bub=el('div',{class:'bubble-me'});
+      const _qb3=_buildQuoteBlock(newMsg);if(_qb3)_bub.appendChild(_qb3);
       if(hasImage&&_imgBlobUrl){
         const _img=el('img',{src:_imgBlobUrl,style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:txt?'6px':'0',cursor:'pointer'}});
         _img.onclick=ev=>{ev.stopPropagation();const g=_chatGallery(newMsg.id);_filePreview(g.images[g.startIdx]||{name:T('chat_image')+'.jpg',url:_imgBlobUrl},null,null,g);};
@@ -13152,7 +13192,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         if(hasImage&&_imgFile){
           try{const{path}=await SB.uploadFile('chat/'+activeChat.id,_imgFile);_imgPath=path;}catch(e){console.error('image upload:',e);}
         }
-        await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt||'',image_path:_imgPath,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
+        await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt||'',image_path:_imgPath,reply_to_id:_replyToId||null,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
         _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
         try{
           const _msgChild=DB.children.find(c=>c.id===activeChat.childId)||(LS.get('children',[])||[]).find(c=>c.id===activeChat.childId);
@@ -13189,22 +13229,37 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     const imgs=_pendingImages.slice();
     if(!txt&&!imgs.length)return;
     _sending=true;sb2.disabled=true;mi.focus();
+    const _replyId=_replyTo?.id||null;
     // Clear composer immediately for responsive feel
-    mi.value='';S.chatMsg='';_pendingImages=[];_renderPreviewStrip();
+    mi.value='';S.chatMsg='';_pendingImages=[];_renderPreviewStrip();_clearReplyTo();
     try{
       // Plan: if images exist, each image is its own message; text attaches to the LAST image.
+      // Reply attaches only to the FIRST message of a multi-image batch to avoid N identical quotes.
       const plan=imgs.length
-        ? imgs.map((img,i)=>({txt:i===imgs.length-1?txt:'',imgFile:img.file,imgBlobUrl:img.blobUrl}))
-        : [{txt,imgFile:null,imgBlobUrl:null}];
+        ? imgs.map((img,i)=>({txt:i===imgs.length-1?txt:'',imgFile:img.file,imgBlobUrl:img.blobUrl,replyToId:i===0?_replyId:null}))
+        : [{txt,imgFile:null,imgBlobUrl:null,replyToId:_replyId}];
       for(const p of plan){
-        try{await _sendOneChatMsg(p.txt,p.imgFile,p.imgBlobUrl);}
+        try{await _sendOneChatMsg(p.txt,p.imgFile,p.imgBlobUrl,p.replyToId);}
         catch(e){break;/* stop on first failure; user already saw toast */}
       }
     }finally{sb2.disabled=false;_sending=false;}
   };
   mi.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey)sb2.click();};
   inputRow.appendChild(mi);inputRow.appendChild(camBtn);inputRow.appendChild(_camInp);inputRow.appendChild(_galInp);inputRow.appendChild(sb2);
+
+  // Reply preview bar (shown above input when _replyTo is set)
+  _replyBar=el('div',{style:{display:'none',padding:'8px 14px',borderTop:'1.5px solid var(--mint-ll)',background:'var(--mint-ll)',flexShrink:0,alignItems:'center',gap:'8px'}});
+  const _replyBarLeft=el('div',{style:{width:'3px',alignSelf:'stretch',background:'var(--teal)',borderRadius:'2px',flexShrink:0}});
+  const _replyBarMid=el('div',{style:{flex:1,minWidth:0,overflow:'hidden'}});
+  _replyBarSender=el('div',{style:{fontWeight:800,fontSize:'.72rem',color:'var(--teal-d)',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
+  _replyBarText=el('div',{style:{fontSize:'.78rem',color:'var(--navy)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
+  _replyBarMid.appendChild(_replyBarSender);_replyBarMid.appendChild(_replyBarText);
+  const _replyBarX=el('button',{style:{background:'transparent',border:'none',cursor:'pointer',fontSize:'1rem',color:'var(--slate)',padding:'4px 6px',flexShrink:0,minWidth:'28px',minHeight:'28px'}},['✕']);
+  _replyBarX.onclick=()=>_clearReplyTo();
+  _replyBar.appendChild(_replyBarLeft);_replyBar.appendChild(_replyBarMid);_replyBar.appendChild(_replyBarX);
+
   wrap.appendChild(_imgPreviewWrap);
+  wrap.appendChild(_replyBar);
   wrap.appendChild(inputRow);
   return wrap;
 }
