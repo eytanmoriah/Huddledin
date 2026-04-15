@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit, RATE_LIMIT, RATE_WINDOW_SECONDS } from '../lib/rate-limit.mjs';
 
 async function verifySpecAiAccess(req) {
   const authHeader = req.headers.authorization;
@@ -26,6 +27,14 @@ export default async function handler(req, res) {
   let auth;
   try { auth = await verifySpecAiAccess(req); } catch (e) { console.error('Auth check failed:', e); return res.status(500).json({ error: 'Auth verification failed' }); }
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const rl = await checkRateLimit(auth.user.id, 'ai-summary');
+  if (!rl.ok) {
+    return res.status(429).json({
+      error: `Too many AI requests. Limit is ${RATE_LIMIT}/hour. Try again shortly.`,
+      retryAfter: RATE_WINDOW_SECONDS
+    });
+  }
 
   const { notes, childName } = req.body;
 
