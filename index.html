@@ -3509,6 +3509,12 @@ chat_act_copy:'Copy',
 chat_act_reply:'Reply',
 chat_reply_unavail:'Original message unavailable',
 chat_copied:'✅ Copied',
+chat_rename:'Rename chat',
+chat_rename_title:'Rename chat',
+chat_rename_placeholder:'Chat name',
+chat_rename_empty:'Name cannot be empty',
+chat_renamed:'✅ Chat renamed',
+chat_rename_err:'Could not rename.',
 chat_send:'Send',
 chat_start_chat:'Start Chat',
 chat_select_specialist:'Select specialist',
@@ -4790,6 +4796,12 @@ chat_act_copy:'\u05D4\u05E2\u05EA\u05E7\u05D4',
 chat_act_reply:'\u05EA\u05D2\u05D5\u05D1\u05D4',
 chat_reply_unavail:'\u05D4\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D4\u05DE\u05E7\u05D5\u05E8\u05D9\u05EA \u05D0\u05D9\u05E0\u05D4 \u05D6\u05DE\u05D9\u05E0\u05D4',
 chat_copied:'\u2705 \u05D4\u05D5\u05E2\u05EA\u05E7',
+chat_rename:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DD \u05D4\u05E6\'\u05D0\u05D8',
+chat_rename_title:'\u05E9\u05D9\u05E0\u05D5\u05D9 \u05E9\u05DD \u05D4\u05E6\'\u05D0\u05D8',
+chat_rename_placeholder:'\u05E9\u05DD \u05D4\u05E6\'\u05D0\u05D8',
+chat_rename_empty:'\u05D4\u05E9\u05DD \u05DC\u05D0 \u05D9\u05DB\u05D5\u05DC \u05DC\u05D4\u05D9\u05D5\u05EA \u05E8\u05D9\u05E7',
+chat_renamed:'\u2705 \u05E9\u05DD \u05D4\u05E6\'\u05D0\u05D8 \u05E9\u05D5\u05E0\u05D4',
+chat_rename_err:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05E0\u05D5\u05EA \u05E9\u05DD.',
 chat_send:'\u05E9\u05DC\u05D9\u05D7\u05D4',
 chat_start_chat:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4',
 chat_select_specialist:'\u05D1\u05D7\u05D9\u05E8\u05EA \u05DE\u05D8\u05E4\u05DC/\u05EA',
@@ -11440,8 +11452,16 @@ function renderTeam(){
           const specA=DB.specialists.find(s=>s.id===specId)||{name:req.specialistName};
           const specB=DB.specialists.find(s=>s.id===targetSpecId)||{name:targetName};
           const parentId=session.role==='parent'?(session.householdId||session.id):null;
+          let _householdParents=[session.id,...(DB.coParents||[]).map(p=>p.id)];
+          if(isInclusive&&session.householdId){
+            try{
+              const{data:_pps,error:_ppe}=await _supa.from('profiles').select('id').eq('household_id',session.householdId).eq('role','parent');
+              if(_ppe)console.error('❌ household parents lookup:',_ppe);
+              else if(_pps?.length)_householdParents=_pps.map(p=>p.id);
+            }catch(_hpe){console.error('❌ household parents fetch:',_hpe);}
+          }
           const participants=isInclusive
-            ?[specId,targetSpecId,session.id,...(DB.coParents||[]).map(p=>p.id)]
+            ?[specId,targetSpecId,..._householdParents]
             :[specId,targetSpecId];
           const chatName=specA.name.split(' ')[0]+' + '+specB.name.split(' ')[0]+' Consult'+(isInclusive?' (+ Parent)':'');
           try{
@@ -12576,7 +12596,12 @@ function renderChat(){
     const _chatChild=DB.children.find(c=>c.id===chat.childId);
     const _parentDynamic=otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist';
     const _specDynamic=_chatChild?(_chatChild.name+"'s Family"):'Family';
-    const chatName=isConsult?(chat.name||'Specialist Consult'):isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
+    const _parentInConsult=isConsult&&(chat.participants||[]).some(p=>p==='parent'||p===session?.id||(DB.coParents||[]).some(cp=>cp.id===p));
+    const _isAutoConsultName=!chat.name||/\bConsult(?:\s*\(\+ Parent\))?$/.test(chat.name);
+    const _consultDisplay=_parentInConsult
+      ?(_isAutoConsultName?('Consult: '+(_chatChild?.name||'')):chat.name)
+      :(chat.name||'Specialist Consult');
+    const chatName=isConsult?_consultDisplay:isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
     const childName=DB.children.find(c=>c.id===chat.childId)?.name||'';
     const childAvatar=DB.children.find(c=>c.id===chat.childId)?.avatar||'👤';
@@ -12752,7 +12777,13 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   const otherSpecId=activeChat.participants.find(p=>p!=='parent'&&p!==specId);
   const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
   const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
-  const chatName=activeChat.name||(isConsult?'Specialist Consult':isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family'));
+  const _parentInConsult=isConsult&&(activeChat.participants||[]).some(p=>p==='parent'||p===session?.id||(DB.coParents||[]).some(cp=>cp.id===p));
+  const _isAutoConsultName=!activeChat.name||/\bConsult(?:\s*\(\+ Parent\))?$/.test(activeChat.name);
+  const _headerChild=DB.children.find(c=>c.id===activeChat.childId);
+  const _consultHeader=_parentInConsult
+    ?(_isAutoConsultName?('Consult: '+(_headerChild?.name||'')):activeChat.name)
+    :(activeChat.name||'Specialist Consult');
+  const chatName=isConsult?_consultHeader:(activeChat.name||(isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family')));
   const participantNames=isGroup
     ?activeChat.participants.map(p=>{
       if(p===session?.id)return session.displayName||session.name||'You';
@@ -12890,7 +12921,43 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   av.appendChild(el('span',{},[isGroup?'\u{1F465}':isConsult?'\u{1F517}':(DB.children.find(c=>c.id===activeChat.childId)?.avatar||'\u{1F4AC}')]));
   threadHd.appendChild(av);
   const ti=el('div',{style:{flex:1,minWidth:0}});
-  ti.appendChild(el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[chatName+(!isGroup&&!isConsult&&otherSpec?.role?' · '+otherSpec.role:'')]));
+  const _nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',minWidth:0}});
+  const _nameEl=el('div',{style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}},[chatName+(!isGroup&&!isConsult&&otherSpec?.role?' · '+otherSpec.role:'')]);
+  _nameRow.appendChild(_nameEl);
+  if(session?.role==='parent'&&(isGroup||isConsult)){
+    const _renameBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',fontSize:'.85rem',opacity:.6,flexShrink:0,lineHeight:1}},['✏️']);
+    _renameBtn.title=T('chat_rename')||'Rename chat';
+    _renameBtn.onclick=e=>{
+      e.stopPropagation();
+      openModal(T('chat_rename_title')||'Rename chat',(mb,close)=>{
+        const _curName=activeChat.name&&!_isAutoConsultName?activeChat.name:(isConsult?'Consult: '+(_headerChild?.name||''):'');
+        const inp=el('input',{class:'inp',value:_curName,placeholder:T('chat_rename_placeholder')||'Chat name',style:{width:'100%',marginBottom:'14px',fontSize:'16px',padding:'10px 12px'}});
+        mb.appendChild(inp);
+        const row=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end'}});
+        row.appendChild(mkBtn(T('cancel')||'Cancel','btn-md btn-ghost',close));
+        const saveBtn=mkBtn(T('save')||'Save','btn-md btn-primary',async()=>{
+          const newName=inp.value.trim();
+          if(!newName){toast(T('chat_rename_empty')||'Name cannot be empty','error');return;}
+          saveBtn.disabled=true;
+          try{
+            const{error:_re}=await _supa.from('chats').update({name:newName}).eq('id',activeChat.id);
+            if(_re)throw _re;
+            const all=DB.chats,i=all.findIndex(c=>c.id===activeChat.id);
+            if(i>-1){all[i].name=newName;DB.chats=all;}
+            activeChat.name=newName;
+            _nameEl.textContent=newName;
+            close();toast(T('chat_renamed')||'✅ Chat renamed');
+          }catch(err){console.error('❌ rename chat:',err);toast(T('chat_rename_err')||'Could not rename.','error');saveBtn.disabled=false;}
+        });
+        row.appendChild(saveBtn);
+        mb.appendChild(row);
+        setTimeout(()=>{inp.focus();inp.select();},50);
+        return close;
+      });
+    };
+    _nameRow.appendChild(_renameBtn);
+  }
+  ti.appendChild(_nameRow);
   ti.appendChild(el('div',{style:{fontSize:'.68rem',color:childColor,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
     [isGroup?'\u{1F465} '+participantNames:isConsult?'\u{1F517} Specialist consult':'\u{1F512} Secure chat']));
   threadHd.appendChild(ti);
