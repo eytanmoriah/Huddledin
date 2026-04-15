@@ -12074,9 +12074,18 @@ function renderCalendar(){
       const isToday=day===tDay&&m===tMon&&y===tYr;
       const isSel=ds===S.calSelectedDate;
       const num=el('div',{class:'cal-num'+(da.length?' has-event':'')+(isToday?' today':'')+(isSel?' selected':'')},[String(day)]);
+      num.dataset.date=ds;
       num.style.cursor='pointer';
-      num.onclick=e=>{e.stopPropagation();S.calSelectedDate=ds;S._calUpcomingView=false;re();};
-      cell.onclick=()=>{S.calSelectedDate=ds;S._calUpcomingView=false;re();};
+      const _selectDay=()=>{
+        S.calSelectedDate=ds;S._calUpcomingView=false;
+        // In-place swap: update .selected class + rebuild events panel only (no re())
+        calCard.querySelectorAll('.cal-num.selected').forEach(n=>n.classList.remove('selected'));
+        num.classList.add('selected');
+        if(typeof sec._rebuildEvtPanel==='function')sec._rebuildEvtPanel();
+        else re();
+      };
+      num.onclick=e=>{e.stopPropagation();_selectDay();};
+      cell.onclick=()=>_selectDay();
       cell.appendChild(num);
       da.forEach(a=>{
         const dotColor=(isParent&&S.calendarMode==='joint')?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)'):(TC[a.type]||'var(--teal)');
@@ -12115,77 +12124,78 @@ function renderCalendar(){
   sec.appendChild(calCard);
 
   // Events section — day view (default) or upcoming view (toggle)
-  const _selDate=S.calSelectedDate;
-  const _showUpcoming=!!S._calUpcomingView;
-  const todayStr2=new Date().toISOString().split('T')[0];
-
-  // Header with toggle
-  const _evtHdRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px',width:_isWeb?'100%':'auto'}});
-  if(_showUpcoming){
-    _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},['Upcoming Events']));
-    const _backLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'4px 0'}},[T('cal_view_day')]);
-    _backLink.onclick=()=>{S._calUpcomingView=false;re();};
-    _evtHdRow.appendChild(_backLink);
-  } else {
-    const _selLabel=_selDate?new Date(_selDate+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):'';
-    _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},[_selLabel]));
-  }
-  sec.appendChild(_evtHdRow);
-
-  const stack=el('div',{class:'stack',style:{width:_isWeb?'100%':'auto'}});
-  const _evtList=_showUpcoming
-    ?[...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date))
-    :[...childApts].filter(a=>a.date===_selDate).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-
-  if(_evtList.length===0&&!_showUpcoming){
-    const _emptyDay=el('div',{style:{textAlign:'center',padding:'24px 0'}});
-    _emptyDay.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['📅']));
-    _emptyDay.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',marginBottom:'14px',fontSize:'.88rem'}},[T('cal_no_events')]));
-    _emptyDay.appendChild(mkBtn('➕ Add Appointment','btn-md btn-primary',()=>showAddEventModal(_selDate)));
-    stack.appendChild(_emptyDay);
-  }
-
-  _evtList.forEach(apt=>{
-    const ch=DB.children.find(c=>c.id===apt.childId);
-    const _isDeclined=apt.rsvp==='no';
-    const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer',opacity:_isDeclined?'0.6':'1'}});
-    const barColor=ch?.color||TC[apt.type]||'var(--teal)';
-    const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
-    card.appendChild(bar);
-    const info=d('',[], {flex:1});
-    info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[aptDisplayTitle(apt)]));
-    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[aptDisplaySub(apt)]));
-    if(apt.location)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+apt.location]));
-    if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
-    card.appendChild(info);
-    const right=d('',[], {textAlign:'right'});
-    if(_showUpcoming)right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
-    right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
-    card.appendChild(right);
-    // RSVP status pill
-    if(session?.role==='specialist'){
-      if(apt.rsvp==='yes'){
-        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['✅']));
-      } else if(apt.rsvp==='no'){
-        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['❌']));
-      } else {
-        card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['⏳']));
-      }
-    } else if(_isDeclined){
-      card.appendChild(el('span',{style:{fontSize:'.66rem',fontWeight:700,color:'var(--slate-l)',background:'#f1f5f9',padding:'2px 8px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['Declined']));
+  // Wrapped in a rebuild helper so day-tap can update in-place without a full re()
+  const _evtPanelEl=el('div');
+  sec._rebuildEvtPanel=()=>{
+    while(_evtPanelEl.firstChild)_evtPanelEl.removeChild(_evtPanelEl.firstChild);
+    const _selDate=S.calSelectedDate;
+    const _showUpcoming=!!S._calUpcomingView;
+    const todayStr2=new Date().toISOString().split('T')[0];
+    // Header with toggle
+    const _evtHdRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px',width:_isWeb?'100%':'auto'}});
+    if(_showUpcoming){
+      _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},['Upcoming Events']));
+      const _backLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'4px 0'}},[T('cal_view_day')]);
+      _backLink.onclick=()=>{S._calUpcomingView=false;sec._rebuildEvtPanel();};
+      _evtHdRow.appendChild(_backLink);
+    } else {
+      const _selLabel=_selDate?new Date(_selDate+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):'';
+      _evtHdRow.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',margin:0}},[_selLabel]));
     }
-    card.onclick=()=>showAptDetailModal(apt,ch||child);
-    stack.appendChild(card);
-  });
-
-  // Toggle link: day view → "View all upcoming ▸" / upcoming → handled in header above
-  if(!_showUpcoming){
-    const _upLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'10px 0',display:'block',width:'100%',textAlign:'center'}},[T('cal_view_upcoming')]);
-    _upLink.onclick=()=>{S._calUpcomingView=true;re();};
-    stack.appendChild(_upLink);
-  }
-
-  sec.appendChild(stack);
+    _evtPanelEl.appendChild(_evtHdRow);
+    const stack=el('div',{class:'stack',style:{width:_isWeb?'100%':'auto'}});
+    const _evtList=_showUpcoming
+      ?[...childApts].filter(a=>a.date>=todayStr2).sort((a,b)=>a.date.localeCompare(b.date))
+      :[...childApts].filter(a=>a.date===_selDate).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    if(_evtList.length===0&&!_showUpcoming){
+      const _emptyDay=el('div',{style:{textAlign:'center',padding:'24px 0'}});
+      _emptyDay.appendChild(el('div',{style:{fontSize:'2rem',marginBottom:'8px'}},['📅']));
+      _emptyDay.appendChild(el('div',{style:{fontWeight:700,color:'var(--slate)',marginBottom:'14px',fontSize:'.88rem'}},[T('cal_no_events')]));
+      _emptyDay.appendChild(mkBtn('➕ Add Appointment','btn-md btn-primary',()=>showAddEventModal(_selDate)));
+      stack.appendChild(_emptyDay);
+    }
+    _evtList.forEach(apt=>{
+      const ch=DB.children.find(c=>c.id===apt.childId);
+      const _isDeclined=apt.rsvp==='no';
+      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer',opacity:_isDeclined?'0.6':'1'}});
+      const barColor=ch?.color||TC[apt.type]||'var(--teal)';
+      const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
+      card.appendChild(bar);
+      const info=d('',[], {flex:1});
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[aptDisplayTitle(apt)]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[aptDisplaySub(apt)]));
+      if(apt.location)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+apt.location]));
+      if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
+      card.appendChild(info);
+      const right=d('',[], {textAlign:'right'});
+      if(_showUpcoming)right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
+      right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
+      card.appendChild(right);
+      // RSVP status pill
+      if(session?.role==='specialist'){
+        if(apt.rsvp==='yes'){
+          card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#059669',background:'#d1fae5',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['✅']));
+        } else if(apt.rsvp==='no'){
+          card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:800,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['❌']));
+        } else {
+          card.appendChild(el('span',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--slate-l)',background:'var(--mint-ll)',padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['⏳']));
+        }
+      } else if(_isDeclined){
+        card.appendChild(el('span',{style:{fontSize:'.66rem',fontWeight:700,color:'var(--slate-l)',background:'#f1f5f9',padding:'2px 8px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['Declined']));
+      }
+      card.onclick=()=>showAptDetailModal(apt,ch||child);
+      stack.appendChild(card);
+    });
+    // Toggle link: day view → "View all upcoming ▸" / upcoming → handled in header above
+    if(!_showUpcoming){
+      const _upLink=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.8rem',padding:'10px 0',display:'block',width:'100%',textAlign:'center'}},[T('cal_view_upcoming')]);
+      _upLink.onclick=()=>{S._calUpcomingView=true;sec._rebuildEvtPanel();};
+      stack.appendChild(_upLink);
+    }
+    _evtPanelEl.appendChild(stack);
+  };
+  sec._rebuildEvtPanel();
+  sec.appendChild(_evtPanelEl);
   return sec;
 }
 
@@ -20172,7 +20182,14 @@ function re(){
     // Clean up stale modal overlays left in document.body — prevents "stuck" UI
     document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
     if(_appLoading&&session){root.replaceChildren(_renderLoadingScreen());return;}
-    root.replaceChildren(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+    const _newContent=session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth());
+    // View Transitions: smooth crossfade ONLY on navigation changes. Same-view updates stay instant.
+    if(_navChanged&&document.startViewTransition){
+      try{document.startViewTransition(()=>root.replaceChildren(_newContent));}
+      catch(_vtErr){root.replaceChildren(_newContent);}
+    } else {
+      root.replaceChildren(_newContent);
+    }
     _initSwipeNav();
     if(_sy>0)requestAnimationFrame(()=>window.scrollTo(0,_sy));
     const _t1=performance.now();
@@ -20643,8 +20660,11 @@ window.dispatchEvent(new Event('hud-ready'));
     const now=Date.now();
     if(now-_lastVisRefresh<5000)return;
     _lastVisRefresh=now;
-    refreshFromSupabase().then(()=>re());
-    if(S.chatsLoaded)loadChatsFromSupabase().then(()=>re());
+    // Coalesce into a single render after both fetches settle (avoids double-flash on tab wake)
+    refreshFromSupabase()
+      .then(()=>S.chatsLoaded?loadChatsFromSupabase():null)
+      .then(()=>re())
+      .catch(e=>console.error('❌ vis refresh:',e));
   });
 </script>
 <script src="/app.bundle.js" defer></script>
