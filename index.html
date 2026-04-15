@@ -1393,6 +1393,76 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-db-nrow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--mint-ll);cursor:pointer;border-radius:8px;transition:background .12s;margin:0 -4px}
   .spec-dt-db-nrow:last-child{border-bottom:none}
   .spec-dt-db-nrow:hover{background:var(--mint-ll)}
+
+  /* ── Collapsible sidebar (new) ─────────────────────────── */
+  .spec-dt-shell.sb-collapsed .spec-dt-sidebar{width:64px;min-width:64px;transition:width .2s ease}
+  .spec-dt-sidebar{transition:width .2s ease}
+  .spec-dt-shell.sb-collapsed .spec-dt-info-card,
+  .spec-dt-shell.sb-collapsed .spec-dt-sidebar-footer .spec-dt-footer-name,
+  .spec-dt-shell.sb-collapsed .spec-dt-sidebar-footer .spec-dt-footer-role,
+  .spec-dt-shell.sb-collapsed .spec-dt-logo .logo-name,
+  .spec-dt-shell.sb-collapsed .spec-dt-nav-label,
+  .spec-dt-shell.sb-collapsed .spec-dt-nav-badge{display:none}
+  .spec-dt-shell.sb-collapsed .spec-dt-logo{padding:16px 8px;justify-content:center}
+  .spec-dt-shell.sb-collapsed .spec-dt-nav{padding:6px 6px}
+  .spec-dt-shell.sb-collapsed .spec-dt-nav-item{justify-content:center;padding:0;width:52px;margin:4px auto;gap:0}
+  .spec-dt-shell.sb-collapsed .spec-dt-sidebar-footer{padding:10px;justify-content:center}
+  .spec-dt-sb-toggle{position:absolute;top:10px;inset-inline-end:-14px;width:28px;height:28px;border-radius:50%;background:#fff;border:1.5px solid var(--mint-l);box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--slate);z-index:6;transition:background .14s,color .14s}
+  .spec-dt-sb-toggle:hover{background:var(--mint-ll);color:var(--navy)}
+  .spec-dt-sidebar{position:relative}
+
+  /* ── Home bubbles + stats + greeting (new) ─────────────── */
+  .spec-home-wrap{padding:24px;max-width:1280px;margin:0 auto;width:100%;box-sizing:border-box}
+  .spec-greeting-banner{background:linear-gradient(135deg,#0a4a44 0%,#0d9488 60%,#14b8a6 100%);color:#fff;border-radius:18px;padding:22px 26px;margin-bottom:18px;box-shadow:0 8px 24px rgba(13,148,136,.22)}
+  .spec-greeting-greet{font-size:1.35rem;font-weight:800;margin-bottom:4px;font-family:'Fraunces',serif}
+  .spec-greeting-meta{font-size:.82rem;opacity:.9;font-weight:600;margin-bottom:12px}
+  .spec-greeting-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .spec-greeting-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;padding:7px 14px;border-radius:10px;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;transition:background .14s}
+  .spec-greeting-btn:hover{background:rgba(255,255,255,.32)}
+  .spec-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:1280px){.spec-stats-row{grid-template-columns:repeat(2,1fr)}}
+  .spec-stat-card{background:#fff;border:1px solid var(--mint-l);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .15s ease}
+  .spec-stat-card:hover{transform:translateY(-1px);border-color:var(--teal);box-shadow:0 4px 12px rgba(13,148,136,.1)}
+  .spec-stat-v{font-size:1.6rem;font-weight:900;line-height:1}
+  .spec-stat-l{font-size:.7rem;color:var(--slate);font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.03em}
+  .spec-bubble-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
+  .spec-bubble{background:#fff;border:1.5px solid var(--mint-l);border-radius:16px;padding:18px 20px;cursor:pointer;transition:all .18s ease;display:flex;flex-direction:column;gap:6px;min-height:130px;position:relative;overflow:hidden}
+  .spec-bubble:hover{transform:translateY(-2px);border-color:var(--teal);box-shadow:0 8px 20px rgba(13,148,136,.12)}
+  .spec-bubble-icon{font-size:1.8rem;line-height:1}
+  .spec-bubble-title{font-weight:800;color:var(--navy);font-size:.95rem}
+  .spec-bubble-value{font-weight:900;color:var(--teal);font-size:1.7rem;line-height:1;margin-top:auto}
+  .spec-bubble-sub{font-size:.74rem;color:var(--slate);font-weight:600}
+  .spec-bubble.locked{opacity:.7}
+  .spec-bubble-avatars{display:flex;gap:-4px;margin-top:auto}
+  .spec-bubble-av{width:28px;height:28px;border-radius:50%;border:2px solid #fff;margin-inline-end:-6px;flex-shrink:0}
+
+  /* ── Patients page (new) ───────────────────────────────── */
+  .spec-patients-wrap{padding:24px;max-width:1280px;margin:0 auto;width:100%;box-sizing:border-box}
+  .spec-patients-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .spec-patients-title{font-family:'Fraunces',serif;font-weight:800;color:var(--navy);font-size:1.4rem;margin:0}
+  .spec-patients-count{background:var(--mint-l);color:var(--teal-d);font-weight:800;font-size:.78rem;padding:3px 10px;border-radius:99px}
+  .spec-patients-ctl{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .spec-patients-search{flex:1;min-width:220px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--mint-l);background:#fff;font-family:'Nunito',sans-serif;font-size:.86rem;outline:none;transition:border-color .14s}
+  .spec-patients-search:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+  .spec-patients-filters{display:flex;gap:4px;background:var(--mint-ll);border-radius:10px;padding:3px}
+  .spec-patients-ftab{padding:7px 14px;border-radius:8px;border:none;background:transparent;font-family:'Nunito',sans-serif;font-weight:700;font-size:.78rem;color:var(--slate);cursor:pointer;transition:all .14s}
+  .spec-patients-ftab.active{background:#fff;color:var(--teal-d);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .spec-patient-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+  .spec-patient-card{background:#fff;border:1.5px solid var(--mint-l);border-radius:16px;padding:16px;cursor:pointer;transition:all .18s ease;display:flex;flex-direction:column;gap:12px;position:relative;min-height:180px}
+  .spec-patient-card:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 6px 18px rgba(13,148,136,.1)}
+  .spec-patient-card.inactive{opacity:.55}
+  .spec-patient-top{display:flex;align-items:center;gap:12px}
+  .spec-patient-info{flex:1;min-width:0}
+  .spec-patient-name{font-weight:800;color:var(--navy);font-size:.96rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-patient-age{font-size:.74rem;color:var(--slate);font-weight:600}
+  .spec-patient-badges{display:flex;gap:5px;flex-wrap:wrap;min-height:0}
+  .spec-patient-badge{font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--mint-ll);color:var(--teal-d)}
+  .spec-patient-badge.overdue{background:#fef2f2;color:#be123c}
+  .spec-patient-badge.unread{background:#fff3e0;color:#d97706}
+  .spec-patient-quickrow{display:flex;gap:4px;margin-top:auto;padding-top:4px;border-top:1px solid var(--mint-ll)}
+  .spec-patient-quick{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:8px;border:none;background:transparent;color:var(--slate);cursor:pointer;font-size:1.05rem;transition:all .14s}
+  .spec-patient-quick:hover{background:var(--teal);color:#fff}
+  .spec-patient-quick-lbl{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
 }
 @keyframes _ldSpin{to{transform:rotate(360deg)}}@keyframes _ldBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}
 
@@ -7911,6 +7981,7 @@ function renderSpecDesktop(){
   // Lazy-init desktop state keys
   if(!S._dtPF)S._dtPF='active';         // patient filter
   if(S._dtPS===undefined)S._dtPS='';    // patient search
+  if(S._sidebarCollapsed===undefined)S._sidebarCollapsed=LS.get('spec_sidebar_collapsed',true);
 
   const spec=getMySpecialistRecord();
   const lsKids=LS.get('children',[]);
@@ -7932,16 +8003,25 @@ function renderSpecDesktop(){
   const isPatientCtx=!!(S.activeChild&&activeChild&&
     (S.activeTab==='patient-detail'||PATIENT_TABS.includes(S.activeTab)));
 
-  const shell=el('div',{class:'spec-dt-shell'});
+  const shell=el('div',{class:'spec-dt-shell'+(S._sidebarCollapsed?' sb-collapsed':'')});
 
-  /* ── SIDEBAR ───────────────────────────────────────────────────────── */
+  /* ── SIDEBAR (collapsible) ─────────────────────────────────────────── */
   const sidebar=el('div',{class:'spec-dt-sidebar'});
+
+  // Toggle button (floats on sidebar edge)
+  const sbToggle=el('button',{class:'spec-dt-sb-toggle',title:S._sidebarCollapsed?'Expand sidebar':'Collapse sidebar'},[S._sidebarCollapsed?'›':'‹']);
+  sbToggle.onclick=()=>{
+    S._sidebarCollapsed=!S._sidebarCollapsed;
+    try{LS.set('spec_sidebar_collapsed',S._sidebarCollapsed);}catch(e){console.error('❌ sbToggle:',e);}
+    re();
+  };
+  sidebar.appendChild(sbToggle);
 
   // Logo
   const logo=el('div',{class:'spec-dt-logo'});
   logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
   logo.appendChild(el('span',{class:'logo-name ff'},['Huddledin']));
-  logo.onclick=()=>{S.activeTab='dashboard';re();};
+  logo.onclick=()=>{S.activeChild=null;S.activeTab='dashboard';re();};
   sidebar.appendChild(logo);
 
   // Info card with profile photo
@@ -7965,35 +8045,36 @@ function renderSpecDesktop(){
 
   // Nav
   const nav=el('div',{class:'spec-dt-nav'});
+  const _chatUnread=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const isPatientsActive=isPatientCtx||S.activeTab==='patients';
   [
     {id:'dashboard',label:T('nav_home'),icon:'🏠'},
-    {id:'patients', label:T('spec_nav_patients'),icon:'👤'},
+    {id:'patients', label:T('spec_nav_patients'),icon:'👥'},
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
-    {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
+    {id:'chat',     label:T('nav_chat')||'Messages',icon:'💬',badge:_chatUnread||null},
     {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📁'},
     {id:'reports',label:'Reports'+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📋'},
-    {id:'request',label:T('spec_nav_join_team'),icon:'📨'},
+    {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
     {id:'settings', label:T('nav_settings'),icon:'⚙️'},
   ].forEach(item=>{
     const isAct=item.id==='patients'?isPatientsActive:(S.activeTab===item.id);
-    const btn=el('button',{class:'spec-dt-nav-item'+(isAct?' active':'')});
+    const btn=el('button',{class:'spec-dt-nav-item'+(isAct?' active':''),title:item.label});
     btn.appendChild(el('span',{class:'spec-dt-nav-icon'},[item.icon]));
-    btn.appendChild(document.createTextNode(item.label));
+    btn.appendChild(el('span',{class:'spec-dt-nav-label'},[item.label]));
     if(item.badge){
       btn.appendChild(el('span',{class:'spec-dt-nav-badge'},
         [item.badge>99?'99+':String(item.badge)]));
     }
     btn.onclick=()=>{
       if(item.id==='patients'){
-        S._patientDrawerOpen=!S._patientDrawerOpen;
-        re();
+        S.activeChild=null;S.activeTab='patients';S.calFullscreen=false;re();
       } else if(item.id==='calendar'){
-        S._patientDrawerOpen=false;
         S.activeChild=null;S.calFullscreen=true;
         switchTab('calendar');
-      } else {S._patientDrawerOpen=false;switchTab(item.id);}
+      } else if(item.id==='chat'){
+        S.activeChild=null;S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');
+      } else {switchTab(item.id);}
     };
     nav.appendChild(btn);
   });
@@ -8074,133 +8155,17 @@ function renderSpecDesktop(){
   /* Body */
   const body=el('div',{class:'spec-dt-body'});
 
-  /* ── Patient list (slide-in drawer) ──────────────────────────────── */
-  const plPanel=el('div',{class:'spec-dt-pl'+(S._patientDrawerOpen?' open':'')});
-
-  // Close button at top of drawer
-  const _plClose=el('button',{style:{position:'absolute',top:'10px',[_endSide()]:'10px',background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',color:'var(--slate)',zIndex:2,minWidth:'36px',minHeight:'36px',display:'flex',alignItems:'center',justifyContent:'center'}},['✕']);
-  _plClose.onclick=()=>{S._patientDrawerOpen=false;re();};
-  plPanel.appendChild(_plClose);
-
-  const plTop=el('div',{class:'spec-dt-pl-top'});
-  const searchI=el('input',{class:'spec-dt-pl-search',placeholder:T('spec_dt_search_patients'),type:'text'});
-  searchI.value=S._dtPS||'';
-  plTop.appendChild(searchI);
-  plPanel.appendChild(plTop);
-
-  const filters=el('div',{class:'spec-dt-pl-filters'});
-  ['active','inactive','all'].forEach(f=>{
-    const lbl=f==='all'?T('spec_dt_filter_all'):f==='active'?T('spec_dt_filter_active'):T('spec_dt_filter_inactive');
-    const ft=el('button',{class:'spec-dt-pl-ftab'+(S._dtPF===f?' active':'')},[lbl]);
-    ft.onclick=()=>{S._dtPF=f;re();};
-    filters.appendChild(ft);
-  });
-  plPanel.appendChild(filters);
-
-  const plList=el('div',{class:'spec-dt-pl-list'});
-
-  const renderList=q=>{
-    plList.innerHTML='';
-    const shown=sorted.filter(c=>{
-      const nm=c.name.toLowerCase().includes(q.toLowerCase());
-      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
-      const sf=S._dtPF==='all'||(S._dtPF==='inactive'?isInact:!isInact);
-      return nm&&sf;
-    });
-    if(!shown.length){
-      const empty=el('div',{class:'spec-dt-pl-empty'});
-      empty.textContent=S._dtPF==='all'?T('spec_dt_no_patients'):T('spec_dt_no_filter_patients',{filter:S._dtPF});
-      plList.appendChild(empty);
-      return;
-    }
-    shown.forEach(c=>{
-      const isAct=c.id===S.activeChild;
-      const tasks=(DB.specTasks||[]).filter(t=>
-        (t.specialistId===specId||t.specialist_id===specId)&&t.childId===c.id&&!t.done&&!t.completed);
-      const overdue=tasks.filter(t=>t.dueDate&&new Date(t.dueDate)<new Date());
-      const hasOD=overdue.length>0;
-      const myNotes=DB.vaultNotes.filter(n=>n.childId===c.id&&n.specialistId===specId);
-      let lastAct='';
-      if(myNotes.length){
-        const last=[...myNotes].sort((a,b)=>b.date.localeCompare(a.date))[0];
-        const days=Math.floor((Date.now()-new Date(last.date))/(864e5));
-        lastAct=T('spec_dt_note_prefix')+(days===0?T('spec_dt_note_today'):days===1?T('spec_dt_note_yesterday'):T('spec_dt_note_days_ago',{d:days}));
-      }
-
-      const row=el('div',{class:'spec-dt-pl-row'+(isAct?' active':'')});
-      const _dtAvWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});
-      _dtAvWrap.appendChild(mkChildAvatar(c,36,'50%'));
-      const _dtNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;
-      const _dtChatUn=(typeof _chatBadge==='function')?_chatBadge(c.id):0;
-      const _dtBadge=_dtNotifs+_dtChatUn;
-      if(_dtBadge>0)_dtAvWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488',zIndex:'10',minWidth:'16px',height:'16px',fontSize:'.5rem'}},[_dtBadge>99?'99+':String(_dtBadge)]));
-      row.appendChild(_dtAvWrap);
-      const ri=el('div',{class:'spec-dt-pl-ri'});
-      const rn=el('div',{class:'spec-dt-pl-name'}); rn.textContent=c.name;
-      const ra=el('div',{class:'spec-dt-pl-age'}); ra.textContent=calcAge(c.dob)||T('spec_dt_age_fallback');
-      ri.appendChild(rn); ri.appendChild(ra);
-      row.appendChild(ri);
-      const rr=el('div',{class:'spec-dt-pl-right'});
-      if(tasks.length){
-        const tb=el('div',{class:'spec-dt-pl-tasks'+(hasOD?' overdue':'')});
-        tb.textContent=tasks.length+(hasOD?'!':'');
-        rr.appendChild(tb);
-      }
-      if(lastAct){const la=el('div',{class:'spec-dt-pl-act'});la.textContent=lastAct;rr.appendChild(la);}
-      row.appendChild(rr);
-      const _dtIsPending=(c.connectionStatus||'approved')==='pending';
-      if(!_dtIsPending){
-        const _dtIsInact=_rmInactSet.has(c.id);
-        const dtToggle=el('div',{class:'toggle'+(_dtIsInact?'':' on'),style:{flexShrink:0,marginLeft:'4px'},title:_dtIsInact?T('spec_dt_move_active'):T('spec_dt_move_inactive')});
-        dtToggle.onclick=e=>{
-          e.stopPropagation();
-          if(_dtIsInact){
-            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
-          }else{
-            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
-            if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
-          }
-          re();
-        };
-        row.appendChild(dtToggle);
-      }
-      if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
-      row.onclick=()=>{
-        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';S._patientDrawerOpen=false;
-        re();
-        const _cid=c.id;
-        loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));
-      };
-      plList.appendChild(row);
-    });
-  };
-
-  // Auto-select first active patient on initial patients view
-  if((S.activeTab==='patients'||isPatientCtx)&&!S.activeChild&&sorted.length>0){
-    S.activeChild=sorted[0].id;
-    S.activeTab='calendar';
-    S.calendarMode='child';
-  }
-
-  renderList(S._dtPS||'');
-  searchI.oninput=e=>{S._dtPS=e.target.value;renderList(e.target.value);};
-  plPanel.appendChild(plList);
-  if(S._patientDrawerOpen){
-    const plBackdrop=el('div',{style:{position:'absolute',inset:'0',zIndex:49}});
-    plBackdrop.onclick=()=>{S._patientDrawerOpen=false;re();};
-    body.appendChild(plBackdrop);
-  }
-  body.appendChild(plPanel);
-
-  /* ── Right detail panel ─────────────────────────────────────────── */
+  /* ── Right detail panel (drawer retired on desktop) ─────────────── */
   const detail=el('div',{class:'spec-dt-detail'});
 
   if(S.activeTab==='dashboard'){
     detail.appendChild(_renderSpecDtDashboard(sorted,specId,specName));
+  } else if(S.activeTab==='patients'&&!isPatientCtx){
+    detail.appendChild(_renderSpecDtPatientsPage(sorted,specId,_rmInactSet));
   } else if(isPatientCtx&&activeChild){
     detail.appendChild(_renderSpecDtPatientDetail(activeChild,specId));
   } else if(!isPatientCtx&&!['todo','notifications','settings','credentials','request',
-      'session-summaries','email','calendar','admin','spec-storage','reports'].includes(S.activeTab)){
+      'session-summaries','email','calendar','admin','spec-storage','reports','chat'].includes(S.activeTab)){
     // Empty state — no patient selected
     detail.appendChild(el('div',{class:'empty-state'},[
       el('span',{class:'empty-state-icon'},['👤']),
@@ -8324,136 +8289,203 @@ function _renderSpecDtPatientDetail(child,specId){
 
 /* Desktop dashboard — teal header + two-column layout ─────────────────── */
 function _renderSpecDtDashboard(sorted,specId,specName){
-  const wrap=el('div',{class:'spec-dt-db'});
-
-  // Header
+  const wrap=el('div',{class:'spec-home-wrap'});
   const now=new Date();
   const hr=now.getHours();
   const greet=hr<12?T('greeting_morning'):hr<17?T('greeting_afternoon'):T('greeting_evening');
   const dateStr=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const hdr=el('div',{class:'spec-dt-db-hdr'});
-  const gEl=el('div',{class:'spec-dt-db-greet'}); gEl.textContent=greet+', '+specName.split(' ')[0]+' 👋';
-  const dEl=el('div',{class:'spec-dt-db-date'}); dEl.textContent=dateStr;
-  const _hdrActs=el('div',{style:{marginTop:'12px',display:'flex',gap:'8px',flexWrap:'wrap'}});
-  _hdrActs.appendChild(mkBtn(T('spec_dt_enter_code'),'btn-sm btn-primary',()=>showEnterCodeModal()));
-  hdr.appendChild(gEl); hdr.appendChild(dEl); hdr.appendChild(_hdrActs);
-  wrap.appendChild(hdr);
+  const specProf=session?.profession||getMySpecialistRecord()?.role||'Specialist';
 
-  // Two-column body
-  const body=el('div',{class:'spec-dt-db-body'});
+  // Greeting banner
+  const banner=el('div',{class:'spec-greeting-banner'});
+  banner.appendChild(el('div',{class:'spec-greeting-greet'},[greet+', '+specName.split(' ')[0]+' 👋']));
+  banner.appendChild(el('div',{class:'spec-greeting-meta'},[dateStr+' · '+specProf]));
+  const bActs=el('div',{class:'spec-greeting-acts'});
+  const codeBtn=el('button',{class:'spec-greeting-btn'},[T('spec_dt_enter_code')||'Enter Patient Code']);
+  codeBtn.onclick=()=>showEnterCodeModal();
+  bActs.appendChild(codeBtn);
+  banner.appendChild(bActs);
+  wrap.appendChild(banner);
 
-  /* LEFT — today tasks + recent notes */
-  const left=el('div',{});
-
-  // Today's tasks
-  left.appendChild(el('div',{class:'spec-dt-db-stitle'},[T('spec_dt_todays_tasks')]));
-  const tCard=el('div',{class:'spec-dt-db-card'});
+  // Stats row
   const todayStr=now.toISOString().slice(0,10);
   const allTasks=(DB.specTasks||[]).filter(t=>t.specialistId===specId||t.specialist_id===specId);
-  const todayTasks=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed);
-
-  if(!todayTasks.length){
-    const noT=el('div',{style:{color:'var(--slate)',fontSize:'.84rem',textAlign:'center',padding:'14px 0',fontWeight:600}});
-    noT.textContent=T('spec_dt_no_tasks_today');
-    tCard.appendChild(noT);
-  } else {
-    const byPat={};
-    todayTasks.forEach(t=>{const k=t.childId||'gen';(byPat[k]=byPat[k]||[]).push(t);});
-    Object.entries(byPat).forEach(([cid,tasks])=>{
-      const c=DB.children.find(ch=>ch.id===cid)||(LS.get('children',[])).find(ch=>ch.id===cid);
-      if(c){const pl=el('div',{class:'spec-dt-db-plabel'});pl.textContent=c.name;tCard.appendChild(pl);}
-      tasks.forEach(t=>{
-        const row=el('div',{class:'spec-dt-db-trow'});
-        const od=t.dueDate&&new Date(t.dueDate)<now;
-        row.appendChild(el('span',{style:{fontSize:'.95rem',flexShrink:0}},[od?'🔴':'⏰']));
-        const ti=el('div',{style:{flex:1,fontWeight:600,fontSize:'.84rem',color:'var(--navy)'}});
-        ti.textContent=t.title||T('spec_dt_untitled_task');
-        row.appendChild(ti);
-        const pb=el('span',{style:{fontSize:'.68rem',fontWeight:700,padding:'2px 8px',borderRadius:'6px',
-          background:od?'#fef2f2':'var(--mint-ll)',color:od?'#be123c':'var(--teal)',flexShrink:0}});
-        pb.textContent=t.category||T('spec_dt_task_fallback');
-        row.appendChild(pb);
-        tCard.appendChild(row);
-      });
-    });
-  }
-  left.appendChild(tCard);
-
-  // Recent notes
-  left.appendChild(el('div',{class:'spec-dt-db-stitle'},[T('spec_dt_recent_notes')]));
-  const nCard=el('div',{class:'spec-dt-db-card'});
-  const allN=DB.vaultNotes.filter(n=>n.specialistId===specId);
-  const recN=[...allN].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
-  if(!recN.length){
-    const noN=el('div',{style:{color:'var(--slate)',fontSize:'.84rem',textAlign:'center',padding:'12px 0',fontWeight:600}});
-    noN.textContent=T('spec_dt_no_notes');
-    nCard.appendChild(noN);
-  } else {
-    recN.forEach(n=>{
-      const c=DB.children.find(ch=>ch.id===n.childId)||(LS.get('children',[])).find(ch=>ch.id===n.childId);
-      const row=el('div',{class:'spec-dt-db-nrow'});
-      if(c)row.appendChild(mkChildAvatar(c,30,'50%'));
-      const ni=el('div',{style:{flex:1,minWidth:0}});
-      const nt=el('div',{style:{fontWeight:700,fontSize:'.83rem',color:'var(--navy)',
-        whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}});
-      nt.textContent=n.title||T('spec_dt_untitled_note');
-      const nm=el('div',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:500}});
-      nm.textContent=(c?c.name+' · ':'')+n.date;
-      ni.appendChild(nt); ni.appendChild(nm);
-      row.appendChild(ni);
-      row.onclick=()=>{S.activeChild=n.childId;S.activeTab='vault';S.activeVaultId=n.id;re();};
-      nCard.appendChild(row);
-    });
-  }
-  left.appendChild(nCard);
-  body.appendChild(left);
-
-  /* RIGHT — stats + mini calendar */
-  const right=el('div',{});
-
-  right.appendChild(el('div',{class:'spec-dt-db-stitle'},[T('spec_dt_overview')]));
-  const sgrid=el('div',{class:'spec-dt-db-sgrid'});
   const todayDue=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed).length;
   const w7tasks=allTasks.filter(t=>{const d=new Date(t.dueDate||'');return d>new Date(Date.now()-6048e5)&&d<=now;});
   const wPct=w7tasks.length?Math.round(w7tasks.filter(t=>t.done||t.completed).length/w7tasks.length*100):100;
-  const unreadMsgs=DB.chats.filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
-  [
-    {v:sorted.length,l:T('spec_dt_patients_stat'),clr:'var(--teal)'},
-    {v:todayDue,l:T('spec_dt_due_today'),clr:todayDue>0?'var(--coral)':'var(--teal)'},
-    {v:wPct+'%',l:T('spec_dt_week_done'),clr:'var(--teal)'},
-    {v:unreadMsgs,l:T('spec_dt_unread_msgs'),clr:unreadMsgs>0?'var(--coral)':'var(--teal)'},
-  ].forEach(({v,l,clr})=>{
-    const sc=el('div',{class:'spec-dt-db-scard'});
-    const sv=el('div',{class:'spec-dt-db-sv'}); sv.style.color=clr; sv.textContent=String(v);
-    const sl=el('div',{class:'spec-dt-db-sl'}); sl.textContent=l;
-    sc.appendChild(sv); sc.appendChild(sl); sgrid.appendChild(sc);
+  const unreadMsgs=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
+  const statsRow=el('div',{class:'spec-stats-row'});
+  const mkStat=(v,l,clr,onClick)=>{
+    const c=el('div',{class:'spec-stat-card'});
+    c.appendChild(el('div',{class:'spec-stat-v',style:{color:clr}},[String(v)]));
+    c.appendChild(el('div',{class:'spec-stat-l'},[l]));
+    if(onClick)c.onclick=onClick;
+    return c;
+  };
+  statsRow.appendChild(mkStat(sorted.length,T('spec_dt_patients_stat')||'Patients','var(--teal)',()=>{S.activeChild=null;S.activeTab='patients';re();}));
+  statsRow.appendChild(mkStat(todayDue,T('spec_dt_due_today')||'Due Today',todayDue>0?'var(--coral)':'var(--teal)',()=>switchTab('todo')));
+  statsRow.appendChild(mkStat(unreadMsgs,T('spec_dt_unread_msgs')||'Unread',unreadMsgs>0?'var(--coral)':'var(--teal)',()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}));
+  statsRow.appendChild(mkStat(wPct+'%',T('spec_dt_week_done')||'Week Done','var(--teal)'));
+  wrap.appendChild(statsRow);
+
+  // Feature bubble grid
+  const hasAi=_hasSpecAiAccess();
+  const notesAll=(DB.vaultNotes||[]).filter(n=>n.specialistId===specId);
+  const notesDraft=notesAll.filter(n=>!n.published).length;
+  const notesPub=notesAll.filter(n=>n.published).length;
+  const upcomingAppts=(DB.appointments||[]).filter(a=>(a.specialistId===specId||(a.sharedWith||[]).includes(specId))&&a.date&&a.date>=todayStr).length;
+  const storageFiles=(DB.specFiles||[]).length;
+  const activePatients=sorted.filter(c=>!(((c.status||'active')==='inactive')||(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]')).includes(c.id)));
+
+  const bubbles=[
+    {icon:'👥',title:T('spec_nav_patients')||'Patients',value:activePatients.length,sub:(activePatients.length===1?'active patient':'active patients'),onClick:()=>{S.activeChild=null;S.activeTab='patients';re();}},
+    {icon:'📅',title:T('nav_calendar')||'Calendar',value:upcomingAppts,sub:upcomingAppts===1?'upcoming event':'upcoming events',onClick:()=>{S.activeChild=null;S.calFullscreen=true;switchTab('calendar');}},
+    {icon:'💬',title:T('nav_chat')||'Messages',value:unreadMsgs,sub:unreadMsgs===0?'All caught up':'unread',onClick:()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}},
+    {icon:'📝',title:T('tab_notes')||'Notes',value:notesAll.length,sub:notesDraft+' draft · '+notesPub+' published',onClick:()=>{S.activeChild=null;S.activeTab='patients';re();}},
+    {icon:'📋',title:'Reports',value:hasAi?(notesPub||0):'🔒',sub:hasAi?'template-based':'AI subscription required',locked:!hasAi,onClick:()=>switchTab('reports')},
+    {icon:'📁',title:T('storage_title')||'Storage',value:hasAi?storageFiles:'🔒',sub:hasAi?(storageFiles===1?'file':'files'):'AI subscription required',locked:!hasAi,onClick:()=>switchTab('spec-storage')},
+  ];
+  const grid=el('div',{class:'spec-bubble-grid'});
+  bubbles.forEach(b=>{
+    const bub=el('div',{class:'spec-bubble'+(b.locked?' locked':''),title:b.title});
+    bub.appendChild(el('div',{class:'spec-bubble-icon'},[b.icon]));
+    bub.appendChild(el('div',{class:'spec-bubble-title'},[b.title]));
+    bub.appendChild(el('div',{class:'spec-bubble-value'},[String(b.value)]));
+    bub.appendChild(el('div',{class:'spec-bubble-sub'},[b.sub]));
+    bub.onclick=b.onClick;
+    grid.appendChild(bub);
   });
-  right.appendChild(sgrid);
+  wrap.appendChild(grid);
 
-  // Mini calendar
-  right.appendChild(el('div',{class:'spec-dt-db-stitle'},[T('spec_dt_upcoming')]));
-  const calCard=el('div',{class:'spec-dt-db-card',style:{padding:'4px'}});
-  const specId2=session?.specialistId||session?.id;
-  calCard.appendChild(renderMiniCalendar(sorted,
-    DB.appointments.filter(a=>a.specialistId===specId2||a.sharedWith?.includes(specId2))));
-  right.appendChild(calCard);
-
-  // Unread messages shortcut
-  if(unreadMsgs>0){
-    const msgCard=el('div',{class:'spec-dt-db-card',style:{display:'flex',alignItems:'center',gap:'12px',cursor:'pointer',marginTop:'0'}});
-    msgCard.appendChild(el('span',{style:{fontSize:'1.4rem'}},['💬']));
-    const mi=el('div',{style:{flex:1}});
-    const mt=el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.86rem'}});
-    mt.textContent=T('spec_dt_unread_messages',{n:unreadMsgs,s:unreadMsgs!==1?'s':''});
-    const ms=el('div',{style:{fontSize:'.74rem',color:'var(--slate)',fontWeight:500}},[T('spec_dt_tap_conversations')]);
-    mi.appendChild(mt); mi.appendChild(ms);
-    msgCard.appendChild(mi);
-    msgCard.onclick=()=>switchTab('chat');
-    right.appendChild(msgCard);
+  // Today's tasks bar
+  const todayTasks=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed);
+  if(todayTasks.length){
+    const tbar=el('div',{class:'spec-today-bar',style:{background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'14px',padding:'14px 16px'}});
+    tbar.appendChild(el('div',{class:'spec-today-title',style:{fontWeight:800,color:'var(--navy)',fontSize:'.9rem',marginBottom:'10px'}},[T('spec_dt_todays_tasks')||"Today's Tasks"]));
+    todayTasks.slice(0,5).forEach(t=>{
+      const c=DB.children.find(ch=>ch.id===t.childId)||(LS.get('children',[])).find(ch=>ch.id===t.childId);
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)',cursor:'pointer'}});
+      const od=t.dueDate&&new Date(t.dueDate)<now;
+      row.appendChild(el('span',{style:{fontSize:'.95rem',flexShrink:0}},[od?'🔴':'⏰']));
+      const ti=el('div',{style:{flex:1,fontWeight:600,fontSize:'.84rem',color:'var(--navy)'}},[t.title||T('spec_dt_untitled_task')||'Task']);
+      row.appendChild(ti);
+      if(c)row.appendChild(el('span',{style:{fontSize:'.72rem',color:'var(--slate)',fontWeight:600}},[c.name.split(' ')[0]]));
+      row.onclick=()=>switchTab('todo');
+      tbar.appendChild(row);
+    });
+    if(todayTasks.length>5){
+      const more=el('div',{style:{padding:'8px 0',textAlign:'center',color:'var(--teal)',fontWeight:700,fontSize:'.78rem',cursor:'pointer'}},['View all '+todayTasks.length+' tasks →']);
+      more.onclick=()=>switchTab('todo');
+      tbar.appendChild(more);
+    }
+    wrap.appendChild(tbar);
   }
 
-  body.appendChild(right);
-  wrap.appendChild(body);
+  return wrap;
+}
+
+function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
+  const wrap=el('div',{class:'spec-patients-wrap'});
+
+  // Header
+  const activeCount=sorted.filter(c=>!(((c.status||'active')==='inactive')||_rmInactSet.has(c.id))).length;
+  const hdr=el('div',{class:'spec-patients-hdr'});
+  const hBack=el('span',{style:{cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.82rem'}},['← '+(T('nav_home')||'Home')]);
+  hBack.onclick=()=>{S.activeTab='dashboard';re();};
+  hdr.appendChild(hBack);
+  hdr.appendChild(el('h1',{class:'spec-patients-title'},[T('spec_nav_patients')||'My Patients']));
+  hdr.appendChild(el('span',{class:'spec-patients-count'},[String(activeCount)+' '+(activeCount===1?(T('spec_dt_patient')||'patient'):(T('spec_dt_patients_pl')||'patients'))]));
+  const spacer=el('div',{style:{flex:1}});
+  hdr.appendChild(spacer);
+  const codeBtn=mkBtn(T('spec_dt_enter_code')||'Enter Patient Code','btn-sm btn-primary',()=>showEnterCodeModal());
+  hdr.appendChild(codeBtn);
+  wrap.appendChild(hdr);
+
+  // Controls (search + filter tabs)
+  const ctl=el('div',{class:'spec-patients-ctl'});
+  const search=el('input',{class:'spec-patients-search',placeholder:T('spec_dt_search_patients')||'Search patients',type:'text'});
+  search.value=S._dtPS||'';
+  ctl.appendChild(search);
+  const filters=el('div',{class:'spec-patients-filters'});
+  ['active','inactive','all'].forEach(f=>{
+    const lbl=f==='all'?(T('spec_dt_filter_all')||'All'):f==='active'?(T('spec_dt_filter_active')||'Active'):(T('spec_dt_filter_inactive')||'Inactive');
+    const ft=el('button',{class:'spec-patients-ftab'+(S._dtPF===f?' active':'')},[lbl]);
+    ft.onclick=()=>{S._dtPF=f;re();};
+    filters.appendChild(ft);
+  });
+  ctl.appendChild(filters);
+  wrap.appendChild(ctl);
+
+  // Grid
+  const gridEl=el('div',{class:'spec-patient-grid'});
+  const renderGrid=(q)=>{
+    gridEl.innerHTML='';
+    const shown=sorted.filter(c=>{
+      const nm=c.name.toLowerCase().includes((q||'').toLowerCase());
+      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
+      const sf=S._dtPF==='all'||(S._dtPF==='inactive'?isInact:!isInact);
+      return nm&&sf;
+    });
+    if(!shown.length){
+      gridEl.appendChild(el('div',{class:'empty-state'},[
+        el('span',{class:'empty-state-icon'},['👤']),
+        el('div',{class:'empty-state-title'},[T('spec_dt_no_patients')||'No patients yet']),
+        el('div',{class:'empty-state-body'},[T('spec_dt_no_patients_desc')||'Enter a connection code to add your first patient.']),
+      ]));
+      return;
+    }
+    shown.forEach(c=>{
+      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
+      const tasks=(DB.specTasks||[]).filter(t=>(t.specialistId===specId||t.specialist_id===specId)&&t.childId===c.id&&!t.done&&!t.completed);
+      const overdue=tasks.filter(t=>t.dueDate&&new Date(t.dueDate)<new Date()).length;
+      const notes=(DB.vaultNotes||[]).filter(n=>n.childId===c.id&&n.specialistId===specId).length;
+      const chatUnread=typeof _chatBadge==='function'?_chatBadge(c.id):0;
+
+      const card=el('div',{class:'spec-patient-card'+(isInact?' inactive':'')});
+      const top=el('div',{class:'spec-patient-top'});
+      top.appendChild(mkChildAvatar(c,52,'50%'));
+      const info=el('div',{class:'spec-patient-info'});
+      info.appendChild(el('div',{class:'spec-patient-name'},[c.name]));
+      info.appendChild(el('div',{class:'spec-patient-age'},[calcAge(c.dob)||(T('spec_dt_age_fallback')||'Age unknown')]));
+      top.appendChild(info);
+      card.appendChild(top);
+
+      const badges=el('div',{class:'spec-patient-badges'});
+      if(tasks.length)badges.appendChild(el('span',{class:'spec-patient-badge'+(overdue?' overdue':'')},[tasks.length+' '+(tasks.length===1?'task':'tasks')+(overdue?' · overdue':'')]));
+      if(notes)badges.appendChild(el('span',{class:'spec-patient-badge'},[notes+' '+(notes===1?'note':'notes')]));
+      if(chatUnread)badges.appendChild(el('span',{class:'spec-patient-badge unread'},[chatUnread+' unread']));
+      card.appendChild(badges);
+
+      // Quick-access icons
+      const qrow=el('div',{class:'spec-patient-quickrow'});
+      const mkQuick=(icon,lbl,fn)=>{
+        const b=el('button',{class:'spec-patient-quick',title:lbl});
+        b.appendChild(el('span',{},[icon]));
+        b.appendChild(el('span',{class:'spec-patient-quick-lbl'},[lbl]));
+        b.onclick=e=>{e.stopPropagation();fn();};
+        return b;
+      };
+      qrow.appendChild(mkQuick('📝','Notes',()=>{S.activeChild=c.id;S.activeTab='vault';re();}));
+      qrow.appendChild(mkQuick('📅','Cal',()=>{S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();}));
+      qrow.appendChild(mkQuick('✅','Tasks',()=>{S.activeChild=c.id;S.activeTab='homework';re();}));
+      qrow.appendChild(mkQuick('💬','Chat',()=>{S.activeChild=c.id;S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';re();}));
+      qrow.appendChild(mkQuick('📁','Files',()=>{S.activeChild=c.id;S.activeTab='files';S.activeFolderId=null;re();}));
+      card.appendChild(qrow);
+
+      // Card body click → open patient profile (calendar tab)
+      card.onclick=ev=>{
+        if(ev.target.closest('.spec-patient-quick'))return;
+        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();
+        const _cid=c.id;
+        loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));
+      };
+      gridEl.appendChild(card);
+    });
+  };
+  renderGrid(S._dtPS||'');
+  search.oninput=e=>{S._dtPS=e.target.value;renderGrid(e.target.value);};
+  wrap.appendChild(gridEl);
+
   return wrap;
 }
 
