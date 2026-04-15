@@ -8468,7 +8468,7 @@ function renderHeader(){
   ham.onclick=()=>{S.isDrawerOpen=!S.isDrawerOpen;re();};
   inner.appendChild(ham);
 
-  if(session?.role==='parent' && S.navLevel===1){
+  if(session?.role==='parent' && (S.navLevel===1 || S.calFullscreen)){
     // -- Level 1: Logo acts as HOME button (returns to Global Home) --
     const logo=el('button',{style:{
       display:'flex',alignItems:'center',gap:'8px',background:'none',
@@ -8537,7 +8537,7 @@ function renderHeader(){
       };
       inner.appendChild(centre);
     }
-  } else if(session?.role==='parent' && S.navLevel===0){
+  } else if(session?.role==='parent' && S.navLevel===0 && !S.calFullscreen){
     // -- Level 0: Logo is just branding --
     const lvl0Logo=el('div',{id:'logo',style:{cursor:'default',display:'flex',alignItems:'center',gap:'8px'}});
     lvl0Logo.appendChild(el('div',{class:'logo-bubble'},['🤝']));
