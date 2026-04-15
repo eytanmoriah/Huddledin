@@ -13202,7 +13202,10 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
         if(hasImage&&_imgFile){
           try{const{path}=await SB.uploadFile('chat/'+activeChat.id,_imgFile);_imgPath=path;}catch(e){console.error('image upload:',e);}
         }
-        await _supa.from('messages').insert({chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt||'',image_path:_imgPath,reply_to_id:_replyToId||null,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()});
+        const _insertObj={chat_id:activeChat.id,child_id:activeChat.childId,sender_id:senderKey,sender_name:senderName,body:txt||'',image_path:_imgPath,household_id:getChildHouseholdId(activeChat.childId),created_at:new Date().toISOString()};
+        if(_replyToId)_insertObj.reply_to_id=_replyToId;
+        const{error:_insErr}=await _supa.from('messages').insert(_insertObj);
+        if(_insErr)throw _insErr;
         _supa.from('chats').update({unread_for:all[ci].unreadFor}).eq('id',activeChat.id).then(()=>{}).catch(e=>console.error('mark unread:',e));
         try{
           const _msgChild=DB.children.find(c=>c.id===activeChat.childId)||(LS.get('children',[])||[]).find(c=>c.id===activeChat.childId);
