@@ -16090,12 +16090,48 @@ function renderHomeworkParent(){
       });
       detail.appendChild(pauseBtn);
       const _exRem=(DB.homeworkReminders||[]).find(r=>r.taskId===task.id);
-      const _remRow=el('div',{style:{padding:'10px 0',borderTop:'1px solid var(--mint-l)',marginTop:'8px'}});
-      _remRow.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:600,color:'var(--navy)',display:'block',marginBottom:'8px'}},['🔔 Set a Reminder']));
       const _taskSlots=(task.timeOfDay||'').split(',').map(s=>s.trim()).filter(Boolean);
       const _remJson=(_exRem?.time&&_exRem.time.startsWith('{'))?JSON.parse(_exRem.time):{};
       const _singleTime=(_exRem?.time&&!_exRem.time.startsWith('{'))?_exRem.time:'';
-      if(_taskSlots.length>1){_taskSlots.forEach(sl=>{const _slRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',flexWrap:'wrap'}});_slRow.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:600,color:'var(--slate)',minWidth:'70px'}},[(sl.charAt(0).toUpperCase()+sl.slice(1))+':']));const _sInp=el('input',{type:'time',id:'rem-inp-'+task.id+'-'+sl,value:_remJson[sl]||'',style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'110px'}});_slRow.appendChild(_sInp);_remRow.appendChild(_slRow);});}else{const _sRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px',flexWrap:'wrap'}});const _remInp=el('input',{type:'time',id:'rem-inp-'+task.id,value:_singleTime,style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'120px'}});_sRow.appendChild(_remInp);_remRow.appendChild(_sRow);}
+      const _hasRem=!!(_singleTime||Object.keys(_remJson).length);
+      const _fmtRemLabel=()=>{
+        if(_taskSlots.length>1){
+          const parts=_taskSlots.map(sl=>_remJson[sl]?(sl.charAt(0).toUpperCase()+sl.slice(1))+' '+_remJson[sl]:null).filter(Boolean);
+          return parts.join(', ');
+        }
+        return _singleTime;
+      };
+      S._hwRemExpanded=S._hwRemExpanded||{};
+      const _isExpanded=!!S._hwRemExpanded[task.id];
+      const _remRow=el('div',{style:{padding:'10px 0',borderTop:'1px solid var(--mint-l)',marginTop:'8px'}});
+
+      // Collapsed view — tappable summary row
+      const _remCollapsedEl=el('div',{style:{display:_isExpanded?'none':'flex',alignItems:'center',gap:'8px',cursor:'pointer',padding:'6px 0',minHeight:'32px',color:'var(--navy)',fontSize:'.84rem',fontWeight:600}});
+      const _collapsedText=el('span',{style:{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},[_hasRem?('🔔 Reminder: '+_fmtRemLabel()):'🔔 Set a Reminder']);
+      const _chevron=el('span',{style:{color:'var(--slate)',fontSize:'.95rem',flexShrink:0}},[_hasRem?'✏️':'›']);
+      _remCollapsedEl.appendChild(_collapsedText);
+      _remCollapsedEl.appendChild(_chevron);
+
+      // Expanded view — full form
+      const _remExpandedEl=el('div',{style:{display:_isExpanded?'block':'none'}});
+      const _remHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',cursor:'pointer'}});
+      _remHdr.appendChild(el('span',{style:{fontSize:'.84rem',fontWeight:600,color:'var(--navy)',flex:1}},['🔔 Set a Reminder']));
+      _remHdr.appendChild(el('span',{style:{color:'var(--slate)',fontSize:'.95rem'}},['▾']));
+      _remExpandedEl.appendChild(_remHdr);
+      if(_taskSlots.length>1){
+        _taskSlots.forEach(sl=>{
+          const _slRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',flexWrap:'wrap'}});
+          _slRow.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:600,color:'var(--slate)',minWidth:'70px'}},[(sl.charAt(0).toUpperCase()+sl.slice(1))+':']));
+          const _sInp=el('input',{type:'time',id:'rem-inp-'+task.id+'-'+sl,value:_remJson[sl]||'',style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'110px'}});
+          _slRow.appendChild(_sInp);
+          _remExpandedEl.appendChild(_slRow);
+        });
+      } else {
+        const _sRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px',flexWrap:'wrap'}});
+        const _remInp=el('input',{type:'time',id:'rem-inp-'+task.id,value:_singleTime,style:{minHeight:'44px',fontSize:'16px',flex:1,border:'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'0 10px',background:'var(--mint-ll)',color:'var(--navy)',minWidth:'120px'}});
+        _sRow.appendChild(_remInp);
+        _remExpandedEl.appendChild(_sRow);
+      }
       const _remBtnRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}});
       const _remSaveBtn=mkBtn('Save','btn-sm btn-primary',async()=>{
         if(session?.id==='demo'){toast('Demo mode.','error');return;}
@@ -16107,12 +16143,20 @@ function renderHomeworkParent(){
           const _all=DB.homeworkReminders||[];const _ri=_all.findIndex(r=>r.taskId===task.id);
           if(_ri>-1){_all[_ri].time=_saveTime;_all[_ri].isEnabled=true;}else{_all.push({id:'local-'+Date.now(),taskId:task.id,time:_saveTime,isEnabled:true});}
           DB.homeworkReminders=_all;toast('🔔 Reminder saved!');
+          S._hwRemExpanded[task.id]=false;re();
         }catch(e){console.error('save reminder:',e);toast('Could not save reminder.','error');}
       });
       _remBtnRow.appendChild(_remSaveBtn);
       const _calBtn=mkBtn('📅 Add to Calendar','btn-sm btn-ghost',()=>addTaskToCalendar(task.id));
       _remBtnRow.appendChild(_calBtn);
-      _remRow.appendChild(_remBtnRow);
+      _remExpandedEl.appendChild(_remBtnRow);
+
+      // Toggle handlers — swap display in-place (no re())
+      _remCollapsedEl.onclick=()=>{S._hwRemExpanded[task.id]=true;_remCollapsedEl.style.display='none';_remExpandedEl.style.display='block';};
+      _remHdr.onclick=()=>{S._hwRemExpanded[task.id]=false;_remExpandedEl.style.display='none';_remCollapsedEl.style.display='flex';};
+
+      _remRow.appendChild(_remCollapsedEl);
+      _remRow.appendChild(_remExpandedEl);
       detail.appendChild(_remRow);
       card.appendChild(detail);
     }
