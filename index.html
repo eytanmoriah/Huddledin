@@ -10122,6 +10122,56 @@ function _bindLongPress(target,fn,delay=500){
   return {wasLongPress:()=>fired};
 }
 
+// WhatsApp-style swipe-right-to-reply on chat bubbles.
+// Axis-locks to horizontal on first move; yields to vertical scroll if dy > dx.
+function _bindSwipeToReply(bubble,onTrigger){
+  const THRESH=60, MAX=80;
+  let sx=0, sy=0, active=false, rejected=false, icon=null, row=null;
+  const cleanup=(animate)=>{
+    if(animate)bubble.style.transition='transform .2s ease-out';
+    bubble.style.transform='';
+    if(icon){icon.remove();icon=null;}
+    if(row){row.style.position='';row=null;}
+    active=false;rejected=false;
+  };
+  bubble.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+    active=false;rejected=false;
+    bubble.style.transition='none';
+  },{passive:true});
+  bubble.addEventListener('touchmove',e=>{
+    if(rejected)return;
+    const dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+    if(!active){
+      if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+      if(Math.abs(dy)>Math.abs(dx)||dx<0){rejected=true;return;}
+      active=true;
+      row=bubble.parentElement;
+      if(row)row.style.position='relative';
+      icon=el('span',{style:{position:'absolute',insetInlineStart:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'1.2rem',opacity:'0',pointerEvents:'none',transition:'opacity .08s'}},['↩️']);
+      if(row)row.insertBefore(icon,bubble);
+    }
+    const clamped=Math.min(Math.max(dx,0),MAX);
+    bubble.style.transform='translateX('+clamped+'px)';
+    if(icon)icon.style.opacity=String(Math.min(clamped/THRESH,1));
+    try{e.preventDefault();}catch(_){}
+  },{passive:false});
+  const finish=(commit)=>{
+    if(!active&&!rejected){cleanup(false);return;}
+    if(active&&commit){
+      if('vibrate' in navigator)try{navigator.vibrate(20);}catch(_){}
+      try{onTrigger();}catch(err){console.error('❌ swipeReply:',err);}
+    }
+    cleanup(true);
+  };
+  bubble.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    finish(active&&dx>=THRESH);
+  });
+  bubble.addEventListener('touchcancel',()=>finish(false));
+}
+
 function _showAnchoredMenu(anchor,items){
   document.querySelectorAll('.anchored-menu').forEach(m=>m.remove());
   const menu=el('div',{class:'long-press-menu anchored-menu'});
@@ -12892,6 +12942,8 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       const items=buildItems();
       if(items.length)_showAnchoredMenu(bubble,items);
     });
+    // Mobile swipe-right-to-reply
+    _bindSwipeToReply(bubble,()=>_setReplyTo(msg));
   };
 
   // Mobile: fixed panel between header and bottom nav
