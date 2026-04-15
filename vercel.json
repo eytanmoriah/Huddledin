@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "public",
+  "cleanUrls": true,
   "functions": {
     "api/report-ai.mjs": { "memory": 1024, "maxDuration": 60 },
     "api/ai-summary.mjs": { "memory": 1024, "maxDuration": 10 },
