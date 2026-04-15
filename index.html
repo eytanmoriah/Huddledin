@@ -2419,13 +2419,16 @@ async function loadChatsFromSupabase(){
       : {data:[]};
     const _msgsByChatId={};
     (_allMsgs||[]).forEach(m=>{if(!_msgsByChatId[m.chat_id])_msgsByChatId[m.chat_id]=[];_msgsByChatId[m.chat_id].push(m);});
+    // Preserve signed URLs cached from previous loads — avoids image flash on every refresh
+    const _prevImgUrls=new Map();
+    ((LS.get('chats',[]))||[]).forEach(c=>(c.messages||[]).forEach(m=>{if(m.imageUrl&&m.id)_prevImgUrls.set(m.id,m.imageUrl);}));
     const chatsWithMessages=(chatRows||[]).map(ch=>{
       const msgs=_msgsByChatId[ch.id]||[];
       return{id:ch.id,childId:ch.child_id,type:ch.type||'direct',name:ch.name||'',participants:ch.participants||[],approved:ch.approved!==false,unreadFor:ch.unread_for||[],unreadCount:ch.unread_count||0,
-        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null,replyToId:m.reply_to_id||null}))};
+        messages:msgs.map(m=>({id:m.id,sender:m.sender_id,senderName:m.sender_name||'',text:m.body,time:new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),date:m.created_at.split('T')[0],ts:m.created_at,imagePath:m.image_path||null,imageUrl:_prevImgUrls.get(m.id)||null,replyToId:m.reply_to_id||null}))};
     });
-    // Generate signed URLs for messages with images (batched)
-    const _imgMsgs=chatsWithMessages.flatMap(ch=>ch.messages.filter(m=>m.imagePath));
+    // Generate signed URLs only for messages that don't already have a cached one
+    const _imgMsgs=chatsWithMessages.flatMap(ch=>ch.messages.filter(m=>m.imagePath&&!m.imageUrl));
     if(_imgMsgs.length){
       const _urls=await Promise.all(_imgMsgs.map(m=>_supa.storage.from('huddledin-files').createSignedUrl(m.imagePath,3600).catch(()=>({data:null}))));
       _imgMsgs.forEach((m,i)=>{m.imageUrl=_urls[i]?.data?.signedUrl||null;});
@@ -12912,7 +12915,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
       // keyboard height = window height minus visible viewport height
       const kbH=Math.max(0, window.innerHeight - _vv.height);
       wrap.style.bottom=kbH>50?(kbH+'px'):'var(--bnav-h)';
-      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(ma)ma.scrollTop=ma.scrollHeight;});
+      requestAnimationFrame(()=>{const ma=document.getElementById('msg-area');if(!ma)return;const _nb=(ma.scrollHeight-ma.scrollTop-ma.clientHeight)<80;if(_nb)ma.scrollTop=ma.scrollHeight;});
     };
     _vv.addEventListener('resize',_nudge);
     wrap._vvCleanup=()=>{
@@ -13086,15 +13089,21 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     }
     // Quoted reply block (if present)
     const _qb1=_buildQuoteBlock(m);if(_qb1)bub.appendChild(_qb1);
-    // Inline image (if present)
+    // Inline image (if present) — render placeholder, fetch signed URL on demand if missing
     if(m.imageUrl||m.imagePath){
-      const imgSrc=m.imageUrl||(m.imagePath?null:null);
-      if(imgSrc){
-        const img=el('img',{src:imgSrc,loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:(m.text?'6px':'0'),cursor:'pointer'}});
-        img.onerror=()=>{img.style.display='none';};
-        img.onclick=e=>{e.stopPropagation();const g=_chatGallery(m.id);_filePreview(g.images[g.startIdx]||{name:T('chat_image')+'.jpg',url:imgSrc},null,null,g);};
-        bub.appendChild(img);
+      const img=el('img',{loading:'lazy',style:{maxWidth:'220px',maxHeight:'260px',borderRadius:'10px',display:'block',marginBottom:(m.text?'6px':'0'),cursor:'pointer',background:'var(--mint-ll)',minHeight:m.imageUrl?'auto':'120px',minWidth:m.imageUrl?'auto':'160px'}});
+      if(m.imageUrl)img.src=m.imageUrl;
+      else if(m.imagePath){
+        (async()=>{
+          try{
+            const{data:_su}=await _supa.storage.from('huddledin-files').createSignedUrl(m.imagePath,3600);
+            if(_su?.signedUrl){m.imageUrl=_su.signedUrl;img.src=_su.signedUrl;}
+          }catch(e){console.error('❌ sign chat img:',e);}
+        })();
       }
+      img.onerror=()=>{img.style.display='none';};
+      img.onclick=e=>{e.stopPropagation();const g=_chatGallery(m.id);_filePreview(g.images[g.startIdx]||{name:T('chat_image')+'.jpg',url:m.imageUrl||''},null,null,g);};
+      bub.appendChild(img);
     }
     // Render message text — highlight search matches inline
     if(m.text){
@@ -13177,7 +13186,10 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
           _bub.appendChild(el('div',{style:{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'3px',marginTop:'2px'}},[el('span',{class:'bubble-time'},[_rtMsg.time])]));
           _enhanceBubble(_bub,_rtMsg);
           _row.appendChild(_bub);
-          _ma.appendChild(_row);_ma.scrollTop=_ma.scrollHeight;
+          // Only auto-scroll if user was already near the bottom — don't yank them away from reading history
+          const _wasNearBottom=(_ma.scrollHeight-_ma.scrollTop-_ma.clientHeight)<80;
+          _ma.appendChild(_row);
+          if(_wasNearBottom)_ma.scrollTop=_ma.scrollHeight;
         }
         // Auto-mark message notification as read since user is actively viewing
         const _ns=DB.notifications||[];
