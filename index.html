@@ -9445,7 +9445,7 @@ function renderCalFullscreen(){
   const fsLogo=el('div',{style:{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',flexShrink:0}});
   fsLogo.appendChild(el('div',{class:'logo-bubble',style:{width:'32px',height:'32px',fontSize:'1rem'}},['🤝']));
   fsLogo.appendChild(el('span',{class:'ff',style:{fontWeight:800,fontSize:'.9rem',color:'var(--navy)'}},['Huddledin']));
-  fsLogo.onclick=()=>{_pushNav();S.calFullscreen=false;S.navLevel=0;re();};
+  fsLogo.onclick=()=>{S.calFullscreen=false;S.activeTab='dashboard';S.navLevel=0;S.activeChild=null;re();};
   hd.appendChild(fsLogo);
   // Month nav
   const monthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',flex:1,justifyContent:'center'}});
@@ -15256,7 +15256,10 @@ function _renderHwTaskDashboard(taskId){
     backRow.appendChild(backBtn);
     sec.appendChild(backRow);
   }
-  sec.appendChild(el('h2',{class:'page-title'},[task.title]));
+  const titleRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',marginBottom:'10px',flexWrap:'wrap'}});
+  titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},[task.title]));
+  if(session?.role==='specialist')titleRow.appendChild(mkBtn(T('hw_new_task'),'btn-sm btn-primary',()=>showAddHomeworkTaskModal(null)));
+  sec.appendChild(titleRow);
   const metaRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px',alignItems:'center'}});
   const db=_hwDiffBadge(task.difficulty);if(db)metaRow.appendChild(db);
   metaRow.appendChild(badge(_hwRecLabel(task),'teal'));
@@ -15678,12 +15681,9 @@ function renderHomeworkParent(){
   // NEW tasks banner
   const unackedTasks=activeTasks.filter(t=>(allOccs.filter(o=>o.taskId===t.id&&!o.acknowledgedByParent)).length>0);
   if(tab==='active'&&unackedTasks.length>0){
-    const banner=el('div',{style:{background:'var(--lav-l)',border:'1.5px solid var(--lav)',borderRadius:'var(--r)',padding:'12px 14px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'10px'}});
-    banner.appendChild(el('span',{style:{fontSize:'1.2rem'}},['🔔']));
-    banner.appendChild(el('div',{style:{flex:1}},[
-      el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.85rem'}},['New task'+(unackedTasks.length>1?'s':'')+' assigned!']),
-      el('div',{style:{fontSize:'.76rem',color:'var(--slate)',marginTop:'2px'}},[unackedTasks.length+' task'+(unackedTasks.length>1?'s need':'needs')+' your acknowledgement'])
-    ]));
+    const banner=el('div',{style:{background:'var(--lav-l)',borderLeft:'3px solid var(--lav-d)',borderRadius:'var(--r)',padding:'6px 10px',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px',fontSize:'.78rem',color:'var(--navy)'}});
+    banner.appendChild(el('span',{style:{fontSize:'.9rem',flexShrink:0}},['🔔']));
+    banner.appendChild(el('span',{style:{flex:1}},[el('b',{},[String(unackedTasks.length)+' new task'+(unackedTasks.length>1?'s':'')]),' '+(unackedTasks.length>1?'need':'needs')+' your acknowledgement']));
     sec.appendChild(banner);
   }
   const tasks=tab==='active'?activeTasks:archiveTasks;
