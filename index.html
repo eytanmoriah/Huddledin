@@ -2226,8 +2226,13 @@ async function refreshFromSupabase(){
 
 // Debounced refresh — collapses burst real-time events into one refresh
 let _refreshTimer=null;
+let _chatRefreshTimer=null;
 let _seenTimestamps={};
 const _localParentTaskChanges=new Set();
+function _debouncedChatRefresh(){
+  if(_chatRefreshTimer)clearTimeout(_chatRefreshTimer);
+  _chatRefreshTimer=setTimeout(()=>{_chatRefreshTimer=null;loadChatsFromSupabase().then(()=>re()).catch(e=>console.error('❌ debouncedChatRefresh:',e));},500);
+}
 function _debouncedRefresh(){
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(()=>{
@@ -2309,7 +2314,7 @@ function setupHouseholdSync(){
       .subscribe();
     _hhChildChannels.push(_cf);
     const _cm=_supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;_debouncedChatRefresh();})
       .subscribe();
     _hhChildChannels.push(_cm);
   });
@@ -2381,7 +2386,7 @@ function setupSpecialistSync(){
       .subscribe();
     _specChildChannels.push(_ca);
     const _cm=_supa.channel('spec_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;loadChatsFromSupabase().then(()=>re());})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;_debouncedChatRefresh();})
       .subscribe();
     _specChildChannels.push(_cm);
     // Vault notes and files for this child
@@ -8159,7 +8164,9 @@ function renderSpecDesktop(){
       if(hasOD)row.appendChild(el('div',{class:'spec-dt-pl-dot'}));
       row.onclick=()=>{
         _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';S._patientDrawerOpen=false;
-        re();loadChildSpecialists(c.id).then(()=>re()).catch(e=>console.error('❌ loadChildSpecs:',e));
+        re();
+        const _cid=c.id;
+        loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));
       };
       plList.appendChild(row);
     });
@@ -8520,7 +8527,7 @@ function renderHeader(){
             item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChild=ch.id;S.calFullscreen=false;S.activeTab='dashboard';S.navLevel=1;csDd.remove();csDd=null;re();};
           } else {
             // Inside profile: switch child, stay on tab
-            item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist')loadChildSpecialists(ch.id).then(()=>re()).catch(()=>{});S.chatsLoaded=false;re();};
+            item.onclick=ev=>{ev.stopPropagation();_pushNav();S.activeChatChildId=ch.id;S.activeChild=ch.id;csDd.remove();csDd=null;if(session?.role==='specialist'){const _cid=ch.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));}S.chatsLoaded=false;re();};
           }
           csDd.appendChild(item);
         });
@@ -8942,17 +8949,13 @@ function switchTab(id){
     }
   }
   re();
-  // Refresh folders+files from Supabase when opening File Manager
-  if(id==='files'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
-  }
-  // Refresh published summaries when parent opens session-summaries view
-  if(id==='session-summaries'&&session?.role==='parent'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
-  }
-  // Refresh team/requests when parent opens Care Team (ensures consult requests are fresh)
-  if(id==='team'&&session?.role==='parent'&&session?.id!=='demo'){
-    refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
+  // Background refresh (debounced) — navigation is already painted; data will update in place.
+  if(session?.id!=='demo'&&(
+    id==='files' ||
+    (id==='session-summaries'&&session?.role==='parent') ||
+    (id==='team'&&session?.role==='parent')
+  )){
+    _debouncedRefresh();
   }
 }
 
@@ -12399,14 +12402,11 @@ function markChatUnread(chatId){
 }
 
 function renderChat(){
+  // Shell-first: render whatever's in cache (even empty) immediately; refresh in background
   if(!S.chatsLoaded){
     S.chatsLoaded=true;
-    loadChatsFromSupabase().then(()=>re());
-    const sec=el('div',{class:'section'});
-    sec.appendChild(el('div',{class:'empty-inline',style:{padding:'40px 0',textAlign:'center'}},[T('btn_loading')]));
-    return sec;
+    loadChatsFromSupabase().then(()=>re()).catch(e=>console.error('❌ loadChats:',e));
   }
-
   const allChats=DB.chats;
   const role=session?.role;
   const specId=session?.specialistId;
@@ -16408,7 +16408,7 @@ function renderPatients(){
           });
         };
       } else {
-        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();loadChildSpecialists(c.id).then(()=>re()).catch(e=>console.error('❌ loadChildSpecs:',e));};
+        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();const _cid=c.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));};
       }
       stack.appendChild(card);
     });
@@ -17242,9 +17242,9 @@ function renderNotifications(){
       const lsNotifs=LS.get('notifications',[]);
       const li=lsNotifs.findIndex(x=>x.id===n.id);
       if(li>-1){lsNotifs[li].read=true;LS.set('notifications',lsNotifs);}
-      // Persist to Supabase (awaited so it completes before the next refresh)
+      // Persist to Supabase in background — don't block navigation
       if(session?.id!=='demo'){
-        try{await _supa.from('notifications').update({read:true}).eq('id',n.id);}catch(e){console.error('❌ markNotifRead:',e);}
+        _supa.from('notifications').update({read:true}).eq('id',n.id).then(r=>{if(r.error)console.error('❌ markNotifRead:',r.error);}).catch(e=>console.error('❌ markNotifRead:',e));
       }
       // Deep-link navigation
       const tab=n.linkTab||n.link_tab;
