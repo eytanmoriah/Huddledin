@@ -8485,7 +8485,7 @@ function renderHeader(){
     const child=DB.children.find(c=>c.id===S.activeChild);
     const allChildren=DB.children;
     const _isTopLevelNav=S.calFullscreen||S.activeTab==='notifications'||(S.activeTab==='chat'&&!S.activeChatId&&!S.activeChild);
-    if(allChildren.length){
+    if(allChildren.length && !_isTopLevelNav){
       const centre=el('div',{style:{
         flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:_isTopLevelNav?'6px':'8px',cursor:'pointer',position:'relative'
       }});
@@ -8536,6 +8536,9 @@ function renderHeader(){
         setTimeout(()=>document.addEventListener('click',out),10);
       };
       inner.appendChild(centre);
+    } else {
+      // Top-level bottom-nav pages (main calendar / messages / notifications) — hide child picker
+      inner.appendChild(el('div',{style:{flex:1}}));
     }
   } else if(session?.role==='parent' && S.navLevel===0 && !S.calFullscreen){
     // -- Level 0: Logo is just branding --
