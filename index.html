@@ -12793,7 +12793,17 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   const _buildQuoteBlock=(msg)=>{
     if(!msg?.replyToId)return null;
     const orig=(DB.chats.find(c=>c.id===activeChat.id)?.messages||[]).find(m=>m.id===msg.replyToId);
-    const bar=el('div',{style:{borderInlineStart:'3px solid rgba(13,148,136,.55)',background:'rgba(13,148,136,.08)',borderRadius:'8px',padding:'6px 9px',margin:'0 0 6px 0',fontSize:'.78rem',lineHeight:'1.35',maxWidth:'100%',overflow:'hidden'}});
+    const bar=el('div',{style:{borderInlineStart:'3px solid rgba(13,148,136,.55)',background:'rgba(13,148,136,.08)',borderRadius:'8px',padding:'6px 9px',margin:'0 0 6px 0',fontSize:'.78rem',lineHeight:'1.35',maxWidth:'100%',overflow:'hidden',cursor:'pointer'}});
+    bar.onclick=e=>{
+      e.stopPropagation();
+      const ma=document.getElementById('msg-area');
+      const target=ma?.querySelector('[data-msg-id="'+msg.replyToId+'"]');
+      if(!target){toast(T('chat_reply_unavail')||'Original message not found','info',2500);return;}
+      target.scrollIntoView({behavior:'smooth',block:'center'});
+      target.classList.remove('msg-hl');
+      void target.offsetWidth; // restart animation
+      target.classList.add('msg-hl');
+    };
     if(!orig){
       bar.appendChild(el('div',{style:{opacity:.7,fontStyle:'italic'}},[T('chat_reply_unavail')||'Original message unavailable']));
       return bar;
