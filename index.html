@@ -12597,9 +12597,10 @@ function renderChat(){
     const _parentDynamic=otherSpec?(otherSpec.name+(otherSpec.role?' · '+otherSpec.role:'')):'Specialist';
     const _specDynamic=_chatChild?(_chatChild.name+"'s Family"):'Family';
     const _parentInConsult=isConsult&&(chat.participants||[]).some(p=>p==='parent'||p===session?.id||(DB.coParents||[]).some(cp=>cp.id===p));
-    const _isAutoConsultName=!chat.name||/\bConsult(?:\s*\(\+ Parent\))?$/.test(chat.name);
+    // Specialist side always shows "Consult: [Child]" for inclusive consults (stored names can be stale / mislabeled).
+    // Parents see their renamed value if set, else the fallback.
     const _consultDisplay=_parentInConsult
-      ?(_isAutoConsultName?('Consult: '+(_chatChild?.name||'')):chat.name)
+      ?(role==='specialist'?('Consult: '+(_chatChild?.name||'')):(chat.name||'Consult: '+(_chatChild?.name||'')))
       :(chat.name||'Specialist Consult');
     const chatName=isConsult?_consultDisplay:isGroup?(chat.name||'Group Chat'):(_isDirect&&role==='parent'?_parentDynamic:(_isDirect&&role==='specialist'?_specDynamic:(chat.name||'Chat')));
     const childColor=DB.children.find(c=>c.id===chat.childId)?.color||'var(--teal)';
@@ -12778,10 +12779,10 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   const otherSpec=getChildTeam(activeChat?.childId||S.activeChild).find(s=>s.id===otherSpecId);
   const childColor=DB.children.find(c=>c.id===activeChat.childId)?.color||'var(--teal)';
   const _parentInConsult=isConsult&&(activeChat.participants||[]).some(p=>p==='parent'||p===session?.id||(DB.coParents||[]).some(cp=>cp.id===p));
-  const _isAutoConsultName=!activeChat.name||/\bConsult(?:\s*\(\+ Parent\))?$/.test(activeChat.name);
   const _headerChild=DB.children.find(c=>c.id===activeChat.childId);
+  // Specialist side always shows "Consult: [Child]" for inclusive consults; parent side uses stored name if set.
   const _consultHeader=_parentInConsult
-    ?(_isAutoConsultName?('Consult: '+(_headerChild?.name||'')):activeChat.name)
+    ?(session?.role==='specialist'?('Consult: '+(_headerChild?.name||'')):(activeChat.name||'Consult: '+(_headerChild?.name||'')))
     :(activeChat.name||'Specialist Consult');
   const chatName=isConsult?_consultHeader:(activeChat.name||(isGroup?'Group Chat':(session?.role==='parent'?otherSpec?.name||'Specialist':otherSpec?.name||'Family')));
   const participantNames=isGroup
@@ -12930,7 +12931,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     _renameBtn.onclick=e=>{
       e.stopPropagation();
       openModal(T('chat_rename_title')||'Rename chat',(mb,close)=>{
-        const _curName=activeChat.name&&!_isAutoConsultName?activeChat.name:(isConsult?'Consult: '+(_headerChild?.name||''):'');
+        const _curName=activeChat.name||(isConsult?'Consult: '+(_headerChild?.name||''):'');
         const inp=el('input',{class:'inp',value:_curName,placeholder:T('chat_rename_placeholder')||'Chat name',style:{width:'100%',marginBottom:'14px',fontSize:'16px',padding:'10px 12px'}});
         mb.appendChild(inp);
         const row=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end'}});
