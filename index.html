@@ -8691,6 +8691,9 @@ function renderDrawer(){
           // Return to Global Family Home
           _pushNav();
           S.navLevel=0;
+          S.calFullscreen=false;
+          S.activeTab='dashboard';
+          S.activeChild=null;
           re();
         } else {
           // Enter child profile at the correct tab
