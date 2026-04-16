@@ -8158,7 +8158,7 @@ function renderSpecDesktop(){
   const _aiSub2=S.specAiSubscription;
   if(_aiSub2?.status==='trial'&&_aiSub2.daysRemaining&&_aiSub2.daysRemaining<=7){
     const _tPill=el('button',{class:'spec-greeting-btn spec-greeting-trial'},['✨ '+_aiSub2.daysRemaining+'d trial · Upgrade →']);
-    _tPill.onclick=()=>{if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
+    _tPill.onclick=()=>{_showSpecAiUpgradeModal();};
     _gR.appendChild(_tPill);
   }
   _gBanner.appendChild(_gR);
@@ -8448,10 +8448,11 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     const _repUpg=el('button',{style:{background:'#8b5cf6',color:'#fff',border:'none',borderRadius:'8px',padding:'8px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s'}},['Upgrade →']);
     _repUpg.onmouseenter=()=>_repUpg.style.background='#7c3aed';
     _repUpg.onmouseleave=()=>_repUpg.style.background='#8b5cf6';
+    _repUpg.onclick=e=>{e.stopPropagation();_showSpecAiUpgradeModal('Reports');};
     repBody.appendChild(_repUpg);
   }
   repC.appendChild(repBody);
-  cRep.onclick=()=>{if(hasAi)switchTab('reports');else if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
+  cRep.onclick=()=>{if(hasAi)switchTab('reports');else _showSpecAiUpgradeModal();};
   grid.appendChild(cRep);
   if(hasAi&&session?.id!=='demo'){
     (async()=>{
@@ -8485,10 +8486,11 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     const _stoUpg=el('button',{style:{background:'var(--teal)',color:'#fff',border:'none',borderRadius:'8px',padding:'8px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s'}},['Upgrade →']);
     _stoUpg.onmouseenter=()=>_stoUpg.style.background='var(--teal-d)';
     _stoUpg.onmouseleave=()=>_stoUpg.style.background='var(--teal)';
+    _stoUpg.onclick=e=>{e.stopPropagation();_showSpecAiUpgradeModal('Storage');};
     stoBody.appendChild(_stoUpg);
   }
   stoC.appendChild(stoBody);
-  cSto.onclick=()=>{if(hasAi)switchTab('spec-storage');else if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
+  cSto.onclick=()=>{if(hasAi)switchTab('spec-storage');else _showSpecAiUpgradeModal();};
   grid.appendChild(cSto);
   if(hasAi&&session?.id!=='demo'){
     const STORAGE_LIMIT=2*1024*1024*1024; // 2 GB
