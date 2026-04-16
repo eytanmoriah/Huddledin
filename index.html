@@ -7624,7 +7624,9 @@ function renderPaywall(){
    PARENT WEB DASHBOARD (desktop only, >=1024px)
 ----------------------------------------------- */
 function renderParentDesktop(){
-  const shell=el('div',{id:'app-shell',style:{minHeight:'100vh',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
+  const _isChatShell=S.activeTab==='chat'&&S.navLevel===1;
+  if(_isChatShell){document.body.style.overflow='hidden';}else{document.body.style.overflow='';}
+  const shell=el('div',{id:'app-shell',style:{minHeight:_isChatShell?'auto':'100vh',height:_isChatShell?'100vh':'auto',overflow:_isChatShell?'hidden':'visible',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
   const children=DB.children||[];
   const allApts=DB.appointments||[];
   const name=session?.name||session?.displayName||'there';
