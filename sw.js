@@ -1,5 +1,5 @@
 // Huddledin Service Worker v1.0
-const CACHE_NAME = 'huddledin-v1';
+const CACHE_NAME = 'huddledin-v2';
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
