@@ -1395,7 +1395,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-det-body .page-sub,.spec-dt-content .page-sub{margin-top:0!important}
 
   /* General content panel (To-Do, Notifs, Settings) */
-  .spec-dt-content{flex:1;overflow-y:auto;padding:28px 32px;background:#f4fcf9}
+  .spec-dt-content{flex:1;overflow-y:auto;padding:12px 32px 28px;background:#f4fcf9}
 
   /* ── Desktop Dashboard */
   .spec-dt-db{flex:1;overflow-y:auto;display:flex;flex-direction:column}
@@ -1417,7 +1417,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-db-nrow:hover{background:var(--mint-ll)}
 
   /* ── Home layout ─────────────────────────────────── */
-  .spec-home-wrap{padding:28px 32px;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;min-height:calc(100vh - 60px)}
+  .spec-home-wrap{padding:12px 32px 28px;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;min-height:calc(100vh - 60px)}
   .spec-home-grid{display:grid;grid-template-columns:1fr 380px;gap:20px}
   @media(max-width:1100px){.spec-home-grid{grid-template-columns:1fr}}
   .spec-home-left{display:flex;flex-direction:column}
@@ -8155,14 +8155,12 @@ function renderSpecDesktop(){
       bcA.textContent=activeChild.name.split(' ')[0];
       bc.appendChild(bcA);
     }
-  } else {
-    // Sub-pages: show ← Home breadcrumb unless already on dashboard
-    if(S.activeTab!=='dashboard'){
-      const bcHome=el('span',{class:'spec-dt-bc-link'});bcHome.textContent='← '+(T('nav_home')||'Home');
-      bcHome.onclick=()=>{S.activeChild=null;S.activeTab='dashboard';S.calFullscreen=false;re();};
-      bc.appendChild(bcHome);
-      bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
-    }
+  } else if(S.activeTab!=='dashboard'){
+    // Sub-pages: show ← Home breadcrumb (dashboard shows no breadcrumb — sidebar indicates it)
+    const bcHome=el('span',{class:'spec-dt-bc-link'});bcHome.textContent='← '+(T('nav_home')||'Home');
+    bcHome.onclick=()=>{S.activeChild=null;S.activeTab='dashboard';S.calFullscreen=false;re();};
+    bc.appendChild(bcHome);
+    bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
     const bcA=el('span',{class:'spec-dt-bc-cur'});
     bcA.textContent=TAB_NAMES[S.activeTab]||S.activeTab;
     bc.appendChild(bcA);
@@ -8177,6 +8175,37 @@ function renderSpecDesktop(){
 
   /* ── Right detail panel (drawer retired on desktop) ─────────────── */
   const detail=el('div',{class:'spec-dt-detail'});
+
+  // ── Persistent banners (all pages) ──
+  const _bnrWrap=el('div',{style:{padding:'12px 32px 0',flexShrink:0}});
+  // AI trial banner (only when trial ≤ 7 days left)
+  const _aiSub2=S.specAiSubscription;
+  if(_aiSub2?.status==='trial'&&_aiSub2.daysRemaining&&_aiSub2.daysRemaining<=7){
+    const _tb=el('div',{style:{background:'linear-gradient(135deg,#fef3c7,#fde68a)',borderRadius:'10px',padding:'10px 20px',marginBottom:'12px',display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}});
+    _tb.appendChild(el('div',{style:{flex:1,fontSize:'.82rem',color:'#92400e',fontWeight:600}},['✨ AI trial: '+_aiSub2.daysRemaining+' day'+(_aiSub2.daysRemaining!==1?'s':'')+' left · Upgrade to keep Reports and Storage']));
+    const _tbBtn=el('button',{style:{background:'#f59e0b',color:'#fff',border:'none',borderRadius:'8px',padding:'7px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s',flexShrink:0}},['Upgrade']);
+    _tbBtn.onmouseenter=()=>_tbBtn.style.background='#d97706';
+    _tbBtn.onmouseleave=()=>_tbBtn.style.background='#f59e0b';
+    _tbBtn.onclick=()=>{if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
+    _tb.appendChild(_tbBtn);
+    _bnrWrap.appendChild(_tb);
+  }
+  // Greeting banner
+  const _gNow=new Date();const _gHr=_gNow.getHours();
+  const _gGreet=_gHr<12?T('greeting_morning'):_gHr<17?T('greeting_afternoon'):T('greeting_evening');
+  const _gDate=_gNow.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const _gBanner=el('div',{class:'spec-greeting-banner'});
+  const _gL=el('div',{class:'spec-greeting-left'});
+  _gL.appendChild(el('div',{class:'spec-greeting-greet'},[_gGreet+', '+specName.split(' ')[0]+' 👋']));
+  _gL.appendChild(el('div',{class:'spec-greeting-meta'},[_gDate+' · '+specProf]));
+  _gBanner.appendChild(_gL);
+  const _gR=el('div',{class:'spec-greeting-right'});
+  const _gCode=el('button',{class:'spec-greeting-btn'},['+ '+(T('spec_dt_enter_code')||'Patient Code')]);
+  _gCode.onclick=()=>showEnterCodeModal();
+  _gR.appendChild(_gCode);
+  _gBanner.appendChild(_gR);
+  _bnrWrap.appendChild(_gBanner);
+  detail.appendChild(_bnrWrap);
 
   if(S.activeTab==='dashboard'){
     detail.appendChild(_renderSpecDtDashboard(sorted,specId,specName));
@@ -8326,32 +8355,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const todayTasks=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed);
   const todayDue=todayTasks.length;
 
-  // Greeting banner (compact)
-  const banner=el('div',{class:'spec-greeting-banner'});
-  const bLeft=el('div',{class:'spec-greeting-left'});
-  bLeft.appendChild(el('div',{class:'spec-greeting-greet'},[greet+', '+specName.split(' ')[0]+' 👋']));
-  bLeft.appendChild(el('div',{class:'spec-greeting-meta'},[dateStr+' · '+specProf]));
-  banner.appendChild(bLeft);
-  const bRight=el('div',{class:'spec-greeting-right'});
-  const codeBtn=el('button',{class:'spec-greeting-btn'},['+ '+(T('spec_dt_enter_code')||'Patient Code')]);
-  codeBtn.onclick=()=>showEnterCodeModal();
-  bRight.appendChild(codeBtn);
-  banner.appendChild(bRight);
-
-  // AI trial countdown banner (only when trial active and ≤ 7 days left)
-  const _aiSub=S.specAiSubscription;
-  if(_aiSub?.status==='trial'&&_aiSub.daysRemaining&&_aiSub.daysRemaining<=7){
-    const trialBanner=el('div',{style:{background:'linear-gradient(135deg,#fef3c7,#fde68a)',borderRadius:'10px',padding:'10px 20px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}});
-    trialBanner.appendChild(el('div',{style:{flex:1,fontSize:'.82rem',color:'#92400e',fontWeight:600}},['✨ AI trial: '+_aiSub.daysRemaining+' day'+(_aiSub.daysRemaining!==1?'s':'')+' left · Upgrade to keep Reports and Storage']));
-    const upgBtn=el('button',{style:{background:'#f59e0b',color:'#fff',border:'none',borderRadius:'8px',padding:'7px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s',flexShrink:0}},['Upgrade']);
-    upgBtn.onmouseenter=()=>upgBtn.style.background='#d97706';
-    upgBtn.onmouseleave=()=>upgBtn.style.background='#f59e0b';
-    upgBtn.onclick=()=>{if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
-    trialBanner.appendChild(upgBtn);
-    wrap.appendChild(trialBanner);
-  }
-
-  wrap.appendChild(banner);
+  // Greeting + trial banners are now rendered in the shared detail wrapper (persistent across all pages)
 
   // ── 2-column grid: left (bubbles) + right (calendar + tasks) ──
   const homeGrid=el('div',{class:'spec-home-grid'});
@@ -8624,9 +8628,7 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
   // Header
   const activeCount=sorted.filter(c=>!(((c.status||'active')==='inactive')||_rmInactSet.has(c.id))).length;
   const hdr=el('div',{class:'spec-patients-hdr'});
-  const hBack=el('span',{style:{cursor:'pointer',color:'var(--teal)',fontWeight:700,fontSize:'.82rem'}},['← '+(T('nav_home')||'Home')]);
-  hBack.onclick=()=>{S.activeTab='dashboard';re();};
-  hdr.appendChild(hBack);
+  // ← Home back link is in the shared topbar breadcrumb, not duplicated here
   hdr.appendChild(el('h1',{class:'spec-patients-title'},[T('spec_nav_patients')||'My Patients']));
   hdr.appendChild(el('span',{class:'spec-patients-count'},[String(activeCount)+' '+(activeCount===1?(T('spec_dt_patient')||'patient'):(T('spec_dt_patients_pl')||'patients'))]));
   const spacer=el('div',{style:{flex:1}});
