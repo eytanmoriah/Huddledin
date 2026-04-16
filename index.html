@@ -1444,8 +1444,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-bubble-meta{flex:1;min-width:0}
   .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:.88rem;font-family:'Fraunces',serif;letter-spacing:-.005em}
   .spec-bubble-sub{font-size:.72rem;color:#7aaba5;font-weight:500;margin-top:1px}
-  .spec-bubble-value{font-weight:500;color:var(--accent);font-size:1.5rem;line-height:1;font-family:'Fraunces',serif;flex-shrink:0;margin-inline-start:auto}
-  .spec-bubble-preview{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:6px;min-height:24px}
+  .spec-bubble-preview{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:8px;min-height:24px}
   .spec-bubble-av{width:28px;height:28px;border-radius:50%;border:2px solid #fff;margin-inline-end:-8px;box-shadow:0 1px 3px rgba(0,0,0,.1);flex-shrink:0;background:var(--mint-ll);display:flex;align-items:center;justify-content:center;font-size:.82rem;overflow:hidden}
   .spec-bubble-pill{background:var(--accent-tint);color:var(--accent);padding:3px 10px;border-radius:99px;font-size:.68rem;font-weight:600}
   .spec-bubble.locked{opacity:.75}
@@ -8350,142 +8349,153 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const leftCol=el('div',{class:'spec-home-left'});
   const rightCol=el('div',{class:'spec-home-right'});
 
-  // ── Bubble helper ──
-  const _bub=(accentAttr,icon,title,subtitle,count,showZero,previewFn,onClick)=>{
-    const b=el('div',{class:'spec-bubble','data-accent':accentAttr});
+  // ── Card builder helper (header row only — body built per-card) ──
+  const _cardHdr=(b,accent,icon,title,sub)=>{
     const top=el('div',{class:'spec-bubble-top'});
-    const iconTile=el('div',{class:'spec-bubble-tile','data-accent':accentAttr},[icon]);
+    top.appendChild(el('div',{class:'spec-bubble-tile','data-accent':accent},[icon]));
     const meta=el('div',{class:'spec-bubble-meta'});
     meta.appendChild(el('div',{class:'spec-bubble-title'},[title]));
-    meta.appendChild(el('div',{class:'spec-bubble-sub'},[subtitle]));
-    top.appendChild(iconTile);top.appendChild(meta);
-    if(count>0||showZero){top.appendChild(el('div',{class:'spec-bubble-value'},[String(count)]));}
+    const subEl=el('div',{class:'spec-bubble-sub'},[sub]);
+    meta.appendChild(subEl);
+    top.appendChild(meta);
     b.appendChild(top);
-    const preview=el('div',{class:'spec-bubble-preview'});
-    if(previewFn)previewFn(preview);
-    b.appendChild(preview);
-    b.onclick=onClick;
-    return b;
+    return subEl;
   };
 
   const grid=el('div',{class:'spec-bubble-grid'});
 
-  // 1. Patients (teal)
-  grid.appendChild(_bub('teal','👥',T('spec_nav_patients')||'Patients',activePatients.length===1?'active patient':'active patients',activePatients.length,true,
-    pv=>{
-      const row=el('div',{style:{display:'flex',alignItems:'center',gap:0}});
-      activePatients.slice(0,5).forEach(c=>{
-        const av=el('div',{class:'spec-bubble-av'});
-        if(c.photo)av.appendChild(el('img',{src:c.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}));
-        else av.textContent=c.avatar||'👤';
-        row.appendChild(av);
-      });
-      if(activePatients.length>5)row.appendChild(el('span',{class:'spec-bubble-pill',style:{marginInlineStart:'12px'}},['+'+(activePatients.length-5)]));
-      pv.appendChild(row);
-      if(todayDue>0)pv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#f59e0b',fontWeight:600,marginTop:'6px'}},[todayDue+' task'+(todayDue>1?'s':'')+' due today']));
-    },
-    ()=>{S.activeChild=null;S.activeTab='patients';re();}
-  ));
+  // ── 1. PATIENTS (teal) ──
+  const cPat=el('div',{class:'spec-bubble','data-accent':'teal'});
+  _cardHdr(cPat,'teal','👥',T('spec_nav_patients')||'Patients',activePatients.length+' active');
+  const patBody=el('div',{class:'spec-bubble-preview'});
+  const avRow=el('div',{style:{display:'flex',alignItems:'center',gap:0}});
+  activePatients.slice(0,5).forEach(c=>{
+    const av=el('div',{class:'spec-bubble-av'});
+    if(c.photo)av.appendChild(el('img',{src:c.photo,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}));
+    else av.textContent=c.avatar||'👤';
+    avRow.appendChild(av);
+  });
+  if(activePatients.length>5)avRow.appendChild(el('span',{class:'spec-bubble-pill',style:{marginInlineStart:'12px'}},['+'+(activePatients.length-5)]));
+  patBody.appendChild(avRow);
+  patBody.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:600,marginTop:'8px',color:todayDue>0?'#f59e0b':'#7aaba5'}},[todayDue>0?('⚠️ '+todayDue+' task'+(todayDue>1?'s':'')+' due today'):'All caught up ✨']));
+  cPat.appendChild(patBody);
+  cPat.onclick=()=>{S.activeChild=null;S.activeTab='patients';re();};
+  grid.appendChild(cPat);
 
-  // 2. Messages (amber)
+  // ── 2. ACTIVITY (amber — merged messages + notifications) ──
   const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id));
-  grid.appendChild(_bub('amber','💬',T('nav_chat')||'Messages',unreadMsgs===0?'All caught up 🎉':(unreadMsgs===1?'unread message':'unread messages'),unreadMsgs,false,
-    pv=>{
-      if(unreadChats.length>0){
-        unreadChats.slice(0,2).forEach(c=>{
-          const ch=DB.children.find(k=>k.id===c.childId);
-          const lastMsg=(c.messages||[]).slice(-1)[0];
-          const row=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',fontSize:'.72rem',color:'#4a7570',marginBottom:'4px'}});
-          row.appendChild(el('span',{style:{fontWeight:700,color:'#1a2e2b'}},[(ch?.name?.split(' ')[0])||'Chat']));
-          if(lastMsg?.text)row.appendChild(el('span',{style:{overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',flex:1}},[lastMsg.text]));
-          pv.appendChild(row);
-        });
+  const _actCount=unreadMsgs+_unreadNotifs.length;
+  const cAct=el('div',{class:'spec-bubble','data-accent':'amber'});
+  _cardHdr(cAct,'amber','📬','Activity',_actCount>0?(_actCount+' new'):'All caught up ✨');
+  const actBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'6px'}});
+  // Build merged feed: messages + notifications sorted by time desc
+  const _feedItems=[];
+  unreadChats.slice(0,3).forEach(c=>{
+    const ch=DB.children.find(k=>k.id===c.childId);
+    const lastMsg=(c.messages||[]).slice(-1)[0];
+    const ts=lastMsg?.createdAt||lastMsg?.ts||'';
+    _feedItems.push({type:'msg',ts,label:(ch?.name?.split(' ')[0])||'Chat',text:lastMsg?.text||'📷 Photo',chat:c,childId:c.childId});
+  });
+  _unreadNotifs.slice(0,3).forEach(n=>{
+    _feedItems.push({type:'notif',ts:n.createdAt||n.created_at||'',label:n.type==='message'?'💬':'🔔',text:n.message||'New notification',notif:n});
+  });
+  _feedItems.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  if(_feedItems.length===0){
+    actBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',textAlign:'center',padding:'12px 0'}},['All caught up ✨']));
+  } else {
+    _feedItems.slice(0,4).forEach(fi=>{
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',padding:'4px 6px',borderRadius:'6px',cursor:'pointer',transition:'background .12s',fontSize:'.75rem'}});
+      row.onmouseenter=()=>row.style.background='var(--mint-ll)';
+      row.onmouseleave=()=>row.style.background='';
+      row.appendChild(el('span',{style:{fontSize:'.85rem',flexShrink:0}},[fi.type==='msg'?'💬':'🔔']));
+      row.appendChild(el('span',{style:{fontWeight:700,color:'#1a2e2b',flexShrink:0}},[fi.label]));
+      row.appendChild(el('span',{style:{color:'#4a7570',flex:1,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}},[fi.text]));
+      if(fi.ts){
+        const ago=Math.max(0,Math.floor((now-new Date(fi.ts))/60000));
+        const timeStr=ago<1?'now':ago<60?(ago+'m'):ago<1440?(Math.floor(ago/60)+'h'):(Math.floor(ago/1440)+'d');
+        row.appendChild(el('span',{style:{color:'#7aaba5',fontSize:'.68rem',flexShrink:0}},[timeStr]));
       }
-    },
-    ()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}
-  ));
+      row.onclick=e=>{
+        e.stopPropagation();
+        if(fi.type==='msg'&&fi.chat){
+          S.activeChild=fi.childId||null;S.activeChatChildId=fi.childId||null;S.activeChatId=fi.chat.id;S.activeTab='chat';S.chatsLoaded=true;re();
+        } else if(fi.type==='notif'&&fi.notif){
+          const tab=fi.notif.linkTab||fi.notif.link_tab;
+          const ld=fi.notif.linkData||null;
+          if(tab){
+            if(fi.notif.childId)S.activeChild=fi.notif.childId;
+            S.navLevel=1;
+            if(tab==='chat'&&ld?.chatId){S.activeTab='chat';S.activeChatChildId=fi.notif.childId||null;S.activeChatId=ld.chatId;S.chatsLoaded=true;}
+            else{S.activeTab=tab;}
+          } else {S.activeTab='notifications';}
+          re();
+        }
+      };
+      actBody.appendChild(row);
+    });
+  }
+  cAct.appendChild(actBody);
+  cAct.onclick=e=>{if(!e.target.closest('[style*="cursor"]'))switchTab('notifications');};
+  grid.appendChild(cAct);
 
-  // 3. Notifications (amber)
-  grid.appendChild(_bub('amber','🔔',T('nav_notifications')||'Notifications',_unreadNotifs.length===0?'All caught up 🎉':(_unreadNotifs.length===1?'unread notification':'unread notifications'),_unreadNotifs.length,false,
-    pv=>{
-      if(_unreadNotifs.length>0){
-        const n=_unreadNotifs[0];
-        pv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},[n.message||'New notification']));
-      }
-    },
-    ()=>switchTab('notifications')
-  ));
-
-  // 4. Reports (purple) — async count from Supabase
-  const bRep=el('div',{class:'spec-bubble','data-accent':'purple'});
-  const bRepTop=el('div',{class:'spec-bubble-top'});
-  bRepTop.appendChild(el('div',{class:'spec-bubble-tile','data-accent':'purple'},[hasAi?'📋':'🔒']));
-  const bRepMeta=el('div',{class:'spec-bubble-meta'});
-  bRepMeta.appendChild(el('div',{class:'spec-bubble-title'},['Reports']));
-  const bRepSub=el('div',{class:'spec-bubble-sub'},[hasAi?'Loading...':'AI subscription required']);
-  bRepMeta.appendChild(bRepSub);
-  bRepTop.appendChild(bRepMeta);
-  const bRepVal=el('div',{class:'spec-bubble-value',style:{display:'none'}});
-  bRepTop.appendChild(bRepVal);
-  bRep.appendChild(bRepTop);
-  const bRepPv=el('div',{class:'spec-bubble-preview'});
-  if(!hasAi)bRepPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
-  bRep.appendChild(bRepPv);
-  bRep.onclick=()=>switchTab('reports');
-  if(!hasAi)bRep.classList.add('locked');
-  grid.appendChild(bRep);
+  // ── 3. REPORTS (purple — async) ──
+  const cRep=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'purple'});
+  const repSub=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'AI subscription required');
+  const repBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
+  if(!hasAi)repBody.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
+  cRep.appendChild(repBody);
+  cRep.onclick=()=>switchTab('reports');
+  grid.appendChild(cRep);
   if(hasAi&&session?.id!=='demo'){
     (async()=>{
       try{
-        const[rr,tr]=await Promise.all([
+        const[rr,tr,latestR]=await Promise.all([
           _supa.from('reports').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
-          _supa.from('report_templates').select('id',{count:'exact',head:true}).eq('specialist_id',specId)
+          _supa.from('report_templates').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
+          _supa.from('reports').select('id,title,created_at').eq('specialist_id',specId).order('created_at',{ascending:false}).limit(1)
         ]);
         const rc=rr.count||0, tc=tr.count||0;
-        bRepSub.textContent=tc+' template'+(tc!==1?'s':'');
-        if(rc>0){bRepVal.textContent=String(rc);bRepVal.style.display='';}
-        bRepPv.innerHTML='';
-        if(rc===0)bRepPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Create your first report →']));
-        else bRepPv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},[rc+' report'+(rc!==1?'s':'')+' generated']));
-      }catch(e){console.error('❌ reports count:',e);bRepSub.textContent='—';}
+        repSub.textContent=rc+' report'+(rc!==1?'s':'')+' · '+tc+' template'+(tc!==1?'s':'');
+        repBody.innerHTML='';
+        if(rc===0){
+          repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#8b5cf6',fontWeight:600,padding:'8px 0'}},['Create your first report →']));
+        } else {
+          const lr=latestR.data?.[0];
+          if(lr){
+            repBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},['Latest: '+(lr.title||'Report')+' · '+(lr.created_at||'').split('T')[0]]));
+          }
+        }
+      }catch(e){console.error('❌ reports:',e);repSub.textContent='—';}
     })();
   }
 
-  // 5. My Storage (teal, spans 2 columns) — async count from Supabase
-  const bSto=el('div',{class:'spec-bubble','data-accent':'teal',style:{gridColumn:'1 / -1'}});
-  const bStoTop=el('div',{class:'spec-bubble-top'});
-  bStoTop.appendChild(el('div',{class:'spec-bubble-tile','data-accent':'teal'},[hasAi?'📁':'🔒']));
-  const bStoMeta=el('div',{class:'spec-bubble-meta'});
-  bStoMeta.appendChild(el('div',{class:'spec-bubble-title'},[T('storage_title')||'My Storage']));
-  const bStoSub=el('div',{class:'spec-bubble-sub'},[hasAi?'Loading...':'AI subscription required']);
-  bStoMeta.appendChild(bStoSub);
-  bStoTop.appendChild(bStoMeta);
-  const bStoVal=el('div',{class:'spec-bubble-value'},['0']);
-  bStoTop.appendChild(bStoVal);
-  bSto.appendChild(bStoTop);
-  const bStoPv=el('div',{class:'spec-bubble-preview'});
-  if(!hasAi)bStoPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
-  bSto.appendChild(bStoPv);
-  bSto.onclick=()=>switchTab('spec-storage');
-  if(!hasAi)bSto.classList.add('locked');
-  grid.appendChild(bSto);
+  // ── 4. MY STORAGE (teal — async) ──
+  const cSto=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'teal'});
+  const stoSub=_cardHdr(cSto,'teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',hasAi?'Loading...':'AI subscription required');
+  const stoBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'6px'}});
+  if(!hasAi)stoBody.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
+  cSto.appendChild(stoBody);
+  cSto.onclick=()=>switchTab('spec-storage');
+  grid.appendChild(cSto);
   if(hasAi&&session?.id!=='demo'){
+    const STORAGE_LIMIT=2*1024*1024*1024; // 2 GB
     (async()=>{
       try{
-        const[fr,flr]=await Promise.all([
-          _supa.from('spec_vault_folders').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
-          _supa.from('spec_vault_files').select('id',{count:'exact',head:true}).eq('specialist_id',specId)
-        ]);
-        const fc=flr.count||0, foc=fr.count||0;
-        bStoVal.textContent=String(fc);
-        bStoSub.textContent=fc+' file'+(fc!==1?'s':'')+' in '+foc+' folder'+(foc!==1?'s':'');
-        bStoPv.innerHTML='';
-        const barWrap=el('div',{style:{height:'6px',borderRadius:'3px',background:'#e8f4f2',width:'100%',overflow:'hidden'}});
-        const barFill=el('div',{style:{height:'100%',borderRadius:'3px',background:'var(--teal)',width:Math.min(Math.max(fc*2,5),100)+'%',transition:'width .3s'}});
+        const{data:allFiles}=await _supa.from('spec_vault_files').select('size_bytes').eq('specialist_id',specId);
+        const totalBytes=(allFiles||[]).reduce((s,f)=>s+(f.size_bytes||0),0);
+        const totalMB=(totalBytes/(1024*1024)).toFixed(1);
+        const pct=Math.min(totalBytes/STORAGE_LIMIT*100,100);
+        stoSub.textContent=totalMB+' MB of 2 GB used';
+        stoBody.innerHTML='';
+        const barWrap=el('div',{style:{height:'10px',borderRadius:'5px',background:'#e8f4f2',width:'100%',overflow:'hidden'}});
+        const barFill=el('div',{style:{height:'100%',borderRadius:'5px',background:pct>80?'#ef4444':'var(--teal)',width:Math.max(pct,2)+'%',transition:'width .4s ease'}});
         barWrap.appendChild(barFill);
-        bStoPv.appendChild(barWrap);
-        bStoPv.appendChild(el('div',{style:{fontSize:'.68rem',color:'#7aaba5',marginTop:'4px'}},[fc+' files · '+foc+' folders']));
-      }catch(e){console.error('❌ storage count:',e);bStoSub.textContent='—';}
+        stoBody.appendChild(barWrap);
+        stoBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'#7aaba5'}},[totalMB+' MB of 2 GB']));
+        if(!(allFiles||[]).length){
+          stoBody.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600,marginTop:'4px'}},['Upload your first file →']));
+        }
+      }catch(e){console.error('❌ storage:',e);stoSub.textContent='—';}
     })();
   }
 
