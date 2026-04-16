@@ -1418,7 +1418,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   /* ── Home layout ─────────────────────────────────── */
   .spec-home-wrap{padding:24px;max-width:1320px;margin:0 auto;width:100%;box-sizing:border-box;overflow-y:auto;height:100%}
-  .spec-home-grid{display:grid;grid-template-columns:1fr 300px;gap:20px}
+  .spec-home-grid{display:grid;grid-template-columns:1fr 380px;gap:20px}
   @media(max-width:1100px){.spec-home-grid{grid-template-columns:1fr}}
   .spec-home-left{}
   .spec-home-right{display:flex;flex-direction:column;gap:16px}
@@ -1436,11 +1436,11 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   /* ── Feature bubbles (2-column) ──────────────────── */
   .spec-bubble-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:0}
-  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:0.5px solid #e8f4f2;border-radius:16px;padding:20px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:column;gap:0;min-height:140px;position:relative;overflow:hidden}
+  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:0.5px solid #e8f4f2;border-radius:16px;padding:14px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:column;gap:0;min-height:120px;position:relative;overflow:hidden}
   .spec-bubble::before{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 60px 60px 0;border-color:transparent var(--accent-tint) transparent transparent;pointer-events:none}
   .spec-bubble:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 28px rgba(0,0,0,.05),0 8px 20px var(--accent-shadow)}
   .spec-bubble-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
-  .spec-bubble-tile{width:36px;height:36px;border-radius:10px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0}
+  .spec-bubble-tile{width:44px;height:44px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
   .spec-bubble-meta{flex:1;min-width:0}
   .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:.88rem;font-family:'Fraunces',serif;letter-spacing:-.005em}
   .spec-bubble-sub{font-size:.72rem;color:#7aaba5;font-weight:500;margin-top:1px}
@@ -8322,10 +8322,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const hasAi=_hasSpecAiAccess();
   const upcomingAppts=(DB.appointments||[]).filter(a=>(a.specialistId===specId||(a.sharedWith||[]).includes(specId))&&a.date&&a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''));
   const todayAppts=upcomingAppts.filter(a=>a.date===todayStr);
-  const storageFiles=(DB.specFiles||[]).length;
   const _unreadNotifs=(DB.notifications||[]).filter(n=>!n.read);
-  const _specReports=(DB.reports||[]).filter(r=>r.specialistId===specId||r.specialist_id===specId);
-  const _repTemplates=(DB.reportTemplates||[]).filter(r=>r.specialistId===specId||r.specialist_id===specId);
   const todayTasks=allTasks.filter(t=>t.dueDate&&t.dueDate.slice(0,10)===todayStr&&!t.done&&!t.completed);
   const todayDue=todayTasks.length;
 
@@ -8419,41 +8416,78 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     ()=>switchTab('notifications')
   ));
 
-  // 4. Reports (purple)
-  grid.appendChild(_bub('purple',hasAi?'📋':'🔒','Reports',
-    hasAi?(_repTemplates.length+' template'+(_repTemplates.length!==1?'s':'')):'AI subscription required',
-    _specReports.length,false,
-    pv=>{
-      if(!hasAi){
-        pv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600,cursor:'pointer'}},['Upgrade to unlock →']));
-      } else if(_specReports.length===0){
-        pv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Create your first report →']));
-      } else {
-        pv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},[ _specReports.length+' report'+(_specReports.length!==1?'s':'')+' generated']));
-      }
-    },
-    ()=>switchTab('reports')
-  ));
+  // 4. Reports (purple) — async count from Supabase
+  const bRep=el('div',{class:'spec-bubble','data-accent':'purple'});
+  const bRepTop=el('div',{class:'spec-bubble-top'});
+  bRepTop.appendChild(el('div',{class:'spec-bubble-tile','data-accent':'purple'},[hasAi?'📋':'🔒']));
+  const bRepMeta=el('div',{class:'spec-bubble-meta'});
+  bRepMeta.appendChild(el('div',{class:'spec-bubble-title'},['Reports']));
+  const bRepSub=el('div',{class:'spec-bubble-sub'},[hasAi?'Loading...':'AI subscription required']);
+  bRepMeta.appendChild(bRepSub);
+  bRepTop.appendChild(bRepMeta);
+  const bRepVal=el('div',{class:'spec-bubble-value',style:{display:'none'}});
+  bRepTop.appendChild(bRepVal);
+  bRep.appendChild(bRepTop);
+  const bRepPv=el('div',{class:'spec-bubble-preview'});
+  if(!hasAi)bRepPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
+  bRep.appendChild(bRepPv);
+  bRep.onclick=()=>switchTab('reports');
+  if(!hasAi)bRep.classList.add('locked');
+  grid.appendChild(bRep);
+  if(hasAi&&session?.id!=='demo'){
+    (async()=>{
+      try{
+        const[rr,tr]=await Promise.all([
+          _supa.from('reports').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
+          _supa.from('report_templates').select('id',{count:'exact',head:true}).eq('specialist_id',specId)
+        ]);
+        const rc=rr.count||0, tc=tr.count||0;
+        bRepSub.textContent=tc+' template'+(tc!==1?'s':'');
+        if(rc>0){bRepVal.textContent=String(rc);bRepVal.style.display='';}
+        bRepPv.innerHTML='';
+        if(rc===0)bRepPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Create your first report →']));
+        else bRepPv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},[rc+' report'+(rc!==1?'s':'')+' generated']));
+      }catch(e){console.error('❌ reports count:',e);bRepSub.textContent='—';}
+    })();
+  }
 
-  // 5. My Storage (teal, spans 2 columns)
-  const bSto=_bub('teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',
-    hasAi?(storageFiles===1?'file saved':'files saved'):'AI subscription required',
-    storageFiles,true,
-    pv=>{
-      if(!hasAi){
-        pv.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
-      } else {
-        const barWrap=el('div',{style:{height:'6px',borderRadius:'3px',background:'#e8f4f2',width:'100%',overflow:'hidden',marginTop:'4px'}});
-        const barFill=el('div',{style:{height:'100%',borderRadius:'3px',background:'var(--teal)',width:Math.min(Math.max(storageFiles*2,5),100)+'%',transition:'width .3s'}});
-        barWrap.appendChild(barFill);
-        pv.appendChild(barWrap);
-        pv.appendChild(el('div',{style:{fontSize:'.68rem',color:'#7aaba5',marginTop:'4px'}},[storageFiles+' files']));
-      }
-    },
-    ()=>switchTab('spec-storage')
-  );
-  bSto.style.gridColumn='1 / -1';
+  // 5. My Storage (teal, spans 2 columns) — async count from Supabase
+  const bSto=el('div',{class:'spec-bubble','data-accent':'teal',style:{gridColumn:'1 / -1'}});
+  const bStoTop=el('div',{class:'spec-bubble-top'});
+  bStoTop.appendChild(el('div',{class:'spec-bubble-tile','data-accent':'teal'},[hasAi?'📁':'🔒']));
+  const bStoMeta=el('div',{class:'spec-bubble-meta'});
+  bStoMeta.appendChild(el('div',{class:'spec-bubble-title'},[T('storage_title')||'My Storage']));
+  const bStoSub=el('div',{class:'spec-bubble-sub'},[hasAi?'Loading...':'AI subscription required']);
+  bStoMeta.appendChild(bStoSub);
+  bStoTop.appendChild(bStoMeta);
+  const bStoVal=el('div',{class:'spec-bubble-value'},['0']);
+  bStoTop.appendChild(bStoVal);
+  bSto.appendChild(bStoTop);
+  const bStoPv=el('div',{class:'spec-bubble-preview'});
+  if(!hasAi)bStoPv.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
+  bSto.appendChild(bStoPv);
+  bSto.onclick=()=>switchTab('spec-storage');
+  if(!hasAi)bSto.classList.add('locked');
   grid.appendChild(bSto);
+  if(hasAi&&session?.id!=='demo'){
+    (async()=>{
+      try{
+        const[fr,flr]=await Promise.all([
+          _supa.from('spec_vault_folders').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
+          _supa.from('spec_vault_files').select('id',{count:'exact',head:true}).eq('specialist_id',specId)
+        ]);
+        const fc=flr.count||0, foc=fr.count||0;
+        bStoVal.textContent=String(fc);
+        bStoSub.textContent=fc+' file'+(fc!==1?'s':'')+' in '+foc+' folder'+(foc!==1?'s':'');
+        bStoPv.innerHTML='';
+        const barWrap=el('div',{style:{height:'6px',borderRadius:'3px',background:'#e8f4f2',width:'100%',overflow:'hidden'}});
+        const barFill=el('div',{style:{height:'100%',borderRadius:'3px',background:'var(--teal)',width:Math.min(Math.max(fc*2,5),100)+'%',transition:'width .3s'}});
+        barWrap.appendChild(barFill);
+        bStoPv.appendChild(barWrap);
+        bStoPv.appendChild(el('div',{style:{fontSize:'.68rem',color:'#7aaba5',marginTop:'4px'}},[fc+' files · '+foc+' folders']));
+      }catch(e){console.error('❌ storage count:',e);bStoSub.textContent='—';}
+    })();
+  }
 
   leftCol.appendChild(grid);
   homeGrid.appendChild(leftCol);
