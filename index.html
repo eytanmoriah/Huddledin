@@ -1279,7 +1279,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 ----------------------------------------------- */
 @media(min-width:1024px){
   /* ── Shell */
-  .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#f4fcf9}
+  .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#edf5f4}
 
   /* ── Sidebar (dark) 200px / 56px collapsed */
   .spec-dt-sidebar{width:200px;min-width:200px;height:100%;display:flex;flex-direction:column;background:#0d6b63;overflow:hidden;flex-shrink:0;transition:width .2s ease}
@@ -1436,9 +1436,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   /* ── Feature bubbles (2-column) ──────────────────── */
   .spec-bubble-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;flex:1}
-  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:1px solid rgba(200,220,218,.6);border-radius:16px;padding:24px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:row;gap:20px;min-height:200px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(13,148,136,.08),0 1px 2px rgba(0,0,0,.04)}
+  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:1px solid #d4e8e5;border-radius:16px;padding:24px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:row;gap:20px;min-height:200px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05)}
   .spec-bubble::before{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 60px 60px 0;border-color:transparent var(--accent-tint) transparent transparent;pointer-events:none}
-  .spec-bubble:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 4px 12px rgba(13,148,136,.12),0 2px 4px rgba(0,0,0,.04)}
+  .spec-bubble:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 20px rgba(13,148,136,.15),0 2px 6px rgba(0,0,0,.08)}
   .spec-bubble-tile{width:88px;height:88px;border-radius:16px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex-shrink:0}
   .spec-bubble-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
   .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:1.25rem;font-family:'Fraunces',serif;letter-spacing:-.01em}
@@ -1446,11 +1446,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-bubble-preview{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:8px;min-height:24px}
   .spec-bubble-av{width:36px;height:36px;border-radius:50%;border:3px solid #fff;margin-inline-end:-8px;box-shadow:0 1px 3px rgba(0,0,0,.1);flex-shrink:0;background:var(--mint-ll);display:flex;align-items:center;justify-content:center;font-size:.95rem;overflow:hidden}
   .spec-bubble-pill{background:var(--accent-tint);color:var(--accent);padding:3px 10px;border-radius:99px;font-size:.68rem;font-weight:600}
-  .spec-bubble.locked{opacity:.75}
+  .spec-bubble.locked{opacity:.6}
   .spec-bubble.locked::before{display:none}
+  .spec-bubble.locked .spec-bubble-tile{opacity:.5}
 
   /* Calendar widget (right column) */
-  .spec-cal-widget{background:#fff;border:1px solid rgba(200,220,218,.6);border-radius:14px;padding:18px;min-height:440px;box-shadow:0 1px 3px rgba(13,148,136,.08),0 1px 2px rgba(0,0,0,.04)}
+  .spec-cal-widget{background:#fff;border:1px solid #d4e8e5;border-radius:14px;padding:18px;min-height:440px;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05)}
 
   /* Accent variants */
   .spec-bubble[data-accent="teal"]{--accent:#0d9488;--accent-tint:rgba(13,148,136,.1);--accent-shadow:rgba(13,148,136,.18)}
@@ -1461,7 +1462,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-bubble[data-accent="orange"]{--accent:#ea580c;--accent-tint:rgba(234,88,12,.1);--accent-shadow:rgba(234,88,12,.18)}
 
   /* ── Today's tasks bar ─────────────────────────────── */
-  .spec-today-bar{background:#fff;border:1px solid rgba(200,220,218,.6);border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(13,148,136,.08),0 1px 2px rgba(0,0,0,.04);flex:1}
+  .spec-today-bar{background:#fff;border:1px solid #d4e8e5;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05);flex:1}
   .spec-today-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   .spec-today-title{font-weight:500;color:#1a2e2b;font-size:1.1rem;font-family:'Fraunces',serif;letter-spacing:-.005em}
   .spec-today-all{color:var(--teal);font-weight:600;font-size:.82rem;cursor:pointer;background:none;border:none;padding:4px 8px;border-radius:6px;transition:background .14s}
@@ -8335,13 +8336,26 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const codeBtn=el('button',{class:'spec-greeting-btn'},['+ '+(T('spec_dt_enter_code')||'Patient Code')]);
   codeBtn.onclick=()=>showEnterCodeModal();
   bRight.appendChild(codeBtn);
-  if(S.specAiSubscription?.status==='trial'&&S.specAiSubscription?.trial_ends_at){
-    const daysLeft=Math.max(0,Math.ceil((new Date(S.specAiSubscription.trial_ends_at)-now)/(864e5)));
-    const trialBtn=el('button',{class:'spec-greeting-btn spec-greeting-trial'},['✨ '+daysLeft+'d AI trial']);
+  if(S.specAiSubscription?.status==='trial'&&S.specAiSubscription?.daysRemaining){
+    const trialBtn=el('button',{class:'spec-greeting-btn spec-greeting-trial'},['✨ '+S.specAiSubscription.daysRemaining+'d AI trial']);
     trialBtn.onclick=()=>switchTab('settings');
     bRight.appendChild(trialBtn);
   }
   banner.appendChild(bRight);
+
+  // AI trial countdown banner (only when trial active and ≤ 7 days left)
+  const _aiSub=S.specAiSubscription;
+  if(_aiSub?.status==='trial'&&_aiSub.daysRemaining&&_aiSub.daysRemaining<=7){
+    const trialBanner=el('div',{style:{background:'linear-gradient(135deg,#fef3c7,#fde68a)',borderRadius:'10px',padding:'10px 20px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}});
+    trialBanner.appendChild(el('div',{style:{flex:1,fontSize:'.82rem',color:'#92400e',fontWeight:600}},['✨ AI trial: '+_aiSub.daysRemaining+' day'+(_aiSub.daysRemaining!==1?'s':'')+' left · Upgrade to keep Reports and Storage']));
+    const upgBtn=el('button',{style:{background:'#f59e0b',color:'#fff',border:'none',borderRadius:'8px',padding:'7px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s',flexShrink:0}},['Upgrade']);
+    upgBtn.onmouseenter=()=>upgBtn.style.background='#d97706';
+    upgBtn.onmouseleave=()=>upgBtn.style.background='#f59e0b';
+    upgBtn.onclick=()=>{if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
+    trialBanner.appendChild(upgBtn);
+    wrap.appendChild(trialBanner);
+  }
+
   wrap.appendChild(banner);
 
   // ── 2-column grid: left (bubbles) + right (calendar + tasks) ──
@@ -8444,11 +8458,17 @@ function _renderSpecDtDashboard(sorted,specId,specName){
 
   // ── 4. REPORTS (purple — async) ──
   const cRep=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'purple'});
-  const{subEl:repSub,content:repC}=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'AI subscription required');
+  const{subEl:repSub,content:repC}=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'🔒 Upgrade to unlock');
   const repBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
-  if(!hasAi)repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
+  if(!hasAi){
+    repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#4a7570',lineHeight:'1.5',marginBottom:'8px'}},['Your AI trial has ended. Upgrade to access reports.']));
+    const _repUpg=el('button',{style:{background:'#8b5cf6',color:'#fff',border:'none',borderRadius:'8px',padding:'8px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s'}},['Upgrade →']);
+    _repUpg.onmouseenter=()=>_repUpg.style.background='#7c3aed';
+    _repUpg.onmouseleave=()=>_repUpg.style.background='#8b5cf6';
+    repBody.appendChild(_repUpg);
+  }
   repC.appendChild(repBody);
-  cRep.onclick=()=>switchTab('reports');
+  cRep.onclick=()=>{if(hasAi)switchTab('reports');else if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
   grid.appendChild(cRep);
   if(hasAi&&session?.id!=='demo'){
     (async()=>{
@@ -8475,11 +8495,17 @@ function _renderSpecDtDashboard(sorted,specId,specName){
 
   // ── 5. MY STORAGE (teal — async, full-width) ──
   const cSto=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'teal',style:{gridColumn:'1 / -1'}});
-  const{subEl:stoSub,content:stoC}=_cardHdr(cSto,'teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',hasAi?'Loading...':'AI subscription required');
+  const{subEl:stoSub,content:stoC}=_cardHdr(cSto,'teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',hasAi?'Loading...':'🔒 Upgrade to unlock');
   const stoBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'6px'}});
-  if(!hasAi)stoBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
+  if(!hasAi){
+    stoBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#4a7570',lineHeight:'1.5',marginBottom:'8px'}},['Upgrade to access file storage.']));
+    const _stoUpg=el('button',{style:{background:'var(--teal)',color:'#fff',border:'none',borderRadius:'8px',padding:'8px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s'}},['Upgrade →']);
+    _stoUpg.onmouseenter=()=>_stoUpg.style.background='var(--teal-d)';
+    _stoUpg.onmouseleave=()=>_stoUpg.style.background='var(--teal)';
+    stoBody.appendChild(_stoUpg);
+  }
   stoC.appendChild(stoBody);
-  cSto.onclick=()=>switchTab('spec-storage');
+  cSto.onclick=()=>{if(hasAi)switchTab('spec-storage');else if(typeof showSpecAiModal==='function')showSpecAiModal();else switchTab('settings');};
   grid.appendChild(cSto);
   if(hasAi&&session?.id!=='demo'){
     const STORAGE_LIMIT=2*1024*1024*1024; // 2 GB
