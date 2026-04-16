@@ -7773,12 +7773,12 @@ function renderParentDesktop(){
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
     const _isChatPage=S.activeTab==='chat';
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'24px 48px 0':'24px 48px',width:'100%',flex:'1',minWidth:'0',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:'column',height:_isChatPage?'calc(100vh - 56px)':'auto'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'16px 48px 0':'24px 48px',width:'100%',flex:_isChatPage?'1':'',display:_isChatPage?'flex':'block',flexDirection:_isChatPage?'column':'',overflow:_isChatPage?'hidden':'visible',minHeight:_isChatPage?0:'auto'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px',flexShrink:0}});bcBack.textContent=T('bc_back_home');
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
     const _pgRc=renderContent();
-    const _pgWrap=el('div',{style:{width:'100%',marginTop:'16px',flex:_isChatPage?'1':'none',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
+    const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
     if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
