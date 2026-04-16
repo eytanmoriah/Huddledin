@@ -7368,9 +7368,22 @@ function _hasSpecAiAccess(){
 
 async function _startSpecAiTrial(){
   if(!session||session.role!=='specialist'||session.id==='demo')return;
-  const _now=new Date();
-  const _end=new Date(_now.getTime()+7*24*60*60*1000);
   try{
+    // Check for existing subscription before inserting
+    const{data:existing,error:lookErr}=await _supa.from('subscriptions').select('status,trial_ends_at').eq('user_id',session.id).eq('plan','specialist_ai').limit(1);
+    if(lookErr)console.error('❌ check existing sub:',lookErr);
+    const ex=existing?.[0];
+    if(ex){
+      if(ex.status==='active'){toast('You already have an active subscription.','info',3000);return;}
+      if(ex.status==='trial'){
+        const daysLeft=Math.ceil((new Date(ex.trial_ends_at)-new Date())/(864e5));
+        if(daysLeft>0){toast('Your trial is already active ('+daysLeft+' day'+(daysLeft!==1?'s':'')+' left).','info',3000);return;}
+        toast('Your trial has ended. Please choose a plan to continue.','info',4000);return;
+      }
+      if(ex.status==='expired'){toast('Your trial has ended. Please choose a plan to continue.','info',4000);return;}
+    }
+    const _now=new Date();
+    const _end=new Date(_now.getTime()+7*24*60*60*1000);
     const{error}=await _supa.from('subscriptions').insert({
       user_id:session.id,status:'trial',
       trial_started_at:_now.toISOString(),trial_ends_at:_end.toISOString(),
@@ -7380,7 +7393,7 @@ async function _startSpecAiTrial(){
     S.specAiSubscription={status:'trial',daysRemaining:7,exempt:false};
     toast('🎉 Your 7-day AI trial has started!','success',4000);
     re();
-  }catch(e){console.error('start spec AI trial:',e);toast('Something went wrong.','error');}
+  }catch(e){console.error('❌ start spec AI trial:',e);toast('Something went wrong.','error');}
 }
 
 function _handleSpecAiPlanSelect(plan){
@@ -8460,7 +8473,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
         const[rr,tr,latestR]=await Promise.all([
           _supa.from('reports').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
           _supa.from('report_templates').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
-          _supa.from('reports').select('id,title,created_at').eq('specialist_id',specId).order('created_at',{ascending:false}).limit(1)
+          _supa.from('reports').select('id,report_type,created_at').eq('specialist_id',specId).order('created_at',{ascending:false}).limit(1)
         ]);
         const rc=rr.count||0, tc=tr.count||0;
         repSub.textContent=rc+' report'+(rc!==1?'s':'')+' · '+tc+' template'+(tc!==1?'s':'');
@@ -8470,7 +8483,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
         } else {
           const lr=latestR.data?.[0];
           if(lr){
-            repBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},['Latest: '+(lr.title||'Report')+' · '+(lr.created_at||'').split('T')[0]]));
+            repBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},['Latest: '+(lr.report_type||'Report')+' · '+(lr.created_at||'').split('T')[0]]));
           }
         }
       }catch(e){console.error('❌ reports:',e);repSub.textContent='—';}
