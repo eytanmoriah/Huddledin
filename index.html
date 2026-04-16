@@ -1436,10 +1436,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   /* ── Feature bubbles (2-column) ──────────────────── */
   .spec-bubble-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;flex:1}
-  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:1px solid #d4e8e5;border-radius:16px;padding:24px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:row;gap:20px;min-height:200px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05)}
+  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:1px solid #c4dbd8;border-radius:16px;padding:24px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:row;gap:20px;min-height:200px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05)}
   .spec-bubble::before{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 60px 60px 0;border-color:transparent var(--accent-tint) transparent transparent;pointer-events:none}
   .spec-bubble:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 20px rgba(13,148,136,.15),0 2px 6px rgba(0,0,0,.08)}
-  .spec-bubble-tile{width:88px;height:88px;border-radius:16px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex-shrink:0}
+  .spec-bubble-tile{width:88px;height:88px;border-radius:16px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:2.7rem;flex-shrink:0}
   .spec-bubble-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
   .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:1.25rem;font-family:'Fraunces',serif;letter-spacing:-.01em}
   .spec-bubble-sub{font-size:.82rem;color:#7aaba5;font-weight:500}
@@ -1454,12 +1454,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-cal-widget{background:#fff;border:1px solid #d4e8e5;border-radius:14px;padding:18px;min-height:440px;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05)}
 
   /* Accent variants */
-  .spec-bubble[data-accent="teal"]{--accent:#0d9488;--accent-tint:rgba(13,148,136,.1);--accent-shadow:rgba(13,148,136,.18)}
-  .spec-bubble[data-accent="blue"]{--accent:#3b82f6;--accent-tint:rgba(59,130,246,.1);--accent-shadow:rgba(59,130,246,.18)}
-  .spec-bubble[data-accent="amber"]{--accent:#f59e0b;--accent-tint:rgba(245,158,11,.12);--accent-shadow:rgba(245,158,11,.2)}
-  .spec-bubble[data-accent="green"]{--accent:#10b981;--accent-tint:rgba(16,185,129,.1);--accent-shadow:rgba(16,185,129,.18)}
-  .spec-bubble[data-accent="purple"]{--accent:#8b5cf6;--accent-tint:rgba(139,92,246,.1);--accent-shadow:rgba(139,92,246,.18)}
-  .spec-bubble[data-accent="orange"]{--accent:#ea580c;--accent-tint:rgba(234,88,12,.1);--accent-shadow:rgba(234,88,12,.18)}
+  .spec-bubble[data-accent="teal"]{--accent:#0d9488;--accent-tint:rgba(13,148,136,.15);--accent-shadow:rgba(13,148,136,.18)}
+  .spec-bubble[data-accent="blue"]{--accent:#3b82f6;--accent-tint:rgba(59,130,246,.15);--accent-shadow:rgba(59,130,246,.18)}
+  .spec-bubble[data-accent="amber"]{--accent:#f59e0b;--accent-tint:rgba(245,158,11,.15);--accent-shadow:rgba(245,158,11,.2)}
+  .spec-bubble[data-accent="green"]{--accent:#10b981;--accent-tint:rgba(16,185,129,.15);--accent-shadow:rgba(16,185,129,.18)}
+  .spec-bubble[data-accent="purple"]{--accent:#8b5cf6;--accent-tint:rgba(139,92,246,.15);--accent-shadow:rgba(139,92,246,.18)}
+  .spec-bubble[data-accent="orange"]{--accent:#ea580c;--accent-tint:rgba(234,88,12,.15);--accent-shadow:rgba(234,88,12,.18)}
 
   /* ── Today's tasks bar ─────────────────────────────── */
   .spec-today-bar{background:#fff;border:1px solid #d4e8e5;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(13,148,136,.06),0 1px 3px rgba(0,0,0,.05);flex:1}
@@ -8336,11 +8336,6 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const codeBtn=el('button',{class:'spec-greeting-btn'},['+ '+(T('spec_dt_enter_code')||'Patient Code')]);
   codeBtn.onclick=()=>showEnterCodeModal();
   bRight.appendChild(codeBtn);
-  if(S.specAiSubscription?.status==='trial'&&S.specAiSubscription?.daysRemaining){
-    const trialBtn=el('button',{class:'spec-greeting-btn spec-greeting-trial'},['✨ '+S.specAiSubscription.daysRemaining+'d AI trial']);
-    trialBtn.onclick=()=>switchTab('settings');
-    bRight.appendChild(trialBtn);
-  }
   banner.appendChild(bRight);
 
   // AI trial countdown banner (only when trial active and ≤ 7 days left)
