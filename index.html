@@ -7778,7 +7778,7 @@ function renderParentDesktop(){
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
     const _pgRc=renderContent();
-    const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
+    const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:_isChatPage?'column':''}});
     if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
