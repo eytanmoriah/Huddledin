@@ -1282,11 +1282,11 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#f4fcf9}
 
   /* ── Sidebar (dark) 200px / 56px collapsed */
-  .spec-dt-sidebar{width:200px;min-width:200px;height:100%;display:flex;flex-direction:column;background:#0a4a44;overflow:hidden;flex-shrink:0;transition:width .2s ease}
+  .spec-dt-sidebar{width:200px;min-width:200px;height:100%;display:flex;flex-direction:column;background:#0d6b63;overflow:hidden;flex-shrink:0;transition:width .2s ease}
   .spec-dt-shell.sb-collapsed .spec-dt-sidebar{width:56px;min-width:56px}
   .spec-dt-logo{padding:16px 14px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer;transition:background .15s;-webkit-user-select:none;user-select:none;min-height:56px;box-sizing:border-box}
   .spec-dt-logo:hover{background:rgba(255,255,255,.04)}
-  .spec-dt-logo .logo-bubble{width:32px;height:32px;background:linear-gradient(135deg,var(--teal-d),var(--teal));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;box-shadow:0 2px 8px rgba(13,148,136,.35)}
+  .spec-dt-logo .logo-bubble{width:32px;height:32px;background:linear-gradient(135deg,#085041,#0a4a44);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
   .spec-dt-logo .logo-name{color:#fff;font-weight:800;font-size:.95rem;letter-spacing:-.01em;white-space:nowrap;overflow:hidden}
   .spec-dt-shell.sb-collapsed .spec-dt-logo{justify-content:center;padding:16px 0 10px}
   .spec-dt-shell.sb-collapsed .spec-dt-logo .logo-name{display:none}
@@ -6713,7 +6713,7 @@ _lp.innerHTML=`<style>
 .lp-nav-link{font-size:14px;color:#4a7570;text-decoration:none;font-weight:500;cursor:pointer;background:none;border:none;transition:color .15s}
 .lp-nav-link:hover{color:#0d9488}
 .lp-nav-cta{background:#0d9488;color:#fff;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:500;border:none;cursor:pointer;transition:background .15s}
-.lp-nav-cta:hover{background:#0a4a44}
+.lp-nav-cta:hover{background:#0d6b63}
 
 /* Hero */
 .lp-hero{background:#0d6b63;padding:64px 0}
@@ -6785,7 +6785,7 @@ _lp.innerHTML=`<style>
 .lp-pbtn:hover{background:#f0fdf9}
 
 /* CTA */
-.lp-cta-sec{background:#0a4a44;padding:64px 0;text-align:center}
+.lp-cta-sec{background:#0d6b63;padding:64px 0;text-align:center}
 .lp-cta-sec h2{font-size:32px;font-family:Georgia,serif;color:#fff;margin:0 0 14px;font-weight:700}
 .lp-cta-sec p{font-size:15px;color:rgba(255,255,255,.7);margin:0 0 28px}
 .lp-cta-btn{background:#fff;color:#0d9488;padding:14px 36px;border-radius:10px;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:background .15s}
@@ -8123,9 +8123,7 @@ function renderSpecDesktop(){
   /* ── MAIN ──────────────────────────────────────────────────────────── */
   const main=el('div',{class:'spec-dt-main'});
 
-  // Specialist AI trial banner
-  const _specTrialB=renderSpecTrialBanner();
-  if(_specTrialB)main.appendChild(_specTrialB);
+  // AI trial info is now integrated into the greeting banner — no separate top banner needed
 
   /* Top bar */
   const topbar=el('div',{class:'spec-dt-topbar'});
@@ -8169,17 +8167,7 @@ function renderSpecDesktop(){
   }
   topbar.appendChild(bc);
 
-  // Quick-action buttons removed from topbar — they exist in patient detail header (ha div)
-
-  // Right icons
-  const tico=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',flexShrink:0,marginLeft:'8px'}});
-  const bell=el('button',{class:'spec-dt-ic-btn',title:T('nav_notifications')},['🔔']);
-  if(unreadN>0)bell.appendChild(el('span',{class:'notif-count'},[unreadN>9?'9+':String(unreadN)]));
-  bell.onclick=()=>switchTab('notifications');
-  const sett=el('button',{class:'spec-dt-ic-btn',title:T('nav_settings')},['⚙️']);
-  sett.onclick=()=>switchTab('settings');
-  tico.appendChild(bell); tico.appendChild(sett);
-  topbar.appendChild(tico);
+  // Bell + settings icons removed from topbar — both are in the sidebar and bubbles
   main.appendChild(topbar);
 
   /* Body */
@@ -8355,21 +8343,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const unreadMsgs=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const activePatients=sorted.filter(c=>!(((c.status||'active')==='inactive')||(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]')).includes(c.id)));
 
-  const statsRow=el('div',{class:'spec-stats-row'});
-  const mkStat=(v,l,accentColor,onClick)=>{
-    const c=el('div',{class:'spec-stat-card',style:{'--accent':accentColor}});
-    c.appendChild(el('div',{class:'spec-stat-v'},[String(v)]));
-    c.appendChild(el('div',{class:'spec-stat-l'},[l]));
-    if(onClick)c.onclick=onClick;
-    return c;
-  };
-  statsRow.appendChild(mkStat('👥 '+activePatients.length,T('spec_dt_patients_stat')||'Patients','#0d9488',()=>{S.activeChild=null;S.activeTab='patients';re();}));
-  statsRow.appendChild(mkStat('⚠️ '+todayDue,T('spec_dt_due_today')||'Due Today','#f59e0b',()=>switchTab('todo')));
-  statsRow.appendChild(mkStat('💬 '+unreadMsgs,T('spec_dt_unread_msgs')||'Unread Msgs','#3b82f6',()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}));
-  statsRow.appendChild(mkStat('✅ '+wPct+'%',T('spec_dt_week_done')||'Week Done','#10b981'));
-  wrap.appendChild(statsRow);
-
-  // Feature bubble grid
+  // Feature bubble grid (stats row removed — bubbles already show these numbers)
   const hasAi=_hasSpecAiAccess();
   const notesAll=(DB.vaultNotes||[]).filter(n=>n.specialistId===specId);
   const notesDraft=notesAll.filter(n=>!n.published).length;
@@ -8441,7 +8415,7 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   bNtf.appendChild(el('div',{class:'spec-bubble-icon'},['🔔']));
   bNtf.appendChild(el('div',{class:'spec-bubble-title'},[T('nav_notifications')||'Notifications']));
   bNtf.appendChild(el('div',{class:'spec-bubble-value'},[String(_unreadNotifs.length)]));
-  bNtf.appendChild(el('div',{class:'spec-bubble-sub'},[_unreadNotifs.length===0?'All clear':((_unreadNotifs.length===1?'unread notification':'unread notifications'))]));
+  bNtf.appendChild(el('div',{class:'spec-bubble-sub'},[_unreadNotifs.length===0?'All caught up':(_unreadNotifs.length===1?'unread notification':'unread notifications')]));
   const ntfPreview=el('div',{class:'spec-bubble-preview'});
   _unreadNotifs.slice(0,2).forEach(n=>{
     ntfPreview.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}},[n.message||'New notification']));
