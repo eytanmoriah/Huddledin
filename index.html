@@ -7734,7 +7734,7 @@ function renderParentDesktop(){
       // If the returned element has class .section, extract its children into a plain wrapper
       // This bypasses the .section{max-width:970px} constraint entirely
       const _isChildChat=S.activeTab==='chat';
-      const contentWrap=el('div',{style:{width:'100%',flex:_isChildChat?'1':'none',minHeight:_isChildChat?0:'auto',overflow:_isChildChat?'hidden':'visible',display:_isChildChat?'flex':'block',flexDirection:_isChildChat?'column':''}});
+      const contentWrap=el('div',{style:{width:'100%',flex:_isChildChat?'1':'none',minHeight:_isChildChat?0:'auto',overflow:_isChildChat?'hidden':'visible'}});
       if(_rc.classList&&_rc.classList.contains('section')){
         // Move all children from the .section div into our plain wrapper
         while(_rc.firstChild)contentWrap.appendChild(_rc.firstChild);
