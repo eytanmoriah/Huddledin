@@ -7624,13 +7624,14 @@ function renderPaywall(){
    PARENT WEB DASHBOARD (desktop only, >=1024px)
 ----------------------------------------------- */
 function renderParentDesktop(){
-  const shell=el('div',{id:'app-shell',style:{minHeight:'100vh',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
+  const _isChatShell=S.activeTab==='chat'&&S.navLevel===1;
+  const shell=el('div',{id:'app-shell',style:{minHeight:_isChatShell?'auto':'100vh',height:_isChatShell?'100vh':'auto',overflow:_isChatShell?'hidden':'visible',display:_isChatShell?'flex':'block',flexDirection:_isChatShell?'column':'',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
   const children=DB.children||[];
   const allApts=DB.appointments||[];
   const name=session?.name||session?.displayName||'there';
 
   // ─── TOP NAV ───
-  const nav=el('div',{style:{position:'sticky',top:0,zIndex:100,background:'#fff',borderBottom:'1px solid #e8f4f2',height:'56px',display:'flex',alignItems:'center'}});
+  const nav=el('div',{style:{position:'sticky',top:0,zIndex:100,background:'#fff',borderBottom:'1px solid #e8f4f2',height:'56px',display:'flex',alignItems:'center',flexShrink:0}});
   const navC=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:'0 48px',width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between'}});
   // Logo
   const logo=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}});
@@ -7771,7 +7772,7 @@ function renderParentDesktop(){
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
     const _isChatPage=S.activeTab==='chat';
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'24px 48px 0':'24px 48px',width:'100%',flex:'1',minWidth:'0',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:'column',height:_isChatPage?'calc(100vh - 56px)':'auto'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'24px 48px 0':'24px 48px',width:'100%',flex:'1',minWidth:'0',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:'column',height:'auto'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px',flexShrink:0}});bcBack.textContent=T('bc_back_home');
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
