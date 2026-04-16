@@ -7624,9 +7624,7 @@ function renderPaywall(){
    PARENT WEB DASHBOARD (desktop only, >=1024px)
 ----------------------------------------------- */
 function renderParentDesktop(){
-  const _isChatShell=S.activeTab==='chat'&&S.navLevel===1;
-  if(_isChatShell){document.body.style.overflow='hidden';}else{document.body.style.overflow='';}
-  const shell=el('div',{id:'app-shell',style:{minHeight:_isChatShell?'auto':'100vh',height:_isChatShell?'100vh':'auto',overflow:_isChatShell?'hidden':'visible',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
+  const shell=el('div',{id:'app-shell',style:{minHeight:'100vh',background:'#f0f7f6',fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}});
   const children=DB.children||[];
   const allApts=DB.appointments||[];
   const name=session?.name||session?.displayName||'there';
@@ -7773,12 +7771,12 @@ function renderParentDesktop(){
   // ─── NOTIFICATIONS / CHAT / SETTINGS (navLevel 1, no child) ───
   if(S.navLevel===1&&!S.activeChild){
     const _isChatPage=S.activeTab==='chat';
-    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'16px 48px 0':'24px 48px',width:'100%',flex:_isChatPage?'1':'',display:_isChatPage?'flex':'block',flexDirection:_isChatPage?'column':'',overflow:_isChatPage?'hidden':'visible',minHeight:_isChatPage?0:'auto'}});
+    const page=el('div',{style:{maxWidth:'1280px',margin:'0 auto',padding:_isChatPage?'16px 48px 0':'24px 48px',width:'100%',display:_isChatPage?'flex':'block',flexDirection:_isChatPage?'column':'',height:_isChatPage?'calc(100vh - 56px)':'auto',overflow:_isChatPage?'hidden':'visible'}});
     const bcBack=el('span',{style:{color:'#0d9488',cursor:'pointer',fontWeight:500,fontSize:'14px',flexShrink:0}});bcBack.textContent=T('bc_back_home');
     bcBack.onclick=()=>{S.navLevel=0;S.activeChild=null;S.calFullscreen=false;S.webCal=false;re();};
     page.appendChild(bcBack);
     const _pgRc=renderContent();
-    const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible',display:_isChatPage?'flex':'block',flexDirection:_isChatPage?'column':''}});
+    const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'none',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
     if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
