@@ -1282,7 +1282,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;background:#f4fcf9}
 
   /* ── Sidebar (dark) 200px / 56px collapsed */
-  .spec-dt-sidebar{width:200px;min-width:200px;height:100%;display:flex;flex-direction:column;background:#0f1a18;overflow:hidden;flex-shrink:0;transition:width .2s ease}
+  .spec-dt-sidebar{width:200px;min-width:200px;height:100%;display:flex;flex-direction:column;background:#0a4a44;overflow:hidden;flex-shrink:0;transition:width .2s ease}
   .spec-dt-shell.sb-collapsed .spec-dt-sidebar{width:56px;min-width:56px}
   .spec-dt-logo{padding:16px 14px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer;transition:background .15s;-webkit-user-select:none;user-select:none;min-height:56px;box-sizing:border-box}
   .spec-dt-logo:hover{background:rgba(255,255,255,.04)}
@@ -8156,6 +8156,13 @@ function renderSpecDesktop(){
       bc.appendChild(bcA);
     }
   } else {
+    // Sub-pages: show ← Home breadcrumb unless already on dashboard
+    if(S.activeTab!=='dashboard'){
+      const bcHome=el('span',{class:'spec-dt-bc-link'});bcHome.textContent='← '+(T('nav_home')||'Home');
+      bcHome.onclick=()=>{S.activeChild=null;S.activeTab='dashboard';S.calFullscreen=false;re();};
+      bc.appendChild(bcHome);
+      bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
+    }
     const bcA=el('span',{class:'spec-dt-bc-cur'});
     bcA.textContent=TAB_NAMES[S.activeTab]||S.activeTab;
     bc.appendChild(bcA);
@@ -8356,10 +8363,10 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     if(onClick)c.onclick=onClick;
     return c;
   };
-  statsRow.appendChild(mkStat(activePatients.length,T('spec_dt_patients_stat')||'Patients','#0d9488',()=>{S.activeChild=null;S.activeTab='patients';re();}));
-  statsRow.appendChild(mkStat(todayDue,T('spec_dt_due_today')||'Due Today','#f59e0b',()=>switchTab('todo')));
-  statsRow.appendChild(mkStat(unreadMsgs,T('spec_dt_unread_msgs')||'Unread Msgs','#3b82f6',()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}));
-  statsRow.appendChild(mkStat(wPct+'%',T('spec_dt_week_done')||'Week Done','#10b981'));
+  statsRow.appendChild(mkStat('👥 '+activePatients.length,T('spec_dt_patients_stat')||'Patients','#0d9488',()=>{S.activeChild=null;S.activeTab='patients';re();}));
+  statsRow.appendChild(mkStat('⚠️ '+todayDue,T('spec_dt_due_today')||'Due Today','#f59e0b',()=>switchTab('todo')));
+  statsRow.appendChild(mkStat('💬 '+unreadMsgs,T('spec_dt_unread_msgs')||'Unread Msgs','#3b82f6',()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}));
+  statsRow.appendChild(mkStat('✅ '+wPct+'%',T('spec_dt_week_done')||'Week Done','#10b981'));
   wrap.appendChild(statsRow);
 
   // Feature bubble grid
@@ -8424,30 +8431,33 @@ function _renderSpecDtDashboard(sorted,specId,specName){
       msgPreview.appendChild(av);
     }
   });
-  if(unreadMsgs===0)msgPreview.appendChild(el('span',{style:{fontSize:'.72rem',color:'#4a7570',fontWeight:500}},['—']));
   bMsg.appendChild(msgPreview);
   bMsg.onclick=()=>{S.activeChild=null;S.activeChatChildId=null;switchTab('chat');};
   grid.appendChild(bMsg);
 
-  // Notes bubble
-  const bNot=el('div',{class:'spec-bubble','data-accent':'green'});
-  bNot.appendChild(el('div',{class:'spec-bubble-icon'},['📝']));
-  bNot.appendChild(el('div',{class:'spec-bubble-title'},[T('tab_notes')||'Notes']));
-  bNot.appendChild(el('div',{class:'spec-bubble-value'},[String(notesAll.length)]));
-  bNot.appendChild(el('div',{class:'spec-bubble-sub'},[notesDraft+' draft · '+notesPub+' published']));
-  const notPreview=el('div',{class:'spec-bubble-preview'});
-  if(notesDraft>0)notPreview.appendChild(el('span',{class:'spec-bubble-pill'},[notesDraft+' drafts']));
-  if(notesPub>0)notPreview.appendChild(el('span',{class:'spec-bubble-pill',style:{background:'rgba(16,185,129,.1)',color:'#059669'}},[notesPub+' published']));
-  bNot.appendChild(notPreview);
-  bNot.onclick=()=>{S.activeChild=null;S.activeTab='patients';re();};
-  grid.appendChild(bNot);
+  // Notifications bubble
+  const _unreadNotifs=(DB.notifications||[]).filter(n=>!n.read);
+  const bNtf=el('div',{class:'spec-bubble','data-accent':'amber'});
+  bNtf.appendChild(el('div',{class:'spec-bubble-icon'},['🔔']));
+  bNtf.appendChild(el('div',{class:'spec-bubble-title'},[T('nav_notifications')||'Notifications']));
+  bNtf.appendChild(el('div',{class:'spec-bubble-value'},[String(_unreadNotifs.length)]));
+  bNtf.appendChild(el('div',{class:'spec-bubble-sub'},[_unreadNotifs.length===0?'All clear':((_unreadNotifs.length===1?'unread notification':'unread notifications'))]));
+  const ntfPreview=el('div',{class:'spec-bubble-preview'});
+  _unreadNotifs.slice(0,2).forEach(n=>{
+    ntfPreview.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}},[n.message||'New notification']));
+  });
+  bNtf.appendChild(ntfPreview);
+  bNtf.onclick=()=>switchTab('notifications');
+  grid.appendChild(bNtf);
 
-  // Reports bubble
+  // Reports bubble — count actual generated reports for this specialist
+  const _specReports=(DB.reports||[]).filter(r=>r.specialistId===specId||r.specialist_id===specId);
+  const _repTemplates=(DB.reportTemplates||[]).filter(r=>r.specialistId===specId||r.specialist_id===specId);
   const bRep=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'purple'});
   bRep.appendChild(el('div',{class:'spec-bubble-icon'},[hasAi?'📋':'🔒']));
   bRep.appendChild(el('div',{class:'spec-bubble-title'},['Reports']));
-  bRep.appendChild(el('div',{class:'spec-bubble-value'},[hasAi?String(notesPub):'—']));
-  bRep.appendChild(el('div',{class:'spec-bubble-sub'},[hasAi?'template-based':'AI subscription required']));
+  bRep.appendChild(el('div',{class:'spec-bubble-value'},[hasAi?String(_specReports.length):'—']));
+  bRep.appendChild(el('div',{class:'spec-bubble-sub'},[hasAi?(_repTemplates.length+' template'+(_repTemplates.length!==1?'s':'')+' · '+_specReports.length+' generated'):'AI subscription required']));
   bRep.appendChild(el('div',{class:'spec-bubble-preview'}));
   bRep.onclick=()=>switchTab('reports');
   grid.appendChild(bRep);
