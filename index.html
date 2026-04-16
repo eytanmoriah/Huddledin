@@ -1417,10 +1417,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-dt-db-nrow:hover{background:var(--mint-ll)}
 
   /* ── Home layout ─────────────────────────────────── */
-  .spec-home-wrap{padding:24px;max-width:1320px;margin:0 auto;width:100%;box-sizing:border-box;overflow-y:auto;height:100%}
+  .spec-home-wrap{padding:24px;max-width:1320px;margin:0 auto;width:100%;box-sizing:border-box;overflow-y:auto;height:100%;min-height:calc(100vh - 60px)}
   .spec-home-grid{display:grid;grid-template-columns:1fr 380px;gap:20px}
   @media(max-width:1100px){.spec-home-grid{grid-template-columns:1fr}}
-  .spec-home-left{}
+  .spec-home-left{display:flex;flex-direction:column}
   .spec-home-right{display:flex;flex-direction:column;gap:16px}
 
   /* Greeting banner (compact) */
@@ -1435,15 +1435,14 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-greeting-trial:hover{background:rgba(245,158,11,.32)}
 
   /* ── Feature bubbles (2-column) ──────────────────── */
-  .spec-bubble-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:0}
-  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:0.5px solid #e8f4f2;border-radius:16px;padding:14px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:column;gap:0;min-height:120px;position:relative;overflow:hidden}
+  .spec-bubble-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;flex:1}
+  .spec-bubble{--accent:var(--teal);--accent-tint:rgba(13,148,136,.08);--accent-shadow:rgba(13,148,136,.18);background:#fff;border:0.5px solid #e8f4f2;border-radius:16px;padding:24px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;display:flex;flex-direction:row;gap:20px;min-height:200px;position:relative;overflow:hidden}
   .spec-bubble::before{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 60px 60px 0;border-color:transparent var(--accent-tint) transparent transparent;pointer-events:none}
   .spec-bubble:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 28px rgba(0,0,0,.05),0 8px 20px var(--accent-shadow)}
-  .spec-bubble-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
-  .spec-bubble-tile{width:44px;height:44px;border-radius:12px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
-  .spec-bubble-meta{flex:1;min-width:0}
-  .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:.88rem;font-family:'Fraunces',serif;letter-spacing:-.005em}
-  .spec-bubble-sub{font-size:.72rem;color:#7aaba5;font-weight:500;margin-top:1px}
+  .spec-bubble-tile{width:88px;height:88px;border-radius:16px;background:var(--accent-tint);display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex-shrink:0}
+  .spec-bubble-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .spec-bubble-title{font-weight:500;color:#1a2e2b;font-size:1.25rem;font-family:'Fraunces',serif;letter-spacing:-.01em}
+  .spec-bubble-sub{font-size:.82rem;color:#7aaba5;font-weight:500}
   .spec-bubble-preview{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-top:8px;min-height:24px}
   .spec-bubble-av{width:28px;height:28px;border-radius:50%;border:2px solid #fff;margin-inline-end:-8px;box-shadow:0 1px 3px rgba(0,0,0,.1);flex-shrink:0;background:var(--mint-ll);display:flex;align-items:center;justify-content:center;font-size:.82rem;overflow:hidden}
   .spec-bubble-pill{background:var(--accent-tint);color:var(--accent);padding:3px 10px;border-radius:99px;font-size:.68rem;font-weight:600}
@@ -1451,7 +1450,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-bubble.locked::before{display:none}
 
   /* Calendar widget (right column) */
-  .spec-cal-widget{background:#fff;border:0.5px solid #e8f4f2;border-radius:14px;padding:18px}
+  .spec-cal-widget{background:#fff;border:0.5px solid #e8f4f2;border-radius:14px;padding:18px;min-height:440px}
 
   /* Accent variants */
   .spec-bubble[data-accent="teal"]{--accent:#0d9488;--accent-tint:rgba(13,148,136,.1);--accent-shadow:rgba(13,148,136,.18)}
@@ -1459,6 +1458,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .spec-bubble[data-accent="amber"]{--accent:#f59e0b;--accent-tint:rgba(245,158,11,.12);--accent-shadow:rgba(245,158,11,.2)}
   .spec-bubble[data-accent="green"]{--accent:#10b981;--accent-tint:rgba(16,185,129,.1);--accent-shadow:rgba(16,185,129,.18)}
   .spec-bubble[data-accent="purple"]{--accent:#8b5cf6;--accent-tint:rgba(139,92,246,.1);--accent-shadow:rgba(139,92,246,.18)}
+  .spec-bubble[data-accent="orange"]{--accent:#ea580c;--accent-tint:rgba(234,88,12,.1);--accent-shadow:rgba(234,88,12,.18)}
 
   /* ── Today's tasks bar ─────────────────────────────── */
   .spec-today-bar{background:#fff;border:0.5px solid #e8f4f2;border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.02)}
@@ -8349,25 +8349,40 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const leftCol=el('div',{class:'spec-home-left'});
   const rightCol=el('div',{class:'spec-home-right'});
 
-  // ── Card builder helper (header row only — body built per-card) ──
+  // ── Card builder helper (horizontal layout: big icon left, content right) ──
   const _cardHdr=(b,accent,icon,title,sub)=>{
-    const top=el('div',{class:'spec-bubble-top'});
-    top.appendChild(el('div',{class:'spec-bubble-tile','data-accent':accent},[icon]));
-    const meta=el('div',{class:'spec-bubble-meta'});
-    meta.appendChild(el('div',{class:'spec-bubble-title'},[title]));
+    b.appendChild(el('div',{class:'spec-bubble-tile','data-accent':accent},[icon]));
+    const content=el('div',{class:'spec-bubble-content'});
+    content.appendChild(el('div',{class:'spec-bubble-title'},[title]));
     const subEl=el('div',{class:'spec-bubble-sub'},[sub]);
-    meta.appendChild(subEl);
-    top.appendChild(meta);
-    b.appendChild(top);
-    return subEl;
+    content.appendChild(subEl);
+    b.appendChild(content);
+    return{subEl,content};
+  };
+
+  // Feed-item row helper (shared by Messages + Notifications)
+  const _feedRow=(icon,label,text,ts,onClick)=>{
+    const row=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',cursor:'pointer',transition:'background .12s',fontSize:'.78rem'}});
+    row.onmouseenter=()=>row.style.background='var(--mint-ll)';
+    row.onmouseleave=()=>row.style.background='';
+    row.appendChild(el('span',{style:{fontSize:'.9rem',flexShrink:0}},[icon]));
+    row.appendChild(el('span',{style:{fontWeight:700,color:'#1a2e2b',flexShrink:0}},[label]));
+    row.appendChild(el('span',{style:{color:'#4a7570',flex:1,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}},[text]));
+    if(ts){
+      const ago=Math.max(0,Math.floor((now-new Date(ts))/60000));
+      const timeStr=ago<1?'now':ago<60?(ago+'m'):ago<1440?(Math.floor(ago/60)+'h'):(Math.floor(ago/1440)+'d');
+      row.appendChild(el('span',{style:{color:'#7aaba5',fontSize:'.68rem',flexShrink:0}},[timeStr]));
+    }
+    row.onclick=e=>{e.stopPropagation();onClick();};
+    return row;
   };
 
   const grid=el('div',{class:'spec-bubble-grid'});
 
   // ── 1. PATIENTS (teal) ──
   const cPat=el('div',{class:'spec-bubble','data-accent':'teal'});
-  _cardHdr(cPat,'teal','👥',T('spec_nav_patients')||'Patients',activePatients.length+' active');
-  const patBody=el('div',{class:'spec-bubble-preview'});
+  const{content:patC}=_cardHdr(cPat,'teal','👥',T('spec_nav_patients')||'Patients',activePatients.length+' active');
+  const patPv=el('div',{class:'spec-bubble-preview'});
   const avRow=el('div',{style:{display:'flex',alignItems:'center',gap:0}});
   activePatients.slice(0,5).forEach(c=>{
     const av=el('div',{class:'spec-bubble-av'});
@@ -8376,74 +8391,63 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     avRow.appendChild(av);
   });
   if(activePatients.length>5)avRow.appendChild(el('span',{class:'spec-bubble-pill',style:{marginInlineStart:'12px'}},['+'+(activePatients.length-5)]));
-  patBody.appendChild(avRow);
-  patBody.appendChild(el('div',{style:{fontSize:'.72rem',fontWeight:600,marginTop:'8px',color:todayDue>0?'#f59e0b':'#7aaba5'}},[todayDue>0?('⚠️ '+todayDue+' task'+(todayDue>1?'s':'')+' due today'):'All caught up ✨']));
-  cPat.appendChild(patBody);
+  patPv.appendChild(avRow);
+  patPv.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:600,marginTop:'8px',color:todayDue>0?'#f59e0b':'#7aaba5'}},[todayDue>0?('⚠️ '+todayDue+' task'+(todayDue>1?'s':'')+' due today'):'All caught up ✨']));
+  patC.appendChild(patPv);
   cPat.onclick=()=>{S.activeChild=null;S.activeTab='patients';re();};
   grid.appendChild(cPat);
 
-  // ── 2. ACTIVITY (amber — merged messages + notifications) ──
+  // ── 2. MESSAGES (amber) ──
   const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id));
-  const _actCount=unreadMsgs+_unreadNotifs.length;
-  const cAct=el('div',{class:'spec-bubble','data-accent':'amber'});
-  _cardHdr(cAct,'amber','📬','Activity',_actCount>0?(_actCount+' new'):'All caught up ✨');
-  const actBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'6px'}});
-  // Build merged feed: messages + notifications sorted by time desc
-  const _feedItems=[];
-  unreadChats.slice(0,3).forEach(c=>{
-    const ch=DB.children.find(k=>k.id===c.childId);
-    const lastMsg=(c.messages||[]).slice(-1)[0];
-    const ts=lastMsg?.createdAt||lastMsg?.ts||'';
-    _feedItems.push({type:'msg',ts,label:(ch?.name?.split(' ')[0])||'Chat',text:lastMsg?.text||'📷 Photo',chat:c,childId:c.childId});
-  });
-  _unreadNotifs.slice(0,3).forEach(n=>{
-    _feedItems.push({type:'notif',ts:n.createdAt||n.created_at||'',label:n.type==='message'?'💬':'🔔',text:n.message||'New notification',notif:n});
-  });
-  _feedItems.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
-  if(_feedItems.length===0){
-    actBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',textAlign:'center',padding:'12px 0'}},['All caught up ✨']));
+  const cMsg=el('div',{class:'spec-bubble','data-accent':'amber'});
+  const{content:msgC}=_cardHdr(cMsg,'amber','💬',T('nav_chat')||'Messages',unreadMsgs>0?(unreadMsgs+' unread'):'All caught up ✨');
+  const msgPv=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
+  if(unreadChats.length===0){
+    msgPv.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',padding:'8px 0'}},['All caught up ✨']));
   } else {
-    _feedItems.slice(0,4).forEach(fi=>{
-      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',padding:'4px 6px',borderRadius:'6px',cursor:'pointer',transition:'background .12s',fontSize:'.75rem'}});
-      row.onmouseenter=()=>row.style.background='var(--mint-ll)';
-      row.onmouseleave=()=>row.style.background='';
-      row.appendChild(el('span',{style:{fontSize:'.85rem',flexShrink:0}},[fi.type==='msg'?'💬':'🔔']));
-      row.appendChild(el('span',{style:{fontWeight:700,color:'#1a2e2b',flexShrink:0}},[fi.label]));
-      row.appendChild(el('span',{style:{color:'#4a7570',flex:1,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}},[fi.text]));
-      if(fi.ts){
-        const ago=Math.max(0,Math.floor((now-new Date(fi.ts))/60000));
-        const timeStr=ago<1?'now':ago<60?(ago+'m'):ago<1440?(Math.floor(ago/60)+'h'):(Math.floor(ago/1440)+'d');
-        row.appendChild(el('span',{style:{color:'#7aaba5',fontSize:'.68rem',flexShrink:0}},[timeStr]));
-      }
-      row.onclick=e=>{
-        e.stopPropagation();
-        if(fi.type==='msg'&&fi.chat){
-          S.activeChild=fi.childId||null;S.activeChatChildId=fi.childId||null;S.activeChatId=fi.chat.id;S.activeTab='chat';S.chatsLoaded=true;re();
-        } else if(fi.type==='notif'&&fi.notif){
-          const tab=fi.notif.linkTab||fi.notif.link_tab;
-          const ld=fi.notif.linkData||null;
-          if(tab){
-            if(fi.notif.childId)S.activeChild=fi.notif.childId;
-            S.navLevel=1;
-            if(tab==='chat'&&ld?.chatId){S.activeTab='chat';S.activeChatChildId=fi.notif.childId||null;S.activeChatId=ld.chatId;S.chatsLoaded=true;}
-            else{S.activeTab=tab;}
-          } else {S.activeTab='notifications';}
-          re();
-        }
-      };
-      actBody.appendChild(row);
+    unreadChats.slice(0,3).forEach(c=>{
+      const ch=DB.children.find(k=>k.id===c.childId);
+      const lastMsg=(c.messages||[]).slice(-1)[0];
+      const ts=lastMsg?.createdAt||lastMsg?.ts||'';
+      msgPv.appendChild(_feedRow('💬',(ch?.name?.split(' ')[0])||'Chat',lastMsg?.text||'📷 Photo',ts,()=>{
+        S.activeChild=c.childId||null;S.activeChatChildId=c.childId||null;S.activeChatId=c.id;S.activeTab='chat';S.chatsLoaded=true;re();
+      }));
     });
   }
-  cAct.appendChild(actBody);
-  cAct.onclick=e=>{if(!e.target.closest('[style*="cursor"]'))switchTab('notifications');};
-  grid.appendChild(cAct);
+  msgC.appendChild(msgPv);
+  cMsg.onclick=e=>{if(!e.target.closest('[style*="cursor"]')){S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}};
+  grid.appendChild(cMsg);
 
-  // ── 3. REPORTS (purple — async) ──
+  // ── 3. NOTIFICATIONS (orange) ──
+  const cNtf=el('div',{class:'spec-bubble','data-accent':'orange'});
+  const{content:ntfC}=_cardHdr(cNtf,'orange','🔔',T('nav_notifications')||'Notifications',_unreadNotifs.length>0?(_unreadNotifs.length+' new'):'All caught up ✨');
+  const ntfPv=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
+  if(_unreadNotifs.length===0){
+    ntfPv.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',padding:'8px 0'}},['All caught up ✨']));
+  } else {
+    _unreadNotifs.slice(0,2).forEach(n=>{
+      const ts=n.createdAt||n.created_at||'';
+      ntfPv.appendChild(_feedRow('🔔',n.type==='homework'?'Task':n.type==='message'?'Chat':'Update',n.message||'New notification',ts,()=>{
+        const tab=n.linkTab||n.link_tab;const ld=n.linkData||null;
+        if(tab){
+          if(n.childId)S.activeChild=n.childId;S.navLevel=1;
+          if(tab==='chat'&&ld?.chatId){S.activeTab='chat';S.activeChatChildId=n.childId||null;S.activeChatId=ld.chatId;S.chatsLoaded=true;}
+          else{S.activeTab=tab;}
+        } else {S.activeTab='notifications';}
+        re();
+      }));
+    });
+  }
+  ntfC.appendChild(ntfPv);
+  cNtf.onclick=e=>{if(!e.target.closest('[style*="cursor"]'))switchTab('notifications');};
+  grid.appendChild(cNtf);
+
+  // ── 4. REPORTS (purple — async) ──
   const cRep=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'purple'});
-  const repSub=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'AI subscription required');
+  const{subEl:repSub,content:repC}=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'AI subscription required');
   const repBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
-  if(!hasAi)repBody.appendChild(el('div',{style:{fontSize:'.78rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
-  cRep.appendChild(repBody);
+  if(!hasAi)repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#8b5cf6',fontWeight:600}},['Upgrade to unlock →']));
+  repC.appendChild(repBody);
   cRep.onclick=()=>switchTab('reports');
   grid.appendChild(cRep);
   if(hasAi&&session?.id!=='demo'){
@@ -8469,12 +8473,12 @@ function _renderSpecDtDashboard(sorted,specId,specName){
     })();
   }
 
-  // ── 4. MY STORAGE (teal — async) ──
-  const cSto=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'teal'});
-  const stoSub=_cardHdr(cSto,'teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',hasAi?'Loading...':'AI subscription required');
+  // ── 5. MY STORAGE (teal — async, full-width) ──
+  const cSto=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'teal',style:{gridColumn:'1 / -1'}});
+  const{subEl:stoSub,content:stoC}=_cardHdr(cSto,'teal',hasAi?'📁':'🔒',T('storage_title')||'My Storage',hasAi?'Loading...':'AI subscription required');
   const stoBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'6px'}});
-  if(!hasAi)stoBody.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
-  cSto.appendChild(stoBody);
+  if(!hasAi)stoBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--teal)',fontWeight:600}},['Upgrade to unlock →']));
+  stoC.appendChild(stoBody);
   cSto.onclick=()=>switchTab('spec-storage');
   grid.appendChild(cSto);
   if(hasAi&&session?.id!=='demo'){
@@ -8520,14 +8524,14 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const _dIM=new Date(_yr,_mo+1,0).getDate();
   const _fD=new Date(_yr,_mo,1).getDay();
   const _tDay=now.getDate();
-  const _calGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'2px',textAlign:'center',fontSize:'.72rem',marginBottom:'14px'}});
-  ['S','M','T','W','T','F','S'].forEach(d=>_calGrid.appendChild(el('div',{style:{color:'#7aaba5',fontWeight:700,padding:'4px 0'}},[d])));
+  const _calGrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'3px',textAlign:'center',fontSize:'.78rem',marginBottom:'14px'}});
+  ['S','M','T','W','T','F','S'].forEach(d=>_calGrid.appendChild(el('div',{style:{color:'#7aaba5',fontWeight:700,padding:'6px 0',fontSize:'.7rem'}},[d])));
   for(let i=0;i<_fD;i++)_calGrid.appendChild(el('div'));
   for(let day=1;day<=_dIM;day++){
     const ds=`${_yr}-${String(_mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday=day===_tDay;
     const hasEvt=upcomingAppts.some(a=>a.date===ds);
-    const cell=el('div',{style:{padding:'3px 0',borderRadius:'6px',fontWeight:isToday?'700':'500',color:isToday?'#fff':('#1a2e2b'),background:isToday?'var(--teal)':'transparent',position:'relative',cursor:'pointer',lineHeight:'1.6',transition:'background .12s'}});
+    const cell=el('div',{style:{padding:'6px 0',borderRadius:'8px',fontWeight:isToday?'700':'500',color:isToday?'#fff':'#1a2e2b',background:isToday?'var(--teal)':'transparent',position:'relative',cursor:'pointer',lineHeight:'1.8',transition:'background .12s',minHeight:'36px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}});
     cell.textContent=String(day);
     cell.onmouseenter=()=>{if(!isToday)cell.style.background='var(--mint-ll)';};
     cell.onmouseleave=()=>{if(!isToday)cell.style.background='';};
