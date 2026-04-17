@@ -7736,8 +7736,10 @@ function renderParentDesktop(){
       // This bypasses the .section{max-width:970px} constraint entirely
       const _isChildChat=S.activeTab==='chat';
       const contentWrap=el('div',{style:{width:'100%',flex:_isChildChat?'1':'none',minHeight:_isChildChat?0:'auto',overflow:_isChildChat?'hidden':'visible'}});
-      if(_rc.classList&&_rc.classList.contains('section')){
-        // Move all children from the .section div into our plain wrapper
+      const _isDesktopChat=_isChildChat&&window.innerWidth>=1024;
+      if(_isDesktopChat){
+        contentWrap.appendChild(_rc);
+      } else if(_rc.classList&&_rc.classList.contains('section')){
         while(_rc.firstChild)contentWrap.appendChild(_rc.firstChild);
       } else {
         contentWrap.appendChild(_rc);
@@ -7778,7 +7780,8 @@ function renderParentDesktop(){
     page.appendChild(bcBack);
     const _pgRc=renderContent();
     const _pgWrap=el('div',{style:{width:'100%',marginTop:_isChatPage?'8px':'16px',flex:_isChatPage?'1':'none',minHeight:_isChatPage?0:'auto',overflow:_isChatPage?'hidden':'visible'}});
-    if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
+    if(_isChatPage&&window.innerWidth>=1024&&_pgRc){_pgWrap.appendChild(_pgRc);}
+    else if(_pgRc&&_pgRc.classList&&_pgRc.classList.contains('section')){while(_pgRc.firstChild)_pgWrap.appendChild(_pgRc.firstChild);}
     else if(_pgRc){_pgWrap.appendChild(_pgRc);}
     page.appendChild(_pgWrap);
     shell.appendChild(page);
@@ -13418,7 +13421,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
   }
 
   // -- Messages (scrollable, flex:1) --
-  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
+  const msgArea=el('div',{id:'msg-area',style:{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:'12px 14px',display:'flex',flexDirection:'column',gap:'8px',minHeight:0}});
   const _matchSet=_hasSearchMatches?new Set(S._msgSearchMatches):null;
   const msgs=(activeChat.messages||[]).slice().sort((a,b)=>{const ta=a.createdAt||a.ts||a.date||'';const tb=b.createdAt||b.ts||b.date||'';return ta<tb?-1:ta>tb?1:0;});
   msgs.forEach((m,mi)=>{
