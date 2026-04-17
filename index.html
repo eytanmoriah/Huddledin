@@ -12917,8 +12917,9 @@ function renderChat(){
     listWrap.appendChild(empty);
   }
 
-  // Chat list (WhatsApp style)
-  visChats.forEach(chat=>{
+  // Chat list (WhatsApp style) — extracted to helper so grouped sections can reuse
+  const _isParentGlobalWebChat=_isWebChat&&role==='parent'&&!S.activeChatChildId;
+  const _buildChatItem=(chat)=>{
     const isUnread=(chat.unreadFor||[]).includes(myId);
     const lastMsg=chat.messages[chat.messages.length-1];
     // Find the specialist among participants by checking DB.specialists, not by exclusion from self
@@ -13059,8 +13060,40 @@ function renderChat(){
       item.addEventListener('touchmove',()=>{if(_lpT){clearTimeout(_lpT);_lpT=null;}});
       item.addEventListener('contextmenu',(e)=>{e.preventDefault();return false;});
     }
-    listWrap.appendChild(item);
-  });
+    return item;
+  };
+
+  // Grouped sections for parent desktop global view; flat list otherwise
+  if(_isParentGlobalWebChat){
+    const _consultChats=visChats.filter(c=>c.type==='specialist-consult');
+    const _childChats=visChats.filter(c=>c.type!=='specialist-consult');
+    if(!_consultChats.length&&!_childChats.length){
+      const _allEmpty=el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 16px',color:'var(--slate)',gap:'8px'}});
+      _allEmpty.appendChild(el('span',{style:{fontSize:'2rem'}},['💬']));
+      _allEmpty.appendChild(el('div',{style:{fontWeight:700}},[T('chat_no_chats')]));
+      listWrap.appendChild(_allEmpty);
+    } else {
+      const _mkSecHdr=(label,unread)=>{
+        const h=el('div',{style:{position:'sticky',top:0,zIndex:1,background:'#fff',padding:'8px 16px',borderBottom:'1px solid #eef2f2',display:'flex',alignItems:'center',gap:'8px'}});
+        h.appendChild(el('span',{style:{fontSize:'.72rem',fontWeight:700,color:'#6b7d7b',textTransform:'uppercase',letterSpacing:'.06em'}},[label]));
+        if(unread>0)h.appendChild(el('span',{style:{background:'var(--teal)',color:'#fff',borderRadius:'99px',minWidth:'16px',height:'16px',fontSize:'.62rem',fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px'}},[unread>9?'9+':String(unread)]));
+        return h;
+      };
+      const _mkSecEmpty=(text)=>el('div',{style:{padding:'12px 16px',fontSize:'.8rem',color:'#7aaba5',fontStyle:'italic'}},[text]);
+      // Consultations
+      const _cUnread=_consultChats.filter(c=>(c.unreadFor||[]).includes(myId)).length;
+      listWrap.appendChild(_mkSecHdr('Consultations',_cUnread));
+      if(!_consultChats.length)listWrap.appendChild(_mkSecEmpty('No consultations'));
+      else _consultChats.forEach(c=>listWrap.appendChild(_buildChatItem(c)));
+      // Chats
+      const _dUnread=_childChats.filter(c=>(c.unreadFor||[]).includes(myId)).length;
+      listWrap.appendChild(_mkSecHdr('Chats',_dUnread));
+      if(!_childChats.length)listWrap.appendChild(_mkSecEmpty('No chats yet'));
+      else _childChats.forEach(c=>listWrap.appendChild(_buildChatItem(c)));
+    }
+  } else {
+    visChats.forEach(chat=>listWrap.appendChild(_buildChatItem(chat)));
+  }
 
   if(isMobile){
     sec.appendChild(listWrap);
