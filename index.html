@@ -2672,7 +2672,7 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
       ]);
       children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
       LS.set('children',children);
-      if(!S.activeChild&&children.length>0)S.activeChild=children[0].id;
+      if(!S.activeChild&&S.activeTab!=='chat'&&children.length>0)S.activeChild=children[0].id;
       try{
         const specs=specsData;
         if(specs&&specs.length>0){
