@@ -12781,7 +12781,9 @@ function renderChat(){
   });
 
   const _isWebChat=window.innerWidth>=1024;
-  const sec=el('div',{class:'section',style:_isWebChat?{padding:0,overflow:'hidden',height:'calc(100vh - 180px)',maxHeight:'calc(100vh - 180px)',display:'flex',flexDirection:'column'}:{padding:0,overflow:'hidden'}});
+  const _perChildDesktop=_isWebChat&&session?.role==='parent'&&S.activeChild;
+  const _webChatH=_perChildDesktop?'calc(100vh - 240px)':'calc(100vh - 180px)';
+  const sec=el('div',{class:'section',style:_isWebChat?{padding:0,overflow:'hidden',height:_webChatH,maxHeight:_webChatH,display:'flex',flexDirection:'column'}:{padding:0,overflow:'hidden'}});
   const _chatBkChild=DB.children.find(c=>c.id===S.activeChatChildId);
   const _chatBkBar=mkSpecBackBar(_chatBkChild?.name);
   if(_chatBkBar){_chatBkBar.style.paddingLeft='16px';_chatBkBar.style.paddingRight='16px';_chatBkBar.style.paddingTop='12px';sec.appendChild(_chatBkBar);}
