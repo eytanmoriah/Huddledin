@@ -7724,6 +7724,7 @@ function renderParentDesktop(){
       const isAct=S.activeTab===t.id||(t.id==='calendar'&&S.activeTab==='dashboard');
       const tb=el('button',{style:{padding:'10px 18px',border:'none',background:'transparent',fontSize:'14px',fontWeight:isAct?600:500,color:isAct?'#0d9488':'#4a7570',cursor:'pointer',borderBottom:isAct?'2.5px solid #0d9488':'2.5px solid transparent',marginBottom:'-1.5px',transition:'color .15s'}});
       tb.textContent=t.label;
+      if(t.id==='chat'){const _cc=_chatBadge(S.activeChild);if(_cc>0){tb.appendChild(el('span',{style:{background:'#0d9488',color:'#fff',borderRadius:'99px',minWidth:'18px',height:'18px',fontSize:'11px',fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px',marginInlineStart:'6px',verticalAlign:'middle'}},[_cc>9?'9+':String(_cc)]));}}
       tb.onclick=()=>{S.activeTab=t.id;if(t.id==='chat'){S.activeChatChildId=S.activeChild;S.activeChatId=null;S.chatsLoaded=false;}re();};
       tabBar.appendChild(tb);
     });
