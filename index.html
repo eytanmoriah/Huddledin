@@ -13110,7 +13110,7 @@ function renderChat(){
   wrap.appendChild(sidebar);
 
   const activeChat=allChats.find(c=>c.id===S.activeChatId);
-  const win=el('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}});
+  const win=el('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'#fff'}});
   if(activeChat){
     win.appendChild(renderChatThread(activeChat,specId,myId,null,_chatLocked));
   } else {
@@ -13496,6 +13496,7 @@ function renderChatThread(activeChat,specId,myId,onBack,locked){
     msgArea.appendChild(empty);
   }
   wrap.appendChild(msgArea);
+  try{msgArea.scrollTop=msgArea.scrollHeight;}catch(_){}
 
   // Scroll to bottom (or to specific message if search result)
   // Use setTimeout to ensure DOM is in the live document after re() appends
@@ -20558,7 +20559,7 @@ function re(){
     if(_appLoading&&session){root.replaceChildren(_renderLoadingScreen());return;}
     const _newContent=session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth());
     // View Transitions: smooth crossfade ONLY on navigation changes. Same-view updates stay instant.
-    if(_navChanged&&document.startViewTransition){
+    if(_navChanged&&S.activeTab!=='chat'&&document.startViewTransition){
       try{document.startViewTransition(()=>root.replaceChildren(_newContent));}
       catch(_vtErr){root.replaceChildren(_newContent);}
     } else {
