@@ -1316,14 +1316,18 @@ function _startImport() {
     const file = e.target.files?.[0];
     if (!file) return;
     openModal('📄 Analyzing Report...', (mb, close) => {
-      mb.appendChild(el('div', { style: { textAlign: 'center', padding: '20px' } }, [
-        el('div', { style: { fontSize: '2rem', marginBottom: '10px' } }, ['⏳']),
-        el('div', { style: { fontWeight: 600, color: '#0f172a' } }, ['AI is analyzing your report...']),
-        el('div', { style: { fontSize: '.78rem', color: '#64748b', marginTop: '6px' } }, ['This may take up to a minute.'])
-      ]));
+      const _statusIcon = el('div', { style: { fontSize: '2rem', marginBottom: '10px' } }, ['⏳']);
+      const _statusText = el('div', { style: { fontWeight: 600, color: '#0f172a' } }, ['Preparing upload...']);
+      const _statusSub = el('div', { style: { fontSize: '.78rem', color: '#64748b', marginTop: '6px' } }, ['This may take up to a minute.']);
+      mb.appendChild(el('div', { style: { textAlign: 'center', padding: '20px' } }, [_statusIcon, _statusText, _statusSub]));
+      const _onStatus = (phase) => {
+        if (phase === 'uploading') { _statusText.textContent = 'Uploading report...'; }
+        else if (phase === 'extracting') { _statusText.textContent = 'AI is extracting text...'; }
+        else if (phase === 'analyzing') { _statusText.textContent = 'AI is analyzing structure...'; }
+      };
       (async () => {
         try {
-          const result = await importTemplate(file);
+          const result = await importTemplate(file, _onStatus);
           close();
           const tpl = result.template;
           RS.importedTemplate = tpl;

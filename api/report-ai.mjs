@@ -42,6 +42,13 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'AI service not configured' });
 
+  // Fire-and-forget storage cleanup for report imports
+  const _cleanup = (path) => {
+    if (!path) return;
+    const s = createClient(process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co', process.env.SUPABASE_SERVICE_ROLE_KEY);
+    s.storage.from('specialist-storage').remove([path]).catch(err => console.error('⚠️ cleanup failed:', path, err));
+  };
+
   // ── GENERATE REPORT ──
   if (action === 'generate') {
     const { reportType, formData, childInfo, specialistInfo, writingStyle, sections } = req.body;
@@ -86,33 +93,53 @@ ${styleInstruction}`;
 
   // ── IMPORT STEP 1: Extract text from document ──
   if (action === 'import-extract') {
-    const { documentBase64, mimeType, fileName } = req.body;
-    if (!documentBase64) return res.status(400).json({ error: 'No document provided' });
+    const { storagePath, documentBase64, mimeType, fileName } = req.body;
 
-    const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    // Legacy base64 fallback for cached PWA bundles mid-deploy
+    let buf;
+    let _storagePath = storagePath || null;
+    if (documentBase64) {
+      console.warn('⚠️ legacy base64 import-extract path — remove after bundle cache clears');
+      buf = Buffer.from(documentBase64, 'base64');
+    } else if (_storagePath) {
+      console.log('[import-extract] downloading from storage:', _storagePath);
+      const dlSupa = createClient(process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co', process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { data: dlData, error: dlErr } = await dlSupa.storage.from('specialist-storage').download(_storagePath);
+      if (dlErr || !dlData) {
+        console.error('[import-extract] storage download failed:', dlErr);
+        return res.status(404).json({ error: 'File not found in storage' });
+      }
+      buf = Buffer.from(await dlData.arrayBuffer());
+    } else {
+      return res.status(400).json({ error: 'No document provided' });
+    }
+
+    const supported = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
     const isDocx = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     const isLegacyDoc = mimeType === 'application/msword';
-    if (isLegacyDoc) return res.status(400).json({ error: 'Legacy .doc format is not supported. Please save as .docx in Microsoft Word and try again.' });
-    if (!isDocx && !supported.includes(mimeType)) return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF, DOCX, or image.' });
+    if (isLegacyDoc) { _cleanup(_storagePath); return res.status(400).json({ error: 'Legacy .doc format is not supported. Please save as .docx in Microsoft Word and try again.' }); }
+    if (!isDocx && !supported.includes(mimeType)) { _cleanup(_storagePath); return res.status(400).json({ error: 'Unsupported file type: ' + mimeType + '. Upload PDF, DOCX, or image.' }); }
 
-    console.log('[import-extract]', fileName, mimeType, 'base64:', documentBase64.length);
+    console.log('[import-extract]', fileName, mimeType, buf.length, 'bytes');
 
     // DOCX: extract text directly from the ZIP/XML (no AI needed)
     if (isDocx) {
       try {
-        const buf = Buffer.from(documentBase64, 'base64');
         const text = await extractDocxText(buf);
         console.log('[import-extract] DOCX text extracted:', text.length, 'chars');
-        if (!text.trim()) return res.status(422).json({ error: 'Could not extract text from DOCX. The file may be empty or corrupted.' });
+        if (!text.trim()) { _cleanup(_storagePath); return res.status(422).json({ error: 'Could not extract text from DOCX. The file may be empty or corrupted.' }); }
+        _cleanup(_storagePath);
         return res.status(200).json({ text });
       } catch (err) {
         console.error('[import-extract] DOCX parse error:', err.message);
+        _cleanup(_storagePath);
         return res.status(422).json({ error: 'Could not read DOCX file: ' + err.message });
       }
     }
 
     // PDF/Image: use AI to extract text
     try {
+      const docBase64 = buf.toString('base64');
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
@@ -121,7 +148,7 @@ ${styleInstruction}`;
           system: 'Extract ALL text from this document verbatim. Preserve paragraph breaks and section headers. Return ONLY the plain text content, nothing else.',
           messages: [{ role: 'user', content: [
             { type: 'text', text: 'Extract all text from this document.' },
-            { type: mimeType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: mimeType, data: documentBase64 } }
+            { type: mimeType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: mimeType, data: docBase64 } }
           ]}],
         }),
       });
@@ -130,15 +157,18 @@ ${styleInstruction}`;
         console.error('[import-extract] API error:', r.status, eb);
         let msg = 'AI error (HTTP ' + r.status + ')';
         try { msg = JSON.parse(eb).error?.message || msg; } catch (_) {}
+        _cleanup(_storagePath);
         return res.status(502).json({ error: msg, details: eb.substring(0, 500) });
       }
       const d = await r.json();
       const txt = d.content?.[0]?.text || '';
       console.log('[import-extract] Got', txt.length, 'chars');
-      if (!txt) return res.status(502).json({ error: 'Could not extract text from document' });
+      if (!txt) { _cleanup(_storagePath); return res.status(502).json({ error: 'Could not extract text from document' }); }
+      _cleanup(_storagePath);
       return res.status(200).json({ text: txt });
     } catch (err) {
       console.error('[import-extract]', err.message);
+      _cleanup(_storagePath);
       return res.status(500).json({ error: 'Text extraction failed: ' + err.message });
     }
   }
