@@ -14734,12 +14734,12 @@ function _renderSpecTaskCard(task,container,specId,children){
   // Checkbox
   const chk=el('div',{class:'chk'+(task.completed?' done':'')},task.completed?['✓']:[]);
   chk.style.cssText='flex-shrink:0;margin-top:2px;';
-  chk.onclick=async()=>{
+  chk.onclick=()=>{
     const nowDone=!task.completed;
     const all=DB.specTasks,i=all.findIndex(t=>t.id===task.id);
     if(i>-1){all[i].completed=nowDone;all[i].completedAt=nowDone?new Date().toISOString():null;DB.specTasks=all;}
-    try{await _supa.from('spec_tasks').update({completed:nowDone,completed_at:nowDone?new Date().toISOString():null}).eq('id',task.id);}catch(e){console.error('❌ specTaskToggle:',e);}
     re();
+    _supa.from('spec_tasks').update({completed:nowDone,completed_at:nowDone?new Date().toISOString():null}).eq('id',task.id).then(({error})=>{if(error)console.error('❌ spec_tasks update:',error);});
   };
   card.appendChild(chk);
 
