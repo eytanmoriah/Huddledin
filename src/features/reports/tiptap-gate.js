@@ -59,6 +59,10 @@ export async function mountGateEditor(containerEl) {
 
     addNodeView() {
       return ({ node, getPos, editor: ed }) => {
+        // TEMP_DIAGNOSE: log node view lifecycle
+        console.log('[NV]', 'created for section', node.attrs.title, 'at getPos=', getPos?.());
+        console.log('[ED]', 'isEditable=', ed.isEditable, 'editorRootContentEditable=', ed.view.dom.contentEditable);
+
         // Outer wrapper
         const dom = document.createElement('div');
         dom.classList.add('rpt-section');
@@ -130,6 +134,15 @@ export async function mountGateEditor(containerEl) {
         titleEl.contentEditable = 'true';
         titleEl.textContent = node.attrs.title || '';
         titleEl.setAttribute('data-placeholder', 'Untitled section');
+        // TEMP_DIAGNOSE: log title element state at creation
+        console.log('[NV] titleEl contentEditable=', titleEl.contentEditable, 'draggable=', titleEl.draggable);
+        console.log('[NV] titleEl outerHTML snapshot=', titleEl.outerHTML);
+        // TEMP_DIAGNOSE: capture-phase event logging on title
+        ['mousedown', 'pointerdown', 'click', 'focus', 'focusin', 'touchstart'].forEach(type => {
+          titleEl.addEventListener(type, (e) => {
+            console.log('[TITLE]', type, 'target=', e.target.tagName + '.' + e.target.className, 'defaultPrevented=', e.defaultPrevented);
+          }, true);
+        });
         titleEl.addEventListener('input', () => {
           const pos = getPos();
           if (pos === undefined || pos === null) return;
@@ -187,7 +200,14 @@ export async function mountGateEditor(containerEl) {
           dom,
           contentDOM,
           stopEvent(event) {
-            return titleEl.contains(event.target);
+            const result = titleEl.contains(event.target);
+            // TEMP_DIAGNOSE: log stopEvent invocations
+            console.log('[SE]', event.type, 'target=', event.target.tagName + '.' + event.target.className, 'titleContains=', result);
+            return result;
+          },
+          // TEMP_DIAGNOSE: log node view destruction
+          destroy() {
+            console.log('[NV]', 'destroyed for section', node.attrs.title);
           },
         };
       };
