@@ -30,6 +30,8 @@ const RS = {
 };
 
 const MONTHLY_LIMIT = 5;
+// TODO: i18n for beta button label when translations are added
+const BETA_NEW_EDITOR_TESTERS = ['eytan760@gmail.com', 'lauri@hamakortherapy.com'];
 const DEFAULT_BRANDING = { header_color: '#0d9488', font_style: 'sans-serif', header_style: 'compact', footer_text: 'Confidential — For Clinical Use Only' };
 
 function H() { return window.HUD || {}; }
@@ -222,7 +224,8 @@ export function renderReports() {
       el('div', { class: 'empty-state-body' }, ['Create your first template to start writing reports.']),
       el('div', { class: 'empty-state-actions', style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
         mkBtn('📄 Upload a Past Report', 'btn-md btn-secondary', () => _startImport()),
-        mkBtn('🔧 Build From Scratch', 'btn-md btn-primary', () => { RS.currentTemplate = null; nav('edit-template'); })
+        mkBtn('🔧 Build From Scratch', 'btn-md btn-primary', () => { RS.currentTemplate = null; nav('edit-template'); }),
+        ...(BETA_NEW_EDITOR_TESTERS.includes(H().session?.email) ? [mkBtn('✨ Try new editor', 'btn-md btn-ghost', () => { if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate(); })] : [])
       ])
     ]));
     return sec;
@@ -240,6 +243,12 @@ export function renderReports() {
     RS.selectedChildId = null; RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {}; RS.currentReport = null; RS.lastSavedFormData = null; RS.step = 0;
     nav('new-report');
   }));
+  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
+    hdrR.appendChild(mkBtn('✨ Try new editor', 'btn-sm btn-ghost', () => {
+      if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate();
+      else toast('Editor not loaded yet — try again in a moment.', 'info');
+    }));
+  }
   hdr.appendChild(hdrR); sec.appendChild(hdr);
 
   if (!RS.reports.length) {
