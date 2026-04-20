@@ -183,7 +183,13 @@ export async function mountGateEditor(containerEl) {
         contentDOM.classList.add('rpt-section-content');
         dom.appendChild(contentDOM);
 
-        return { dom, contentDOM };
+        return {
+          dom,
+          contentDOM,
+          stopEvent(event) {
+            return titleEl.contains(event.target);
+          },
+        };
       };
     },
   });
