@@ -608,16 +608,35 @@ export function renderNewReport() {
     sec.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', margin: '14px 0 12px', fontSize: '1.1rem' } }, ['Select Patient']));
     const children = getChildren();
     if (!children.length) { sec.appendChild(el('div', { style: { color: '#64748b' } }, ['No patients connected.'])); return sec; }
-    children.forEach(c => {
-      const row = el('div', { class: 'rpt-card', style: { display: 'flex', alignItems: 'center', gap: '12px' } });
-      row.appendChild(el('span', { style: { fontSize: '1.4rem' } }, [c.avatar || '🧒']));
-      const info = el('div', { style: { flex: 1 } });
-      info.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
-      info.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [calcAge(c.dob)]));
-      row.appendChild(info);
-      row.onclick = () => { RS.selectedChildId = c.id; RS.step = 1; H().re(); };
-      sec.appendChild(row);
-    });
+    const sorted = [...children].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Search input (reuses Patients page pattern — in-place filter, no re())
+    const searchInp = el('input', { type: 'text', placeholder: 'Search patients...', style: { width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #d1e0dd', background: '#f0fdf9', fontFamily: "'Nunito',sans-serif", fontSize: '.86rem', color: '#0f172a', outline: 'none', boxSizing: 'border-box', marginBottom: '12px', transition: 'border-color .15s' } });
+    searchInp.onfocus = () => { searchInp.style.borderColor = '#0d9488'; };
+    searchInp.onblur = () => { searchInp.style.borderColor = '#d1e0dd'; };
+    sec.appendChild(searchInp);
+    const listEl = el('div');
+    const renderList = (q) => {
+      listEl.innerHTML = '';
+      const query = (q || '').toLowerCase();
+      const shown = sorted.filter(c => c.name.toLowerCase().includes(query));
+      if (!shown.length) {
+        listEl.appendChild(el('div', { style: { color: '#94a3b8', fontSize: '.84rem', padding: '16px 0', textAlign: 'center' } }, ['No patients match "' + q + '"']));
+        return;
+      }
+      shown.forEach(c => {
+        const row = el('div', { class: 'rpt-card', style: { display: 'flex', alignItems: 'center', gap: '12px' } });
+        row.appendChild(el('span', { style: { fontSize: '1.4rem' } }, [c.avatar || '🧒']));
+        const info = el('div', { style: { flex: 1 } });
+        info.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
+        info.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [calcAge(c.dob)]));
+        row.appendChild(info);
+        row.onclick = () => { RS.selectedChildId = c.id; RS.step = 1; H().re(); };
+        listEl.appendChild(row);
+      });
+    };
+    renderList('');
+    searchInp.oninput = (e) => renderList(e.target.value);
+    sec.appendChild(listEl);
     return sec;
   }
 
