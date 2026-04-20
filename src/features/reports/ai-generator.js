@@ -25,9 +25,9 @@ export async function generateReport({ reportType, formData, childInfo, speciali
 
 // Validate file extension (primary) — MIME is unreliable on some systems
 function _validateImportFile(file) {
-  const MAX_SIZE = 20 * 1024 * 1024; // 20MB raw bytes
+  const MAX_SIZE = 30 * 1024 * 1024; // 30MB raw bytes
   if (file.size > MAX_SIZE) {
-    throw new Error('Files over 20MB aren\'t supported. Try compressing or splitting the document.');
+    throw new Error('Files over 30MB aren\'t supported. Try compressing or splitting the document.');
   }
   const ext = (file.name || '').split('.').pop().toLowerCase();
   const allowedExts = ['pdf', 'docx', 'png', 'jpg', 'jpeg'];
