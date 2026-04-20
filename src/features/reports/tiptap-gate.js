@@ -303,7 +303,7 @@ export async function mountGateEditor(containerEl) {
       .rpt-section-content { padding:4px 0; }
 
       /* Section picker dropdown */
-      .rpt-section-picker { position:absolute; bottom:100%; inset-inline-start:0; margin-bottom:6px; background:#fff; border:1px solid #d1e0dd; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.1); max-height:260px; overflow-y:auto; z-index:10; min-width:220px; padding:4px 0; }
+      .rpt-section-picker { position:absolute; top:100%; inset-inline-start:0; margin-top:6px; background:#fff; border:1px solid #d1e0dd; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.1); max-height:260px; overflow-y:auto; z-index:10; min-width:220px; padding:4px 0; }
       .rpt-section-picker-item { padding:10px 14px; font-size:14px; color:#0f1a18; cursor:pointer; transition:background .1s; }
       .rpt-section-picker-item:hover { background:#f0fdf9; }
 
