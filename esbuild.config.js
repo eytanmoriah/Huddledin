@@ -55,7 +55,7 @@ esbuild.build({
   outfile: 'public/app.bundle.js',
   format: 'iife',
   globalName: 'HuddledinModules',
-  minify: false,
+  minify: true,
   sourcemap: true,
   target: 'es2020',
   loader: { '.css': 'text' },
