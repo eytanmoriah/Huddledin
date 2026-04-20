@@ -22,6 +22,7 @@ export async function mountGateEditor(containerEl) {
   const { Editor, Node, mergeAttributes } = await import('@tiptap/core');
   const { default: StarterKit } = await import('@tiptap/starter-kit');
   const { default: Placeholder } = await import('@tiptap/extension-placeholder');
+  const { TextSelection } = await import('@tiptap/pm/state');
 
   const _confirm = window.HUD?.openConfirm;
 
@@ -83,16 +84,20 @@ export async function mountGateEditor(containerEl) {
         moveUp.onclick = () => {
           const pos = getPos();
           if (pos === undefined || pos === null) return;
-          const resolved = ed.state.doc.resolve(pos);
-          if (resolved.index(resolved.depth - 1) === 0) return;
-          const nodeSize = node.nodeSize;
-          const $before = ed.state.doc.resolve(pos - 1);
-          const prevStart = $before.before($before.depth);
+          const $pos = ed.state.doc.resolve(pos);
+          const idx = $pos.index($pos.depth - 1);
+          if (idx === 0) return;
           ed.chain().focus()
-            .command(({ tr }) => {
-              const slice = tr.doc.slice(pos, pos + nodeSize);
-              tr.delete(pos, pos + nodeSize);
-              tr.insert(prevStart, slice.content);
+            .command(({ tr, state }) => {
+              const $from = state.doc.resolve(pos);
+              const parent = $from.node($from.depth - 1);
+              const thisNode = parent.child(idx);
+              const prevNode = parent.child(idx - 1);
+              if (thisNode.type.name !== 'reportSection' || prevNode.type.name !== 'reportSection') return false;
+              const startOfPrev = pos - prevNode.nodeSize;
+              tr.replaceWith(startOfPrev, pos + thisNode.nodeSize, [thisNode, prevNode]);
+              const newPos = startOfPrev + 1;
+              try { tr.setSelection(TextSelection.near(tr.doc.resolve(newPos))); } catch (_) {}
               return true;
             }).run();
         };
@@ -106,18 +111,21 @@ export async function mountGateEditor(containerEl) {
         moveDown.onclick = () => {
           const pos = getPos();
           if (pos === undefined || pos === null) return;
-          const resolved = ed.state.doc.resolve(pos);
-          const parent = resolved.node(resolved.depth - 1);
-          const idx = resolved.index(resolved.depth - 1);
+          const $pos = ed.state.doc.resolve(pos);
+          const parent = $pos.node($pos.depth - 1);
+          const idx = $pos.index($pos.depth - 1);
           if (idx >= parent.childCount - 1) return;
-          const nodeSize = node.nodeSize;
-          const nextNode = parent.child(idx + 1);
-          const afterPos = pos + nodeSize + nextNode.nodeSize;
           ed.chain().focus()
-            .command(({ tr }) => {
-              const slice = tr.doc.slice(pos, pos + nodeSize);
-              tr.delete(pos, pos + nodeSize);
-              tr.insert(afterPos - nodeSize, slice.content);
+            .command(({ tr, state }) => {
+              const $from = state.doc.resolve(pos);
+              const par = $from.node($from.depth - 1);
+              const thisNode = par.child(idx);
+              const nextNode = par.child(idx + 1);
+              if (thisNode.type.name !== 'reportSection' || nextNode.type.name !== 'reportSection') return false;
+              const rangeEnd = pos + thisNode.nodeSize + nextNode.nodeSize;
+              tr.replaceWith(pos, rangeEnd, [nextNode, thisNode]);
+              const newPos = pos + nextNode.nodeSize + 1;
+              try { tr.setSelection(TextSelection.near(tr.doc.resolve(newPos))); } catch (_) {}
               return true;
             }).run();
         };
