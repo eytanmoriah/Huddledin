@@ -12,7 +12,7 @@ if (window.HUD) {
 // Tiptap editor gate — opens full-screen editor modal. Shared by URL-param gate and beta button.
 async function openTiptapGateModal() {
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:450;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;';
   const card = document.createElement('div');
   card.style.cssText = 'background:#f5fafa;border-radius:14px;width:100%;max-width:900px;max-height:calc(100vh - 32px);overflow-y:auto;padding:24px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.2);';
   const close = document.createElement('button');
