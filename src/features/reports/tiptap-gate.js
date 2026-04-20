@@ -27,12 +27,15 @@ export async function mountGateEditor(containerEl) {
   const _confirm = window.HUD?.openConfirm;
 
   // Custom reportSection node with full node view
+  // Phase 0: no draggable:true because HTML draggable attribute breaks
+  // contentEditable inside nested descendants. Drag-to-reorder returns
+  // post-Phase-0 with a properly scoped DragView. For now, move-up and
+  // move-down buttons are the sole reorder mechanism (desktop + mobile).
   const ReportSection = Node.create({
     name: 'reportSection',
     group: 'block',
     content: 'block+',
     defining: true,
-    draggable: true,
 
     addAttributes() {
       return { title: { default: 'Untitled Section' } };
@@ -47,7 +50,6 @@ export async function mountGateEditor(containerEl) {
         'div',
         mergeAttributes(HTMLAttributes, { 'data-type': 'report-section', class: 'rpt-section' }),
         ['div', { class: 'rpt-section-header' },
-          ['span', { class: 'rpt-section-drag', 'data-drag-handle': '' }, '\u2758\u2758'],
           ['span', { class: 'rpt-section-title-ro' }, node.attrs.title],
           ['button', { class: 'rpt-section-remove' }, '\u2715'],
         ],
@@ -66,16 +68,7 @@ export async function mountGateEditor(containerEl) {
         const header = document.createElement('div');
         header.classList.add('rpt-section-header');
 
-        // Drag handle
-        const dragHandle = document.createElement('span');
-        dragHandle.classList.add('rpt-section-drag');
-        dragHandle.setAttribute('data-drag-handle', '');
-        dragHandle.textContent = '\u2758\u2758';
-        dragHandle.draggable = true;
-        dragHandle.contentEditable = 'false';
-        header.appendChild(dragHandle);
-
-        // Mobile move buttons
+        // Move buttons (desktop + mobile — drag removed in Phase 0)
         const moveUp = document.createElement('button');
         moveUp.classList.add('rpt-section-move', 'rpt-section-move-up');
         moveUp.textContent = '\u2191';
@@ -135,7 +128,6 @@ export async function mountGateEditor(containerEl) {
         const titleEl = document.createElement('span');
         titleEl.classList.add('rpt-section-title');
         titleEl.contentEditable = 'true';
-        titleEl.draggable = false;
         titleEl.textContent = node.attrs.title || '';
         titleEl.setAttribute('data-placeholder', 'Untitled section');
         titleEl.addEventListener('input', () => {
@@ -170,7 +162,9 @@ export async function mountGateEditor(containerEl) {
             const pos = getPos();
             if (pos === undefined || pos === null) return;
             ed.chain().focus().command(({ tr }) => {
-              tr.delete(pos, pos + node.nodeSize);
+              const liveNode = tr.doc.nodeAt(pos);
+              if (!liveNode || liveNode.type.name !== 'reportSection') return false;
+              tr.delete(pos, pos + liveNode.nodeSize);
               return true;
             }).run();
           };
@@ -295,17 +289,12 @@ export async function mountGateEditor(containerEl) {
       /* reportSection node */
       .rpt-section { border-top:3px solid #0d9488; margin:16px 0; position:relative; }
       .rpt-section-header { display:flex; align-items:center; gap:6px; padding:8px 0 4px; }
-      .rpt-section-drag { cursor:grab; color:#94a3b8; font-size:14px; flex-shrink:0; user-select:none; padding:2px 4px; border-radius:4px; transition:color .12s; letter-spacing:2px; }
-      .rpt-section-drag:hover { color:#0d9488; background:#f0fdf9; }
-      @media(max-width:767px) { .rpt-section-drag { display:none; } }
-      .rpt-section-move { display:none; background:none; border:1px solid #d1e0dd; border-radius:6px; cursor:pointer; font-size:14px; color:#64748b; padding:2px 6px; min-width:28px; min-height:28px; flex-shrink:0; }
+      .rpt-section-move { display:inline-flex; align-items:center; justify-content:center; background:none; border:1px solid #d1e0dd; border-radius:6px; cursor:pointer; font-size:14px; color:#64748b; padding:2px 6px; min-width:28px; min-height:28px; flex-shrink:0; }
       .rpt-section-move:hover { background:#f0fdf9; color:#0d9488; }
       .rpt-section-move:disabled { opacity:.3; cursor:default; }
-      @media(max-width:767px) { .rpt-section-move { display:inline-flex; align-items:center; justify-content:center; } }
       .rpt-section-title { flex:1; font-size:13px; font-weight:700; color:#0d9488; text-transform:uppercase; letter-spacing:.05em; outline:none; min-width:0; border:none; background:transparent; padding:2px 4px; border-radius:4px; cursor:text; }
       .rpt-section-title:focus { background:#f0fdf9; box-shadow:0 0 0 2px rgba(13,148,136,.2); }
       .rpt-section-title:empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; }
-      .rpt-section-title[draggable="false"] { draggable:false; }
       .rpt-section-remove { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:16px; padding:2px 6px; border-radius:4px; flex-shrink:0; transition:color .12s,background .12s; min-width:28px; min-height:28px; display:flex; align-items:center; justify-content:center; }
       .rpt-section-remove:hover { color:#dc2626; background:#fef2f2; }
       .rpt-section-content { padding:4px 0; }
@@ -324,7 +313,7 @@ export async function mountGateEditor(containerEl) {
   // Status line
   const status = document.createElement('div');
   status.style.cssText = 'margin-top:12px;font-size:13px;color:#64748b;';
-  status.textContent = 'Editor ready. Type, format, drag sections (desktop) or use \u2191\u2193 (mobile), toggle RTL.';
+  status.textContent = 'Editor ready. Type, format, use \u2191\u2193 to reorder, toggle RTL.';
   containerEl.appendChild(status);
 
   return editor;
