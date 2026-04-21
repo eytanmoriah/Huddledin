@@ -27,6 +27,13 @@ export async function mountGateEditor(containerEl) {
 
   const _confirm = window.HUD?.openConfirm;
 
+  // Custom doc node: accepts reportBlock (reportSection) and standard blocks
+  const ReportDoc = Node.create({
+    name: 'doc',
+    topNode: true,
+    content: '(block | reportBlock)+',
+  });
+
   // ── sectionTitle node — plain text only, no marks ──
   const SectionTitle = Node.create({
     name: 'sectionTitle',
@@ -54,7 +61,8 @@ export async function mountGateEditor(containerEl) {
   // ── reportSection node — contains exactly one sectionTitle + one sectionBody ──
   const ReportSection = Node.create({
     name: 'reportSection',
-    group: 'block',
+    // NOT in 'block' group — prevents nesting inside sectionBody (which accepts block+)
+    group: 'reportBlock',
     content: 'sectionTitle sectionBody',
     defining: true,
 
@@ -134,35 +142,13 @@ export async function mountGateEditor(containerEl) {
         removeBtn.textContent = '\u2715';
         removeBtn.onpointerdown = (ev) => ev.preventDefault();
         removeBtn.onclick = () => {
-          // TEMP_DIAGNOSE: log on click
-          console.log('[REMOVE]', 'click fired');
-          const posAtClick = getPos?.();
-          console.log('[REMOVE]', 'posAtClick=', posAtClick,
-            'currentDocSize=', ed?.state?.doc?.nodeSize,
-            'currentDocChildCount=', ed?.state?.doc?.childCount);
           const doRemove = () => {
-            // TEMP_DIAGNOSE: log on confirm
-            console.log('[REMOVE]', 'doRemove fired');
             const pos = getPos();
             if (pos === undefined || pos === null) return;
             ed.chain().focus().command(({ tr }) => {
               const liveNode = tr.doc.nodeAt(pos);
-              // TEMP_DIAGNOSE: log before delete
-              console.log('[REMOVE-CMD]',
-                'pos=', pos,
-                'liveNode exists=', !!liveNode,
-                'liveNode type=', liveNode?.type?.name,
-                'liveNode nodeSize=', liveNode?.nodeSize,
-                'deleteFrom=', pos,
-                'deleteTo=', pos + (liveNode?.nodeSize ?? 0),
-                'docSize=', tr.doc.nodeSize,
-                'docChildCount=', tr.doc.childCount);
               if (!liveNode || liveNode.type.name !== 'reportSection') return false;
               tr.delete(pos, pos + liveNode.nodeSize);
-              // TEMP_DIAGNOSE: log after delete
-              console.log('[REMOVE-CMD]',
-                'after delete docChildCount=', tr.doc.childCount,
-                'after delete docSize=', tr.doc.nodeSize);
               return true;
             }).run();
           };
@@ -275,12 +261,18 @@ export async function mountGateEditor(containerEl) {
       item.textContent = title;
       item.onclick = () => {
         dropdown.remove();
-        editor.chain().focus().insertContent({
-          type: 'reportSection',
-          content: [
-            { type: 'sectionTitle', content: [{ type: 'text', text: title }] },
-            { type: 'sectionBody', content: [{ type: 'paragraph' }] },
-          ],
+        editor.chain().focus().command(({ tr, state }) => {
+          const insertPos = state.doc.content.size;
+          const s = state.schema.nodes;
+          const newSection = s.reportSection.create({}, [
+            s.sectionTitle.create({}, state.schema.text(title)),
+            s.sectionBody.create({}, s.paragraph.create()),
+          ]);
+          tr.insert(insertPos, newSection);
+          const titleNode = newSection.child(0);
+          const bodyStart = insertPos + 1 + titleNode.nodeSize + 1 + 1;
+          try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
+          return true;
         }).run();
       };
       dropdown.appendChild(item);
@@ -303,7 +295,8 @@ export async function mountGateEditor(containerEl) {
   const editor = new Editor({
     element: editorWrap,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ document: false }),
+      ReportDoc,
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === 'sectionTitle') return 'Untitled section';
