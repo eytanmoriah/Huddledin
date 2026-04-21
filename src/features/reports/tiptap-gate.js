@@ -19,72 +19,66 @@ const SECTION_PICKER_LIST = [
 export async function mountGateEditor(containerEl) {
   containerEl.textContent = 'Loading editor...';
 
-  const { Editor, Node, mergeAttributes } = await import('@tiptap/core');
+  const { Editor, Node, mergeAttributes, InputRule } = await import('@tiptap/core');
   const { default: StarterKit } = await import('@tiptap/starter-kit');
   const { default: Placeholder } = await import('@tiptap/extension-placeholder');
   const { TextSelection } = await import('@tiptap/pm/state');
+  const { Plugin, PluginKey } = await import('@tiptap/pm/state');
 
   const _confirm = window.HUD?.openConfirm;
 
-  // Custom reportSection node with full node view
-  // Phase 0: no draggable:true because HTML draggable attribute breaks
-  // contentEditable inside nested descendants. Drag-to-reorder returns
-  // post-Phase-0 with a properly scoped DragView. For now, move-up and
-  // move-down buttons are the sole reorder mechanism (desktop + mobile).
+  // ── sectionTitle node — plain text only, no marks ──
+  const SectionTitle = Node.create({
+    name: 'sectionTitle',
+    content: 'text*',
+    marks: '',
+    defining: true,
+    selectable: false,
+    parseHTML() { return [{ tag: 'div[data-type="section-title"]' }]; },
+    renderHTML({ HTMLAttributes }) {
+      return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'section-title', class: 'rpt-section-title' }), 0];
+    },
+  });
+
+  // ── sectionBody node — block+ content ──
+  const SectionBody = Node.create({
+    name: 'sectionBody',
+    content: 'block+',
+    defining: true,
+    parseHTML() { return [{ tag: 'div[data-type="section-body"]' }]; },
+    renderHTML({ HTMLAttributes }) {
+      return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'section-body', class: 'rpt-section-body' }), 0];
+    },
+  });
+
+  // ── reportSection node — contains exactly one sectionTitle + one sectionBody ──
   const ReportSection = Node.create({
     name: 'reportSection',
     group: 'block',
-    content: 'block+',
+    content: 'sectionTitle sectionBody',
     defining: true,
 
-    addAttributes() {
-      return { title: { default: 'Untitled Section' } };
-    },
+    parseHTML() { return [{ tag: 'div[data-type="report-section"]' }]; },
 
-    parseHTML() {
-      return [{ tag: 'div[data-type="report-section"]' }];
-    },
-
-    renderHTML({ node, HTMLAttributes }) {
-      return [
-        'div',
-        mergeAttributes(HTMLAttributes, { 'data-type': 'report-section', class: 'rpt-section' }),
-        ['div', { class: 'rpt-section-header' },
-          ['span', { class: 'rpt-section-title-ro' }, node.attrs.title],
-          ['button', { class: 'rpt-section-remove' }, '\u2715'],
-        ],
-        ['div', { class: 'rpt-section-content' }, 0],
-      ];
+    renderHTML({ HTMLAttributes }) {
+      return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'report-section', class: 'rpt-section' }), 0];
     },
 
     addNodeView() {
       return ({ node, getPos, editor: ed }) => {
-        // TEMP_DIAGNOSE: lifecycle marker (no view access)
-        console.log('[NV] created', node.attrs.title);
-
-        // Outer wrapper
         const dom = document.createElement('div');
         dom.classList.add('rpt-section');
         dom.setAttribute('data-type', 'report-section');
-        // TEMP_DIAGNOSE: capture-phase event logging on section dom
-        ['pointerdown', 'mousedown', 'click'].forEach(type => {
-          dom.addEventListener(type, (e) => {
-            console.log('[SECTION]', type,
-              'target=', e.target?.tagName,
-              'target class=', e.target?.className,
-              'defaultPrevented=', e.defaultPrevented);
-          }, true);
-        });
 
-        // Header row
+        // Header with action buttons (positioned over the section via CSS)
         const header = document.createElement('div');
         header.classList.add('rpt-section-header');
+        header.contentEditable = 'false';
 
-        // Move buttons (desktop + mobile — drag removed in Phase 0)
+        // Move-up button
         const moveUp = document.createElement('button');
-        moveUp.classList.add('rpt-section-move', 'rpt-section-move-up');
+        moveUp.classList.add('rpt-section-move');
         moveUp.textContent = '\u2191';
-        moveUp.contentEditable = 'false';
         moveUp.onpointerdown = (ev) => ev.preventDefault();
         moveUp.onclick = () => {
           const pos = getPos();
@@ -92,26 +86,24 @@ export async function mountGateEditor(containerEl) {
           const $pos = ed.state.doc.resolve(pos);
           const idx = $pos.index($pos.depth - 1);
           if (idx === 0) return;
-          ed.chain().focus()
-            .command(({ tr, state }) => {
-              const $from = state.doc.resolve(pos);
-              const parent = $from.node($from.depth - 1);
-              const thisNode = parent.child(idx);
-              const prevNode = parent.child(idx - 1);
-              if (thisNode.type.name !== 'reportSection' || prevNode.type.name !== 'reportSection') return false;
-              const startOfPrev = pos - prevNode.nodeSize;
-              tr.replaceWith(startOfPrev, pos + thisNode.nodeSize, [thisNode, prevNode]);
-              const newPos = startOfPrev + 1;
-              try { tr.setSelection(TextSelection.near(tr.doc.resolve(newPos))); } catch (_) {}
-              return true;
-            }).run();
+          ed.chain().focus().command(({ tr, state }) => {
+            const $from = state.doc.resolve(pos);
+            const parent = $from.node($from.depth - 1);
+            const thisNode = parent.child(idx);
+            const prevNode = parent.child(idx - 1);
+            if (thisNode.type.name !== 'reportSection' || prevNode.type.name !== 'reportSection') return false;
+            const startOfPrev = pos - prevNode.nodeSize;
+            tr.replaceWith(startOfPrev, pos + thisNode.nodeSize, [thisNode, prevNode]);
+            try { tr.setSelection(TextSelection.near(tr.doc.resolve(startOfPrev + 1))); } catch (_) {}
+            return true;
+          }).run();
         };
         header.appendChild(moveUp);
 
+        // Move-down button
         const moveDown = document.createElement('button');
-        moveDown.classList.add('rpt-section-move', 'rpt-section-move-down');
+        moveDown.classList.add('rpt-section-move');
         moveDown.textContent = '\u2193';
-        moveDown.contentEditable = 'false';
         moveDown.onpointerdown = (ev) => ev.preventDefault();
         moveDown.onclick = () => {
           const pos = getPos();
@@ -120,72 +112,24 @@ export async function mountGateEditor(containerEl) {
           const parent = $pos.node($pos.depth - 1);
           const idx = $pos.index($pos.depth - 1);
           if (idx >= parent.childCount - 1) return;
-          ed.chain().focus()
-            .command(({ tr, state }) => {
-              const $from = state.doc.resolve(pos);
-              const par = $from.node($from.depth - 1);
-              const thisNode = par.child(idx);
-              const nextNode = par.child(idx + 1);
-              if (thisNode.type.name !== 'reportSection' || nextNode.type.name !== 'reportSection') return false;
-              const rangeEnd = pos + thisNode.nodeSize + nextNode.nodeSize;
-              tr.replaceWith(pos, rangeEnd, [nextNode, thisNode]);
-              const newPos = pos + nextNode.nodeSize + 1;
-              try { tr.setSelection(TextSelection.near(tr.doc.resolve(newPos))); } catch (_) {}
-              return true;
-            }).run();
+          ed.chain().focus().command(({ tr, state }) => {
+            const $from = state.doc.resolve(pos);
+            const par = $from.node($from.depth - 1);
+            const thisNode = par.child(idx);
+            const nextNode = par.child(idx + 1);
+            if (thisNode.type.name !== 'reportSection' || nextNode.type.name !== 'reportSection') return false;
+            const rangeEnd = pos + thisNode.nodeSize + nextNode.nodeSize;
+            tr.replaceWith(pos, rangeEnd, [nextNode, thisNode]);
+            try { tr.setSelection(TextSelection.near(tr.doc.resolve(pos + nextNode.nodeSize + 1))); } catch (_) {}
+            return true;
+          }).run();
         };
         header.appendChild(moveDown);
-
-        // Editable title
-        const titleEl = document.createElement('span');
-        titleEl.classList.add('rpt-section-title');
-        titleEl.contentEditable = 'true';
-        titleEl.textContent = node.attrs.title || '';
-        titleEl.setAttribute('data-placeholder', 'Untitled section');
-        titleEl.addEventListener('input', () => {
-          const pos = getPos();
-          if (pos === undefined || pos === null) return;
-          ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            title: titleEl.textContent || '',
-          }));
-        });
-        titleEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            contentDOM.focus();
-          }
-        });
-        titleEl.addEventListener('paste', (e) => {
-          e.preventDefault();
-          const text = e.clipboardData?.getData('text/plain') || '';
-          document.execCommand('insertText', false, text);
-        });
-        // TEMP_DIAGNOSE: deferred post-mount snapshot of title DOM state
-        setTimeout(() => {
-          console.log('[NV-defer]',
-            'title exists in DOM=', document.contains(titleEl),
-            'title contentEditable=', titleEl.contentEditable,
-            'title parent contentEditable=', titleEl.parentElement?.contentEditable,
-            'title outerHTML=', titleEl.outerHTML);
-        }, 0);
-        // TEMP_DIAGNOSE: capture-phase event logging on title
-        ['pointerdown', 'mousedown', 'click', 'focus', 'focusin', 'input', 'keydown'].forEach(type => {
-          titleEl.addEventListener(type, (e) => {
-            console.log('[TITLE]', type,
-              'target=', e.target?.tagName,
-              'target contentEditable=', e.target?.contentEditable,
-              'defaultPrevented=', e.defaultPrevented,
-              'propagation stopped=', e.cancelBubble);
-          }, true);
-        });
-        header.appendChild(titleEl);
 
         // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.classList.add('rpt-section-remove');
         removeBtn.textContent = '\u2715';
-        removeBtn.contentEditable = 'false';
         removeBtn.onpointerdown = (ev) => ev.preventDefault();
         removeBtn.onclick = () => {
           const doRemove = () => {
@@ -208,25 +152,58 @@ export async function mountGateEditor(containerEl) {
 
         dom.appendChild(header);
 
-        // Content area (Tiptap renders block+ content here)
+        // Content area — ProseMirror renders sectionTitle + sectionBody here
         const contentDOM = document.createElement('div');
         contentDOM.classList.add('rpt-section-content');
         dom.appendChild(contentDOM);
 
-        return {
-          dom,
-          contentDOM,
-          // TEMP_DIAGNOSE: stopEvent invocation tracking
-          stopEvent(event) {
-            const result = titleEl.contains(event.target);
-            console.log('[SE]', event.type, 'target=', event.target?.tagName, 'titleContains=', result);
-            return result;
-          },
-          // TEMP_DIAGNOSE: lifecycle destroy marker
-          destroy() {
-            console.log('[NV] destroyed', node.attrs.title);
-          },
-        };
+        return { dom, contentDOM };
+      };
+    },
+
+    // Keyboard rules scoped to sectionTitle / sectionBody boundaries
+    addKeyboardShortcuts() {
+      return {
+        'Enter': ({ editor: ed }) => {
+          const { $from } = ed.state.selection;
+          if ($from.parent.type.name === 'sectionTitle') {
+            // Move cursor to start of adjacent sectionBody
+            const titleEnd = $from.end();
+            try {
+              const bodyPos = titleEnd + 1; // skip past sectionTitle close tag into sectionBody
+              ed.chain().setTextSelection(bodyPos + 1).run(); // +1 to enter the first paragraph
+            } catch (_) {}
+            return true;
+          }
+          return false;
+        },
+        'Shift-Enter': ({ editor: ed }) => {
+          const { $from } = ed.state.selection;
+          if ($from.parent.type.name === 'sectionTitle') {
+            const titleEnd = $from.end();
+            try { ed.chain().setTextSelection(titleEnd + 2).run(); } catch (_) {}
+            return true;
+          }
+          return false;
+        },
+        'Backspace': ({ editor: ed }) => {
+          const { $from, empty } = ed.state.selection;
+          if (!empty) return false;
+          // Prevent backspace at start of sectionBody from merging into title
+          if ($from.parent.type.name === 'paragraph') {
+            const grandparent = $from.node($from.depth - 1);
+            if (grandparent?.type.name === 'sectionBody' && $from.parentOffset === 0) {
+              const bodyStart = $from.before($from.depth - 1);
+              const sectionBodyNode = $from.node($from.depth - 1);
+              if ($from.pos === bodyStart + 1) return true; // consume, no-op
+            }
+          }
+          // Prevent backspace at start of sectionTitle from deleting
+          if ($from.parent.type.name === 'sectionTitle' && $from.parentOffset === 0) {
+            return true;
+          }
+          return false;
+        },
       };
     },
   });
@@ -276,8 +253,10 @@ export async function mountGateEditor(containerEl) {
         dropdown.remove();
         editor.chain().focus().insertContent({
           type: 'reportSection',
-          attrs: { title },
-          content: [{ type: 'paragraph' }],
+          content: [
+            { type: 'sectionTitle', content: [{ type: 'text', text: title }] },
+            { type: 'sectionBody', content: [{ type: 'paragraph' }] },
+          ],
         }).run();
       };
       dropdown.appendChild(item);
@@ -301,25 +280,27 @@ export async function mountGateEditor(containerEl) {
     element: editorWrap,
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Type something...' }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === 'sectionTitle') return 'Untitled section';
+          return 'Type something...';
+        },
+      }),
+      SectionTitle,
+      SectionBody,
       ReportSection,
     ],
     content: {
       type: 'doc',
       content: [{
         type: 'reportSection',
-        attrs: { title: 'Reason for Referral' },
-        content: [{ type: 'paragraph', content: [] }],
+        content: [
+          { type: 'sectionTitle', content: [{ type: 'text', text: 'Reason for Referral' }] },
+          { type: 'sectionBody', content: [{ type: 'paragraph', content: [] }] },
+        ],
       }],
     },
   });
-  // TEMP_DIAGNOSE: deferred editor state snapshot (100ms past mount)
-  setTimeout(() => {
-    console.log('[ED-defer]',
-      'view available=', !!editor.view,
-      'view.dom contentEditable=', editor.view?.dom?.contentEditable,
-      'isEditable=', editor.isEditable);
-  }, 100);
 
   // Inject scoped CSS (once)
   if (!document.getElementById('tiptap-gate-css')) {
@@ -338,23 +319,27 @@ export async function mountGateEditor(containerEl) {
 
       /* reportSection node */
       .rpt-section { border-top:3px solid #0d9488; margin:16px 0; position:relative; }
-      .rpt-section-header { display:flex; align-items:center; gap:6px; padding:8px 0 4px; }
+      .rpt-section-header { position:absolute; top:4px; inset-inline-end:0; display:flex; align-items:center; gap:4px; z-index:1; }
       .rpt-section-move { display:inline-flex; align-items:center; justify-content:center; background:none; border:1px solid #d1e0dd; border-radius:6px; cursor:pointer; font-size:14px; color:#64748b; padding:2px 6px; min-width:28px; min-height:28px; flex-shrink:0; }
       .rpt-section-move:hover { background:#f0fdf9; color:#0d9488; }
       .rpt-section-move:disabled { opacity:.3; cursor:default; }
-      .rpt-section-title { flex:1; font-size:13px; font-weight:700; color:#0d9488; text-transform:uppercase; letter-spacing:.05em; outline:none; min-width:0; border:none; background:transparent; padding:2px 4px; border-radius:4px; cursor:text; }
-      .rpt-section-title:focus { background:#f0fdf9; box-shadow:0 0 0 2px rgba(13,148,136,.2); }
-      .rpt-section-title:empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; }
       .rpt-section-remove { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:16px; padding:2px 6px; border-radius:4px; flex-shrink:0; transition:color .12s,background .12s; min-width:28px; min-height:28px; display:flex; align-items:center; justify-content:center; }
       .rpt-section-remove:hover { color:#dc2626; background:#fef2f2; }
-      .rpt-section-content { padding:4px 0; }
+      .rpt-section-content { padding:0; }
+
+      /* sectionTitle — rendered by ProseMirror, styled via CSS */
+      .rpt-section-title { font-size:14px; font-weight:700; color:#0d9488; text-transform:uppercase; letter-spacing:.05em; padding:8px 80px 4px 4px; border-radius:4px; cursor:text; outline:none; min-height:24px; }
+      .rpt-section-title:focus { background:#f0fdf9; }
+      .rpt-section-title.is-empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; float:left; height:0; }
+
+      /* sectionBody */
+      .rpt-section-body { padding:4px 0; }
 
       /* Section picker dropdown */
       .rpt-section-picker { position:absolute; top:100%; inset-inline-start:0; margin-top:6px; background:#fff; border:1px solid #d1e0dd; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.1); max-height:260px; overflow-y:auto; z-index:10; min-width:220px; padding:4px 0; }
       .rpt-section-picker-item { padding:10px 14px; font-size:14px; color:#0f1a18; cursor:pointer; transition:background .1s; }
       .rpt-section-picker-item:hover { background:#f0fdf9; }
 
-      /* Drag visuals */
       .ProseMirror .rpt-section.ProseMirror-selectednode { outline:2px solid #0d9488; outline-offset:2px; border-radius:6px; }
     `;
     document.head.appendChild(style);
