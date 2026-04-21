@@ -485,6 +485,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       const result = await saveDraft({ reportId, content: json, childId });
       if (!reportId) reportId = result.id;
       dirty = false;
+      console.log('[SAVE]', 'save succeeded, dirty set to false');
       showSaveStatus('Saved', 'saved');
     } catch (e) {
       if (e.name === 'AbortError') { saving = false; return; }
@@ -499,7 +500,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
     _saveTimer = setTimeout(doSave, 2000);
   }
 
-  editor.on('update', () => {
+  editor.on('update', ({ transaction }) => {
+    console.log('[UPDATE]', 'fired', 'docChanged=', transaction.docChanged, 'currentDirty=', dirty, 'saving=', saving);
     dirty = true;
     scheduleSave();
   });
