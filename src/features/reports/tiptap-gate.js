@@ -89,12 +89,16 @@ export async function mountGateEditor(containerEl) {
         moveUp.textContent = '\u2191';
         moveUp.onpointerdown = (ev) => ev.preventDefault();
         moveUp.onclick = () => {
-          const pos = getPos();
+          console.log('[MOVE]', 'up click fired');
+          const pos = getPos?.();
+          console.log('[MOVE]', 'posAtClick=', pos, 'docChildCount=', ed?.state?.doc?.childCount);
           if (pos === undefined || pos === null) return;
           ed.chain().focus().command(({ tr, state }) => {
             const doc = state.doc;
+            const docChildren = []; state.doc.forEach((child, offset, idx) => { docChildren.push({ offset, idx, type: child.type.name, nodeSize: child.nodeSize }); }); console.log('[MOVE-CMD]', 'up handler', 'pos=', pos, 'children=', docChildren);
             let thisIdx = -1, thisPos = -1;
             doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+            console.log('[MOVE-CMD]', 'up match', 'thisIdx=', thisIdx, 'thisPos=', thisPos);
             if (thisIdx <= 0) return false;
             const thisNode = doc.child(thisIdx);
             const prevNode = doc.child(thisIdx - 1);
@@ -115,12 +119,16 @@ export async function mountGateEditor(containerEl) {
         moveDown.textContent = '\u2193';
         moveDown.onpointerdown = (ev) => ev.preventDefault();
         moveDown.onclick = () => {
-          const pos = getPos();
+          console.log('[MOVE]', 'down click fired');
+          const pos = getPos?.();
+          console.log('[MOVE]', 'posAtClick=', pos, 'docChildCount=', ed?.state?.doc?.childCount);
           if (pos === undefined || pos === null) return;
           ed.chain().focus().command(({ tr, state }) => {
             const doc = state.doc;
+            const docChildren = []; state.doc.forEach((child, offset, idx) => { docChildren.push({ offset, idx, type: child.type.name, nodeSize: child.nodeSize }); }); console.log('[MOVE-CMD]', 'down handler', 'pos=', pos, 'children=', docChildren);
             let thisIdx = -1, thisPos = -1;
             doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+            console.log('[MOVE-CMD]', 'down match', 'thisIdx=', thisIdx, 'thisPos=', thisPos);
             if (thisIdx < 0 || thisIdx >= doc.childCount - 1) return false;
             const thisNode = doc.child(thisIdx);
             const nextNode = doc.child(thisIdx + 1);
