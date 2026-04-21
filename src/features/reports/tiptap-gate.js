@@ -59,10 +59,22 @@ export async function mountGateEditor(containerEl) {
 
     addNodeView() {
       return ({ node, getPos, editor: ed }) => {
+        // TEMP_DIAGNOSE: lifecycle marker (no view access)
+        console.log('[NV] created', node.attrs.title);
+
         // Outer wrapper
         const dom = document.createElement('div');
         dom.classList.add('rpt-section');
         dom.setAttribute('data-type', 'report-section');
+        // TEMP_DIAGNOSE: capture-phase event logging on section dom
+        ['pointerdown', 'mousedown', 'click'].forEach(type => {
+          dom.addEventListener(type, (e) => {
+            console.log('[SECTION]', type,
+              'target=', e.target?.tagName,
+              'target class=', e.target?.className,
+              'defaultPrevented=', e.defaultPrevented);
+          }, true);
+        });
 
         // Header row
         const header = document.createElement('div');
@@ -149,6 +161,24 @@ export async function mountGateEditor(containerEl) {
           const text = e.clipboardData?.getData('text/plain') || '';
           document.execCommand('insertText', false, text);
         });
+        // TEMP_DIAGNOSE: deferred post-mount snapshot of title DOM state
+        setTimeout(() => {
+          console.log('[NV-defer]',
+            'title exists in DOM=', document.contains(titleEl),
+            'title contentEditable=', titleEl.contentEditable,
+            'title parent contentEditable=', titleEl.parentElement?.contentEditable,
+            'title outerHTML=', titleEl.outerHTML);
+        }, 0);
+        // TEMP_DIAGNOSE: capture-phase event logging on title
+        ['pointerdown', 'mousedown', 'click', 'focus', 'focusin', 'input', 'keydown'].forEach(type => {
+          titleEl.addEventListener(type, (e) => {
+            console.log('[TITLE]', type,
+              'target=', e.target?.tagName,
+              'target contentEditable=', e.target?.contentEditable,
+              'defaultPrevented=', e.defaultPrevented,
+              'propagation stopped=', e.cancelBubble);
+          }, true);
+        });
         header.appendChild(titleEl);
 
         // Remove button
@@ -186,8 +216,15 @@ export async function mountGateEditor(containerEl) {
         return {
           dom,
           contentDOM,
+          // TEMP_DIAGNOSE: stopEvent invocation tracking
           stopEvent(event) {
-            return titleEl.contains(event.target);
+            const result = titleEl.contains(event.target);
+            console.log('[SE]', event.type, 'target=', event.target?.tagName, 'titleContains=', result);
+            return result;
+          },
+          // TEMP_DIAGNOSE: lifecycle destroy marker
+          destroy() {
+            console.log('[NV] destroyed', node.attrs.title);
           },
         };
       };
@@ -276,6 +313,13 @@ export async function mountGateEditor(containerEl) {
       }],
     },
   });
+  // TEMP_DIAGNOSE: deferred editor state snapshot (100ms past mount)
+  setTimeout(() => {
+    console.log('[ED-defer]',
+      'view available=', !!editor.view,
+      'view.dom contentEditable=', editor.view?.dom?.contentEditable,
+      'isEditable=', editor.isEditable);
+  }, 100);
 
   // Inject scoped CSS (once)
   if (!document.getElementById('tiptap-gate-css')) {
