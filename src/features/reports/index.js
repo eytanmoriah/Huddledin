@@ -47,7 +47,7 @@ function _getSectionCount(sections) {
   return _getSectionIds(sections).length;
 }
 
-function _buildCredentials(session) {
+export function _buildCredentials(session) {
   const parts = [];
   if (session?.credentials_title) parts.push(session.credentials_title);
   if (session?.credentials_certs) parts.push(session.credentials_certs);
@@ -55,7 +55,7 @@ function _buildCredentials(session) {
   return parts.join(', ');
 }
 
-function _downloadBlob(blob, reportType, childName) {
+export function _downloadBlob(blob, reportType, childName) {
   const name = (reportType || 'Report').replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_');
   const child = (childName || 'Patient').replace(/\s+/g, '_');
   const date = new Date().toISOString().split('T')[0];
@@ -68,7 +68,7 @@ function _downloadBlob(blob, reportType, childName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function calcAge(dob) {
+export function calcAge(dob) {
   if (!dob) return '';
   const b = new Date(dob), n = new Date();
   let y = n.getFullYear() - b.getFullYear(), m = n.getMonth() - b.getMonth();
@@ -173,7 +173,7 @@ async function loadData() {
   }
 }
 
-async function ensureBranding() {
+export async function ensureBranding() {
   if (RS.brandingLoaded) return;
   const { _supa, session } = H();
   if (!_supa || !session) return;
@@ -185,7 +185,7 @@ async function ensureBranding() {
   } catch (e) { console.error('Load branding:', e); RS.brandingLoaded = true; }
 }
 
-function getBranding() {
+export function getBranding() {
   const result = { ...DEFAULT_BRANDING, ...(RS.branding || {}) };
   return result;
 }
@@ -276,6 +276,10 @@ export function renderReports() {
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(r.created_at ? new Date(r.created_at).toLocaleDateString() : '')]));
     card.onclick = () => {
+      if ((r.status === 'generated' || r.status === 'finalized') && r.content && typeof window.HUD_openTiptapGate === 'function') {
+        window.HUD_openTiptapGate({ reportId: r.id, childId: r.child_id, readOnly: r.status === 'finalized' });
+        return;
+      }
       RS.currentReport = r; RS.selectedChildId = r.child_id;
       RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
       RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
@@ -807,7 +811,7 @@ async function _saveDraft(session, _supa, tplName) {
 }
 
 // Share finalized report with parents — uploads to specialist's shared folder, sends notifications
-async function _shareReportWithParents(report, generatedText, _supa, session) {
+export async function _shareReportWithParents(report, generatedText, _supa, session) {
   const { DB, SB } = H();
   const childId = report.child_id;
   const children = getChildren();

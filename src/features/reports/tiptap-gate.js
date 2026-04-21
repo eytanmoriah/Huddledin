@@ -36,6 +36,66 @@ let _beforeUnloadHandler = null;
 function _supa() { return window.HUD?._supa; }
 function _session() { return window.HUD?.session; }
 
+// ── Markdown serializer ──
+export function tiptapToMarkdown(content) {
+  try {
+    if (!content?.content?.length) return '';
+    return _serializeNodes(content.content).trim();
+  } catch (_) { return '[Unable to render content]'; }
+}
+
+function _serializeNodes(nodes) {
+  if (!nodes) return '';
+  return nodes.map(_serializeNode).join('');
+}
+
+function _serializeNode(node) {
+  if (!node) return '';
+  const t = node.type;
+  if (t === 'text') return _wrapMarks(node.text || '', node.marks);
+  if (t === 'hardBreak') return '  \n';
+  if (t === 'reportSection') {
+    const title = node.content?.[0];
+    const body = node.content?.[1];
+    const titleText = _extractText(title);
+    const bodyMd = body ? _serializeNodes(body.content) : '';
+    return '## ' + (titleText || 'Untitled') + '\n\n' + bodyMd + '\n';
+  }
+  if (t === 'sectionTitle') return _extractText(node);
+  if (t === 'sectionBody') return _serializeNodes(node.content);
+  if (t === 'paragraph') return _serializeNodes(node.content) + '\n\n';
+  if (t === 'heading') {
+    const lvl = node.attrs?.level || 1;
+    const prefix = lvl === 1 ? '# ' : lvl === 2 ? '### ' : '#### ';
+    return prefix + _serializeNodes(node.content) + '\n\n';
+  }
+  if (t === 'bulletList') return (node.content || []).map(li => '- ' + _serializeNodes(li.content?.[0]?.content).trim() + '\n').join('') + '\n';
+  if (t === 'orderedList') return (node.content || []).map(li => '1. ' + _serializeNodes(li.content?.[0]?.content).trim() + '\n').join('') + '\n';
+  if (t === 'listItem') return _serializeNodes(node.content);
+  if (node.content) return _serializeNodes(node.content);
+  return '';
+}
+
+function _wrapMarks(text, marks) {
+  if (!marks?.length) return text;
+  let out = text;
+  const isBold = marks.some(m => m.type === 'bold');
+  const isItalic = marks.some(m => m.type === 'italic');
+  if (isBold && isItalic) out = '***' + out + '***';
+  else if (isBold) out = '**' + out + '**';
+  else if (isItalic) out = '*' + out + '*';
+  return out;
+}
+
+function _extractText(node) {
+  if (!node) return '';
+  if (node.type === 'text') return node.text || '';
+  if (node.content) return node.content.map(_extractText).join('');
+  return '';
+}
+
+// ── Data helpers ──
+
 async function _findDefaultChild() {
   const db = window.HUD?.DB;
   const children = db?.children || [];
@@ -49,6 +109,12 @@ async function _findDefaultChild() {
     return ls[0].id;
   }
   return null;
+}
+
+function _resolveChild(childId) {
+  const db = window.HUD?.DB?.children || [];
+  const ls = window.HUD?.LS?.get?.('children', []) || [];
+  return [...db, ...ls].find(c => c.id === childId);
 }
 
 async function saveDraft({ reportId, content, childId }) {
@@ -66,7 +132,7 @@ async function saveDraft({ reportId, content, childId }) {
       .eq('id', reportId)
       .select('id, updated_at')
       .single();
-    if (error) { console.error('❌ draft update:', error); throw error; }
+    if (error) { console.error('\u274c draft update:', error); throw error; }
     return { id: data.id, updated_at: data.updated_at };
   }
 
@@ -81,7 +147,7 @@ async function saveDraft({ reportId, content, childId }) {
     })
     .select('id, updated_at')
     .single();
-  if (error) { console.error('❌ draft insert:', error); throw error; }
+  if (error) { console.error('\u274c draft insert:', error); throw error; }
   return { id: data.id, updated_at: data.updated_at };
 }
 
@@ -95,10 +161,10 @@ export async function listDrafts({ specialistId }) {
       .eq('status', 'draft')
       .not('content', 'is', null)
       .order('updated_at', { ascending: false });
-    if (error) { console.error('❌ listDrafts:', error); return []; }
+    if (error) { console.error('\u274c listDrafts:', error); return []; }
     return data || [];
   } catch (e) {
-    console.error('❌ listDrafts:', e);
+    console.error('\u274c listDrafts:', e);
     return [];
   }
 }
@@ -111,10 +177,10 @@ export async function deleteDraft({ reportId }) {
       .delete()
       .eq('id', reportId)
       .eq('status', 'draft');
-    if (error) { console.error('❌ deleteDraft:', error); return { ok: false, error }; }
+    if (error) { console.error('\u274c deleteDraft:', error); return { ok: false, error }; }
     return { ok: true };
   } catch (e) {
-    console.error('❌ deleteDraft:', e);
+    console.error('\u274c deleteDraft:', e);
     return { ok: false, error: e };
   }
 }
@@ -131,61 +197,64 @@ export async function findExistingDraft({ specialistId, childId }) {
       .not('content', 'is', null)
       .order('updated_at', { ascending: false })
       .limit(1);
-    if (error) { console.error('❌ findExistingDraft:', error); return null; }
+    if (error) { console.error('\u274c findExistingDraft:', error); return null; }
     return data?.length ? data[0] : null;
   } catch (e) {
-    console.error('❌ findExistingDraft:', e);
+    console.error('\u274c findExistingDraft:', e);
     return null;
   }
 }
 
-async function loadDraft(reportId) {
+async function loadReport(reportId) {
   const supa = _supa();
   if (!supa) return { error: 'not_authenticated' };
-
   const { data, error } = await supa.from('reports')
-    .select('id, content, schema_version, child_id, updated_at')
+    .select('id, content, schema_version, child_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, finalized_at')
     .eq('id', reportId)
     .single();
-  if (error) { console.error('❌ draft load:', error); return { error: error.message }; }
+  if (error) { console.error('\u274c report load:', error); return { error: error.message }; }
   if (!data) return { error: 'not_found' };
   if (data.schema_version && data.schema_version !== 1) return { error: 'unsupported_schema' };
-  return { content: data.content, childId: data.child_id, updatedAt: data.updated_at };
+  return { data };
 }
 
 export async function mountGateEditor(containerEl, opts = {}) {
   containerEl.textContent = 'Loading editor...';
 
-  const { Editor, Node, mergeAttributes, InputRule } = await import('@tiptap/core');
+  const { Editor, Node, mergeAttributes } = await import('@tiptap/core');
   const { default: StarterKit } = await import('@tiptap/starter-kit');
   const { default: Placeholder } = await import('@tiptap/extension-placeholder');
   const { TextSelection } = await import('@tiptap/pm/state');
 
   const _confirm = window.HUD?.openConfirm;
+  const _toast = window.HUD?.toast;
+  const isReadOnly = !!opts.readOnly;
 
-  // ── Resolve draft + patient ──
-  let reportId = opts.draftId || null;
+  // ── Resolve report data ──
+  let reportId = opts.draftId || opts.reportId || null;
   let childId = opts.childId || null;
   let initialContent = null;
   let loadMessage = null;
+  let reportRow = null;
 
   if (reportId && !opts.startNew) {
-    const result = await loadDraft(reportId);
+    const result = await loadReport(reportId);
     if (result.error) {
       containerEl.textContent = '';
       const errMsg = result.error === 'unsupported_schema'
         ? 'This draft uses a newer editor format and cannot be opened in this version.'
-        : 'Failed to load draft: ' + result.error;
+        : 'Failed to load report: ' + result.error;
       const errEl = document.createElement('div');
       errEl.style.cssText = 'padding:24px;text-align:center;color:#ef4444;font-size:15px;';
       errEl.textContent = errMsg;
       containerEl.appendChild(errEl);
       return null;
     }
-    initialContent = result.content;
-    if (result.childId) childId = result.childId;
-    if (result.updatedAt) {
-      const d = new Date(result.updatedAt);
+    reportRow = result.data;
+    initialContent = reportRow.content;
+    if (reportRow.child_id) childId = reportRow.child_id;
+    if (reportRow.status === 'draft' && reportRow.updated_at) {
+      const d = new Date(reportRow.updated_at);
       loadMessage = 'Continuing draft from ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
   }
@@ -195,6 +264,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
   if (!childId) {
     childId = await _findDefaultChild();
   }
+
+  const isFinalized = reportRow?.status === 'finalized' || isReadOnly;
 
   const ReportDoc = Node.create({
     name: 'doc',
@@ -242,85 +313,86 @@ export async function mountGateEditor(containerEl, opts = {}) {
         dom.classList.add('rpt-section');
         dom.setAttribute('data-type', 'report-section');
 
-        const header = document.createElement('div');
-        header.classList.add('rpt-section-header');
-        header.contentEditable = 'false';
+        if (!isFinalized) {
+          const header = document.createElement('div');
+          header.classList.add('rpt-section-header');
+          header.contentEditable = 'false';
 
-        const moveUp = document.createElement('button');
-        moveUp.classList.add('rpt-section-move');
-        moveUp.textContent = '\u2191';
-        moveUp.onpointerdown = (ev) => ev.preventDefault();
-        moveUp.onclick = () => {
-          const pos = getPos();
-          if (pos === undefined || pos === null) return;
-          ed.chain().focus().command(({ tr, state }) => {
-            const doc = state.doc;
-            let thisIdx = -1, thisPos = -1;
-            doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
-            if (thisIdx <= 0) return false;
-            const thisNode = doc.child(thisIdx);
-            const prevNode = doc.child(thisIdx - 1);
-            if (prevNode.type.name !== 'reportSection') return false;
-            const prevPos = thisPos - prevNode.nodeSize;
-            tr.replaceWith(prevPos, thisPos + thisNode.nodeSize, [thisNode, prevNode]);
-            const titleNode = thisNode.child(0);
-            const bodyStart = prevPos + 1 + titleNode.nodeSize + 1 + 1;
-            try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
-            return true;
-          }).run();
-        };
-        header.appendChild(moveUp);
-
-        const moveDown = document.createElement('button');
-        moveDown.classList.add('rpt-section-move');
-        moveDown.textContent = '\u2193';
-        moveDown.onpointerdown = (ev) => ev.preventDefault();
-        moveDown.onclick = () => {
-          const pos = getPos();
-          if (pos === undefined || pos === null) return;
-          ed.chain().focus().command(({ tr, state }) => {
-            const doc = state.doc;
-            let thisIdx = -1, thisPos = -1;
-            doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
-            if (thisIdx < 0 || thisIdx >= doc.childCount - 1) return false;
-            const thisNode = doc.child(thisIdx);
-            const nextNode = doc.child(thisIdx + 1);
-            if (nextNode.type.name !== 'reportSection') return false;
-            const rangeEnd = thisPos + thisNode.nodeSize + nextNode.nodeSize;
-            tr.replaceWith(thisPos, rangeEnd, [nextNode, thisNode]);
-            const newPos = thisPos + nextNode.nodeSize;
-            const titleNode = thisNode.child(0);
-            const bodyStart = newPos + 1 + titleNode.nodeSize + 1 + 1;
-            try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
-            return true;
-          }).run();
-        };
-        header.appendChild(moveDown);
-
-        const removeBtn = document.createElement('button');
-        removeBtn.classList.add('rpt-section-remove');
-        removeBtn.textContent = '\u2715';
-        removeBtn.onpointerdown = (ev) => ev.preventDefault();
-        removeBtn.onclick = () => {
-          const doRemove = () => {
+          const moveUp = document.createElement('button');
+          moveUp.classList.add('rpt-section-move');
+          moveUp.textContent = '\u2191';
+          moveUp.onpointerdown = (ev) => ev.preventDefault();
+          moveUp.onclick = () => {
             const pos = getPos();
             if (pos === undefined || pos === null) return;
-            ed.chain().focus().command(({ tr }) => {
-              const liveNode = tr.doc.nodeAt(pos);
-              if (!liveNode || liveNode.type.name !== 'reportSection') return false;
-              tr.delete(pos, pos + liveNode.nodeSize);
+            ed.chain().focus().command(({ tr, state }) => {
+              const doc = state.doc;
+              let thisIdx = -1, thisPos = -1;
+              doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+              if (thisIdx <= 0) return false;
+              const thisNode = doc.child(thisIdx);
+              const prevNode = doc.child(thisIdx - 1);
+              if (prevNode.type.name !== 'reportSection') return false;
+              const prevPos = thisPos - prevNode.nodeSize;
+              tr.replaceWith(prevPos, thisPos + thisNode.nodeSize, [thisNode, prevNode]);
+              const titleNode = thisNode.child(0);
+              const bodyStart = prevPos + 1 + titleNode.nodeSize + 1 + 1;
+              try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
               return true;
             }).run();
           };
-          if (_confirm) {
-            _confirm('Remove Section', 'Remove this section? All content will be lost.', true, doRemove);
-          } else {
-            doRemove();
-          }
-        };
-        header.appendChild(removeBtn);
+          header.appendChild(moveUp);
 
-        dom.appendChild(header);
+          const moveDown = document.createElement('button');
+          moveDown.classList.add('rpt-section-move');
+          moveDown.textContent = '\u2193';
+          moveDown.onpointerdown = (ev) => ev.preventDefault();
+          moveDown.onclick = () => {
+            const pos = getPos();
+            if (pos === undefined || pos === null) return;
+            ed.chain().focus().command(({ tr, state }) => {
+              const doc = state.doc;
+              let thisIdx = -1, thisPos = -1;
+              doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+              if (thisIdx < 0 || thisIdx >= doc.childCount - 1) return false;
+              const thisNode = doc.child(thisIdx);
+              const nextNode = doc.child(thisIdx + 1);
+              if (nextNode.type.name !== 'reportSection') return false;
+              const rangeEnd = thisPos + thisNode.nodeSize + nextNode.nodeSize;
+              tr.replaceWith(thisPos, rangeEnd, [nextNode, thisNode]);
+              const newPos = thisPos + nextNode.nodeSize;
+              const titleNode = thisNode.child(0);
+              const bodyStart = newPos + 1 + titleNode.nodeSize + 1 + 1;
+              try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
+              return true;
+            }).run();
+          };
+          header.appendChild(moveDown);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.classList.add('rpt-section-remove');
+          removeBtn.textContent = '\u2715';
+          removeBtn.onpointerdown = (ev) => ev.preventDefault();
+          removeBtn.onclick = () => {
+            const doRemove = () => {
+              const pos = getPos();
+              if (pos === undefined || pos === null) return;
+              ed.chain().focus().command(({ tr }) => {
+                const liveNode = tr.doc.nodeAt(pos);
+                if (!liveNode || liveNode.type.name !== 'reportSection') return false;
+                tr.delete(pos, pos + liveNode.nodeSize);
+                return true;
+              }).run();
+            };
+            if (_confirm) {
+              _confirm('Remove Section', 'Remove this section? All content will be lost.', true, doRemove);
+            } else {
+              doRemove();
+            }
+          };
+          header.appendChild(removeBtn);
+          dom.appendChild(header);
+        }
 
         const contentDOM = document.createElement('div');
         contentDOM.classList.add('rpt-section-content');
@@ -378,81 +450,212 @@ export async function mountGateEditor(containerEl, opts = {}) {
   // Toolbar
   const toolbar = document.createElement('div');
   toolbar.className = 'tiptap-gate-toolbar';
-  const fmtActions = [
-    { label: 'B', cmd: e => e.chain().focus().toggleBold().run() },
-    { label: 'I', cmd: e => e.chain().focus().toggleItalic().run() },
-    { label: 'H1', cmd: e => e.chain().focus().toggleHeading({ level: 1 }).run() },
-    { label: '\u2022 List', cmd: e => e.chain().focus().toggleBulletList().run() },
-    { label: '1. List', cmd: e => e.chain().focus().toggleOrderedList().run() },
-    { label: 'RTL \u21C4', cmd: (_e, editorEl) => {
-        const pm = editorEl.querySelector('.ProseMirror');
-        if (pm) pm.setAttribute('dir', pm.getAttribute('dir') === 'rtl' ? 'ltr' : 'rtl');
-      }
-    },
-  ];
-  fmtActions.forEach(a => {
-    const btn = document.createElement('button');
-    btn.textContent = a.label;
-    btn.onpointerdown = (ev) => ev.preventDefault();
-    btn.onclick = () => a.cmd(editor, editorWrap);
-    toolbar.appendChild(btn);
-  });
 
-  // Section picker button + dropdown
-  const pickerWrap = document.createElement('div');
-  pickerWrap.style.cssText = 'position:relative;display:inline-block;';
-  const pickerBtn = document.createElement('button');
-  pickerBtn.textContent = '+ Add Section';
-  pickerBtn.onpointerdown = (ev) => ev.preventDefault();
-  pickerBtn.onclick = () => {
-    const existing = pickerWrap.querySelector('.rpt-section-picker');
-    if (existing) { existing.remove(); return; }
-    const dropdown = document.createElement('div');
-    dropdown.className = 'rpt-section-picker';
-    SECTION_PICKER_LIST.forEach(title => {
-      const item = document.createElement('div');
-      item.className = 'rpt-section-picker-item';
-      item.textContent = title;
-      item.onclick = () => {
-        dropdown.remove();
-        editor.chain().focus().command(({ tr, state }) => {
-          const insertPos = state.doc.content.size;
-          const s = state.schema.nodes;
-          const newSection = s.reportSection.create({}, [
-            s.sectionTitle.create({}, state.schema.text(title)),
-            s.sectionBody.create({}, s.paragraph.create()),
-          ]);
-          tr.insert(insertPos, newSection);
-          const titleNode = newSection.child(0);
-          const bodyStart = insertPos + 1 + titleNode.nodeSize + 1 + 1;
-          try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
-          return true;
-        }).run();
-      };
-      dropdown.appendChild(item);
+  if (!isFinalized) {
+    const fmtActions = [
+      { label: 'B', cmd: e => e.chain().focus().toggleBold().run() },
+      { label: 'I', cmd: e => e.chain().focus().toggleItalic().run() },
+      { label: 'H1', cmd: e => e.chain().focus().toggleHeading({ level: 1 }).run() },
+      { label: '\u2022 List', cmd: e => e.chain().focus().toggleBulletList().run() },
+      { label: '1. List', cmd: e => e.chain().focus().toggleOrderedList().run() },
+      { label: 'RTL \u21C4', cmd: (_e, editorEl) => {
+          const pm = editorEl.querySelector('.ProseMirror');
+          if (pm) pm.setAttribute('dir', pm.getAttribute('dir') === 'rtl' ? 'ltr' : 'rtl');
+        }
+      },
+    ];
+    fmtActions.forEach(a => {
+      const btn = document.createElement('button');
+      btn.textContent = a.label;
+      btn.onpointerdown = (ev) => ev.preventDefault();
+      btn.onclick = () => a.cmd(editor, editorWrap);
+      toolbar.appendChild(btn);
     });
-    pickerWrap.appendChild(dropdown);
-    const dismiss = (ev) => { if (!pickerWrap.contains(ev.target)) { dropdown.remove(); document.removeEventListener('pointerdown', dismiss); } };
-    setTimeout(() => document.addEventListener('pointerdown', dismiss), 10);
-  };
-  pickerWrap.appendChild(pickerBtn);
-  toolbar.appendChild(pickerWrap);
 
-  containerEl.appendChild(toolbar);
+    // Section picker
+    const pickerWrap = document.createElement('div');
+    pickerWrap.style.cssText = 'position:relative;display:inline-block;';
+    const pickerBtn = document.createElement('button');
+    pickerBtn.textContent = '+ Add Section';
+    pickerBtn.onpointerdown = (ev) => ev.preventDefault();
+    pickerBtn.onclick = () => {
+      const existing = pickerWrap.querySelector('.rpt-section-picker');
+      if (existing) { existing.remove(); return; }
+      const dropdown = document.createElement('div');
+      dropdown.className = 'rpt-section-picker';
+      SECTION_PICKER_LIST.forEach(title => {
+        const item = document.createElement('div');
+        item.className = 'rpt-section-picker-item';
+        item.textContent = title;
+        item.onclick = () => {
+          dropdown.remove();
+          editor.chain().focus().command(({ tr, state }) => {
+            const insertPos = state.doc.content.size;
+            const s = state.schema.nodes;
+            const newSection = s.reportSection.create({}, [
+              s.sectionTitle.create({}, state.schema.text(title)),
+              s.sectionBody.create({}, s.paragraph.create()),
+            ]);
+            tr.insert(insertPos, newSection);
+            const titleNode = newSection.child(0);
+            const bodyStart = insertPos + 1 + titleNode.nodeSize + 1 + 1;
+            try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
+            return true;
+          }).run();
+        };
+        dropdown.appendChild(item);
+      });
+      pickerWrap.appendChild(dropdown);
+      const dismiss = (ev) => { if (!pickerWrap.contains(ev.target)) { dropdown.remove(); document.removeEventListener('pointerdown', dismiss); } };
+      setTimeout(() => document.addEventListener('pointerdown', dismiss), 10);
+    };
+    pickerWrap.appendChild(pickerBtn);
+    toolbar.appendChild(pickerWrap);
+  }
 
-  // Save status indicator
+  // Save status indicator (edit mode only)
   const saveStatus = document.createElement('span');
   saveStatus.className = 'tiptap-gate-save-status';
-  toolbar.appendChild(saveStatus);
+  if (!isFinalized) toolbar.appendChild(saveStatus);
+
+  // Action buttons area (right side of toolbar)
+  const actionsWrap = document.createElement('div');
+  actionsWrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-inline-start:auto;';
+
+  function _mkActionBtn(label, style, onclick) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = style;
+    b.onpointerdown = (ev) => ev.preventDefault();
+    b.onclick = onclick;
+    return b;
+  }
+
+  async function _handleDownloadPDF() {
+    try {
+      const json = editor.getJSON();
+      const md = tiptapToMarkdown(json);
+      const { generatePDFBlob } = await import('./pdf-util.js');
+      const { ensureBranding, getBranding, calcAge, _buildCredentials, _downloadBlob } = await import('./index.js');
+      await ensureBranding();
+      const child = _resolveChild(childId);
+      const sess = _session();
+      const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
+      const si = { name: sess?.displayName || sess?.name || '', specialty: sess?.profession || '', credentials: _buildCredentials?.(sess) || '' };
+      const blob = await generatePDFBlob(md, reportRow?.report_type || 'general', ci, si, getBranding());
+      _downloadBlob(blob, reportRow?.report_type || 'general', child?.name);
+      _toast?.('\ud83d\udce5 PDF downloaded!');
+    } catch (e) {
+      console.error('\u274c PDF export:', e);
+      _toast?.('PDF generation failed: ' + e.message, 'error');
+    }
+  }
+
+  async function _handleShare() {
+    try {
+      const { _shareReportWithParents, ensureBranding } = await import('./index.js');
+      const sess = _session();
+      const supa = _supa();
+      const md = reportRow?.generated_text || tiptapToMarkdown(editor.getJSON());
+      await _shareReportWithParents({ ...reportRow, id: reportId }, md, supa, sess);
+      reportRow.shared_with_parents = true;
+      reportRow.shared_at = new Date().toISOString();
+      if (shareBtn) shareBtn.remove();
+      statusLine.textContent = '\u2705 Shared with parents on ' + new Date().toLocaleDateString();
+      _toast?.('\ud83d\udce4 Report shared with parents!');
+      try { window.HUD?.re?.(); } catch (_) {}
+    } catch (e) {
+      console.error('\u274c Share:', e);
+      _toast?.('Could not share: ' + e.message, 'error');
+    }
+  }
+
+  let shareBtn = null;
+
+  if (isFinalized) {
+    if (reportRow?.finalized_at) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'font-size:12px;color:#0d9488;font-weight:600;white-space:nowrap;';
+      badge.textContent = '\ud83d\udd12 Finalized ' + new Date(reportRow.finalized_at).toLocaleDateString();
+      actionsWrap.appendChild(badge);
+    }
+    actionsWrap.appendChild(_mkActionBtn('\ud83d\udce5 Download PDF', 'padding:6px 14px;border:1px solid #d1e0dd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;', _handleDownloadPDF));
+    if (!reportRow?.shared_with_parents) {
+      shareBtn = _mkActionBtn('\ud83d\udce4 Share with Parents', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', _handleShare);
+      actionsWrap.appendChild(shareBtn);
+    }
+  } else {
+    // Finalize button (edit mode)
+    const finalizeBtn = _mkActionBtn('\u2705 Finalize', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
+      if (!reportId || !childId) { _toast?.('Cannot finalize \u2014 save a draft first.', 'error'); return; }
+      if (reportRow?.status === 'finalized') return;
+      const doFinalize = async () => {
+        try {
+          const json = editor.getJSON();
+          const md = tiptapToMarkdown(json);
+          const supa = _supa();
+          const { data, error } = await supa.from('reports')
+            .update({
+              content: json, generated_text: md, schema_version: 1,
+              status: 'finalized', finalized_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+            })
+            .eq('id', reportId)
+            .select('id, finalized_at, status')
+            .single();
+          if (error) { console.error('\u274c finalize:', error); _toast?.('Finalize failed.', 'error'); return; }
+          reportRow = { ...(reportRow || {}), ...data, content: json, generated_text: md, child_id: childId, report_type: reportRow?.report_type || 'general' };
+          editor.setEditable(false);
+          // Swap toolbar to read-only actions
+          toolbar.textContent = '';
+          toolbar.className = 'tiptap-gate-toolbar';
+          const roBadge = document.createElement('span');
+          roBadge.style.cssText = 'font-size:12px;color:#0d9488;font-weight:600;white-space:nowrap;';
+          roBadge.textContent = '\ud83d\udd12 Finalized ' + new Date(data.finalized_at).toLocaleDateString();
+          toolbar.appendChild(roBadge);
+          const roActions = document.createElement('div');
+          roActions.style.cssText = 'display:flex;gap:6px;align-items:center;margin-inline-start:auto;';
+          roActions.appendChild(_mkActionBtn('\ud83d\udce5 Download PDF', 'padding:6px 14px;border:1px solid #d1e0dd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;', _handleDownloadPDF));
+          shareBtn = _mkActionBtn('\ud83d\udce4 Share with Parents', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', _handleShare);
+          roActions.appendChild(shareBtn);
+          toolbar.appendChild(roActions);
+          // Hide section controls
+          editorWrap.querySelectorAll('.rpt-section-header').forEach(h => h.style.display = 'none');
+          // Update status + title
+          statusLine.textContent = '\u2705 Report finalized.';
+          if (opts._setTitle) {
+            const child = _resolveChild(childId);
+            opts._setTitle('Viewing finalized report' + (child?.name ? ' \u2014 ' + child.name : ''));
+          }
+          _toast?.('\u2705 Report finalized!');
+          dirty = false;
+          clearTimeout(_saveTimer); clearInterval(_tickTimer);
+          try { window.HUD?.re?.(); } catch (_) {}
+        } catch (e) {
+          console.error('\u274c finalize:', e);
+          _toast?.('Finalize failed.', 'error');
+        }
+      };
+      if (_confirm) {
+        _confirm('Finalize report?', 'Once finalized, the report cannot be edited. This action is permanent.', false, doFinalize);
+      } else {
+        doFinalize();
+      }
+    });
+    actionsWrap.appendChild(finalizeBtn);
+  }
+
+  toolbar.appendChild(actionsWrap);
+  containerEl.appendChild(toolbar);
 
   // Editor container
   const editorWrap = document.createElement('div');
-  editorWrap.className = 'tiptap-gate-editor';
+  editorWrap.className = 'tiptap-gate-editor' + (isFinalized ? ' tiptap-gate-readonly' : '');
   containerEl.appendChild(editorWrap);
 
   // Mount Tiptap
   const editor = new Editor({
     element: editorWrap,
+    editable: !isFinalized,
     extensions: [
       StarterKit.configure({ document: false }),
       ReportDoc,
@@ -477,7 +680,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       .tiptap-gate-toolbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
       .tiptap-gate-toolbar button { padding:6px 12px; border:1px solid #d1e0dd; border-radius:8px; background:#fff; font-size:14px; cursor:pointer; min-height:36px; font-family:inherit; transition:background .12s; }
       .tiptap-gate-toolbar button:hover { background:#f0fdf9; }
-      .tiptap-gate-save-status { font-size:12px; margin-inline-start:auto; padding:4px 10px; border-radius:6px; transition:opacity .3s; opacity:0; white-space:nowrap; }
+      .tiptap-gate-save-status { font-size:12px; padding:4px 10px; border-radius:6px; transition:opacity .3s; opacity:0; white-space:nowrap; }
       .tiptap-gate-save-status.saved { color:#0d9488; opacity:1; }
       .tiptap-gate-save-status.saving { color:#64748b; opacity:1; }
       .tiptap-gate-save-status.error { color:#ef4444; opacity:1; }
@@ -508,6 +711,10 @@ export async function mountGateEditor(containerEl, opts = {}) {
       .rpt-section-picker-item:hover { background:#f0fdf9; }
 
       .ProseMirror .rpt-section.ProseMirror-selectednode { outline:2px solid #0d9488; outline-offset:2px; border-radius:6px; }
+
+      .tiptap-gate-readonly .rpt-section-title { cursor:default; padding-inline-end:4px; }
+      .tiptap-gate-readonly .rpt-section-title:focus { background:none; }
+      .tiptap-gate-readonly .ProseMirror { cursor:default; }
     `;
     document.head.appendChild(style);
   }
@@ -515,75 +722,87 @@ export async function mountGateEditor(containerEl, opts = {}) {
   // Status line
   const statusLine = document.createElement('div');
   statusLine.style.cssText = 'margin-top:12px;font-size:13px;color:#64748b;';
-  statusLine.textContent = loadMessage || (childId ? 'Editor ready. Drafts auto-save.' : 'Editor ready. No patient linked \u2014 drafts will not save.');
+  if (isFinalized) {
+    const parts = [];
+    if (reportRow?.finalized_at) parts.push('\ud83d\udd12 Finalized on ' + new Date(reportRow.finalized_at).toLocaleDateString());
+    if (reportRow?.shared_with_parents) parts.push('\u2705 Shared with parents' + (reportRow.shared_at ? ' on ' + new Date(reportRow.shared_at).toLocaleDateString() : ''));
+    statusLine.textContent = parts.join(' \u00b7 ') || 'Viewing finalized report.';
+  } else {
+    statusLine.textContent = loadMessage || (childId ? 'Editor ready. Drafts auto-save.' : 'Editor ready. No patient linked \u2014 drafts will not save.');
+  }
   containerEl.appendChild(statusLine);
 
-  // ── Autosave plumbing ──
+  // ── Autosave plumbing (edit mode only) ──
   let dirty = false;
   let saving = false;
   let _statusTimeout = null;
 
-  function showSaveStatus(text, cls) {
-    saveStatus.textContent = text;
-    saveStatus.className = 'tiptap-gate-save-status ' + cls;
-    clearTimeout(_statusTimeout);
-    if (cls === 'saved') {
-      _statusTimeout = setTimeout(() => { saveStatus.className = 'tiptap-gate-save-status'; }, 1500);
+  if (!isFinalized) {
+    function showSaveStatus(text, cls) {
+      saveStatus.textContent = text;
+      saveStatus.className = 'tiptap-gate-save-status ' + cls;
+      clearTimeout(_statusTimeout);
+      if (cls === 'saved') {
+        _statusTimeout = setTimeout(() => { saveStatus.className = 'tiptap-gate-save-status'; }, 1500);
+      }
     }
-  }
 
-  async function doSave() {
-    if (!dirty || saving || !childId) return;
-    saving = true;
-    showSaveStatus('Saving\u2026', 'saving');
-    try {
-      const json = editor.getJSON();
-      const result = await saveDraft({ reportId, content: json, childId });
-      if (!reportId) reportId = result.id;
-      dirty = false;
-      showSaveStatus('Saved', 'saved');
-    } catch (e) {
-      if (e.name === 'AbortError') { saving = false; return; }
-      showSaveStatus('Save failed', 'error');
-    } finally {
-      saving = false;
+    async function doSave() {
+      if (!dirty || saving || !childId) return;
+      saving = true;
+      showSaveStatus('Saving\u2026', 'saving');
+      try {
+        const json = editor.getJSON();
+        const result = await saveDraft({ reportId, content: json, childId });
+        if (!reportId) reportId = result.id;
+        dirty = false;
+        showSaveStatus('Saved', 'saved');
+      } catch (e) {
+        if (e.name === 'AbortError') { saving = false; return; }
+        showSaveStatus('Save failed', 'error');
+      } finally {
+        saving = false;
+      }
     }
-  }
 
-  function scheduleSave() {
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(doSave, 2000);
-  }
-
-  editor.on('update', () => {
-    dirty = true;
-    scheduleSave();
-  });
-
-  const onBlur = () => { if (dirty && !saving) doSave(); };
-  window.addEventListener('blur', onBlur);
-
-  _tickTimer = setInterval(() => { if (dirty && !saving) doSave(); }, 30000);
-
-  _beforeUnloadHandler = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
-  window.addEventListener('beforeunload', _beforeUnloadHandler);
-
-  // ── Cleanup function (called by modal close) ──
-  function cleanup() {
-    clearTimeout(_saveTimer);
-    clearInterval(_tickTimer);
-    window.removeEventListener('blur', onBlur);
-    if (_beforeUnloadHandler) {
-      window.removeEventListener('beforeunload', _beforeUnloadHandler);
-      _beforeUnloadHandler = null;
+    function scheduleSave() {
+      clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(doSave, 2000);
     }
-    editor.destroy();
-  }
 
-  // Expose for modal close handler
-  editor._gateCleanup = cleanup;
-  editor._gateSave = doSave;
-  editor._gateIsDirty = () => dirty;
+    editor.on('update', () => {
+      dirty = true;
+      scheduleSave();
+    });
+
+    const onBlur = () => { if (dirty && !saving) doSave(); };
+    window.addEventListener('blur', onBlur);
+
+    _tickTimer = setInterval(() => { if (dirty && !saving) doSave(); }, 30000);
+
+    _beforeUnloadHandler = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', _beforeUnloadHandler);
+
+    // Cleanup
+    function cleanup() {
+      clearTimeout(_saveTimer);
+      clearInterval(_tickTimer);
+      window.removeEventListener('blur', onBlur);
+      if (_beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', _beforeUnloadHandler);
+        _beforeUnloadHandler = null;
+      }
+      editor.destroy();
+    }
+
+    editor._gateCleanup = cleanup;
+    editor._gateSave = doSave;
+    editor._gateIsDirty = () => dirty;
+  } else {
+    editor._gateCleanup = () => editor.destroy();
+    editor._gateSave = () => {};
+    editor._gateIsDirty = () => false;
+  }
 
   return editor;
 }

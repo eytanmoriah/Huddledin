@@ -54,11 +54,12 @@ async function openTiptapGateModal(opts = {}) {
   close.onclick = () => closeModal();
   card.appendChild(close);
   const title = document.createElement('h2');
-  let titleText = 'New Editor (Beta)';
-  if (opts.childId) {
+  const childId = opts.childId;
+  let titleText = opts.readOnly ? 'Viewing finalized report' : 'New Editor (Beta)';
+  if (childId) {
     const db = window.HUD?.DB?.children || [];
     const ls = window.HUD?.LS?.get?.('children', []) || [];
-    const child = [...db, ...ls].find(c => c.id === opts.childId);
+    const child = [...db, ...ls].find(c => c.id === childId);
     if (child?.name) titleText += ' \u2014 ' + child.name;
   }
   title.textContent = titleText;
@@ -70,7 +71,7 @@ async function openTiptapGateModal(opts = {}) {
   overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
   document.body.appendChild(overlay);
   const { mountGateEditor } = await import('./features/reports/tiptap-gate.js');
-  gateEditor = await mountGateEditor(editorHost, opts);
+  gateEditor = await mountGateEditor(editorHost, { ...opts, _setTitle: (t) => { title.textContent = t; } });
 }
 // Expose for the beta button in reports module
 window.HUD_openTiptapGate = openTiptapGateModal;
