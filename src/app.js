@@ -46,6 +46,8 @@ async function openTiptapGateModal(opts = {}) {
       gateEditor._gateCleanup?.();
     }
     overlay.remove();
+    window.HUD_REPORTS?.invalidateReportsCache?.();
+    try { window.HUD?.re?.(); } catch (_) {}
   }
 
   const close = document.createElement('button');

@@ -1625,6 +1625,8 @@ function renderMain() {
   }
 }
 
+function invalidateReportsCache() { RS.reportsLoaded = false; }
+
 window.HUD_REPORTS = {
   renderReports: renderMain,
   renderPatientReports,
@@ -1632,5 +1634,6 @@ window.HUD_REPORTS = {
   renderTemplateEditor,
   renderNewReport,
   initReports,
+  invalidateReportsCache,
   RS,
 };

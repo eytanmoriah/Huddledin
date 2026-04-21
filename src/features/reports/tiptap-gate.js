@@ -629,6 +629,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
           _toast?.('\u2705 Report finalized!');
           dirty = false;
           clearTimeout(_saveTimer); clearInterval(_tickTimer);
+          window.HUD_REPORTS?.invalidateReportsCache?.();
           try { window.HUD?.re?.(); } catch (_) {}
         } catch (e) {
           console.error('\u274c finalize:', e);
