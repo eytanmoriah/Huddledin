@@ -83,18 +83,19 @@ export async function mountGateEditor(containerEl) {
         moveUp.onclick = () => {
           const pos = getPos();
           if (pos === undefined || pos === null) return;
-          const $pos = ed.state.doc.resolve(pos);
-          const idx = $pos.index($pos.depth - 1);
-          if (idx === 0) return;
           ed.chain().focus().command(({ tr, state }) => {
-            const $from = state.doc.resolve(pos);
-            const parent = $from.node($from.depth - 1);
-            const thisNode = parent.child(idx);
-            const prevNode = parent.child(idx - 1);
-            if (thisNode.type.name !== 'reportSection' || prevNode.type.name !== 'reportSection') return false;
-            const startOfPrev = pos - prevNode.nodeSize;
-            tr.replaceWith(startOfPrev, pos + thisNode.nodeSize, [thisNode, prevNode]);
-            try { tr.setSelection(TextSelection.near(tr.doc.resolve(startOfPrev + 1))); } catch (_) {}
+            const doc = state.doc;
+            let thisIdx = -1, thisPos = -1;
+            doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+            if (thisIdx <= 0) return false;
+            const thisNode = doc.child(thisIdx);
+            const prevNode = doc.child(thisIdx - 1);
+            if (prevNode.type.name !== 'reportSection') return false;
+            const prevPos = thisPos - prevNode.nodeSize;
+            tr.replaceWith(prevPos, thisPos + thisNode.nodeSize, [thisNode, prevNode]);
+            const titleNode = thisNode.child(0);
+            const bodyStart = prevPos + 1 + titleNode.nodeSize + 1 + 1;
+            try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
             return true;
           }).run();
         };
@@ -108,19 +109,20 @@ export async function mountGateEditor(containerEl) {
         moveDown.onclick = () => {
           const pos = getPos();
           if (pos === undefined || pos === null) return;
-          const $pos = ed.state.doc.resolve(pos);
-          const parent = $pos.node($pos.depth - 1);
-          const idx = $pos.index($pos.depth - 1);
-          if (idx >= parent.childCount - 1) return;
           ed.chain().focus().command(({ tr, state }) => {
-            const $from = state.doc.resolve(pos);
-            const par = $from.node($from.depth - 1);
-            const thisNode = par.child(idx);
-            const nextNode = par.child(idx + 1);
-            if (thisNode.type.name !== 'reportSection' || nextNode.type.name !== 'reportSection') return false;
-            const rangeEnd = pos + thisNode.nodeSize + nextNode.nodeSize;
-            tr.replaceWith(pos, rangeEnd, [nextNode, thisNode]);
-            try { tr.setSelection(TextSelection.near(tr.doc.resolve(pos + nextNode.nodeSize + 1))); } catch (_) {}
+            const doc = state.doc;
+            let thisIdx = -1, thisPos = -1;
+            doc.forEach((child, offset, idx) => { if (offset === pos && child.type.name === 'reportSection') { thisIdx = idx; thisPos = offset; } });
+            if (thisIdx < 0 || thisIdx >= doc.childCount - 1) return false;
+            const thisNode = doc.child(thisIdx);
+            const nextNode = doc.child(thisIdx + 1);
+            if (nextNode.type.name !== 'reportSection') return false;
+            const rangeEnd = thisPos + thisNode.nodeSize + nextNode.nodeSize;
+            tr.replaceWith(thisPos, rangeEnd, [nextNode, thisNode]);
+            const newPos = thisPos + nextNode.nodeSize;
+            const titleNode = thisNode.child(0);
+            const bodyStart = newPos + 1 + titleNode.nodeSize + 1 + 1;
+            try { tr.setSelection(TextSelection.near(tr.doc.resolve(bodyStart))); } catch (_) {}
             return true;
           }).run();
         };
