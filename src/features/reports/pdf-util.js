@@ -13,7 +13,7 @@ async function ensureJsPDF() {
   if (_jspdfLoaded || window.jspdf) { _jspdfLoaded = true; return; }
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
     s.onload = () => { _jspdfLoaded = true; resolve(); };
     s.onerror = reject;
     document.head.appendChild(s);
