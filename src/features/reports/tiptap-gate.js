@@ -134,13 +134,35 @@ export async function mountGateEditor(containerEl) {
         removeBtn.textContent = '\u2715';
         removeBtn.onpointerdown = (ev) => ev.preventDefault();
         removeBtn.onclick = () => {
+          // TEMP_DIAGNOSE: log on click
+          console.log('[REMOVE]', 'click fired');
+          const posAtClick = getPos?.();
+          console.log('[REMOVE]', 'posAtClick=', posAtClick,
+            'currentDocSize=', ed?.state?.doc?.nodeSize,
+            'currentDocChildCount=', ed?.state?.doc?.childCount);
           const doRemove = () => {
+            // TEMP_DIAGNOSE: log on confirm
+            console.log('[REMOVE]', 'doRemove fired');
             const pos = getPos();
             if (pos === undefined || pos === null) return;
             ed.chain().focus().command(({ tr }) => {
               const liveNode = tr.doc.nodeAt(pos);
+              // TEMP_DIAGNOSE: log before delete
+              console.log('[REMOVE-CMD]',
+                'pos=', pos,
+                'liveNode exists=', !!liveNode,
+                'liveNode type=', liveNode?.type?.name,
+                'liveNode nodeSize=', liveNode?.nodeSize,
+                'deleteFrom=', pos,
+                'deleteTo=', pos + (liveNode?.nodeSize ?? 0),
+                'docSize=', tr.doc.nodeSize,
+                'docChildCount=', tr.doc.childCount);
               if (!liveNode || liveNode.type.name !== 'reportSection') return false;
               tr.delete(pos, pos + liveNode.nodeSize);
+              // TEMP_DIAGNOSE: log after delete
+              console.log('[REMOVE-CMD]',
+                'after delete docChildCount=', tr.doc.childCount,
+                'after delete docSize=', tr.doc.nodeSize);
               return true;
             }).run();
           };
