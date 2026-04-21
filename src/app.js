@@ -54,7 +54,14 @@ async function openTiptapGateModal(opts = {}) {
   close.onclick = () => closeModal();
   card.appendChild(close);
   const title = document.createElement('h2');
-  title.textContent = 'New Editor (Beta)';
+  let titleText = 'New Editor (Beta)';
+  if (opts.childId) {
+    const db = window.HUD?.DB?.children || [];
+    const ls = window.HUD?.LS?.get?.('children', []) || [];
+    const child = [...db, ...ls].find(c => c.id === opts.childId);
+    if (child?.name) titleText += ' \u2014 ' + child.name;
+  }
+  title.textContent = titleText;
   title.style.cssText = 'margin:0 0 16px;font-size:18px;font-weight:700;color:#0f1a18;';
   card.appendChild(title);
   const editorHost = document.createElement('div');

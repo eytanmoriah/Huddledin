@@ -85,6 +85,26 @@ async function saveDraft({ reportId, content, childId }) {
   return { id: data.id, updated_at: data.updated_at };
 }
 
+export async function findExistingDraft({ specialistId, childId }) {
+  const supa = _supa();
+  if (!supa) return null;
+  try {
+    const { data, error } = await supa.from('reports')
+      .select('id, updated_at, content')
+      .eq('specialist_id', specialistId)
+      .eq('child_id', childId)
+      .eq('status', 'draft')
+      .not('content', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    if (error) { console.error('❌ findExistingDraft:', error); return null; }
+    return data?.length ? data[0] : null;
+  } catch (e) {
+    console.error('❌ findExistingDraft:', e);
+    return null;
+  }
+}
+
 async function loadDraft(reportId) {
   const supa = _supa();
   if (!supa) return { error: 'not_authenticated' };
@@ -115,7 +135,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let initialContent = null;
   let loadMessage = null;
 
-  if (reportId) {
+  if (reportId && !opts.startNew) {
     const result = await loadDraft(reportId);
     if (result.error) {
       containerEl.textContent = '';
@@ -135,6 +155,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
       loadMessage = 'Continuing draft from ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
   }
+
+  if (opts.startNew) reportId = null;
 
   if (!childId) {
     childId = await _findDefaultChild();

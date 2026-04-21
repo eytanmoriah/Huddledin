@@ -1396,6 +1396,42 @@ function _startImport() {
 }
 
 // ════════════════════════════════════════
+// BETA: New Tiptap editor from patient context
+// ════════════════════════════════════════
+async function handleBetaNewReport(childId) {
+  const { session, openModal, el, mkBtn, toast } = H();
+  if (!session?.id || !childId) return;
+  if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet — try again in a moment.', 'info'); return; }
+
+  const { findExistingDraft } = await import('./tiptap-gate.js');
+  const existing = await findExistingDraft({ specialistId: session.id, childId });
+
+  if (!existing) {
+    window.HUD_openTiptapGate({ childId });
+    return;
+  }
+
+  const d = new Date(existing.updated_at);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = isToday ? 'today at ' + time : isYesterday ? 'yesterday at ' + time : d.toLocaleDateString() + ' at ' + time;
+
+  openModal('Continue draft?', (mb, close) => {
+    mb.appendChild(el('div', { style: { marginBottom: '20px', color: '#334155', fontSize: '14px', lineHeight: '1.5' } },
+      ['You have an in-progress draft for this patient from ' + dateStr + '. Would you like to resume it, or start new?']));
+    const row = el('div', {}, []);
+    row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;';
+    row.appendChild(mkBtn('Cancel', 'btn-md btn-ghost', close));
+    row.appendChild(mkBtn('Start new', 'btn-md btn-secondary', () => { close(); window.HUD_openTiptapGate({ childId, startNew: true }); }));
+    row.appendChild(mkBtn('Resume draft', 'btn-md btn-primary', () => { close(); window.HUD_openTiptapGate({ draftId: existing.id, childId }); }));
+    mb.appendChild(row);
+  }, 420);
+}
+
+// ════════════════════════════════════════
 // PATIENT REPORTS TAB (filtered by child)
 // ════════════════════════════════════════
 function renderPatientReports() {
@@ -1428,17 +1464,21 @@ function renderPatientReports() {
   // Header
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' } });
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1rem', margin: 0 } }, ['📋 Reports']));
-  hdr.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
+  const hdrBtns = el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } });
+  if (BETA_NEW_EDITOR_TESTERS.includes(session?.email)) {
+    hdrBtns.appendChild(mkBtn('✨ Try new editor', 'btn-sm btn-ghost', () => handleBetaNewReport(childId)));
+  }
+  hdrBtns.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
     RS.selectedChildId = childId;
     RS.returnToPatient = childId;
     RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {};
     RS.currentReport = null; RS.lastSavedFormData = null;
-    // Skip patient picker — go straight to template selection
     RS.step = RS.templates.length ? 1 : 0;
     S.activeTab = 'reports';
     nav('new-report', RS.step);
   }));
+  hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);
 
   // Empty state
