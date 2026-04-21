@@ -251,6 +251,13 @@ export function renderReports() {
   }
   hdr.appendChild(hdrR); sec.appendChild(hdr);
 
+  // ── Beta: Drafts section (async, fills in after hub renders) ──
+  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
+    const draftsHost = el('div', {});
+    sec.appendChild(draftsHost);
+    _renderDraftsSection(draftsHost);
+  }
+
   if (!RS.reports.length) {
     sec.appendChild(el('div', { style: { textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '.88rem' } }, ['No reports yet. Create your first one!']));
     return sec;
@@ -1393,6 +1400,89 @@ function _startImport() {
     }, 340);
   };
   document.body.appendChild(inp); inp.click(); inp.remove();
+}
+
+// ════════════════════════════════════════
+// BETA: Drafts section on Reports hub
+// ════════════════════════════════════════
+function _relativeTime(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffS = Math.floor((now - d) / 1000);
+  if (diffS < 60) return 'Edited just now';
+  if (diffS < 3600) return 'Edited ' + Math.floor(diffS / 60) + ' minutes ago';
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return 'Edited today at ' + time;
+  const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return 'Edited yesterday at ' + time;
+  const diffD = Math.floor(diffS / 86400);
+  if (diffD <= 7) return 'Edited ' + diffD + ' days ago';
+  return 'Edited on ' + d.toLocaleDateString();
+}
+
+function _draftPreview(content) {
+  try {
+    const sections = content?.content;
+    if (!sections?.length) return 'Empty draft';
+    const sec = sections[0];
+    const titleNode = sec.content?.[0];
+    const bodyNode = sec.content?.[1];
+    const titleText = titleNode?.content?.map(n => n.text || '').join('').trim() || '';
+    let bodyText = '';
+    if (bodyNode?.content) {
+      for (const block of bodyNode.content) {
+        if (block.content) bodyText += block.content.map(n => n.text || '').join('');
+        if (bodyText.length > 60) break;
+      }
+    }
+    bodyText = bodyText.trim();
+    if (bodyText.length > 60) bodyText = bodyText.slice(0, 60) + '\u2026';
+    if (titleText && bodyText) return titleText + ' \u2014 ' + bodyText;
+    if (titleText) return titleText + ' \u2014 (no content)';
+    if (bodyText) return bodyText;
+    return 'Empty draft';
+  } catch (_) { return 'Empty draft'; }
+}
+
+async function _renderDraftsSection(host) {
+  const { el, mkBtn, toast, session, openConfirm } = H();
+  const { listDrafts, deleteDraft } = await import('./tiptap-gate.js');
+  const drafts = await listDrafts({ specialistId: session.id });
+  if (!drafts.length) return;
+
+  const children = getChildren();
+  const wrap = el('div', { style: { marginBottom: '20px' } });
+  wrap.appendChild(el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' } }, [
+    el('span', { style: { fontWeight: 700, fontSize: '.92rem', color: '#0f172a' } }, ['Drafts']),
+    el('span', { style: { fontSize: '.72rem', fontWeight: 600, color: '#64748b', background: '#f0fdf9', borderRadius: '99px', padding: '2px 8px' } }, [String(drafts.length)]),
+  ]));
+
+  drafts.forEach(draft => {
+    const child = children.find(c => c.id === draft.child_id);
+    const card = el('div', { class: 'rpt-card', style: { position: 'relative', paddingInlineEnd: '42px' } });
+    card.appendChild(el('div', { style: { fontWeight: 600, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [(child?.avatar || '🧒') + ' ' + (child?.name || 'Patient')]));
+    card.appendChild(el('div', { style: { fontSize: '.78rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' } }, [_draftPreview(draft.content)]));
+    card.appendChild(el('div', { style: { fontSize: '.72rem', color: '#94a3b8' } }, [_relativeTime(draft.updated_at)]));
+
+    const trash = el('button', { style: { position: 'absolute', top: '50%', insetInlineEnd: '10px', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '6px', borderRadius: '6px', color: '#94a3b8', transition: 'color .12s, background .12s', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, ['🗑️']);
+    trash.onmouseenter = () => { trash.style.color = '#dc2626'; trash.style.background = '#fef2f2'; };
+    trash.onmouseleave = () => { trash.style.color = '#94a3b8'; trash.style.background = 'none'; };
+    trash.onclick = (e) => {
+      e.stopPropagation();
+      openConfirm('Delete draft?', 'This cannot be undone.', true, async () => {
+        const result = await deleteDraft({ reportId: draft.id });
+        if (result.ok) { RS.reportsLoaded = false; H().re(); }
+        else toast('Failed to delete draft.', 'error');
+      });
+    };
+    card.appendChild(trash);
+
+    card.onclick = () => {
+      if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate({ draftId: draft.id, childId: draft.child_id });
+    };
+    wrap.appendChild(card);
+  });
+  host.appendChild(wrap);
 }
 
 // ════════════════════════════════════════

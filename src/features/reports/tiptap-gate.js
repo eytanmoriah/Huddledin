@@ -85,6 +85,40 @@ async function saveDraft({ reportId, content, childId }) {
   return { id: data.id, updated_at: data.updated_at };
 }
 
+export async function listDrafts({ specialistId }) {
+  const supa = _supa();
+  if (!supa) return [];
+  try {
+    const { data, error } = await supa.from('reports')
+      .select('id, child_id, content, updated_at')
+      .eq('specialist_id', specialistId)
+      .eq('status', 'draft')
+      .not('content', 'is', null)
+      .order('updated_at', { ascending: false });
+    if (error) { console.error('❌ listDrafts:', error); return []; }
+    return data || [];
+  } catch (e) {
+    console.error('❌ listDrafts:', e);
+    return [];
+  }
+}
+
+export async function deleteDraft({ reportId }) {
+  const supa = _supa();
+  if (!supa) return { ok: false, error: 'not_authenticated' };
+  try {
+    const { error } = await supa.from('reports')
+      .delete()
+      .eq('id', reportId)
+      .eq('status', 'draft');
+    if (error) { console.error('❌ deleteDraft:', error); return { ok: false, error }; }
+    return { ok: true };
+  } catch (e) {
+    console.error('❌ deleteDraft:', e);
+    return { ok: false, error: e };
+  }
+}
+
 export async function findExistingDraft({ specialistId, childId }) {
   const supa = _supa();
   if (!supa) return null;
