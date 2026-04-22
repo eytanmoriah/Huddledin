@@ -1,0 +1,95 @@
+// File parsing utilities for template import — PDF and DOCX text extraction.
+// Built as a separate bundle (file-parser.bundle.js), loaded on-demand via <script>.
+
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import * as mammoth from 'mammoth';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+export async function parsePdf(file) {
+  const buf = await file.arrayBuffer();
+  let doc;
+  try {
+    doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  } catch (e) {
+    if (e.name === 'PasswordException') throw new Error('Password-protected PDFs are not supported');
+    throw new Error('This PDF could not be read \u2014 it may be corrupted');
+  }
+
+  if (doc.numPages === 0) throw new Error('This PDF has no extractable text \u2014 it may be a scan that needs OCR');
+
+  const paragraphs = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    if (!tc.items.length) continue;
+
+    let currentLine = [];
+    let lastY = null;
+    const LINE_THRESHOLD = 3;
+
+    for (const item of tc.items) {
+      if (!item.str) continue;
+      const y = Math.round(item.transform[5]);
+      if (lastY !== null && Math.abs(y - lastY) > LINE_THRESHOLD) {
+        const gap = Math.abs(y - lastY);
+        const lineText = currentLine.join(' ').trim();
+        if (lineText) paragraphs.push(lineText);
+        if (gap > 14) paragraphs.push('');
+        currentLine = [];
+      }
+      currentLine.push(item.str);
+      lastY = y;
+    }
+    const trailing = currentLine.join(' ').trim();
+    if (trailing) paragraphs.push(trailing);
+    paragraphs.push('');
+  }
+
+  const text = paragraphs.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  if (!text) throw new Error('This PDF has no extractable text \u2014 it may be a scan that needs OCR');
+  return text;
+}
+
+export async function parseDocx(file) {
+  const buf = await file.arrayBuffer();
+  let result;
+  try {
+    result = await mammoth.extractRawText({ arrayBuffer: buf });
+  } catch (e) {
+    throw new Error('This Word document could not be read \u2014 it may be corrupted or encrypted');
+  }
+
+  if (result.messages?.length) {
+    result.messages.forEach(m => console.log('[docx]', m.type + ':', m.message));
+  }
+
+  const text = (result.value || '').trim();
+  if (!text) throw new Error('This Word document has no extractable text');
+  return text;
+}
+
+export async function parseUploadedFile(file) {
+  if (!file) throw new Error('No file provided');
+  if (file.size > MAX_FILE_SIZE) throw new Error('File too large. Maximum 10MB.');
+
+  const name = (file.name || '').toLowerCase();
+  const type = file.type || '';
+
+  let text, fileType;
+  if (name.endsWith('.pdf') || type === 'application/pdf') {
+    text = await parsePdf(file);
+    fileType = 'pdf';
+  } else if (name.endsWith('.docx') || type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    text = await parseDocx(file);
+    fileType = 'docx';
+  } else {
+    throw new Error('Unsupported file type. Upload a PDF or Word (.docx) file.');
+  }
+
+  return { text, fileName: file.name, fileSize: file.size, fileType };
+}
+
+if (typeof window !== 'undefined') {
+  window.HUD_PARSE_FILE = parseUploadedFile;
+}

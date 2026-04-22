@@ -49,19 +49,41 @@ if (!content || content.length < 10) {
   process.exit(0);
 }
 
-esbuild.build({
-  entryPoints: [entry],
-  bundle: true,
-  outfile: 'public/app.bundle.js',
-  format: 'iife',
-  globalName: 'HuddledinModules',
-  minify: true,
-  sourcemap: true,
-  target: 'es2020',
-  loader: { '.css': 'text' },
-}).then(() => {
-  console.log('\n✅ Module build complete → public/app.bundle.js');
-}).catch((err) => {
+const builds = [
+  esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    outfile: 'public/app.bundle.js',
+    format: 'iife',
+    globalName: 'HuddledinModules',
+    minify: true,
+    sourcemap: true,
+    target: 'es2020',
+    loader: { '.css': 'text' },
+  }).then(() => {
+    console.log('\n✅ Module build complete → public/app.bundle.js');
+  }),
+];
+
+const parserEntry = 'src/features/reports/file-parser.js';
+if (fs.existsSync(parserEntry)) {
+  builds.push(
+    esbuild.build({
+      entryPoints: [parserEntry],
+      bundle: true,
+      outfile: 'public/file-parser.bundle.js',
+      format: 'iife',
+      globalName: 'HuddledinFileParser',
+      minify: true,
+      sourcemap: true,
+      target: 'es2020',
+    }).then(() => {
+      console.log('✅ File parser build complete → public/file-parser.bundle.js');
+    })
+  );
+}
+
+Promise.all(builds).catch((err) => {
   console.error('❌ Build failed:', err);
   process.exit(1);
 });
