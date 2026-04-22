@@ -218,6 +218,31 @@ export async function deleteDraft({ reportId }) {
   }
 }
 
+export async function saveTemplateV2({ templateId, content, name, description, specialty }) {
+  const supa = _supa();
+  const sess = _session();
+  if (!supa || !sess) return { error: 'Not authenticated' };
+  if (!name?.trim()) return { error: 'Template name is required' };
+  if (!content?.content?.length) return { error: 'Template content is empty' };
+  try {
+    if (templateId) {
+      const { error } = await supa.from('report_templates')
+        .update({ name: name.trim(), description: description?.trim() || null, content, schema_version: 1, updated_at: new Date().toISOString() })
+        .eq('id', templateId);
+      if (error) { console.error('\u274c template update:', error); return { error: error.message }; }
+      return { id: templateId };
+    }
+    const { data, error } = await supa.from('report_templates')
+      .insert({ specialist_id: sess.id, name: name.trim(), description: description?.trim() || null, content, schema_version: 1, sections: [], source: 'ai-imported', specialty: specialty || null, use_count: 0 })
+      .select('id').single();
+    if (error) { console.error('\u274c template insert:', error); return { error: error.message }; }
+    return { id: data.id };
+  } catch (e) {
+    console.error('\u274c saveTemplateV2:', e);
+    return { error: e.message };
+  }
+}
+
 export async function findExistingDraft({ specialistId, childId }) {
   const supa = _supa();
   if (!supa) return null;
@@ -685,21 +710,120 @@ export async function mountGateEditor(containerEl, opts = {}) {
   }
 
   if (isTemplateMode) {
+    const _tplId = opts.templateId || null;
+    const _lsKey = _tplId ? 'huddledin.template_draft.' + _tplId : 'huddledin.template_draft';
+
+    function _openNameDialog({ mode, initialName, initialDesc, onSave }) {
+      const _modal = window.HUD?.openModal;
+      if (!_modal) return;
+      const titles = { 'save-new': 'Save as Template', 'save-changes': 'Save changes', 'save-copy': 'Save copy' };
+      const btnLabels = { 'save-new': 'Save as Template', 'save-changes': 'Save changes', 'save-copy': 'Save copy' };
+      _modal(titles[mode] || 'Save', (mb, close) => {
+        const nameLabel = document.createElement('label');
+        nameLabel.style.cssText = 'display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:4px;';
+        nameLabel.textContent = 'Template name *';
+        mb.appendChild(nameLabel);
+        const nameInp = document.createElement('input');
+        nameInp.type = 'text';
+        nameInp.value = initialName || '';
+        nameInp.placeholder = 'e.g. Speech Evaluation';
+        nameInp.style.cssText = 'width:100%;padding:10px 12px;border:1.5px solid #d1e0dd;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;outline:none;';
+        nameInp.onfocus = () => { nameInp.style.borderColor = '#0d9488'; };
+        nameInp.onblur = () => { nameInp.style.borderColor = '#d1e0dd'; };
+        mb.appendChild(nameInp);
+        const descLabel = document.createElement('label');
+        descLabel.style.cssText = 'display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:4px;';
+        descLabel.textContent = 'Description (optional)';
+        mb.appendChild(descLabel);
+        const descInp = document.createElement('textarea');
+        descInp.rows = 3;
+        descInp.value = initialDesc || '';
+        descInp.placeholder = 'Brief description of this template';
+        descInp.style.cssText = 'width:100%;padding:10px 12px;border:1.5px solid #d1e0dd;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:12px;outline:none;';
+        mb.appendChild(descInp);
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'color:#ef4444;font-size:13px;margin-bottom:8px;display:none;';
+        mb.appendChild(errEl);
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-md btn-ghost';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = close;
+        row.appendChild(cancelBtn);
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'btn-md btn-primary';
+        saveBtn.textContent = btnLabels[mode] || 'Save';
+        saveBtn.onclick = async () => {
+          const n = nameInp.value.trim();
+          if (!n) { errEl.textContent = 'Name is required'; errEl.style.display = 'block'; nameInp.focus(); return; }
+          saveBtn.disabled = true; saveBtn.textContent = 'Saving\u2026';
+          await onSave(n, descInp.value.trim(), close);
+          saveBtn.disabled = false; saveBtn.textContent = btnLabels[mode] || 'Save';
+        };
+        row.appendChild(saveBtn);
+        mb.appendChild(row);
+        setTimeout(() => nameInp.focus(), 50);
+      }, 420);
+    }
+
+    async function _doSaveTemplate(name, desc, targetId, close) {
+      const json = editor.getJSON();
+      const result = await saveTemplateV2({ templateId: targetId, content: json, name, description: desc, specialty: window.HUD?.session?.profession || null });
+      if (result.error) { _toast?.(result.error, 'error'); return; }
+      try { localStorage.removeItem(_lsKey); } catch (_) {}
+      close();
+      _toast?.('\u2705 Template saved!');
+      window.HUD_REPORTS?.invalidateTemplatesCache?.();
+      window.HUD_REPORTS?.invalidateReportsCache?.();
+      opts._closeModal?.();
+      const S = window.HUD?.S;
+      if (S) { S.activeTab = 'reports'; }
+      try { window.HUD?.re?.(); } catch (_) {}
+    }
+
     actionsWrap.textContent = '';
     actionsWrap.appendChild(_mkActionBtn('Discard', 'padding:6px 14px;border:1px solid #d1e0dd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#64748b;', () => {
       if (_confirm) {
         _confirm('Discard this template?', 'Your changes will be lost.', true, () => {
-          try { localStorage.removeItem('huddledin.template_draft'); } catch (_) {}
+          try { localStorage.removeItem(_lsKey); } catch (_) {}
           opts._closeModal?.();
         });
       } else {
-        try { localStorage.removeItem('huddledin.template_draft'); } catch (_) {}
+        try { localStorage.removeItem(_lsKey); } catch (_) {}
         opts._closeModal?.();
       }
     }));
-    actionsWrap.appendChild(_mkActionBtn('Save as Template', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
-      _toast?.('Save as Template coming in next commit.', 'info');
-    }));
+
+    if (_tplId) {
+      actionsWrap.appendChild(_mkActionBtn('Save', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
+        const _modal = window.HUD?.openModal;
+        if (!_modal) return;
+        _modal('Save template', (mb, close) => {
+          const msg = document.createElement('div');
+          msg.style.cssText = 'margin-bottom:20px;color:#334155;font-size:14px;line-height:1.5;';
+          msg.textContent = 'You\u2019ve edited \u201c' + (opts.templateName || 'this template') + '\u201d. What would you like to do?';
+          mb.appendChild(msg);
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;';
+          const c = document.createElement('button'); c.className = 'btn-md btn-ghost'; c.textContent = 'Cancel'; c.onclick = close; row.appendChild(c);
+          const cp = document.createElement('button'); cp.className = 'btn-md btn-secondary'; cp.textContent = 'Save as new copy'; cp.onclick = () => {
+            close();
+            _openNameDialog({ mode: 'save-copy', initialName: (opts.templateName || 'Template') + ' (copy)', initialDesc: opts.templateDescription || '', onSave: (n, d, cl) => _doSaveTemplate(n, d, null, cl) });
+          }; row.appendChild(cp);
+          const sv = document.createElement('button'); sv.className = 'btn-md btn-primary'; sv.textContent = 'Save changes'; sv.onclick = () => {
+            close();
+            _openNameDialog({ mode: 'save-changes', initialName: opts.templateName || '', initialDesc: opts.templateDescription || '', onSave: (n, d, cl) => _doSaveTemplate(n, d, _tplId, cl) });
+          }; row.appendChild(sv);
+          mb.appendChild(row);
+        }, 420);
+      }));
+    } else {
+      const _stem = (opts.sourceFileName || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      actionsWrap.appendChild(_mkActionBtn('Save as Template', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
+        _openNameDialog({ mode: 'save-new', initialName: _stem, initialDesc: '', onSave: (n, d, cl) => _doSaveTemplate(n, d, null, cl) });
+      }));
+    }
   }
 
   toolbar.appendChild(actionsWrap);
@@ -798,13 +922,15 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let _statusTimeout = null;
 
   if (isTemplateMode) {
-    // localStorage autosave for template mode
+    const _lsKeyAuto = opts.templateId ? 'huddledin.template_draft.' + opts.templateId : 'huddledin.template_draft';
     let _lsTimer = null;
     function _lsSave() {
       try {
-        localStorage.setItem('huddledin.template_draft', JSON.stringify({
+        localStorage.setItem(_lsKeyAuto, JSON.stringify({
           content: editor.getJSON(),
           sourceFileName: opts.sourceFileName || null,
+          templateId: opts.templateId || null,
+          templateName: opts.templateName || null,
           updatedAt: new Date().toISOString(),
         }));
       } catch (_) {}

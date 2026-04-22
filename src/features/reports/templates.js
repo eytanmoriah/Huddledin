@@ -124,6 +124,7 @@ export async function saveTemplate(template) {
     source: template.source || 'manual',
     updated_at: new Date().toISOString(),
   };
+  if (template.content) { payload.content = template.content; payload.schema_version = template.schema_version || 1; }
   if (template.id) {
     const { error } = await _supa.from('report_templates').update(payload).eq('id', template.id);
     if (error) throw error;

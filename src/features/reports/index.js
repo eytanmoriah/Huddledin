@@ -47,6 +47,11 @@ function _getSectionCount(sections) {
   return _getSectionIds(sections).length;
 }
 
+function _templateSectionCount(t) {
+  if (t.content?.content?.length) return t.content.content.length;
+  return _getSectionCount(t.sections);
+}
+
 export function _buildCredentials(session) {
   const parts = [];
   if (session?.credentials_title) parts.push(session.credentials_title);
@@ -337,13 +342,19 @@ export function renderTemplates() {
     card.appendChild(nameRow);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '8px' } }, [t.description || '']));
     const meta = el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } });
-    const secCount = _getSectionCount(t.sections);
-    meta.textContent = secCount + ' section' + (secCount !== 1 ? 's' : '') + ' · Used ' + (t.use_count || 0) + ' time' + ((t.use_count || 0) !== 1 ? 's' : '');
+    const secCount = _templateSectionCount(t);
+    meta.textContent = secCount + ' section' + (secCount !== 1 ? 's' : '') + ' \u00b7 Used ' + (t.use_count || 0) + ' time' + ((t.use_count || 0) !== 1 ? 's' : '');
     card.appendChild(meta);
-    // Actions
     const acts = el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } });
-    const _copyTpl = () => ({ ...t, sections: JSON.parse(JSON.stringify(t.sections || [])) });
-    acts.appendChild(mkBtn('Edit', 'btn-sm btn-ghost', (e) => { e.stopPropagation(); RS.currentTemplate = _copyTpl(); nav('edit-template'); }));
+    const _copyTpl = () => ({ ...t, sections: JSON.parse(JSON.stringify(t.sections || [])), content: t.content ? JSON.parse(JSON.stringify(t.content)) : null });
+    acts.appendChild(mkBtn('Edit', 'btn-sm btn-ghost', (e) => {
+      e.stopPropagation();
+      if (t.content && typeof window.HUD_openTiptapGate === 'function') {
+        window.HUD_openTiptapGate({ templateMode: true, templateId: t.id, templateContent: t.content, templateName: t.name, templateDescription: t.description, sourceFileName: t.name });
+      } else {
+        RS.currentTemplate = _copyTpl(); nav('edit-template');
+      }
+    }));
     acts.appendChild(mkBtn('Duplicate', 'btn-sm btn-ghost', async (e) => {
       e.stopPropagation();
       try {
@@ -355,8 +366,9 @@ export function renderTemplates() {
         clone.id = newId;
         RS.currentTemplate = clone;
         RS.templatesLoaded = false;
-        toast('📋 Template duplicated!');
-        nav('edit-template');
+        toast('\ud83d\udccb Template duplicated!');
+        if (clone.content) H().re();
+        else nav('edit-template');
       } catch (ex) { console.error(ex); toast('Could not duplicate.', 'error'); }
     }));
     acts.appendChild(mkBtn('Delete', 'btn-sm btn-ghost', (e) => {
@@ -366,7 +378,13 @@ export function renderTemplates() {
       });
     }));
     card.appendChild(acts);
-    card.onclick = () => { RS.currentTemplate = _copyTpl(); nav('edit-template'); };
+    card.onclick = () => {
+      if (t.content && typeof window.HUD_openTiptapGate === 'function') {
+        window.HUD_openTiptapGate({ templateMode: true, templateId: t.id, templateContent: t.content, templateName: t.name, templateDescription: t.description, sourceFileName: t.name });
+      } else {
+        RS.currentTemplate = _copyTpl(); nav('edit-template');
+      }
+    };
     grid.appendChild(card);
   });
   sec.appendChild(grid);
@@ -1635,6 +1653,7 @@ function renderMain() {
 }
 
 function invalidateReportsCache() { RS.reportsLoaded = false; }
+function invalidateTemplatesCache() { RS.templatesLoaded = false; }
 
 window.HUD_REPORTS = {
   renderReports: renderMain,
@@ -1644,5 +1663,6 @@ window.HUD_REPORTS = {
   renderNewReport,
   initReports,
   invalidateReportsCache,
+  invalidateTemplatesCache,
   RS,
 };

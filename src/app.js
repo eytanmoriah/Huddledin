@@ -77,7 +77,7 @@ async function openTiptapGateModal(opts = {}) {
   card.appendChild(close);
   const title = document.createElement('h2');
   const childId = opts.childId;
-  let titleText = opts.readOnly ? 'Viewing finalized report' : opts.templateMode ? (opts.sourceFileName ? 'New Template from: ' + opts.sourceFileName : 'New Template') : 'New Editor (Beta)';
+  let titleText = opts.readOnly ? 'Viewing finalized report' : opts.templateMode ? (opts.templateId ? 'Edit Template: ' + (opts.templateName || 'Template') : opts.sourceFileName ? 'New Template from: ' + opts.sourceFileName : 'New Template') : 'New Editor (Beta)';
   if (childId && !opts.templateMode) {
     const db = window.HUD?.DB?.children || [];
     const ls = window.HUD?.LS?.get?.('children', []) || [];
