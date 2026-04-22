@@ -8,12 +8,20 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export async function parsePdf(file) {
   const buf = await file.arrayBuffer();
+  console.log('[PDF_PARSE_DEBUG]', 'bufferSize=', buf.byteLength, 'getDocument=', typeof pdfjsLib.getDocument, 'version=', pdfjsLib.version || 'unknown');
   let doc;
   try {
     doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
   } catch (e) {
+    console.error('[PDF_PARSE_DEBUG]', 'name=', e.name, 'message=', e.message, 'stack=', e.stack);
     if (e.name === 'PasswordException') throw new Error('Password-protected PDFs are not supported');
-    throw new Error('This PDF could not be read \u2014 it may be corrupted');
+    if (e.name === 'InvalidPDFException') throw new Error('This file does not appear to be a valid PDF');
+    const msg = e.message || e.name || 'unknown error';
+    if (/worker/i.test(msg)) {
+      console.warn('[PDF_PARSE_DEBUG] Worker setup may be broken');
+      throw new Error('PDF parser could not initialize \u2014 please reload and try again');
+    }
+    throw new Error('PDF parse failed: ' + msg);
   }
 
   if (doc.numPages === 0) throw new Error('This PDF has no extractable text \u2014 it may be a scan that needs OCR');
