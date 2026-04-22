@@ -233,7 +233,7 @@ export async function saveTemplateV2({ templateId, content, name, description, s
       return { id: templateId };
     }
     const { data, error } = await supa.from('report_templates')
-      .insert({ specialist_id: sess.id, name: name.trim(), description: description?.trim() || null, content, schema_version: 1, sections: [], source: 'ai-imported', specialty: specialty || null, use_count: 0 })
+      .insert({ specialist_id: sess.id, name: name.trim(), description: description?.trim() || null, content, schema_version: 1, sections: [], source: 'ai-imported', use_count: 0 })
       .select('id').single();
     if (error) { console.error('\u274c template insert:', error); return { error: error.message }; }
     return { id: data.id };
