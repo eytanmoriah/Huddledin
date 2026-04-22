@@ -101,6 +101,24 @@ export async function parseUploadedFile(file) {
   return { text, fileName: file.name, fileSize: file.size, fileType };
 }
 
+export async function extractTemplate({ text, specialty, fileName }) {
+  const session = window.HUD?.session;
+  const token = session?.access_token || session?.token;
+  if (!token) throw new Error('Not authenticated');
+
+  const resp = await fetch('/api/report-ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ action: 'import-to-tiptap', text, specialty: specialty || null, fileName }),
+  });
+
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || 'Template extraction failed (HTTP ' + resp.status + ')');
+  if (!data.sections?.length) throw new Error('No sections returned');
+  return { sections: data.sections };
+}
+
 if (typeof window !== 'undefined') {
   window.HUD_PARSE_FILE = parseUploadedFile;
+  window.HUD_EXTRACT_TEMPLATE = extractTemplate;
 }
