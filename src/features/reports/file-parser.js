@@ -7,6 +7,9 @@ import * as mammoth from 'mammoth';
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export async function parsePdf(file) {
+  // pdfjs-dist requires a worker. Pin version to match package.json — update if pdfjs-dist is upgraded.
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.mjs';
+
   const buf = await file.arrayBuffer();
   console.log('[PDF_PARSE_DEBUG]', 'bufferSize=', buf.byteLength, 'getDocument=', typeof pdfjsLib.getDocument, 'version=', pdfjsLib.version || 'unknown');
   let doc;
