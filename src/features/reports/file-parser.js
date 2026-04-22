@@ -101,10 +101,16 @@ export async function parseUploadedFile(file) {
   return { text, fileName: file.name, fileSize: file.size, fileType };
 }
 
+async function _getAccessToken() {
+  const supa = window.HUD?._supa;
+  if (!supa?.auth?.getSession) throw new Error('Not authenticated');
+  const { data, error } = await supa.auth.getSession();
+  if (error || !data?.session?.access_token) throw new Error('Not authenticated');
+  return data.session.access_token;
+}
+
 export async function extractTemplate({ text, specialty, fileName }) {
-  const session = window.HUD?.session;
-  const token = session?.access_token || session?.token;
-  if (!token) throw new Error('Not authenticated');
+  const token = await _getAccessToken();
 
   const resp = await fetch('/api/report-ai', {
     method: 'POST',
