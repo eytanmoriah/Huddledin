@@ -248,6 +248,10 @@ export function renderReports() {
       if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate();
       else toast('Editor not loaded yet — try again in a moment.', 'info');
     }));
+    hdrR.appendChild(mkBtn('\ud83d\udce5 Upload template', 'btn-sm btn-ghost', () => {
+      if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE();
+      else toast('Upload not loaded yet — try again in a moment.', 'info');
+    }));
   }
   hdr.appendChild(hdrR); sec.appendChild(hdr);
 
@@ -309,6 +313,11 @@ export function renderTemplates() {
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.1rem', margin: 0 } }, ['My Templates']));
   const hdrBtns = el('div', { style: { display: 'flex', gap: '8px' } });
   hdrBtns.appendChild(mkBtn('📄 Import from Report', 'btn-sm btn-ghost', () => _startImport()));
+  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
+    hdrBtns.appendChild(mkBtn('\ud83d\udce5 Upload template', 'btn-sm btn-ghost', () => {
+      if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE();
+    }));
+  }
   hdrBtns.appendChild(mkBtn('+ New Template', 'btn-sm btn-primary', () => _showNewTemplateChoice()));
   hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);

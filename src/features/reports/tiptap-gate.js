@@ -27,6 +27,39 @@ const EMPTY_DOC = {
   }],
 };
 
+export function sectionsToTiptapDoc(sections) {
+  if (!sections?.length) return EMPTY_DOC;
+  return {
+    type: 'doc',
+    content: sections.map(s => ({
+      type: 'reportSection',
+      content: [
+        { type: 'sectionTitle', content: s.title ? [{ type: 'text', text: s.title }] : [] },
+        { type: 'sectionBody', content: _bodyToNodes(s.body) },
+      ],
+    })),
+  };
+}
+
+function _bodyToNodes(body) {
+  if (!body) return [{ type: 'paragraph', content: [] }];
+  const paras = body.split(/\n\n+/);
+  const nodes = [];
+  for (const p of paras) {
+    const trimmed = p.trim();
+    if (!trimmed) continue;
+    const lines = trimmed.split('\n');
+    if (lines.every(l => /^[-*]\s/.test(l.trim()))) {
+      nodes.push({ type: 'bulletList', content: lines.map(l => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: l.replace(/^[-*]\s+/, '').trim() }] }] })) });
+    } else if (lines.every(l => /^\d+[.)]\s/.test(l.trim()))) {
+      nodes.push({ type: 'orderedList', content: lines.map(l => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: l.replace(/^\d+[.)]\s+/, '').trim() }] }] })) });
+    } else {
+      nodes.push({ type: 'paragraph', content: [{ type: 'text', text: trimmed }] });
+    }
+  }
+  return nodes.length ? nodes : [{ type: 'paragraph', content: [] }];
+}
+
 // ── Module-level save state ──
 let _saveAbort = null;
 let _saveTimer = null;
@@ -229,6 +262,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
   const _confirm = window.HUD?.openConfirm;
   const _toast = window.HUD?.toast;
   const isReadOnly = !!opts.readOnly;
+  const isTemplateMode = !!opts.templateMode;
 
   // ── Resolve report data ──
   let reportId = opts.draftId || opts.reportId || null;
@@ -261,7 +295,12 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
   if (opts.startNew) reportId = null;
 
-  if (!childId) {
+  if (isTemplateMode && !initialContent) {
+    if (opts.templateContent) initialContent = opts.templateContent;
+    else if (opts.templateSections) initialContent = sectionsToTiptapDoc(opts.templateSections);
+  }
+
+  if (!childId && !isTemplateMode) {
     childId = await _findDefaultChild();
   }
 
@@ -513,10 +552,10 @@ export async function mountGateEditor(containerEl, opts = {}) {
     toolbar.appendChild(pickerWrap);
   }
 
-  // Save status indicator (edit mode only)
+  // Save status indicator (draft edit mode only)
   const saveStatus = document.createElement('span');
   saveStatus.className = 'tiptap-gate-save-status';
-  if (!isFinalized) toolbar.appendChild(saveStatus);
+  if (!isFinalized && !isTemplateMode) toolbar.appendChild(saveStatus);
 
   // Action buttons area (right side of toolbar)
   const actionsWrap = document.createElement('div');
@@ -645,6 +684,24 @@ export async function mountGateEditor(containerEl, opts = {}) {
     actionsWrap.appendChild(finalizeBtn);
   }
 
+  if (isTemplateMode) {
+    actionsWrap.textContent = '';
+    actionsWrap.appendChild(_mkActionBtn('Discard', 'padding:6px 14px;border:1px solid #d1e0dd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#64748b;', () => {
+      if (_confirm) {
+        _confirm('Discard this template?', 'Your changes will be lost.', true, () => {
+          try { localStorage.removeItem('huddledin.template_draft'); } catch (_) {}
+          opts._closeModal?.();
+        });
+      } else {
+        try { localStorage.removeItem('huddledin.template_draft'); } catch (_) {}
+        opts._closeModal?.();
+      }
+    }));
+    actionsWrap.appendChild(_mkActionBtn('Save as Template', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
+      _toast?.('Save as Template coming in next commit.', 'info');
+    }));
+  }
+
   toolbar.appendChild(actionsWrap);
   containerEl.appendChild(toolbar);
 
@@ -728,6 +785,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
     if (reportRow?.finalized_at) parts.push('\ud83d\udd12 Finalized on ' + new Date(reportRow.finalized_at).toLocaleDateString());
     if (reportRow?.shared_with_parents) parts.push('\u2705 Shared with parents' + (reportRow.shared_at ? ' on ' + new Date(reportRow.shared_at).toLocaleDateString() : ''));
     statusLine.textContent = parts.join(' \u00b7 ') || 'Viewing finalized report.';
+  } else if (isTemplateMode) {
+    statusLine.textContent = 'Edit sections, then save as a reusable template.';
   } else {
     statusLine.textContent = loadMessage || (childId ? 'Editor ready. Drafts auto-save.' : 'Editor ready. No patient linked \u2014 drafts will not save.');
   }
@@ -738,7 +797,35 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let saving = false;
   let _statusTimeout = null;
 
-  if (!isFinalized) {
+  if (isTemplateMode) {
+    // localStorage autosave for template mode
+    let _lsTimer = null;
+    function _lsSave() {
+      try {
+        localStorage.setItem('huddledin.template_draft', JSON.stringify({
+          content: editor.getJSON(),
+          sourceFileName: opts.sourceFileName || null,
+          updatedAt: new Date().toISOString(),
+        }));
+      } catch (_) {}
+      dirty = false;
+    }
+    editor.on('update', () => {
+      dirty = true;
+      clearTimeout(_lsTimer);
+      _lsTimer = setTimeout(_lsSave, 2000);
+    });
+    _beforeUnloadHandler = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', _beforeUnloadHandler);
+
+    editor._gateCleanup = () => {
+      clearTimeout(_lsTimer);
+      if (_beforeUnloadHandler) { window.removeEventListener('beforeunload', _beforeUnloadHandler); _beforeUnloadHandler = null; }
+      editor.destroy();
+    };
+    editor._gateSave = () => { if (dirty) _lsSave(); };
+    editor._gateIsDirty = () => dirty;
+  } else if (!isFinalized) {
     function showSaveStatus(text, cls) {
       saveStatus.textContent = text;
       saveStatus.className = 'tiptap-gate-save-status ' + cls;
@@ -784,7 +871,6 @@ export async function mountGateEditor(containerEl, opts = {}) {
     _beforeUnloadHandler = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', _beforeUnloadHandler);
 
-    // Cleanup
     function cleanup() {
       clearTimeout(_saveTimer);
       clearInterval(_tickTimer);
