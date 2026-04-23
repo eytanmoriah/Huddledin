@@ -320,6 +320,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
   const { default: StarterKit } = await import('@tiptap/starter-kit');
   const { default: Placeholder } = await import('@tiptap/extension-placeholder');
   const { TextSelection } = await import('@tiptap/pm/state');
+  const { createPhraseSuggestionExtension } = await import('./phrase-suggestion.js');
 
   const _confirm = window.HUD?.openConfirm;
   const _toast = window.HUD?.toast;
@@ -369,6 +370,20 @@ export async function mountGateEditor(containerEl, opts = {}) {
   }
 
   const isFinalized = reportRow?.status === 'finalized' || isReadOnly;
+
+  let _phraseExt = null;
+  if (!isFinalized) {
+    _phraseExt = createPhraseSuggestionExtension({
+      getChild: () => childId ? _resolveChild(childId) : null,
+      loadPhrases: async () => (await import('./phrases.js')).loadPhrases(),
+      onPhraseSelected: (phrase) => {
+        const supa = _supa();
+        if (supa && phrase?.id) supa.from('specialist_phrases').update({ use_count: (phrase.use_count || 0) + 1, last_used_at: new Date().toISOString() }).eq('id', phrase.id).then(() => {}).catch(() => {});
+      },
+      openCreatePhraseDialog: (initialName) => { window.HUD_REPORTS?.openNewPhraseDialog?.(initialName); },
+      substitutePlaceholders,
+    });
+  }
 
   const ReportDoc = Node.create({
     name: 'doc',
@@ -893,6 +908,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       SectionTitle,
       SectionBody,
       ReportSection,
+      ...(_phraseExt ? [_phraseExt] : []),
     ],
     content: initialContent || EMPTY_DOC,
   });
@@ -940,6 +956,13 @@ export async function mountGateEditor(containerEl, opts = {}) {
       .tiptap-gate-readonly .rpt-section-title { cursor:default; padding-inline-end:4px; }
       .tiptap-gate-readonly .rpt-section-title:focus { background:none; }
       .tiptap-gate-readonly .ProseMirror { cursor:default; }
+
+      .hud-phrase-dropdown { position:fixed; z-index:1000; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.1); min-width:280px; max-width:400px; max-height:280px; overflow-y:auto; padding:4px; }
+      .hud-phrase-item { padding:8px 12px; cursor:pointer; border-radius:4px; }
+      .hud-phrase-item:hover, .hud-phrase-item.selected { background:#f0fdf9; }
+      .hud-phrase-item .name { font-weight:600; color:#0d9488; font-size:14px; }
+      .hud-phrase-item .preview { font-size:12px; color:#64748b; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .hud-phrase-item.create-new .name { font-style:italic; }
     `;
     document.head.appendChild(style);
   }

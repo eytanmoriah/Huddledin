@@ -1923,6 +1923,18 @@ function navToTemplates() {
   nav('templates');
 }
 
+function openNewPhraseDialog(initialName) {
+  _openPhraseDialog({
+    initialName: initialName || '',
+    onSave: async (name, content) => {
+      const result = await savePhrase({ phraseId: null, name, content });
+      if (result.error) return result;
+      RS.phrasesLoaded = false;
+      return {};
+    },
+  });
+}
+
 window.HUD_REPORTS = {
   renderReports: renderMain,
   renderPatientReports,
@@ -1934,6 +1946,8 @@ window.HUD_REPORTS = {
   invalidateTemplatesCache,
   invalidatePhrasesCache,
   navToTemplates,
+  openNewPhraseDialog,
+  loadPhrases,
   calcAge,
   RS,
 };
