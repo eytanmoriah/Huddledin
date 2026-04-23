@@ -91,6 +91,7 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
               onStart(props) {
                 el = document.createElement('div');
                 el.className = 'hud-phrase-dropdown';
+                el.addEventListener('mousedown', (ev) => ev.preventDefault());
                 document.body.appendChild(el);
                 items = props.items || [];
                 selectedIdx = 0;
