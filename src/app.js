@@ -284,14 +284,9 @@ async function handleUploadTemplate() {
 window.HUD_UPLOAD_TEMPLATE = handleUploadTemplate;
 
 // URL-param triggers
-const _urlParams = new URLSearchParams(window.location.search);
-const _draftParam = _urlParams.get('draft');
-const _gateParam = _urlParams.get('tiptap_gate');
-
-if (_draftParam || _gateParam === '1') {
-  const gateOpts = {};
-  if (_draftParam) gateOpts.draftId = _draftParam;
-  const launch = () => openTiptapGateModal(gateOpts);
+const _draftParam = new URLSearchParams(window.location.search).get('draft');
+if (_draftParam) {
+  const launch = () => openTiptapGateModal({ draftId: _draftParam });
   if (document.readyState === 'complete') launch();
   else window.addEventListener('load', launch);
 }

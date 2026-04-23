@@ -367,8 +367,11 @@ export function renderTemplates() {
         RS.currentTemplate = clone;
         RS.templatesLoaded = false;
         toast('\ud83d\udccb Template duplicated!');
-        if (clone.content) H().re();
-        else nav('edit-template');
+        if (clone.content && typeof window.HUD_openTiptapGate === 'function') {
+          window.HUD_openTiptapGate({ templateMode: true, templateId: newId, templateContent: clone.content, templateName: clone.name, templateDescription: clone.description, sourceFileName: clone.name });
+        } else {
+          nav('edit-template');
+        }
       } catch (ex) { console.error(ex); toast('Could not duplicate.', 'error'); }
     }));
     acts.appendChild(mkBtn('Delete', 'btn-sm btn-ghost', (e) => {
@@ -1741,6 +1744,11 @@ function renderMain() {
 
 function invalidateReportsCache() { RS.reportsLoaded = false; }
 function invalidateTemplatesCache() { RS.templatesLoaded = false; }
+function navToTemplates() {
+  const { S } = H();
+  S.activeTab = 'reports';
+  nav('templates');
+}
 
 window.HUD_REPORTS = {
   renderReports: renderMain,
@@ -1751,6 +1759,7 @@ window.HUD_REPORTS = {
   initReports,
   invalidateReportsCache,
   invalidateTemplatesCache,
+  navToTemplates,
   calcAge,
   RS,
 };

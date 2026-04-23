@@ -1,5 +1,5 @@
 // Tiptap Editor Gate — hidden prototype for Report Builder V2 evaluation.
-// Triggered by ?tiptap_gate=1 URL param OR "Try new editor" beta button.
+// Triggered by "Try new editor" beta button, "From template" flow, or ?draft=<id> URL param.
 // All Tiptap imports are inside mountGateEditor() so the code is lazy-executed.
 
 // TODO: Phase 1 replaces this with the full 64-section library loaded from the section-library module.
@@ -171,13 +171,9 @@ export function substitutePlaceholders(content, child) {
 async function _findDefaultChild() {
   const db = window.HUD?.DB;
   const children = db?.children || [];
-  if (children.length) {
-    console.log('[DRAFT] using default patient:', children[0].name, children[0].id);
-    return children[0].id;
-  }
+  if (children.length) return children[0].id;
   const ls = window.HUD?.LS?.get?.('children', []) || [];
   if (ls.length) {
-    console.log('[DRAFT] using default patient (LS):', ls[0].name, ls[0].id);
     return ls[0].id;
   }
   return null;
@@ -820,9 +816,13 @@ export async function mountGateEditor(containerEl, opts = {}) {
       window.HUD_REPORTS?.invalidateTemplatesCache?.();
       window.HUD_REPORTS?.invalidateReportsCache?.();
       opts._closeModal?.();
-      const S = window.HUD?.S;
-      if (S) { S.activeTab = 'reports'; }
-      try { window.HUD?.re?.(); } catch (_) {}
+      if (typeof window.HUD_REPORTS?.navToTemplates === 'function') {
+        window.HUD_REPORTS.navToTemplates();
+      } else {
+        const S = window.HUD?.S;
+        if (S) { S.activeTab = 'reports'; }
+        try { window.HUD?.re?.(); } catch (_) {}
+      }
     }
 
     actionsWrap.textContent = '';

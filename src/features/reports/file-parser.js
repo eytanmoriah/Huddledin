@@ -11,19 +11,14 @@ export async function parsePdf(file) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.worker.mjs';
 
   const buf = await file.arrayBuffer();
-  console.log('[PDF_PARSE_DEBUG]', 'bufferSize=', buf.byteLength, 'getDocument=', typeof pdfjsLib.getDocument, 'version=', pdfjsLib.version || 'unknown');
   let doc;
   try {
     doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
   } catch (e) {
-    console.error('[PDF_PARSE_DEBUG]', 'name=', e.name, 'message=', e.message, 'stack=', e.stack);
     if (e.name === 'PasswordException') throw new Error('Password-protected PDFs are not supported');
     if (e.name === 'InvalidPDFException') throw new Error('This file does not appear to be a valid PDF');
     const msg = e.message || e.name || 'unknown error';
-    if (/worker/i.test(msg)) {
-      console.warn('[PDF_PARSE_DEBUG] Worker setup may be broken');
-      throw new Error('PDF parser could not initialize \u2014 please reload and try again');
-    }
+    if (/worker/i.test(msg)) throw new Error('PDF parser could not initialize \u2014 please reload and try again');
     throw new Error('PDF parse failed: ' + msg);
   }
 
