@@ -4,10 +4,12 @@ import { renderForm } from './form-builder.js';
 import { generateReport, importTemplate } from './ai-generator.js';
 import { injectStyles } from './styles.js';
 import { generatePDFBlob, parseReportText, stripInlineMarkdown, getSkippedPrefix, reconstructMarkdown } from './pdf-util.js';
+import { loadPhrases, savePhrase, deletePhrase } from './phrases.js';
 
 const RS = {
   templates: [], templatesLoaded: false,
   reports: [], reportsLoaded: false,
+  phrases: [], phrasesLoaded: false,
   monthlyCount: 0,
   // Current flow state
   view: 'hub', // hub | templates | edit-template | new-report
@@ -160,6 +162,7 @@ async function loadData() {
   const { _supa, session } = H();
   if (!_supa || !session) return;
   if (!RS.templatesLoaded) { RS.templates = await loadTemplates(); RS.templatesLoaded = true; }
+  if (!RS.phrasesLoaded) { RS.phrases = await loadPhrases(); RS.phrasesLoaded = true; }
   if (!RS.reportsLoaded) {
     try {
       const { data } = await _supa.from('reports').select('*').eq('specialist_id', session.id).order('created_at', { ascending: false });
@@ -242,7 +245,8 @@ export function renderReports() {
   const hdrR = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } });
   hdrR.appendChild(el('span', { class: 'rpt-counter' }, [RS.monthlyCount + ' / ' + MONTHLY_LIMIT + ' this month']));
   hdrR.appendChild(mkBtn('⚙️', 'btn-sm btn-ghost', () => { const { S } = H(); S.activeTab = 'settings'; H().re(); }));
-  hdrR.appendChild(mkBtn('📄 My Templates', 'btn-sm btn-ghost', () => nav('templates')));
+  hdrR.appendChild(mkBtn('\ud83d\udcdd My Templates', 'btn-sm btn-ghost', () => nav('templates')));
+  hdrR.appendChild(mkBtn('\ud83d\udcac My Phrases', 'btn-sm btn-ghost', () => nav('phrases')));
   hdrR.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
     RS.selectedChildId = null; RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {}; RS.currentReport = null; RS.lastSavedFormData = null; RS.step = 0;
@@ -1733,6 +1737,171 @@ function renderPatientReports() {
   return sec;
 }
 
+// ════════════════════════════════════════
+// MY PHRASES
+// ════════════════════════════════════════
+function _relTimeShort(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date(), s = Math.floor((now - d) / 1000);
+  if (s < 60) return 'Just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString();
+}
+
+function _openPhraseDialog({ phraseId, initialName, initialContent, onSave, onDelete }) {
+  const { openModal, el, mkBtn, toast, openConfirm } = H();
+  const isEdit = !!phraseId;
+  openModal(isEdit ? 'Edit Phrase' : 'New Phrase', (mb, close) => {
+    const nameLabel = document.createElement('label');
+    nameLabel.style.cssText = 'display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:4px;';
+    nameLabel.textContent = 'Name *';
+    mb.appendChild(nameLabel);
+    const nameInp = document.createElement('input');
+    nameInp.type = 'text';
+    nameInp.maxLength = 100;
+    nameInp.value = initialName || '';
+    nameInp.placeholder = 'e.g. Age-appropriate development';
+    nameInp.style.cssText = 'width:100%;padding:10px 12px;border:1.5px solid #d1e0dd;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;outline:none;';
+    nameInp.onfocus = () => { nameInp.style.borderColor = '#0d9488'; };
+    nameInp.onblur = () => { nameInp.style.borderColor = '#d1e0dd'; };
+    mb.appendChild(nameInp);
+
+    const contentLabel = document.createElement('label');
+    contentLabel.style.cssText = 'display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:4px;';
+    contentLabel.textContent = 'Content *';
+    mb.appendChild(contentLabel);
+    const contentInp = document.createElement('textarea');
+    contentInp.rows = 5;
+    contentInp.maxLength = 5000;
+    contentInp.value = initialContent || '';
+    contentInp.placeholder = '[NAME] demonstrates age-appropriate development for [PRONOUN_POSSESSIVE] chronological age.';
+    contentInp.style.cssText = 'width:100%;padding:10px 12px;border:1.5px solid #d1e0dd;border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:4px;outline:none;';
+    mb.appendChild(contentInp);
+
+    mb.appendChild(el('div', { style: { fontSize: '12px', color: '#94a3b8', marginBottom: '12px', lineHeight: '1.4' } },
+      ['Use [NAME], [AGE], [DOB], [DATE], [PRONOUN_SUBJECT/OBJECT/POSSESSIVE] to reference the patient. These substitute automatically when you insert the phrase.']));
+
+    const errEl = document.createElement('div');
+    errEl.style.cssText = 'color:#ef4444;font-size:13px;margin-bottom:8px;display:none;';
+    mb.appendChild(errEl);
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;';
+
+    if (isEdit && onDelete) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-md btn-ghost';
+      delBtn.textContent = 'Delete';
+      delBtn.style.cssText += 'color:#ef4444;margin-inline-end:auto;';
+      delBtn.onclick = () => {
+        openConfirm('Delete phrase?', 'This phrase will be removed permanently.', true, async () => {
+          const r = await onDelete();
+          if (r?.error) { toast(r.error, 'error'); return; }
+          close();
+        });
+      };
+      row.appendChild(delBtn);
+    }
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-md btn-ghost';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = close;
+    row.appendChild(cancelBtn);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-md btn-primary';
+    saveBtn.textContent = isEdit ? 'Save changes' : 'Create';
+    saveBtn.onclick = async () => {
+      const n = nameInp.value.trim();
+      const c = contentInp.value.trim();
+      if (!n) { errEl.textContent = 'Name is required'; errEl.style.display = 'block'; nameInp.focus(); return; }
+      if (!c) { errEl.textContent = 'Content is required'; errEl.style.display = 'block'; contentInp.focus(); return; }
+      if (n.length > 100) { errEl.textContent = 'Name must be 100 characters or less'; errEl.style.display = 'block'; return; }
+      if (c.length > 5000) { errEl.textContent = 'Content must be 5000 characters or less'; errEl.style.display = 'block'; return; }
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving\u2026';
+      const result = await onSave(n, c);
+      if (result?.error) { errEl.textContent = result.error; errEl.style.display = 'block'; saveBtn.disabled = false; saveBtn.textContent = isEdit ? 'Save changes' : 'Create'; return; }
+      close();
+    };
+    row.appendChild(saveBtn);
+    mb.appendChild(row);
+    setTimeout(() => nameInp.focus(), 50);
+  }, 480);
+}
+
+function renderPhrases() {
+  injectStyles();
+  const { el, mkBtn, toast } = H();
+  const sec = document.createElement('div'); sec.className = 'section';
+
+  const back = el('span', { style: { color: '#0d9488', cursor: 'pointer', fontWeight: 600, fontSize: '.84rem' } }, ['\u2190 Back to Reports']);
+  back.onclick = () => nav('hub'); sec.appendChild(back);
+
+  const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0 16px' } });
+  hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.1rem', margin: 0 } }, ['\ud83d\udcac My Phrases']));
+  hdr.appendChild(mkBtn('+ New Phrase', 'btn-sm btn-primary', () => {
+    _openPhraseDialog({
+      onSave: async (name, content) => {
+        const result = await savePhrase({ phraseId: null, name, content });
+        if (result.error) return result;
+        RS.phrasesLoaded = false; await loadData(); H().re();
+        toast('\u2705 Phrase created!');
+        return {};
+      },
+    });
+  }));
+  sec.appendChild(hdr);
+
+  if (!RS.phrases.length) {
+    sec.appendChild(el('div', { class: 'empty-state', style: { marginTop: '8px' } }, [
+      el('span', { class: 'empty-state-icon' }, ['\ud83d\udcac']),
+      el('div', { class: 'empty-state-title' }, ['You haven\u2019t created any phrases yet.']),
+      el('div', { class: 'empty-state-body' }, ['Phrases are reusable snippets you can quickly insert into reports. They support placeholders like [NAME], [AGE], [DATE] that auto-fill based on the patient.']),
+    ]));
+    return sec;
+  }
+
+  const grid = el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '12px' } });
+  RS.phrases.forEach(p => {
+    const card = el('div', { class: 'rpt-tpl-card', style: { cursor: 'pointer' } });
+    card.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px' } }, [p.name]));
+    const preview = (p.content || '').length > 100 ? p.content.slice(0, 100) + '\u2026' : p.content || '';
+    card.appendChild(el('div', { style: { fontSize: '.78rem', color: '#64748b', marginBottom: '8px', lineHeight: '1.4' } }, [preview]));
+    const meta = [];
+    meta.push('Used ' + (p.use_count || 0) + ' time' + ((p.use_count || 0) !== 1 ? 's' : ''));
+    meta.push(_relTimeShort(p.last_used_at || p.updated_at || p.created_at));
+    card.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [meta.filter(Boolean).join(' \u00b7 ')]));
+    card.onclick = () => {
+      _openPhraseDialog({
+        phraseId: p.id,
+        initialName: p.name,
+        initialContent: p.content,
+        onSave: async (name, content) => {
+          const result = await savePhrase({ phraseId: p.id, name, content });
+          if (result.error) return result;
+          RS.phrasesLoaded = false; await loadData(); H().re();
+          toast('\u2705 Phrase updated!');
+          return {};
+        },
+        onDelete: async () => {
+          const result = await deletePhrase(p.id);
+          if (result.error) return result;
+          RS.phrasesLoaded = false; await loadData(); H().re();
+          toast('Phrase deleted.');
+          return {};
+        },
+      });
+    };
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  return sec;
+}
+
 // Main render dispatcher (called from index.html glue)
 function renderMain() {
   switch (RS.view) {
@@ -1740,12 +1909,14 @@ function renderMain() {
     case 'edit-template': return renderTemplateEditor();
     case 'new-report': return renderNewReport();
     case 'preview': return renderPreview();
+    case 'phrases': return renderPhrases();
     default: return renderReports();
   }
 }
 
 function invalidateReportsCache() { RS.reportsLoaded = false; }
 function invalidateTemplatesCache() { RS.templatesLoaded = false; }
+function invalidatePhrasesCache() { RS.phrasesLoaded = false; }
 function navToTemplates() {
   const { S } = H();
   S.activeTab = 'reports';
@@ -1761,6 +1932,7 @@ window.HUD_REPORTS = {
   initReports,
   invalidateReportsCache,
   invalidateTemplatesCache,
+  invalidatePhrasesCache,
   navToTemplates,
   calcAge,
   RS,
