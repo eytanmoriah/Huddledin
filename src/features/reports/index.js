@@ -1702,6 +1702,15 @@ function renderPatientReports() {
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [r.created_at ? new Date(r.created_at).toLocaleDateString() : '']));
     card.onclick = () => {
+      if (r.content && typeof window.HUD_openTiptapGate === 'function') {
+        window.HUD_openTiptapGate({
+          childId: r.child_id,
+          draftId: r.status === 'draft' ? r.id : undefined,
+          reportId: r.status !== 'draft' ? r.id : undefined,
+          readOnly: r.status === 'finalized',
+        });
+        return;
+      }
       RS.currentReport = r; RS.selectedChildId = r.child_id;
       RS.returnToPatient = childId;
       RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
