@@ -1920,10 +1920,10 @@ async function _loadSpecPermissions(specs){
 const SB = {
   async getChildren(parentId){
     const {data}=await _supa.from('children').select('*').eq('parent_id',parentId).order('created_at');
-    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',tz_number:c.tz_number||null})));
+    return _migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',tz_number:c.tz_number||null,pronouns:c.pronouns||null})));
   },
   async addChild(parentId,child,householdId){
-    const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo}).select().single();
+    const {data}=await _supa.from('children').insert({parent_id:parentId,household_id:householdId||null,name:child.name,dob:child.dob,avatar_emoji:child.avatar,color:child.color,photo_url:child.photo,pronouns:child.pronouns||null}).select().single();
     return data;
   },
   async updateChild(id,patch){const{error}=await _supa.from('children').update(patch).eq('id',id);if(error){console.error('❌ updateChild:',error);return false;}return true;},
@@ -2059,7 +2059,7 @@ async function _refreshPhase1Parent(){
   let children=[];
   if(hid){
     const {data}=await _supa.from('children').select('*').eq('household_id',hid).order('created_at');
-    children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
+    children=_migrateChildColors((data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null,pronouns:c.pronouns||null})));
   } else {
     children=await SB.getChildren(session.id);
   }
@@ -2103,7 +2103,7 @@ async function _refreshPhase1Specialist(){
   if(childIds.length>0){
     const {data:children}=await _supa.from('children').select('*').in('id',childIds);
     if(children&&children.length>0){
-      const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved',tz_number:c.tz_number||null})));
+      const mapped=_migrateChildColors(children.map(c=>({id:c.id,name:c.name,dob:c.dob,avatar:c.avatar_emoji||'🌸',color:c.color||null,photo:c.photo_url||null,status:c.status||'active',parentId:c.parent_id,householdId:c.household_id,connectionStatus:_connStatusMap[c.id]||'approved',tz_number:c.tz_number||null,pronouns:c.pronouns||null})));
       const _mappedVisible=mapped;
       LS.set('children',_mappedVisible);
       _loaded.children=true;
@@ -2670,7 +2670,7 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
           ? SB.getSpecialistsByHousehold(hid).catch(()=>[])
           : SB.getSpecialists(s.user.id).catch(()=>[])
       ]);
-      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null})));
+      children=_migrateChildColors((childrenData.data||[]).map(c=>({id:c.id,name:c.name,age:c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():null,avatar:c.avatar_emoji||'🧒',color:c.color||null,dob:c.dob,photo:c.photo_url,parentId:c.parent_id,householdId:c.household_id,tz_number:c.tz_number||null,pronouns:c.pronouns||null})));
       LS.set('children',children);
       if(!S.activeChild&&S.activeTab!=='chat'&&children.length>0)S.activeChild=children[0].id;
       try{
@@ -2699,7 +2699,8 @@ phone:profile.phone||null,address_line1:profile.address_line1||null,address_line
                 status:c.status||'active',
                 parentId:c.parent_id||null,
                 householdId:c.household_id||null,
-                tz_number:c.tz_number||null
+                tz_number:c.tz_number||null,
+                pronouns:c.pronouns||null
               })));
               LS.set('children',mapped);
               if(!S.activeChild)S.activeChild=mapped[0].id;
@@ -17785,6 +17786,16 @@ function showEditChildModal(child){
     dob.value=child.dob||'';
     mb.appendChild(dob);
 
+    // Pronouns
+    mb.appendChild(el('div',{class:'inp-label'},['Pronouns']));
+    const pronounsSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+    [['','Not specified'],['he','he/him'],['she','she/her'],['they','they/them']].forEach(([v,l])=>{
+      const opt=el('option',{value:v},[l]);
+      if((child.pronouns||'')=== v)opt.selected=true;
+      pronounsSel.appendChild(opt);
+    });
+    mb.appendChild(pronounsSel);
+
     // TZ number — Israel only
     let tzInp=null;
     if(localStorage.getItem('hud_country')==='IL'){
@@ -17801,9 +17812,10 @@ function showEditChildModal(child){
       const name=ni.value.trim();
       const dobVal=dob.value;
       if(!name||!dobVal){errDiv.textContent=T('child_name_dob_required');return;}
+      const pronounsVal=pronounsSel.value||null;
       if(session&&session.id!=='demo'){
         try{
-          await _supa.from('children').update({name,dob:dobVal,tz_number:tzInp?.value||null}).eq('id',child.id);
+          await _supa.from('children').update({name,dob:dobVal,tz_number:tzInp?.value||null,pronouns:pronounsVal}).eq('id',child.id);
         }catch(e){errDiv.textContent=T('child_save_failed',{error:e.message});return;}
       }
       // Update local cache
@@ -17813,6 +17825,7 @@ function showEditChildModal(child){
         DB.children[idx].name=name;
         DB.children[idx].dob=dobVal;
         DB.children[idx].age=new Date().getFullYear()-dobDate.getFullYear();
+        DB.children[idx].pronouns=pronounsVal;
         DB.children=DB.children;
       }
       close();re();toast(T('child_updated',{name}));
@@ -17863,6 +17876,14 @@ function showAddChildModal(){
     [ni,dob].forEach(i=>ig.appendChild(i));
     mb.appendChild(ig);
 
+    // Pronouns
+    mb.appendChild(el('div',{class:'inp-label'},['Pronouns']));
+    const addPronounsSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
+    [['','Not specified'],['he','he/him'],['she','she/her'],['they','they/them']].forEach(([v,l])=>{
+      addPronounsSel.appendChild(el('option',{value:v},[l]));
+    });
+    mb.appendChild(addPronounsSel);
+
     // TZ number — Israel only
     let tzInp=null;
     if(localStorage.getItem('hud_country')==='IL'){
@@ -17876,11 +17897,12 @@ function showAddChildModal(){
       const dobDate=new Date(dob.value);
       const age=new Date().getFullYear()-dobDate.getFullYear();
       const childName=ni.value.trim();
+      const addPronounsVal=addPronounsSel.value||null;
       let newChildId='c_'+Date.now();
       const _takenColors=(DB.children||[]).map(c=>c.color);
       const _autoColor=CHILD_COLORS.find(c=>!_takenColors.includes(c))||CHILD_COLORS[(DB.children||[]).length%CHILD_COLORS.length];
-      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null,tz_number:tzInp?.value||null},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast(T('child_save_error'),'error');return;}}
-      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null,householdId:session.householdId||null};
+      if(session&&session.id!=='demo'){try{const saved=await SB.addChild(session.id,{name:childName,dob:dob.value,avatar_emoji:selEmoji,color:_autoColor,photo_url:null,tz_number:tzInp?.value||null,pronouns:addPronounsVal},session.householdId);if(saved)newChildId=saved.id;}catch(e){console.error('save child:',e);toast(T('child_save_error'),'error');return;}}
+      const newChild={id:newChildId,name:childName,age,avatar:selEmoji,color:_autoColor,dob:dob.value,photo:null,householdId:session.householdId||null,pronouns:addPronounsVal};
       const children=DB.children;children.push(newChild);DB.children=children;
       const specs=DB.specialists;specs.forEach(s=>{if(!s.permissions[newChild.id])s.permissions[newChild.id]=[];});DB.specialists=specs;
       S.activeChild=newChild.id;close();re();toast(T('child_added_family',{name:childName}));
