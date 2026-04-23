@@ -564,6 +564,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
   // ── Build UI ──
   containerEl.textContent = '';
+  let _savePhraseBtn = null;
 
   // Toolbar
   const toolbar = document.createElement('div');
@@ -629,6 +630,26 @@ export async function mountGateEditor(containerEl, opts = {}) {
     };
     pickerWrap.appendChild(pickerBtn);
     toolbar.appendChild(pickerWrap);
+
+    // Save-as-phrase button
+    _savePhraseBtn = document.createElement('button');
+    _savePhraseBtn.textContent = '\ud83d\udcbe Save as phrase';
+    _savePhraseBtn.disabled = true;
+    _savePhraseBtn.style.cssText = 'opacity:0.4;cursor:not-allowed;';
+    _savePhraseBtn.onpointerdown = (ev) => ev.preventDefault();
+    _savePhraseBtn.onclick = () => {
+      if (editor.state.selection.empty) return;
+      const { from, to } = editor.state.selection;
+      const selectedText = editor.state.doc.textBetween(from, to, '\n').trim();
+      if (!selectedText) return;
+      if (selectedText.length > 5000) {
+        window.HUD?.openConfirm?.('Selection too long', 'Phrases can be up to 5,000 characters. Please select a shorter passage.', false, () => {});
+        return;
+      }
+      const suggestedName = selectedText.length > 50 ? selectedText.substring(0, 47).trim() + '...' : selectedText;
+      window.HUD_REPORTS?.openNewPhraseDialog?.(suggestedName, selectedText);
+    };
+    toolbar.appendChild(_savePhraseBtn);
   }
 
   // Save status indicator (draft edit mode only)
@@ -981,6 +1002,16 @@ export async function mountGateEditor(containerEl, opts = {}) {
     statusLine.textContent = loadMessage || (childId ? 'Editor ready. Drafts auto-save.' : 'Editor ready. No patient linked \u2014 drafts will not save.');
   }
   containerEl.appendChild(statusLine);
+
+  // ── Selection state for save-as-phrase button ──
+  if (!isFinalized && _savePhraseBtn) {
+    editor.on('selectionUpdate', () => {
+      const has = !editor.state.selection.empty;
+      _savePhraseBtn.disabled = !has;
+      _savePhraseBtn.style.opacity = has ? '1' : '0.4';
+      _savePhraseBtn.style.cursor = has ? 'pointer' : 'not-allowed';
+    });
+  }
 
   // ── Autosave plumbing (edit mode only) ──
   let dirty = false;

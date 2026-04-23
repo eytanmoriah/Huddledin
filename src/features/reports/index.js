@@ -1923,9 +1923,10 @@ function navToTemplates() {
   nav('templates');
 }
 
-function openNewPhraseDialog(initialName) {
+function openNewPhraseDialog(initialName, initialContent) {
   _openPhraseDialog({
     initialName: initialName || '',
+    initialContent: initialContent || '',
     onSave: async (name, content) => {
       const result = await savePhrase({ phraseId: null, name, content });
       if (result.error) return result;
