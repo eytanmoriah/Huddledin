@@ -368,6 +368,8 @@ export function renderTemplates() {
         RS.templatesLoaded = false;
         toast('\ud83d\udccb Template duplicated!');
         if (clone.content && typeof window.HUD_openTiptapGate === 'function') {
+          await loadData();
+          H().re();
           window.HUD_openTiptapGate({ templateMode: true, templateId: newId, templateContent: clone.content, templateName: clone.name, templateDescription: clone.description, sourceFileName: clone.name });
         } else {
           nav('edit-template');
