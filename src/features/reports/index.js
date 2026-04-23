@@ -1553,6 +1553,83 @@ async function handleBetaNewReport(childId) {
 }
 
 // ════════════════════════════════════════
+// BETA: Start draft from template
+// ════════════════════════════════════════
+async function handleStartFromTemplate(childId) {
+  const { session, openModal, el, mkBtn, toast, _supa, openConfirm } = H();
+  if (!session?.id || !childId) return;
+  if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again in a moment.', 'info'); return; }
+
+  const { findExistingDraft, substitutePlaceholders } = await import('./tiptap-gate.js');
+  const existing = await findExistingDraft({ specialistId: session.id, childId });
+
+  if (existing) {
+    const proceed = await new Promise(resolve => {
+      const d = new Date(existing.updated_at);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+      const isYest = d.toDateString() === yest.toDateString();
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = isToday ? 'today at ' + time : isYest ? 'yesterday at ' + time : d.toLocaleDateString() + ' at ' + time;
+      openModal('Continue draft?', (mb, close) => {
+        mb.appendChild(el('div', { style: { marginBottom: '20px', color: '#334155', fontSize: '14px', lineHeight: '1.5' } },
+          ['You have an in-progress draft for this patient from ' + dateStr + '. Would you like to resume it, or start from a template?']));
+        const row = el('div', {}); row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;';
+        row.appendChild(mkBtn('Cancel', 'btn-md btn-ghost', () => { close(); resolve('cancel'); }));
+        row.appendChild(mkBtn('From template', 'btn-md btn-secondary', () => { close(); resolve('new'); }));
+        row.appendChild(mkBtn('Resume draft', 'btn-md btn-primary', () => { close(); resolve('resume'); }));
+        mb.appendChild(row);
+      }, 420);
+    });
+    if (proceed === 'cancel') return;
+    if (proceed === 'resume') { window.HUD_openTiptapGate({ draftId: existing.id, childId }); return; }
+  }
+
+  let templates;
+  try {
+    const { data, error } = await _supa.from('report_templates')
+      .select('id,name,description,content,updated_at,use_count')
+      .eq('specialist_id', session.id)
+      .not('content', 'is', null)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    templates = data || [];
+  } catch (e) {
+    console.error('\u274c load templates:', e);
+    toast('Failed to load templates', 'error');
+    return;
+  }
+
+  if (!templates.length) {
+    openConfirm('No templates yet', 'You haven\u2019t created any templates yet. Upload one from the Reports hub to use this feature.', false, () => {});
+    return;
+  }
+
+  const child = getChildren().find(c => c.id === childId);
+
+  openModal('Pick a template', (mb, close) => {
+    templates.forEach(t => {
+      const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer' } });
+      row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [t.name]));
+      if (t.description) row.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '4px' } }, [t.description]));
+      const meta = [];
+      const sc = t.content?.content?.length;
+      if (sc) meta.push(sc + ' section' + (sc !== 1 ? 's' : ''));
+      if (t.use_count) meta.push('Used ' + t.use_count + ' time' + (t.use_count !== 1 ? 's' : ''));
+      if (meta.length) row.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [meta.join(' \u00b7 ')]));
+      row.onclick = () => {
+        close();
+        const subbed = substitutePlaceholders(t.content, child);
+        window.HUD_openTiptapGate({ childId, initialContent: subbed, fromTemplateId: t.id, startNew: true });
+        _supa.from('report_templates').update({ use_count: (t.use_count || 0) + 1 }).eq('id', t.id).then(() => {}).catch(() => {});
+      };
+      mb.appendChild(row);
+    });
+  }, 480);
+}
+
+// ════════════════════════════════════════
 // PATIENT REPORTS TAB (filtered by child)
 // ════════════════════════════════════════
 function renderPatientReports() {
@@ -1587,7 +1664,8 @@ function renderPatientReports() {
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1rem', margin: 0 } }, ['📋 Reports']));
   const hdrBtns = el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } });
   if (BETA_NEW_EDITOR_TESTERS.includes(session?.email)) {
-    hdrBtns.appendChild(mkBtn('✨ Try new editor', 'btn-sm btn-ghost', () => handleBetaNewReport(childId)));
+    hdrBtns.appendChild(mkBtn('\ud83d\udccb From template', 'btn-sm btn-ghost', () => handleStartFromTemplate(childId)));
+    hdrBtns.appendChild(mkBtn('\u2728 Try new editor', 'btn-sm btn-ghost', () => handleBetaNewReport(childId)));
   }
   hdrBtns.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
@@ -1664,5 +1742,6 @@ window.HUD_REPORTS = {
   initReports,
   invalidateReportsCache,
   invalidateTemplatesCache,
+  calcAge,
   RS,
 };

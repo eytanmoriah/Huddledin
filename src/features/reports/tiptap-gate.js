@@ -127,6 +127,45 @@ function _extractText(node) {
   return '';
 }
 
+// ── Placeholder substitution ──
+
+const PRONOUN_MAP = {
+  he:  { subject: 'he', object: 'him', possessive: 'his' },
+  she: { subject: 'she', object: 'her', possessive: 'her' },
+  they: { subject: 'they', object: 'them', possessive: 'their' },
+};
+
+function _formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+}
+
+export function substitutePlaceholders(content, child) {
+  if (!content || !child) return content;
+  const { calcAge } = window.HUD_REPORTS || {};
+  const map = {};
+  if (child.name) map['[NAME]'] = child.name;
+  if (child.dob) map['[DOB]'] = _formatDate(child.dob);
+  if (child.dob && calcAge) map['[AGE]'] = calcAge(child.dob);
+  map['[DATE]'] = _formatDate(new Date().toISOString().split('T')[0]);
+  const p = child.pronouns ? PRONOUN_MAP[child.pronouns] : null;
+  if (p) {
+    map['[PRONOUN_SUBJECT]'] = p.subject;
+    map['[PRONOUN_OBJECT]'] = p.object;
+    map['[PRONOUN_POSSESSIVE]'] = p.possessive;
+  }
+  return JSON.parse(JSON.stringify(content), (key, val) => {
+    if (typeof val !== 'string') return val;
+    let out = val;
+    for (const [token, replacement] of Object.entries(map)) {
+      if (out.includes(token)) out = out.split(token).join(replacement);
+    }
+    return out;
+  });
+}
+
 // ── Data helpers ──
 
 async function _findDefaultChild() {
@@ -150,7 +189,7 @@ function _resolveChild(childId) {
   return [...db, ...ls].find(c => c.id === childId);
 }
 
-async function saveDraft({ reportId, content, childId }) {
+async function saveDraft({ reportId, content, childId, templateId }) {
   if (_saveAbort) _saveAbort.abort();
   _saveAbort = new AbortController();
 
@@ -169,15 +208,17 @@ async function saveDraft({ reportId, content, childId }) {
     return { id: data.id, updated_at: data.updated_at };
   }
 
+  const insertPayload = {
+    specialist_id: sess.id,
+    child_id: childId,
+    content,
+    schema_version: 1,
+    status: 'draft',
+    report_type: 'general',
+  };
+  if (templateId) insertPayload.template_id = templateId;
   const { data, error } = await supa.from('reports')
-    .insert({
-      specialist_id: sess.id,
-      child_id: childId,
-      content,
-      schema_version: 1,
-      status: 'draft',
-      report_type: 'general',
-    })
+    .insert(insertPayload)
     .select('id, updated_at')
     .single();
   if (error) { console.error('\u274c draft insert:', error); throw error; }
@@ -319,6 +360,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
   }
 
   if (opts.startNew) reportId = null;
+
+  if (!initialContent && opts.initialContent) initialContent = opts.initialContent;
 
   if (isTemplateMode && !initialContent) {
     if (opts.templateContent) initialContent = opts.templateContent;
@@ -967,7 +1010,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       showSaveStatus('Saving\u2026', 'saving');
       try {
         const json = editor.getJSON();
-        const result = await saveDraft({ reportId, content: json, childId });
+        const result = await saveDraft({ reportId, content: json, childId, templateId: opts.fromTemplateId || null });
         if (!reportId) reportId = result.id;
         dirty = false;
         showSaveStatus('Saved', 'saved');
@@ -988,6 +1031,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
       dirty = true;
       scheduleSave();
     });
+
+    if (opts.initialContent) { dirty = true; scheduleSave(); }
 
     const onBlur = () => { if (dirty && !saving) doSave(); };
     window.addEventListener('blur', onBlur);
