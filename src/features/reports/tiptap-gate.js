@@ -166,6 +166,40 @@ export function substitutePlaceholders(content, child) {
   });
 }
 
+function _escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+export function reverseSubstitutePlaceholders(text, child) {
+  if (!text || !child) return text;
+  let r = text;
+
+  if (child.name) {
+    const full = child.name.trim();
+    r = r.replace(new RegExp('\\b' + _escapeRegex(full) + '\\b', 'g'), '[NAME]');
+    const first = full.split(/\s+/)[0];
+    if (first && first !== full) r = r.replace(new RegExp('\\b' + _escapeRegex(first) + '\\b', 'g'), '[NAME]');
+  }
+
+  if (child.dob) {
+    const fmtDob = _formatDate(child.dob);
+    if (fmtDob) r = r.replace(new RegExp(_escapeRegex(fmtDob), 'g'), '[DOB]');
+  }
+
+  const ageStr = window.HUD_REPORTS?.calcAge?.(child.dob);
+  if (ageStr) r = r.replace(new RegExp(_escapeRegex(ageStr), 'g'), '[AGE]');
+
+  const today = _formatDate(new Date().toISOString().split('T')[0]);
+  if (today) r = r.replace(new RegExp(_escapeRegex(today), 'g'), '[DATE]');
+
+  const p = child.pronouns ? PRONOUN_MAP[child.pronouns] : null;
+  if (p) {
+    r = r.replace(new RegExp('\\b' + _escapeRegex(p.subject) + '\\b', 'gi'), '[PRONOUN_SUBJECT]');
+    if (p.object !== p.subject) r = r.replace(new RegExp('\\b' + _escapeRegex(p.object) + '\\b', 'gi'), '[PRONOUN_OBJECT]');
+    if (p.possessive !== p.subject && p.possessive !== p.object) r = r.replace(new RegExp('\\b' + _escapeRegex(p.possessive) + '\\b', 'gi'), '[PRONOUN_POSSESSIVE]');
+  }
+
+  return r;
+}
+
 // ── Data helpers ──
 
 async function _findDefaultChild() {
@@ -640,12 +674,14 @@ export async function mountGateEditor(containerEl, opts = {}) {
     _savePhraseBtn.onclick = () => {
       if (editor.state.selection.empty) return;
       const { from, to } = editor.state.selection;
-      const selectedText = editor.state.doc.textBetween(from, to, '\n').trim();
+      let selectedText = editor.state.doc.textBetween(from, to, '\n').trim();
       if (!selectedText) return;
       if (selectedText.length > 5000) {
         window.HUD?.openConfirm?.('Selection too long', 'Phrases can be up to 5,000 characters. Please select a shorter passage.', false, () => {});
         return;
       }
+      const child = childId ? _resolveChild(childId) : null;
+      if (child && !isTemplateMode) selectedText = reverseSubstitutePlaceholders(selectedText, child);
       const suggestedName = selectedText.length > 50 ? selectedText.substring(0, 47).trim() + '...' : selectedText;
       window.HUD_REPORTS?.openNewPhraseDialog?.(suggestedName, selectedText);
     };
@@ -1044,6 +1080,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     editor._gateCleanup = () => {
       clearTimeout(_lsTimer);
       if (_beforeUnloadHandler) { window.removeEventListener('beforeunload', _beforeUnloadHandler); _beforeUnloadHandler = null; }
+      document.querySelectorAll('.hud-phrase-dropdown').forEach(d => d.remove());
       editor.destroy();
     };
     editor._gateSave = () => { if (dirty) _lsSave(); };
@@ -1111,7 +1148,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     editor._gateSave = doSave;
     editor._gateIsDirty = () => dirty;
   } else {
-    editor._gateCleanup = () => editor.destroy();
+    editor._gateCleanup = () => { document.querySelectorAll('.hud-phrase-dropdown').forEach(d => d.remove()); editor.destroy(); };
     editor._gateSave = () => {};
     editor._gateIsDirty = () => false;
   }

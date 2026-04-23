@@ -100,6 +100,7 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
 
             return {
               onStart(props) {
+                if (el?.parentNode) el.remove();
                 el = document.createElement('div');
                 el.className = 'hud-phrase-dropdown';
                 el.addEventListener('mousedown', (ev) => ev.preventDefault());
@@ -124,7 +125,7 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
                 if (event.key === 'Escape') { el?.remove(); el = null; return true; }
                 return false;
               },
-              onExit() { el?.remove(); el = null; },
+              onExit() { if (el?.parentNode) el.remove(); el = null; },
             };
           },
         }),
