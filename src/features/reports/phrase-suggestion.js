@@ -54,6 +54,10 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
             let selectedIdx = 0;
             let commandFn = null;
 
+            function selectItem(idx) {
+              if (idx >= 0 && idx < items.length) commandFn?.(items[idx]);
+            }
+
             function build() {
               if (!el) return;
               el.innerHTML = '';
@@ -70,8 +74,15 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
                   prev.textContent = item.content.length > 60 ? item.content.slice(0, 60) + '\u2026' : item.content;
                   row.appendChild(prev);
                 }
-                row.onmouseenter = () => { selectedIdx = i; build(); };
-                row.onmousedown = (ev) => { ev.preventDefault(); commandFn?.({ id: item.id, ...item }); };
+                row.addEventListener('mouseenter', () => {
+                  selectedIdx = i;
+                  el.querySelectorAll('.hud-phrase-item').forEach((r, ri) => r.classList.toggle('selected', ri === i));
+                });
+                row.addEventListener('mousedown', (ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  selectItem(i);
+                });
                 el.appendChild(row);
               });
             }
@@ -109,7 +120,7 @@ export function createPhraseSuggestionExtension({ getChild, loadPhrases, onPhras
               onKeyDown({ event }) {
                 if (event.key === 'ArrowDown') { selectedIdx = Math.min(selectedIdx + 1, items.length - 1); build(); return true; }
                 if (event.key === 'ArrowUp') { selectedIdx = Math.max(selectedIdx - 1, 0); build(); return true; }
-                if (event.key === 'Enter') { commandFn?.(items[selectedIdx]); return true; }
+                if (event.key === 'Enter') { selectItem(selectedIdx); return true; }
                 if (event.key === 'Escape') { el?.remove(); el = null; return true; }
                 return false;
               },
