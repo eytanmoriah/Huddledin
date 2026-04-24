@@ -230,12 +230,17 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   // Register Hebrew font if needed
   let hebrewOK = false;
   if (isHeb) hebrewOK = registerHebrewFont(doc);
+  // Hebrew PDFs always use NotoSansHebrew; font_style has no effect on Hebrew text.
+  const pdfFont = (brand.font_style === 'serif') ? 'times' : 'helvetica';
   const setFont = (style) => {
     if (isHeb && hebrewOK) doc.setFont('NotoSansHebrew', style || 'normal');
-    else doc.setFont('helvetica', style || 'normal');
+    else doc.setFont(pdfFont, style || 'normal');
   };
   const textAlign = isHeb ? 'right' : 'left';
   const textX = isHeb ? (pageW - marginR) : marginL;
+  const isCompactHeader = brand.header_style === 'compact';
+  const hdrAlign = isCompactHeader ? 'left' : 'center';
+  const hdrX = isCompactHeader ? marginL : pageW / 2;
 
   const addPage = () => { doc.addPage(); y = marginT; };
   const checkSpace = (needed) => { if (y + needed > pageH - marginB) addPage(); };
@@ -280,7 +285,7 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
       });
       const aspect = img.naturalWidth / img.naturalHeight;
       const logoW = logoH * aspect;
-      const logoX = (pageW - logoW) / 2;
+      const logoX = isCompactHeader ? marginL : (pageW - logoW) / 2;
       doc.addImage(logoDataUrl, fmt, logoX, y - 2, logoW, logoH);
       y += logoH + 3;
     } catch (e) {
@@ -291,8 +296,8 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   console.log('[pdf] Rendering header:', headerName, 'color:', headerColor, 'at y:', y);
   doc.setFontSize(18);
   doc.setTextColor(headerColor.r, headerColor.g, headerColor.b);
-  doc.setFont('helvetica', 'bold');
-  doc.text(headerName, pageW / 2, y, { align: 'center' });
+  setFont('bold');
+  doc.text(headerName, hdrX, y, { align: hdrAlign });
   y += 7;
 
   // Practice details line
@@ -300,8 +305,8 @@ export async function generatePDFBlob(reportText, reportType, childInfo, special
   if (detailParts.length) {
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
-    doc.setFont('helvetica', 'normal');
-    doc.text(detailParts.join(' \u00B7 '), pageW / 2, y, { align: 'center' });
+    setFont('normal');
+    doc.text(detailParts.join(' \u00B7 '), hdrX, y, { align: hdrAlign });
     y += 5;
   }
 
