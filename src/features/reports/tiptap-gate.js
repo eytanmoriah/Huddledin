@@ -665,6 +665,34 @@ export async function mountGateEditor(containerEl, opts = {}) {
     pickerWrap.appendChild(pickerBtn);
     toolbar.appendChild(pickerWrap);
 
+    // Use-template button (draft mode only, not template-edit mode)
+    if (!isTemplateMode && childId) {
+      const useTemplateBtn = document.createElement('button');
+      useTemplateBtn.textContent = '\ud83d\udccb Use template';
+      useTemplateBtn.onpointerdown = (ev) => ev.preventDefault();
+      useTemplateBtn.onclick = () => {
+        const _apply = () => {
+          window.HUD_REPORTS?._openTemplatePickerForChild?.({
+            childId,
+            onPicked: (subContent) => {
+              editor.commands.setContent(subContent);
+              _toast?.('Template applied');
+            },
+          });
+        };
+        const hasContent = editor.getJSON()?.content?.some(function walk(n) {
+          if (n?.type === 'text' && n.text?.trim()) return true;
+          return Array.isArray(n?.content) && n.content.some(walk);
+        });
+        if (hasContent) {
+          _confirm?.('Apply template?', 'This will replace your current content. Continue?', true, _apply) || _apply();
+        } else {
+          _apply();
+        }
+      };
+      toolbar.appendChild(useTemplateBtn);
+    }
+
     // Save-as-phrase button
     _savePhraseBtn = document.createElement('button');
     _savePhraseBtn.textContent = '\ud83d\udcbe Save as phrase';

@@ -464,14 +464,62 @@ async function handleNewReport(childId) {
 }
 
 // ════════════════════════════════════════
-// BETA: Start draft from template
+// Template picker (shared by "From template" + "Use template" toolbar)
 // ════════════════════════════════════════
-async function handleStartFromTemplate(childId) {
+async function _openTemplatePickerForChild({ childId, onPicked }) {
   const { session, openModal, el, mkBtn, toast, _supa, openConfirm } = H();
+  if (!session?.id) return;
+  const { substitutePlaceholders } = await import('./tiptap-gate.js');
+
+  let templates;
+  try {
+    const { data, error } = await _supa.from('report_templates')
+      .select('id,name,description,content,updated_at,use_count')
+      .eq('specialist_id', session.id)
+      .not('content', 'is', null)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    templates = data || [];
+  } catch (e) {
+    console.error('\u274c load templates:', e);
+    toast('Failed to load templates', 'error');
+    return;
+  }
+
+  if (!templates.length) {
+    openConfirm('No templates yet', 'You haven\u2019t created any templates yet. Upload one from the Reports hub to use this feature.', false, () => {});
+    return;
+  }
+
+  const child = childId ? getChildren().find(c => c.id === childId) : null;
+
+  openModal('Pick a template', (mb, close) => {
+    templates.forEach(t => {
+      const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer' } });
+      row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [t.name]));
+      if (t.description) row.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '4px' } }, [t.description]));
+      const meta = [];
+      const sc = t.content?.content?.length;
+      if (sc) meta.push(sc + ' section' + (sc !== 1 ? 's' : ''));
+      if (t.use_count) meta.push('Used ' + t.use_count + ' time' + (t.use_count !== 1 ? 's' : ''));
+      if (meta.length) row.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [meta.join(' \u00b7 ')]));
+      row.onclick = () => {
+        close();
+        const subbed = child ? substitutePlaceholders(t.content, child) : t.content;
+        onPicked(subbed, t);
+        _supa.from('report_templates').update({ use_count: (t.use_count || 0) + 1 }).eq('id', t.id).then(() => {}).catch(() => {});
+      };
+      mb.appendChild(row);
+    });
+  }, 480);
+}
+
+async function handleStartFromTemplate(childId) {
+  const { session, openModal, el, mkBtn, toast } = H();
   if (!session?.id || !childId) return;
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again in a moment.', 'info'); return; }
 
-  const { findExistingDraft, substitutePlaceholders } = await import('./tiptap-gate.js');
+  const { findExistingDraft } = await import('./tiptap-gate.js');
   const existing = await findExistingDraft({ specialistId: session.id, childId });
 
   if (existing) {
@@ -497,47 +545,12 @@ async function handleStartFromTemplate(childId) {
     if (proceed === 'resume') { window.HUD_openTiptapGate({ draftId: existing.id, childId }); return; }
   }
 
-  let templates;
-  try {
-    const { data, error } = await _supa.from('report_templates')
-      .select('id,name,description,content,updated_at,use_count')
-      .eq('specialist_id', session.id)
-      .not('content', 'is', null)
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
-    templates = data || [];
-  } catch (e) {
-    console.error('\u274c load templates:', e);
-    toast('Failed to load templates', 'error');
-    return;
-  }
-
-  if (!templates.length) {
-    openConfirm('No templates yet', 'You haven\u2019t created any templates yet. Upload one from the Reports hub to use this feature.', false, () => {});
-    return;
-  }
-
-  const child = getChildren().find(c => c.id === childId);
-
-  openModal('Pick a template', (mb, close) => {
-    templates.forEach(t => {
-      const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer' } });
-      row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [t.name]));
-      if (t.description) row.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b', marginBottom: '4px' } }, [t.description]));
-      const meta = [];
-      const sc = t.content?.content?.length;
-      if (sc) meta.push(sc + ' section' + (sc !== 1 ? 's' : ''));
-      if (t.use_count) meta.push('Used ' + t.use_count + ' time' + (t.use_count !== 1 ? 's' : ''));
-      if (meta.length) row.appendChild(el('div', { style: { fontSize: '.7rem', color: '#94a3b8' } }, [meta.join(' \u00b7 ')]));
-      row.onclick = () => {
-        close();
-        const subbed = substitutePlaceholders(t.content, child);
-        window.HUD_openTiptapGate({ childId, initialContent: subbed, fromTemplateId: t.id, startNew: true });
-        _supa.from('report_templates').update({ use_count: (t.use_count || 0) + 1 }).eq('id', t.id).then(() => {}).catch(() => {});
-      };
-      mb.appendChild(row);
-    });
-  }, 480);
+  await _openTemplatePickerForChild({
+    childId,
+    onPicked: (subbed, t) => {
+      window.HUD_openTiptapGate({ childId, initialContent: subbed, fromTemplateId: t.id, startNew: true });
+    },
+  });
 }
 
 // ════════════════════════════════════════
@@ -827,6 +840,7 @@ window.HUD_REPORTS = {
   invalidatePhrasesCache,
   navToTemplates,
   openNewPhraseDialog,
+  _openTemplatePickerForChild,
   loadPhrases,
   calcAge,
   RS,
