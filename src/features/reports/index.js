@@ -216,7 +216,7 @@ export function renderReports() {
   }
 
   const children = getChildren();
-  RS.reports.forEach(r => {
+  RS.reports.filter(r => r.status !== 'draft').forEach(r => {
     const child = children.find(c => c.id === r.child_id);
     const card = el('div', { class: 'rpt-card' });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
