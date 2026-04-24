@@ -198,6 +198,24 @@ export function getBranding() {
   return result;
 }
 
+function _newReportFromHub() {
+  const { toast, openModal, el, mkBtn } = H();
+  if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (' + MONTHLY_LIMIT + '/' + MONTHLY_LIMIT + ').', 'error'); return; }
+  if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again.', 'info'); return; }
+  const children = getChildren();
+  if (!children.length) { toast('No patients connected yet.', 'info'); return; }
+  if (children.length === 1) { window.HUD_openTiptapGate({ childId: children[0].id, startNew: true }); return; }
+  openModal('Select Patient', (mb, close) => {
+    children.forEach(c => {
+      const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' } });
+      row.appendChild(el('span', { style: { fontSize: '1.3rem' } }, [c.avatar || '\ud83e\uddd2']));
+      row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
+      row.onclick = () => { close(); window.HUD_openTiptapGate({ childId: c.id, startNew: true }); };
+      mb.appendChild(row);
+    });
+  }, 380);
+}
+
 // ════════════════════════════════════════
 // REPORTS HUB
 // ════════════════════════════════════════
@@ -223,17 +241,16 @@ export function renderReports() {
     return sec;
   }
 
-  // First time — no templates
-  if (!RS.templates.length) {
-    sec.appendChild(el('h2', { class: 'page-title' }, ['📋 Reports']));
+  // First time — no reports yet
+  if (!RS.templates.length && !RS.reports.length) {
+    sec.appendChild(el('h2', { class: 'page-title' }, ['\ud83d\udccb Reports']));
     sec.appendChild(el('div', { class: 'empty-state', style: { marginTop: '8px' } }, [
-      el('span', { class: 'empty-state-icon' }, ['📋']),
+      el('span', { class: 'empty-state-icon' }, ['\ud83d\udccb']),
       el('div', { class: 'empty-state-title' }, ['Welcome to the Report Builder!']),
-      el('div', { class: 'empty-state-body' }, ['Create your first template to start writing reports.']),
+      el('div', { class: 'empty-state-body' }, ['Create a report or upload a template to get started.']),
       el('div', { class: 'empty-state-actions', style: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' } }, [
-        mkBtn('📄 Upload a Past Report', 'btn-md btn-secondary', () => _startImport()),
-        mkBtn('🔧 Build From Scratch', 'btn-md btn-primary', () => { RS.currentTemplate = null; nav('edit-template'); }),
-        ...(BETA_NEW_EDITOR_TESTERS.includes(H().session?.email) ? [mkBtn('✨ Try new editor', 'btn-md btn-ghost', () => { if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate(); })] : [])
+        mkBtn('+ New Report', 'btn-md btn-primary', () => _newReportFromHub()),
+        mkBtn('\ud83d\udce5 Upload template', 'btn-md btn-secondary', () => { if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE(); }),
       ])
     ]));
     return sec;
@@ -241,35 +258,19 @@ export function renderReports() {
 
   // Hub with reports
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' } });
-  hdr.appendChild(el('h2', { class: 'page-title', style: { margin: 0 } }, ['📋 Reports']));
+  hdr.appendChild(el('h2', { class: 'page-title', style: { margin: 0 } }, ['\ud83d\udccb Reports']));
   const hdrR = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } });
   hdrR.appendChild(el('span', { class: 'rpt-counter' }, [RS.monthlyCount + ' / ' + MONTHLY_LIMIT + ' this month']));
-  hdrR.appendChild(mkBtn('⚙️', 'btn-sm btn-ghost', () => { const { S } = H(); S.activeTab = 'settings'; H().re(); }));
+  hdrR.appendChild(mkBtn('\u2699\ufe0f', 'btn-sm btn-ghost', () => { const { S } = H(); S.activeTab = 'settings'; H().re(); }));
   hdrR.appendChild(mkBtn('\ud83d\udcdd My Templates', 'btn-sm btn-ghost', () => nav('templates')));
   hdrR.appendChild(mkBtn('\ud83d\udcac My Phrases', 'btn-sm btn-ghost', () => nav('phrases')));
-  hdrR.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
-    if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
-    RS.selectedChildId = null; RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {}; RS.currentReport = null; RS.lastSavedFormData = null; RS.step = 0;
-    nav('new-report');
-  }));
-  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
-    hdrR.appendChild(mkBtn('✨ Try new editor', 'btn-sm btn-ghost', () => {
-      if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate();
-      else toast('Editor not loaded yet — try again in a moment.', 'info');
-    }));
-    hdrR.appendChild(mkBtn('\ud83d\udce5 Upload template', 'btn-sm btn-ghost', () => {
-      if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE();
-      else toast('Upload not loaded yet — try again in a moment.', 'info');
-    }));
-  }
+  hdrR.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => _newReportFromHub()));
   hdr.appendChild(hdrR); sec.appendChild(hdr);
 
-  // ── Beta: Drafts section (async, fills in after hub renders) ──
-  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
-    const draftsHost = el('div', {});
-    sec.appendChild(draftsHost);
-    _renderDraftsSection(draftsHost);
-  }
+  // Drafts section
+  const draftsHost = el('div', {});
+  sec.appendChild(draftsHost);
+  _renderDraftsSection(draftsHost);
 
   if (!RS.reports.length) {
     sec.appendChild(el('div', { style: { textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '.88rem' } }, ['No reports yet. Create your first one!']));
@@ -289,18 +290,16 @@ export function renderReports() {
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(r.created_at ? new Date(r.created_at).toLocaleDateString() : '')]));
     card.onclick = () => {
-      if ((r.status === 'generated' || r.status === 'finalized') && r.content && typeof window.HUD_openTiptapGate === 'function') {
-        window.HUD_openTiptapGate({ reportId: r.id, childId: r.child_id, readOnly: r.status === 'finalized' });
-        return;
+      if (r.content && typeof window.HUD_openTiptapGate === 'function') {
+        window.HUD_openTiptapGate({
+          childId: r.child_id,
+          draftId: r.status === 'draft' ? r.id : undefined,
+          reportId: r.status !== 'draft' ? r.id : undefined,
+          readOnly: r.status === 'finalized',
+        });
+      } else {
+        toast('This legacy report is no longer available.', 'info');
       }
-      RS.currentReport = r; RS.selectedChildId = r.child_id;
-      RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
-      RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
-      RS.selectedSections = r.sections_included || [];
-      RS.generatedText = r.generated_text || null;
-      RS.regenCount = 0;
-      if (r.status === 'generated' || r.status === 'finalized') { nav('preview'); }
-      else { RS.step = 3; nav('new-report', 3); }
     };
     sec.appendChild(card);
   });
@@ -321,13 +320,12 @@ export function renderTemplates() {
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0 16px' } });
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1.1rem', margin: 0 } }, ['My Templates']));
   const hdrBtns = el('div', { style: { display: 'flex', gap: '8px' } });
-  hdrBtns.appendChild(mkBtn('📄 Import from Report', 'btn-sm btn-ghost', () => _startImport()));
-  if (BETA_NEW_EDITOR_TESTERS.includes(H().session?.email)) {
-    hdrBtns.appendChild(mkBtn('\ud83d\udce5 Upload template', 'btn-sm btn-ghost', () => {
-      if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE();
-    }));
-  }
-  hdrBtns.appendChild(mkBtn('+ New Template', 'btn-sm btn-primary', () => _showNewTemplateChoice()));
+  hdrBtns.appendChild(mkBtn('\ud83d\udce5 Upload template', 'btn-sm btn-ghost', () => {
+    if (typeof window.HUD_UPLOAD_TEMPLATE === 'function') window.HUD_UPLOAD_TEMPLATE();
+  }));
+  hdrBtns.appendChild(mkBtn('+ New Template', 'btn-sm btn-primary', () => {
+    if (typeof window.HUD_openTiptapGate === 'function') window.HUD_openTiptapGate({ templateMode: true });
+  }));
   hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);
 
@@ -356,7 +354,7 @@ export function renderTemplates() {
       if (t.content && typeof window.HUD_openTiptapGate === 'function') {
         window.HUD_openTiptapGate({ templateMode: true, templateId: t.id, templateContent: t.content, templateName: t.name, templateDescription: t.description, sourceFileName: t.name });
       } else {
-        RS.currentTemplate = _copyTpl(); nav('edit-template');
+        toast('This legacy template is no longer editable.', 'info');
       }
     }));
     acts.appendChild(mkBtn('Duplicate', 'btn-sm btn-ghost', async (e) => {
@@ -376,7 +374,7 @@ export function renderTemplates() {
           H().re();
           window.HUD_openTiptapGate({ templateMode: true, templateId: newId, templateContent: clone.content, templateName: clone.name, templateDescription: clone.description, sourceFileName: clone.name });
         } else {
-          nav('edit-template');
+          RS.templatesLoaded = false; await loadData(); H().re();
         }
       } catch (ex) { console.error(ex); toast('Could not duplicate.', 'error'); }
     }));
@@ -391,7 +389,7 @@ export function renderTemplates() {
       if (t.content && typeof window.HUD_openTiptapGate === 'function') {
         window.HUD_openTiptapGate({ templateMode: true, templateId: t.id, templateContent: t.content, templateName: t.name, templateDescription: t.description, sourceFileName: t.name });
       } else {
-        RS.currentTemplate = _copyTpl(); nav('edit-template');
+        toast('This legacy template is no longer editable.', 'info');
       }
     };
     grid.appendChild(card);
@@ -1672,19 +1670,10 @@ function renderPatientReports() {
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' } });
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1rem', margin: 0 } }, ['📋 Reports']));
   const hdrBtns = el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } });
-  if (BETA_NEW_EDITOR_TESTERS.includes(session?.email)) {
-    hdrBtns.appendChild(mkBtn('\ud83d\udccb From template', 'btn-sm btn-ghost', () => handleStartFromTemplate(childId)));
-    hdrBtns.appendChild(mkBtn('\u2728 Try new editor', 'btn-sm btn-ghost', () => handleBetaNewReport(childId)));
-  }
+  hdrBtns.appendChild(mkBtn('\ud83d\udccb From template', 'btn-sm btn-ghost', () => handleStartFromTemplate(childId)));
   hdrBtns.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
-    if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (5/5).', 'error'); return; }
-    RS.selectedChildId = childId;
-    RS.returnToPatient = childId;
-    RS.currentTemplate = null; RS.selectedSections = []; RS.formData = {};
-    RS.currentReport = null; RS.lastSavedFormData = null;
-    RS.step = RS.templates.length ? 1 : 0;
-    S.activeTab = 'reports';
-    nav('new-report', RS.step);
+    if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (' + MONTHLY_LIMIT + '/' + MONTHLY_LIMIT + ').', 'error'); return; }
+    handleBetaNewReport(childId);
   }));
   hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);
@@ -1718,18 +1707,9 @@ function renderPatientReports() {
           reportId: r.status !== 'draft' ? r.id : undefined,
           readOnly: r.status === 'finalized',
         });
-        return;
+      } else {
+        toast('This legacy report is no longer available.', 'info');
       }
-      RS.currentReport = r; RS.selectedChildId = r.child_id;
-      RS.returnToPatient = childId;
-      RS.formData = r.form_data ? JSON.parse(JSON.stringify(r.form_data)) : {};
-      RS.lastSavedFormData = JSON.parse(JSON.stringify(RS.formData));
-      RS.selectedSections = _getSectionIds(r.sections_included);
-      RS.generatedText = r.generated_text || null;
-      RS.regenCount = 0;
-      S.activeTab = 'reports';
-      if (r.status === 'generated' || r.status === 'finalized') { nav('preview'); }
-      else { RS.step = 3; nav('new-report', 3); }
     };
     sec.appendChild(card);
   });
