@@ -1003,7 +1003,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     const style = document.createElement('style');
     style.id = 'tiptap-gate-css';
     style.textContent = `
-      .tiptap-gate-toolbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+      .tiptap-gate-toolbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; align-items:center; position:sticky; top:-24px; z-index:10; background:#f5fafa; padding-top:8px; padding-bottom:8px; border-bottom:1px solid #e2e8f0; margin-top:-8px; }
       .tiptap-gate-toolbar button { padding:6px 12px; border:1px solid #d1e0dd; border-radius:8px; background:#fff; font-size:14px; cursor:pointer; min-height:36px; font-family:inherit; transition:background .12s; }
       .tiptap-gate-toolbar button:hover { background:#f0fdf9; }
       .tiptap-gate-save-status { font-size:12px; padding:4px 10px; border-radius:6px; transition:opacity .3s; opacity:0; white-space:nowrap; }
