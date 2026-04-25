@@ -602,7 +602,14 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let _savePhraseBtn = null;
   let _reportName = reportRow?.name || opts.initialName || '';
 
-  // Report name field (draft + read-only modes, not template mode)
+  // Sticky header wrapper (name row + toolbar stay visible on scroll)
+  const stickyHeader = document.createElement('div');
+  stickyHeader.style.cssText = 'position:sticky;top:-24px;z-index:10;background:#f5fafa;padding-top:8px;border-bottom:1px solid #e2e8f0;margin:-0px -0px 0;';
+
+  // Name row: [pencil + input] [save indicator] [X close]
+  const nameRow = document.createElement('div');
+  nameRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+
   const _pencilSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E";
   let _nameInput = null;
   if (!isTemplateMode) {
@@ -612,17 +619,37 @@ export async function mountGateEditor(containerEl, opts = {}) {
     _nameInput.placeholder = 'Name this report';
     _nameInput.value = _reportName;
     _nameInput.disabled = isFinalized;
-    _nameInput.style.cssText = 'display:block;width:100%;font-size:20px;font-weight:700;color:#0f1a18;border:none;outline:none;background:url("' + _pencilSvg + '") no-repeat 0 center;background-size:18px;padding:4px 0 8px 26px;font-family:inherit;' + (isFinalized ? 'opacity:0.7;cursor:default;' : '');
+    _nameInput.style.cssText = 'flex:1;min-width:0;font-size:20px;font-weight:700;color:#0f1a18;border:none;outline:none;background:url("' + _pencilSvg + '") no-repeat 0 center;background-size:18px;padding:4px 0 4px 26px;font-family:inherit;' + (isFinalized ? 'opacity:0.7;cursor:default;' : '');
     _nameInput.oninput = () => {
       _reportName = _nameInput.value.slice(0, 100);
       dirty = true;
     };
-    containerEl.appendChild(_nameInput);
+    nameRow.appendChild(_nameInput);
+  } else {
+    const titleEl = document.createElement('div');
+    let titleText = opts.templateId ? 'Edit Template: ' + (opts.templateName || 'Template') : opts.sourceFileName ? 'New Template from: ' + opts.sourceFileName : 'New Template';
+    titleEl.textContent = titleText;
+    titleEl.style.cssText = 'flex:1;font-size:18px;font-weight:700;color:#0f1a18;';
+    nameRow.appendChild(titleEl);
   }
+
+  // Save indicator
+  const saveStatus = document.createElement('span');
+  saveStatus.style.cssText = 'font-size:12px;color:#94a3b8;white-space:nowrap;flex-shrink:0;';
+  if (!isTemplateMode && !isFinalized) nameRow.appendChild(saveStatus);
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '\u2715';
+  closeBtn.style.cssText = 'width:36px;height:36px;border-radius:50%;border:none;background:#e8f4f2;cursor:pointer;font-size:18px;color:#64748b;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+  closeBtn.onclick = () => opts._closeModal?.();
+  nameRow.appendChild(closeBtn);
+
+  stickyHeader.appendChild(nameRow);
 
   // Toolbar
   const toolbar = document.createElement('div');
-  toolbar.className = 'tiptap-gate-toolbar';
+  toolbar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-bottom:8px;';
 
   if (!isFinalized) {
     const fmtActions = [
@@ -736,8 +763,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     toolbar.appendChild(_savePhraseBtn);
   }
 
-  // Save status indicator (uses modal-level span from app.js)
-  const saveStatus = opts._saveIndicator || document.createElement('span');
+  // saveStatus already created in name row above
 
   // Action buttons area (right side of toolbar)
   const actionsWrap = document.createElement('div');
@@ -985,7 +1011,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
   }
 
   toolbar.appendChild(actionsWrap);
-  containerEl.appendChild(toolbar);
+  stickyHeader.appendChild(toolbar);
+  containerEl.appendChild(stickyHeader);
 
   // Editor container
   const editorWrap = document.createElement('div');
@@ -1018,7 +1045,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     const style = document.createElement('style');
     style.id = 'tiptap-gate-css';
     style.textContent = `
-      .tiptap-gate-toolbar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; align-items:center; position:sticky; top:-24px; z-index:10; background:#f5fafa; padding-top:8px; padding-bottom:8px; border-bottom:1px solid #e2e8f0; margin-top:-8px; }
+      .tiptap-gate-toolbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
       .tiptap-gate-toolbar button { padding:6px 12px; border:1px solid #d1e0dd; border-radius:8px; background:#fff; font-size:14px; cursor:pointer; min-height:36px; font-family:inherit; transition:background .12s; }
       .tiptap-gate-toolbar button:hover { background:#f0fdf9; }
       .tiptap-gate-save-status { font-size:12px; padding:4px 10px; border-radius:6px; transition:opacity .3s; opacity:0; white-space:nowrap; }
