@@ -684,8 +684,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
           if (n?.type === 'text' && n.text?.trim()) return true;
           return Array.isArray(n?.content) && n.content.some(walk);
         });
-        if (hasContent) {
-          _confirm?.('Apply template?', 'This will replace your current content. Continue?', true, _apply) || _apply();
+        if (hasContent && typeof _confirm === 'function') {
+          _confirm('Apply template?', 'This will replace your current content. Continue?', true, _apply);
         } else {
           _apply();
         }
