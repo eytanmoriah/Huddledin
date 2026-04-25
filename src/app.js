@@ -75,25 +75,26 @@ async function openTiptapGateModal(opts = {}) {
   close.style.cssText = 'position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:#e8f4f2;cursor:pointer;font-size:18px;color:#64748b;display:flex;align-items:center;justify-content:center;z-index:1;';
   close.onclick = () => closeModal();
   card.appendChild(close);
-  const title = document.createElement('h2');
   const childId = opts.childId;
-  let titleText = opts.readOnly ? 'Viewing finalized report' : opts.templateMode ? (opts.templateId ? 'Edit Template: ' + (opts.templateName || 'Template') : opts.sourceFileName ? 'New Template from: ' + opts.sourceFileName : 'New Template') : 'New Editor (Beta)';
-  if (childId && !opts.templateMode) {
-    const db = window.HUD?.DB?.children || [];
-    const ls = window.HUD?.LS?.get?.('children', []) || [];
-    const child = [...db, ...ls].find(c => c.id === childId);
-    if (child?.name) titleText += ' \u2014 ' + child.name;
+  // Save indicator (top-right, to the left of close button)
+  const saveIndicator = document.createElement('span');
+  saveIndicator.style.cssText = 'position:absolute;top:18px;right:56px;font-size:12px;color:#94a3b8;z-index:1;white-space:nowrap;';
+  if (!opts.templateMode && !opts.readOnly) card.appendChild(saveIndicator);
+  // Modal title — only for template mode
+  if (opts.templateMode) {
+    const title = document.createElement('h2');
+    let titleText = opts.templateId ? 'Edit Template: ' + (opts.templateName || 'Template') : opts.sourceFileName ? 'New Template from: ' + opts.sourceFileName : 'New Template';
+    title.textContent = titleText;
+    title.style.cssText = 'margin:0 0 16px;font-size:18px;font-weight:700;color:#0f1a18;';
+    card.appendChild(title);
   }
-  title.textContent = titleText;
-  title.style.cssText = 'margin:0 0 16px;font-size:18px;font-weight:700;color:#0f1a18;';
-  card.appendChild(title);
   const editorHost = document.createElement('div');
   card.appendChild(editorHost);
   overlay.appendChild(card);
   overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
   document.body.appendChild(overlay);
   const { mountGateEditor } = await import('./features/reports/tiptap-gate.js');
-  gateEditor = await mountGateEditor(editorHost, { ...opts, _setTitle: (t) => { title.textContent = t; }, _closeModal: () => closeModal() });
+  gateEditor = await mountGateEditor(editorHost, { ...opts, _saveIndicator: saveIndicator, _closeModal: () => closeModal() });
 }
 window.HUD_openTiptapGate = openTiptapGateModal;
 

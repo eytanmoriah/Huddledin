@@ -603,22 +603,19 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let _reportName = reportRow?.name || opts.initialName || '';
 
   // Report name field (draft + read-only modes, not template mode)
+  const _pencilSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E";
   let _nameInput = null;
   if (!isTemplateMode) {
     _nameInput = document.createElement('input');
     _nameInput.type = 'text';
     _nameInput.maxLength = 100;
-    _nameInput.placeholder = 'Untitled report';
+    _nameInput.placeholder = 'Name this report';
     _nameInput.value = _reportName;
     _nameInput.disabled = isFinalized;
-    _nameInput.style.cssText = 'display:block;width:100%;font-size:20px;font-weight:700;color:#0f1a18;border:none;outline:none;background:transparent;padding:0 0 8px;font-family:inherit;' + (isFinalized ? 'opacity:0.7;cursor:default;' : '');
+    _nameInput.style.cssText = 'display:block;width:100%;font-size:20px;font-weight:700;color:#0f1a18;border:none;outline:none;background:url("' + _pencilSvg + '") no-repeat 0 center;background-size:18px;padding:4px 0 8px 26px;font-family:inherit;' + (isFinalized ? 'opacity:0.7;cursor:default;' : '');
     _nameInput.oninput = () => {
       _reportName = _nameInput.value.slice(0, 100);
       dirty = true;
-      if (opts._setTitle) {
-        const child = childId ? _resolveChild(childId) : null;
-        opts._setTitle((_reportName || 'New Report') + (child?.name ? ' \u2014 ' + child.name : ''));
-      }
     };
     containerEl.appendChild(_nameInput);
   }
@@ -739,10 +736,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
     toolbar.appendChild(_savePhraseBtn);
   }
 
-  // Save status indicator (draft edit mode only)
-  const saveStatus = document.createElement('span');
-  saveStatus.className = 'tiptap-gate-save-status';
-  if (!isFinalized && !isTemplateMode) toolbar.appendChild(saveStatus);
+  // Save status indicator (uses modal-level span from app.js)
+  const saveStatus = opts._saveIndicator || document.createElement('span');
 
   // Action buttons area (right side of toolbar)
   const actionsWrap = document.createElement('div');
@@ -848,10 +843,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
           editorWrap.querySelectorAll('.rpt-section-header').forEach(h => h.style.display = 'none');
           // Update status + title
           statusLine.textContent = '\u2705 Report finalized.';
-          if (opts._setTitle) {
-            const child = _resolveChild(childId);
-            opts._setTitle('Viewing finalized report' + (child?.name ? ' \u2014 ' + child.name : ''));
-          }
+          if (_nameInput) _nameInput.disabled = true;
           _toast?.('\u2705 Report finalized!');
           dirty = false;
           clearTimeout(_saveTimer); clearInterval(_tickTimer);
@@ -1082,11 +1074,11 @@ export async function mountGateEditor(containerEl, opts = {}) {
     const parts = [];
     if (reportRow?.finalized_at) parts.push('\ud83d\udd12 Finalized on ' + new Date(reportRow.finalized_at).toLocaleDateString());
     if (reportRow?.shared_with_parents) parts.push('\u2705 Shared with parents' + (reportRow.shared_at ? ' on ' + new Date(reportRow.shared_at).toLocaleDateString() : ''));
-    statusLine.textContent = parts.join(' \u00b7 ') || 'Viewing finalized report.';
+    statusLine.textContent = parts.join(' \u00b7 ') || 'This report is finalized.';
   } else if (isTemplateMode) {
     statusLine.textContent = 'Edit sections, then save as a reusable template.';
   } else {
-    statusLine.textContent = loadMessage || (childId ? 'Editor ready. Drafts auto-save.' : 'Editor ready. No patient linked \u2014 drafts will not save.');
+    statusLine.textContent = childId ? 'Your draft saves automatically. Close anytime \u2014 your work is safe.' : 'No patient linked \u2014 drafts will not save.';
   }
   containerEl.appendChild(statusLine);
 
@@ -1139,10 +1131,10 @@ export async function mountGateEditor(containerEl, opts = {}) {
   } else if (!isFinalized) {
     function showSaveStatus(text, cls) {
       saveStatus.textContent = text;
-      saveStatus.className = 'tiptap-gate-save-status ' + cls;
+      saveStatus.style.color = cls === 'saved' ? '#16a34a' : cls === 'error' ? '#dc2626' : '#94a3b8';
       clearTimeout(_statusTimeout);
       if (cls === 'saved') {
-        _statusTimeout = setTimeout(() => { saveStatus.className = 'tiptap-gate-save-status'; }, 1500);
+        _statusTimeout = setTimeout(() => { saveStatus.style.color = '#94a3b8'; }, 2000);
       }
     }
 
@@ -1171,10 +1163,17 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
     editor.on('update', () => {
       dirty = true;
+      showSaveStatus('Editing\u2026', 'idle');
       scheduleSave();
     });
 
+    if (_nameInput && !isFinalized) {
+      const origOninput = _nameInput.oninput;
+      _nameInput.oninput = () => { origOninput?.(); showSaveStatus('Editing\u2026', 'idle'); scheduleSave(); };
+    }
+
     if (opts.initialContent) { dirty = true; scheduleSave(); }
+    else if (reportId) showSaveStatus('\u2713 Saved', 'saved');
 
     const onBlur = () => { if (dirty && !saving) doSave(); };
     window.addEventListener('blur', onBlur);
