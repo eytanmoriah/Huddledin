@@ -7453,37 +7453,64 @@ function _showSpecAiUpgradeModal(featureName){
       list.appendChild(row);
     });
     mb.appendChild(list);
+    // State-based header message
+    const _sub=S.specAiSubscription;
+    const _isActive=_sub&&(_sub.status==='active'||_sub.exempt);
+    const _isTrial=_sub&&_sub.status==='trial'&&_sub.daysRemaining>0;
+    const _isExpired=_sub&&(_sub.status==='expired'||(_sub.status==='trial'&&(!_sub.daysRemaining||_sub.daysRemaining<=0)));
+    const _isPastDue=_sub&&_sub.status==='past_due';
+    const _showTrial=!_sub;
+    const _showSubscribe=!_isActive;
+    if(_isTrial){
+      mb.appendChild(el('div',{style:{padding:'10px 16px',borderRadius:'8px',background:'#d1fae5',color:'#065f46',fontSize:'.84rem',fontWeight:500,marginBottom:'14px'}},
+        ['\u23f3 You\u2019re on a free trial \u2014 '+_sub.daysRemaining+' day'+(_sub.daysRemaining!==1?'s':'')+' left. Upgrade now to keep access.']));
+    }else if(_isExpired){
+      mb.appendChild(el('div',{style:{padding:'10px 16px',borderRadius:'8px',background:'#fef3c7',color:'#92400e',fontSize:'.84rem',fontWeight:500,marginBottom:'14px'}},
+        ['\u26a0\ufe0f Your trial has ended. Choose a plan to continue using AI tools.']));
+    }else if(_isActive){
+      mb.appendChild(el('div',{style:{padding:'10px 16px',borderRadius:'8px',background:'#d1fae5',color:'#065f46',fontSize:'.84rem',fontWeight:500,marginBottom:'14px'}},
+        ['\u2713 You\u2019re already subscribed.']));
+    }else if(_isPastDue){
+      mb.appendChild(el('div',{style:{padding:'10px 16px',borderRadius:'8px',background:'#fef3c7',color:'#92400e',fontSize:'.84rem',fontWeight:500,marginBottom:'14px'}},
+        ['\u26a0\ufe0f Your payment needs updating to continue access.']));
+    }
     // Pricing cards
-    const pRow=el('div',{style:{display:'flex',gap:'10px',marginBottom:'16px'}});
-    const annualCard=el('div',{style:{textAlign:'center',padding:'14px 12px',background:'var(--mint-ll)',borderRadius:'14px',flex:1,position:'relative',border:'2px solid var(--teal-l)'}});
-    annualCard.appendChild(el('div',{style:{position:'absolute',top:'-8px',insetInlineStart:'50%',transform:'translateX(-50%)',background:'var(--teal)',color:'#fff',fontSize:'.6rem',fontWeight:800,padding:'2px 10px',borderRadius:'99px',whiteSpace:'nowrap',letterSpacing:'.3px'}},[T('spec_ai_best_value')]));
-    annualCard.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.5rem',color:'var(--navy)',marginTop:'4px'}},['$9']));
-    annualCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]));
-    annualCard.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--teal)',fontWeight:700}},[T('spec_ai_billed_annually')]));
-    pRow.appendChild(annualCard);
-    const monthCard=el('div',{style:{textAlign:'center',padding:'14px 12px',background:'#fff',border:'1.5px solid var(--slate-ll)',borderRadius:'14px',flex:1}});
-    monthCard.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.5rem',color:'var(--navy)',marginTop:'12px'}},['$11']));
-    monthCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]));
-    monthCard.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},[T('spec_ai_billed_monthly')]));
-    pRow.appendChild(monthCard);
-    mb.appendChild(pRow);
-    // CTA — trial
-    const trialBtn=mkBtn(T('spec_ai_start_trial'),'btn-lg btn-primary btn-full',async()=>{
-      trialBtn.disabled=true;trialBtn.textContent=T('spec_ai_starting');
-      await _startSpecAiTrial();close();
-    });
-    trialBtn.style.cssText+='font-size:.95rem;padding:14px 20px;border-radius:14px;font-weight:800;letter-spacing:.2px;';
-    mb.appendChild(trialBtn);
-    mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.72rem',color:'var(--slate-l)',marginTop:'6px',marginBottom:'10px'}},[T('spec_ai_no_card')]));
+    if(_showSubscribe){
+      const pRow=el('div',{style:{display:'flex',gap:'10px',marginBottom:'16px'}});
+      const annualCard=el('div',{style:{textAlign:'center',padding:'14px 12px',background:'var(--mint-ll)',borderRadius:'14px',flex:1,position:'relative',border:'2px solid var(--teal-l)'}});
+      annualCard.appendChild(el('div',{style:{position:'absolute',top:'-8px',insetInlineStart:'50%',transform:'translateX(-50%)',background:'var(--teal)',color:'#fff',fontSize:'.6rem',fontWeight:800,padding:'2px 10px',borderRadius:'99px',whiteSpace:'nowrap',letterSpacing:'.3px'}},[T('spec_ai_best_value')]));
+      annualCard.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.5rem',color:'var(--navy)',marginTop:'4px'}},['$9']));
+      annualCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]));
+      annualCard.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--teal)',fontWeight:700}},[T('spec_ai_billed_annually')]));
+      pRow.appendChild(annualCard);
+      const monthCard=el('div',{style:{textAlign:'center',padding:'14px 12px',background:'#fff',border:'1.5px solid var(--slate-ll)',borderRadius:'14px',flex:1}});
+      monthCard.appendChild(el('div',{style:{fontWeight:900,fontSize:'1.5rem',color:'var(--navy)',marginTop:'12px'}},['$11']));
+      monthCard.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate)'}},[T('spec_ai_per_month')]));
+      monthCard.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate)'}},[T('spec_ai_billed_monthly')]));
+      pRow.appendChild(monthCard);
+      mb.appendChild(pRow);
+    }
+    // CTA — trial (only for users who never tried)
+    if(_showTrial){
+      const trialBtn=mkBtn(T('spec_ai_start_trial'),'btn-lg btn-primary btn-full',async()=>{
+        trialBtn.disabled=true;trialBtn.textContent=T('spec_ai_starting');
+        await _startSpecAiTrial();close();
+      });
+      trialBtn.style.cssText+='font-size:.95rem;padding:14px 20px;border-radius:14px;font-weight:800;letter-spacing:.2px;';
+      mb.appendChild(trialBtn);
+      mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.72rem',color:'var(--slate-l)',marginTop:'6px',marginBottom:'10px'}},[T('spec_ai_no_card')]));
+    }
     // Subscribe buttons
-    const subRow=el('div',{style:{display:'flex',gap:'8px'}});
-    const annBtn=mkBtn(T('spec_ai_annual_btn'),'btn-md btn-slate',()=>{close();_handleSpecAiPlanSelect('yearly');});
-    annBtn.style.flex='1';
-    const moBtn=mkBtn(T('spec_ai_monthly_btn'),'btn-md btn-ghost',()=>{close();_handleSpecAiPlanSelect('monthly');});
-    moBtn.style.flex='1';
-    subRow.appendChild(annBtn);subRow.appendChild(moBtn);
-    mb.appendChild(subRow);
-    mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.72rem',color:'var(--slate-l)',marginTop:'10px'}},[T('spec_ai_cancel_note')]));
+    if(_showSubscribe){
+      const subRow=el('div',{style:{display:'flex',gap:'8px'}});
+      const annBtn=mkBtn(T('spec_ai_annual_btn'),'btn-md btn-slate',()=>{close();_handleSpecAiPlanSelect('yearly');});
+      annBtn.style.flex='1';
+      const moBtn=mkBtn(T('spec_ai_monthly_btn'),'btn-md btn-ghost',()=>{close();_handleSpecAiPlanSelect('monthly');});
+      moBtn.style.flex='1';
+      subRow.appendChild(annBtn);subRow.appendChild(moBtn);
+      mb.appendChild(subRow);
+      mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'.72rem',color:'var(--slate-l)',marginTop:'10px'}},[T('spec_ai_cancel_note')]));
+    }
   },440);
 }
 
