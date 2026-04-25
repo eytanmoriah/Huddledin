@@ -649,7 +649,8 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
   // Toolbar
   const toolbar = document.createElement('div');
-  toolbar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-bottom:8px;';
+  toolbar.className = 'tiptap-gate-toolbar';
+  toolbar.style.paddingBottom = '8px';
 
   if (!isFinalized) {
     const fmtActions = [
