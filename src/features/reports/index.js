@@ -48,8 +48,9 @@ export function _buildCredentials(session) {
   return parts.join(', ');
 }
 
-export function _downloadBlob(blob, reportType, childName) {
-  const name = (reportType || 'Report').replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_');
+export function _downloadBlob(blob, reportType, childName, reportName) {
+  const rawName = reportName || reportType || 'Report';
+  const name = rawName.replace(/[^a-zA-Z0-9 \u0590-\u05FF]/g, '').replace(/\s+/g, '_').slice(0, 50);
   const child = (childName || 'Patient').replace(/\s+/g, '_');
   const date = new Date().toISOString().split('T')[0];
   const filename = name + '_' + child + '_' + date + '.pdf';
@@ -220,7 +221,7 @@ export function renderReports() {
     const child = children.find(c => c.id === r.child_id);
     const card = el('div', { class: 'rpt-card' });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
-    top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [(child?.avatar || '🧒') + ' ' + (child?.name || 'Patient') + ' — ' + (r.report_type || 'Report')]));
+    top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [(child?.avatar || '\ud83e\uddd2') + ' ' + (child?.name || 'Patient') + ' \u2014 ' + (r.name || 'Untitled')]));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
     badges.appendChild(statusBadge(r.status));
     if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
@@ -402,8 +403,7 @@ async function _renderDraftsSection(host) {
   drafts.forEach(draft => {
     const child = children.find(c => c.id === draft.child_id);
     const card = el('div', { class: 'rpt-card', style: { position: 'relative', paddingInlineEnd: '42px' } });
-    card.appendChild(el('div', { style: { fontWeight: 600, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [(child?.avatar || '🧒') + ' ' + (child?.name || 'Patient')]));
-    card.appendChild(el('div', { style: { fontSize: '.78rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' } }, [_draftPreview(draft.content)]));
+    card.appendChild(el('div', { style: { fontWeight: 600, color: '#0f172a', fontSize: '.88rem', marginBottom: '2px' } }, [(child?.avatar || '\ud83e\uddd2') + ' ' + (child?.name || 'Patient') + ' \u2014 ' + (draft.name || 'Untitled')]));
     card.appendChild(el('div', { style: { fontSize: '.72rem', color: '#94a3b8' } }, [_relativeTime(draft.updated_at)]));
 
     const trash = el('button', { style: { position: 'absolute', top: '50%', insetInlineEnd: '10px', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '6px', borderRadius: '6px', color: '#94a3b8', transition: 'color .12s, background .12s', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, ['🗑️']);
@@ -609,7 +609,7 @@ function renderPatientReports() {
   childReports.forEach(r => {
     const card = el('div', { class: 'rpt-card', style: Object.assign({ position: 'relative' }, r.status === 'draft' ? { paddingInlineEnd: '42px' } : {}) });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
-    top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.report_type || 'Report']));
+    top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.name || 'Untitled']));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
     badges.appendChild(statusBadge(r.status));
     if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['\ud83d\udce4 Shared']));

@@ -219,7 +219,7 @@ function _resolveChild(childId) {
   return [...db, ...ls].find(c => c.id === childId);
 }
 
-async function saveDraft({ reportId, content, childId, templateId }) {
+async function saveDraft({ reportId, content, childId, templateId, name }) {
   if (_saveAbort) _saveAbort.abort();
   _saveAbort = new AbortController();
 
@@ -230,7 +230,7 @@ async function saveDraft({ reportId, content, childId, templateId }) {
 
   if (reportId) {
     const { data, error } = await supa.from('reports')
-      .update({ content, schema_version: 1, updated_at: new Date().toISOString() })
+      .update({ content, schema_version: 1, name: name || null, updated_at: new Date().toISOString() })
       .eq('id', reportId)
       .select('id, updated_at')
       .single();
@@ -245,6 +245,7 @@ async function saveDraft({ reportId, content, childId, templateId }) {
     schema_version: 1,
     status: 'draft',
     report_type: 'general',
+    name: name || null,
   };
   if (templateId) insertPayload.template_id = templateId;
   const { data, error } = await supa.from('reports')
@@ -260,7 +261,7 @@ export async function listDrafts({ specialistId }) {
   if (!supa) return [];
   try {
     const { data, error } = await supa.from('reports')
-      .select('id, child_id, content, updated_at')
+      .select('id, child_id, name, content, updated_at')
       .eq('specialist_id', specialistId)
       .eq('status', 'draft')
       .not('content', 'is', null)
@@ -338,7 +339,7 @@ async function loadReport(reportId) {
   const supa = _supa();
   if (!supa) return { error: 'not_authenticated' };
   const { data, error } = await supa.from('reports')
-    .select('id, content, schema_version, child_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, finalized_at')
+    .select('id, name, content, schema_version, child_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, finalized_at')
     .eq('id', reportId)
     .single();
   if (error) { console.error('\u274c report load:', error); return { error: error.message }; }
@@ -599,6 +600,28 @@ export async function mountGateEditor(containerEl, opts = {}) {
   // ── Build UI ──
   containerEl.textContent = '';
   let _savePhraseBtn = null;
+  let _reportName = reportRow?.name || opts.initialName || '';
+
+  // Report name field (draft + read-only modes, not template mode)
+  let _nameInput = null;
+  if (!isTemplateMode) {
+    _nameInput = document.createElement('input');
+    _nameInput.type = 'text';
+    _nameInput.maxLength = 100;
+    _nameInput.placeholder = 'Untitled report';
+    _nameInput.value = _reportName;
+    _nameInput.disabled = isFinalized;
+    _nameInput.style.cssText = 'display:block;width:100%;font-size:20px;font-weight:700;color:#0f1a18;border:none;outline:none;background:transparent;padding:0 0 8px;font-family:inherit;' + (isFinalized ? 'opacity:0.7;cursor:default;' : '');
+    _nameInput.oninput = () => {
+      _reportName = _nameInput.value.slice(0, 100);
+      dirty = true;
+      if (opts._setTitle) {
+        const child = childId ? _resolveChild(childId) : null;
+        opts._setTitle((_reportName || 'New Report') + (child?.name ? ' \u2014 ' + child.name : ''));
+      }
+    };
+    containerEl.appendChild(_nameInput);
+  }
 
   // Toolbar
   const toolbar = document.createElement('div');
@@ -746,7 +769,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
       const si = { name: sess?.displayName || sess?.name || '', specialty: sess?.profession || '', credentials: _buildCredentials?.(sess) || '' };
       const blob = await generatePDFBlob(md, reportRow?.report_type || 'general', ci, si, getBranding());
-      _downloadBlob(blob, reportRow?.report_type || 'general', child?.name);
+      _downloadBlob(blob, reportRow?.report_type || 'general', child?.name, _reportName?.trim() || reportRow?.name);
       _toast?.('\ud83d\udce5 PDF downloaded!');
     } catch (e) {
       console.error('\u274c PDF export:', e);
@@ -799,7 +822,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
           const supa = _supa();
           const { data, error } = await supa.from('reports')
             .update({
-              content: json, generated_text: md, schema_version: 1,
+              content: json, generated_text: md, schema_version: 1, name: _reportName?.trim() || null,
               status: 'finalized', finalized_at: new Date().toISOString(), updated_at: new Date().toISOString(),
             })
             .eq('id', reportId)
@@ -1129,7 +1152,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       showSaveStatus('Saving\u2026', 'saving');
       try {
         const json = editor.getJSON();
-        const result = await saveDraft({ reportId, content: json, childId, templateId: opts.fromTemplateId || null });
+        const result = await saveDraft({ reportId, content: json, childId, templateId: opts.fromTemplateId || null, name: _reportName?.trim() || null });
         if (!reportId) reportId = result.id;
         dirty = false;
         showSaveStatus('Saved', 'saved');
