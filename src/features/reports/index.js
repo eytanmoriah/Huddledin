@@ -607,7 +607,7 @@ function renderPatientReports() {
 
   // Report list
   childReports.forEach(r => {
-    const card = el('div', { class: 'rpt-card', style: { position: 'relative' + (r.status === 'draft' ? ';padding-inline-end:42px' : '') } });
+    const card = el('div', { class: 'rpt-card', style: Object.assign({ position: 'relative' }, r.status === 'draft' ? { paddingInlineEnd: '42px' } : {}) });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
     top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.report_type || 'Report']));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
