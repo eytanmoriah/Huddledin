@@ -607,15 +607,31 @@ function renderPatientReports() {
 
   // Report list
   childReports.forEach(r => {
-    const card = el('div', { class: 'rpt-card' });
+    const card = el('div', { class: 'rpt-card', style: { position: 'relative' + (r.status === 'draft' ? ';padding-inline-end:42px' : '') } });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
     top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.report_type || 'Report']));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
     badges.appendChild(statusBadge(r.status));
-    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
+    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['\ud83d\udce4 Shared']));
     top.appendChild(badges);
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [r.created_at ? new Date(r.created_at).toLocaleDateString() : '']));
+    if (r.status === 'draft') {
+      const trash = el('button', { style: { position: 'absolute', top: '50%', insetInlineEnd: '10px', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '6px', borderRadius: '6px', color: '#94a3b8', transition: 'color .12s, background .12s', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, ['\ud83d\uddd1\ufe0f']);
+      trash.onmouseenter = () => { trash.style.color = '#dc2626'; trash.style.background = '#fef2f2'; };
+      trash.onmouseleave = () => { trash.style.color = '#94a3b8'; trash.style.background = 'none'; };
+      trash.onclick = (e) => {
+        e.stopPropagation();
+        const { openConfirm } = H();
+        openConfirm('Delete this draft?', 'This cannot be undone.', true, async () => {
+          const { deleteDraft } = await import('./tiptap-gate.js');
+          const result = await deleteDraft({ reportId: r.id });
+          if (result.ok) { RS.reportsLoaded = false; H().re(); }
+          else toast('Failed to delete draft.', 'error');
+        });
+      };
+      card.appendChild(trash);
+    }
     card.onclick = () => {
       if (r.content && typeof window.HUD_openTiptapGate === 'function') {
         window.HUD_openTiptapGate({
