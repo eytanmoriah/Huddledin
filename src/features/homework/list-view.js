@@ -218,8 +218,8 @@ function _renderCard(hw, weekStat, isWeb, childId, H) {
   bottom.appendChild(acts);
   card.appendChild(bottom);
 
-  // Card click → detail view (Phase 3b stub)
-  card.onclick = () => { toast(T('hw3_detail_coming'), 'info'); };
+  // Card click → detail view
+  card.onclick = () => { S._hwTaskView = hw.id; re(); };
 
   return card;
 }

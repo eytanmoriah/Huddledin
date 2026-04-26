@@ -202,6 +202,56 @@ export function computeWeekStats(homeworks, occurrences) {
   return stats;
 }
 
+export async function loadHomeworkDetail(homeworkId) {
+  const supa = _supa();
+  if (!supa) return null;
+
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const sinceStr = _fmtLocal(fourteenDaysAgo);
+
+  const [hwRes, exRes, occRes, compRes, cmtRes] = await Promise.all([
+    supa.from('homework_tasks').select('*').eq('id', homeworkId).single(),
+    supa.from('homework_exercises').select('*').eq('homework_id', homeworkId).order('position'),
+    supa.from('homework_occurrences').select('*').eq('task_id', homeworkId).gte('scheduled_date', sinceStr).order('scheduled_date'),
+    supa.from('homework_completions').select('*').eq('task_id', homeworkId).order('completed_at', { ascending: false }),
+    supa.from('homework_comments').select('*').eq('task_id', homeworkId).order('created_at'),
+  ]);
+
+  if (hwRes.error) { console.error('\u274c loadHomeworkDetail hw:', hwRes.error); return null; }
+  if (exRes.error) console.error('\u274c loadHomeworkDetail ex:', exRes.error);
+  if (occRes.error) console.error('\u274c loadHomeworkDetail occ:', occRes.error);
+  if (compRes.error) console.error('\u274c loadHomeworkDetail comp:', compRes.error);
+  if (cmtRes.error) console.error('\u274c loadHomeworkDetail cmt:', cmtRes.error);
+
+  return {
+    homework: hwRes.data,
+    exercises: exRes.data || [],
+    occurrences: occRes.data || [],
+    completions: compRes.data || [],
+    comments: cmtRes.data || [],
+  };
+}
+
+export async function postComment({ completionId, taskId, childId, householdId, comment }) {
+  const supa = _supa();
+  const sess = _session();
+  if (!supa || !sess) throw new Error('Not authenticated');
+  const specId = sess.specialistId || sess.id;
+
+  const { data, error } = await supa.from('homework_comments').insert({
+    completion_id: completionId,
+    task_id: taskId,
+    specialist_id: specId,
+    comment,
+    household_id: String(householdId),
+    child_id: childId,
+  }).select('id, created_at').single();
+
+  if (error) { console.error('\u274c postComment:', error); throw error; }
+  return { id: data.id, createdAt: data.created_at };
+}
+
 export async function deleteHomework(homeworkId) {
   const supa = _supa();
   if (!supa) throw new Error('Not authenticated');
