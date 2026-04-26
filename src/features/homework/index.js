@@ -6,9 +6,11 @@ import { renderHomeworkSpecList } from './list-view.js';
 import { renderHomeworkDetail } from './detail-view.js';
 import { renderHomeworkParent } from './parent-view.js';
 import { mountCompleteModal } from './complete-modal.js';
+import { exerciseSlotsOn } from './data.js';
 
 export function initHomework() {
   console.log('[Huddledin] Homework v2 module initialized');
+  window.HUD_HOMEWORK_INTERNALS = { exerciseSlotsOn };
 }
 
 export { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, mountCompleteModal };

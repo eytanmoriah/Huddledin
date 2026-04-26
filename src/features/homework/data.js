@@ -344,7 +344,7 @@ export async function loadCompletionsV2(childId, sinceDate) {
   return data || [];
 }
 
-export async function logExerciseCompletion({ homework, exercise, scheduledDate, slot, status, note, photoUrl, childId }) {
+export async function logExerciseCompletion({ homework, exercise, scheduledDate, slot, status, note, photoUrl, actualValue, childId }) {
   const supa = _supa();
   const sess = _session();
   if (!supa || !sess) throw new Error('Not authenticated');
@@ -359,6 +359,7 @@ export async function logExerciseCompletion({ homework, exercise, scheduledDate,
     status,
     note: note || null,
     photo_url: photoUrl || null,
+    actual_value: actualValue ?? null,
     logged_by: sess.id,
   });
 

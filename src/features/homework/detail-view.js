@@ -136,6 +136,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     note: c.note,
     photoUrl: c.photo_url,
     slot: c.slot,
+    actualValue: c.actual_value,
     id: c.id,
   }));
 
@@ -174,7 +175,11 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     const exLabel = item.exercise ? ' \u00b7 ' + item.exercise.title : '';
     const statusLabels = { done: '\u2713 Done', skipped: '\u2192 Skipped', cant_do: '\u26a0 Couldn\u2019t do' };
     const statusColors = { done: '#059669', skipped: '#64748b', cant_do: '#d97706' };
-    compCard.appendChild(el('div', { style: { fontWeight: 600, fontSize: '13px', color: statusColors[item.status] || '#0f1a18', marginBottom: '4px' } }, [(statusLabels[item.status] || '\u2713 Done') + exLabel + slotLabel + ' \u00b7 ' + dayName + ' \u00b7 ' + relTime]));
+    let actualLabel = '';
+    if (item.actualValue != null && item.exercise) {
+      actualLabel = ' \u00b7 ' + item.actualValue + (item.exercise.duration_seconds ? ' min' : ' reps');
+    }
+    compCard.appendChild(el('div', { style: { fontWeight: 600, fontSize: '13px', color: statusColors[item.status] || '#0f1a18', marginBottom: '4px' } }, [(statusLabels[item.status] || '\u2713 Done') + actualLabel + exLabel + slotLabel + ' \u00b7 ' + dayName + ' \u00b7 ' + relTime]));
 
     if (item.note) compCard.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', fontStyle: 'italic', marginBottom: '6px', lineHeight: '1.4' } }, ['\u201c' + item.note + '\u201d']));
     if (item.photoUrl) {
