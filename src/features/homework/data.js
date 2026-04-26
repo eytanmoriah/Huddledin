@@ -3,7 +3,7 @@
 function _supa() { return window.HUD?._supa; }
 function _session() { return window.HUD?.session; }
 
-export async function createHomework({ childId, householdId, title, description, recurrence, specificDays, durationType, endDate, timeOfDay, isPinned, attachedFileUrls, attachedFileNames, exercises }) {
+export async function createHomework({ homework, exercises }) {
   const supa = _supa();
   const sess = _session();
   if (!supa || !sess) throw new Error('Not authenticated');
@@ -12,23 +12,23 @@ export async function createHomework({ childId, householdId, title, description,
   const specName = sess.displayName || sess.name || 'Specialist';
 
   const { data: hw, error: hwErr } = await supa.from('homework_tasks').insert({
-    child_id: childId,
-    household_id: householdId,
+    child_id: homework.childId,
+    household_id: String(homework.householdId),
     specialist_id: specId,
     specialist_name: specName,
-    title,
-    description: description || null,
-    recurrence: recurrence || 'daily',
-    specific_days: specificDays || null,
-    duration_type: durationType || 'open_ended',
-    end_date: endDate || null,
-    time_of_day: timeOfDay || 'morning',
-    is_pinned: isPinned || false,
+    title: homework.title,
+    description: homework.description || null,
+    recurrence: homework.recurrence || 'daily',
+    specific_days: homework.specificDays || null,
+    duration_type: homework.durationType || 'open_ended',
+    end_date: homework.endDate || null,
+    time_of_day: homework.timeOfDay || '',
+    is_pinned: homework.isPinned || false,
     is_paused: false,
     status: 'active',
-    attached_file_urls: attachedFileUrls || [],
-    attached_file_names: attachedFileNames || [],
-  }).select('id').single();
+    attached_file_urls: homework.attachedFileUrls || [],
+    attached_file_names: homework.attachedFileNames || [],
+  }).select('*').single();
 
   if (hwErr) { console.error('\u274c homework insert:', hwErr); throw hwErr; }
 
@@ -57,24 +57,24 @@ export async function createHomework({ childId, householdId, title, description,
     }
   }
 
-  return { homeworkId: hw.id };
+  return { homeworkId: hw.id, homeworkRow: hw };
 }
 
-export async function updateHomework({ homeworkId, title, description, recurrence, specificDays, durationType, endDate, timeOfDay, isPinned, attachedFileUrls, attachedFileNames, exercises }) {
+export async function updateHomework({ homeworkId, homework, exercises }) {
   const supa = _supa();
   if (!supa) throw new Error('Not authenticated');
 
   const { error: hwErr } = await supa.from('homework_tasks').update({
-    title,
-    description: description || null,
-    recurrence: recurrence || 'daily',
-    specific_days: specificDays || null,
-    duration_type: durationType || 'open_ended',
-    end_date: endDate || null,
-    time_of_day: timeOfDay || 'morning',
-    is_pinned: isPinned || false,
-    attached_file_urls: attachedFileUrls || [],
-    attached_file_names: attachedFileNames || [],
+    title: homework.title,
+    description: homework.description || null,
+    recurrence: homework.recurrence || 'daily',
+    specific_days: homework.specificDays || null,
+    duration_type: homework.durationType || 'open_ended',
+    end_date: homework.endDate || null,
+    time_of_day: homework.timeOfDay || '',
+    is_pinned: homework.isPinned || false,
+    attached_file_urls: homework.attachedFileUrls || [],
+    attached_file_names: homework.attachedFileNames || [],
     updated_at: new Date().toISOString(),
   }).eq('id', homeworkId);
 
@@ -85,8 +85,8 @@ export async function updateHomework({ homeworkId, title, description, recurrenc
   if (exLoadErr) console.error('\u274c load exercises:', exLoadErr);
 
   const existingIds = new Set((existing || []).map(e => e.id));
-  const newExercises = [];
-  const updateExercises = [];
+  const toInsert = [];
+  const toUpdate = [];
 
   (exercises || []).forEach((ex, i) => {
     const row = {
@@ -106,29 +106,30 @@ export async function updateHomework({ homeworkId, title, description, recurrenc
       updated_at: new Date().toISOString(),
     };
     if (ex.id && existingIds.has(ex.id)) {
-      updateExercises.push({ ...row, id: ex.id });
+      toUpdate.push({ ...row, id: ex.id });
       existingIds.delete(ex.id);
     } else {
-      newExercises.push(row);
+      toInsert.push(row);
     }
   });
 
   const toDelete = [...existingIds];
+  const errors = [];
   if (toDelete.length) {
     const { error } = await supa.from('homework_exercises').delete().in('id', toDelete);
-    if (error) console.error('\u274c delete exercises:', error);
+    if (error) { console.error('\u274c delete exercises:', error); errors.push(error); }
   }
-  for (const ex of updateExercises) {
+  for (const ex of toUpdate) {
     const { id, ...patch } = ex;
     const { error } = await supa.from('homework_exercises').update(patch).eq('id', id);
-    if (error) console.error('\u274c update exercise:', error);
+    if (error) { console.error('\u274c update exercise:', error); errors.push(error); }
   }
-  if (newExercises.length) {
-    const { error } = await supa.from('homework_exercises').insert(newExercises);
-    if (error) console.error('\u274c insert exercises:', error);
+  if (toInsert.length) {
+    const { error } = await supa.from('homework_exercises').insert(toInsert);
+    if (error) { console.error('\u274c insert exercises:', error); errors.push(error); }
   }
 
-  return { homeworkId };
+  return { homeworkId, updated: toUpdate.length, inserted: toInsert.length, deleted: toDelete.length, errors };
 }
 
 export async function loadHomeworkWithExercises(homeworkId) {
@@ -142,4 +143,11 @@ export async function loadHomeworkWithExercises(homeworkId) {
 
   if (hwRes.error) { console.error('\u274c load homework:', hwRes.error); return null; }
   return { homework: hwRes.data, exercises: exRes.data || [] };
+}
+
+export async function deleteHomework(homeworkId) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  const { error } = await supa.from('homework_tasks').update({ status: 'deleted', updated_at: new Date().toISOString() }).eq('id', homeworkId);
+  if (error) { console.error('\u274c delete homework:', error); throw error; }
 }

@@ -3709,6 +3709,25 @@ hw_no_tasks_parent_desc:'Your child\u2019s specialists will assign exercises her
 hw_no_tasks_spec_desc:'Assign a home exercise for this child.',
 hw_new_task:'+ New Exercise',
 hw_new_homework:'+ New homework',
+hw2_new_title:'New homework',
+hw2_edit_title:'Edit homework',
+hw2_save_send:'Save & send',
+hw2_save_changes:'Save changes',
+hw2_title_placeholder:'e.g. Articulation practice',
+hw2_notes_label:'NOTES FOR PARENTS',
+hw2_notes_placeholder:'Instructions or tips for the parent...',
+hw2_attach_file:'Attach file',
+hw2_exercises_label:'EXERCISES',
+hw2_exercise_required:'Add at least one exercise with a title.',
+hw2_when_label:'WHEN',
+hw2_discard_title:'Discard changes?',
+hw2_discard_body:'You have unsaved changes. Discard them?',
+hw2_delete:'Delete this homework',
+hw2_delete_title:'Delete homework?',
+hw2_delete_body:'Parent will no longer see this homework.',
+hw2_deleted:'Homework deleted.',
+hw2_save_quiet:'Save quietly',
+hw2_saved_quiet:'Homework saved (parent not notified).',
 hw_check_off:'Check Off',
 hw_completed_today:'\u2705 Completed for today',
 hw_archived:'Archived',
@@ -4973,6 +4992,25 @@ hw_no_tasks_parent_desc:'\u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05DC
 hw_no_tasks_spec_desc:'\u05E9\u05D9\u05D9\u05DB\u05D9 \u05EA\u05E8\u05D2\u05D9\u05DC \u05DC\u05D1\u05D9\u05EA \u05E2\u05D1\u05D5\u05E8 \u05D9\u05DC\u05D3/\u05D4 \u05D6\u05D5.',
 hw_new_task:'+ \u05EA\u05E8\u05D2\u05D9\u05DC \u05D7\u05D3\u05E9',
 hw_new_homework:'+ New homework',
+hw2_new_title:'New homework',
+hw2_edit_title:'Edit homework',
+hw2_save_send:'Save & send',
+hw2_save_changes:'Save changes',
+hw2_title_placeholder:'e.g. Articulation practice',
+hw2_notes_label:'NOTES FOR PARENTS',
+hw2_notes_placeholder:'Instructions or tips for the parent...',
+hw2_attach_file:'Attach file',
+hw2_exercises_label:'EXERCISES',
+hw2_exercise_required:'Add at least one exercise with a title.',
+hw2_when_label:'WHEN',
+hw2_discard_title:'Discard changes?',
+hw2_discard_body:'You have unsaved changes. Discard them?',
+hw2_delete:'Delete this homework',
+hw2_delete_title:'Delete homework?',
+hw2_delete_body:'Parent will no longer see this homework.',
+hw2_deleted:'Homework deleted.',
+hw2_save_quiet:'Save quietly',
+hw2_saved_quiet:'Homework saved (parent not notified).',
 hw_check_off:'\u05E1\u05D9\u05DE\u05D5\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2',
 hw_completed_today:'\u2705 \u05D1\u05D5\u05E6\u05E2 \u05DC\u05D4\u05D9\u05D5\u05DD',
 hw_archived:'\u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
@@ -15866,7 +15904,7 @@ function _mkHwSpecCard(task,allOccs,child){
   const acts=el('div',{class:'hw-spec-actions',style:{display:'flex',gap:'5px',flexShrink:0,flexWrap:'wrap',alignItems:'flex-start'}});
   const viewBtn=mkBtn('📊','btn-sm btn-ghost',()=>{S._hwTaskView=task.id;re();});
   viewBtn.title='View details';acts.appendChild(viewBtn);
-  const editBtn=mkBtn('✏️','btn-sm btn-ghost',()=>showAddHomeworkTaskModal(task));
+  const editBtn=mkBtn('\u270f\ufe0f','btn-sm btn-ghost',()=>window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:task.childId,homeworkId:task.id}));
   editBtn.title='Edit';acts.appendChild(editBtn);
   const pinBtn=mkBtn(task.isPinned?'📌':'📍','btn-sm btn-ghost',async()=>{
     if(session?.id==='demo'){toast('Demo mode.','error');return;}
@@ -21013,6 +21051,7 @@ window.HUD={
   _hasSpecAiAccess,_showSpecAiUpgradeModal,
   _debouncedRefresh,_formatBytes,_isRtl,_startSide,_endSide,
   _speechLang,_availableLangs,_lang,
+  _generateOccurrences,notifyOtherParty,getChildHouseholdId,
 };
 window.dispatchEvent(new Event('hud-ready'));
 </script>
