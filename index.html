@@ -2369,7 +2369,6 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
-    .on('postgres_changes',{event:'*',schema:'public',table:'homework',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .subscribe();
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   if(_hhNotifsChannel)try{_hhNotifsChannel.unsubscribe();}catch(e){}
