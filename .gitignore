@@ -12,6 +12,9 @@ supabase/.temp/
 # Claude Code state
 .claude/
 
+# Build plans (local working docs)
+HOMEWORK_BUILD_PLAN.md
+
 # Backup HTML files
 index_backup_*.html
 index-backup.html.html
@@ -26,6 +29,7 @@ CLAUDE_MD_WEB_SECTION.md
 STEP2_*.md
 STEP3_*.md
 PADDLE_SETUP.md
+REPORT_SYSTEM_REFERENCE.md
 
 # One-off fix scripts
 _fix_*.js
