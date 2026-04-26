@@ -3708,6 +3708,7 @@ hw_no_tasks:'No home exercises yet',
 hw_no_tasks_parent_desc:'Your child\u2019s specialists will assign exercises here.',
 hw_no_tasks_spec_desc:'Assign a home exercise for this child.',
 hw_new_task:'+ New Exercise',
+hw_new_homework:'+ New homework',
 hw_check_off:'Check Off',
 hw_completed_today:'\u2705 Completed for today',
 hw_archived:'Archived',
@@ -4971,6 +4972,7 @@ hw_no_tasks:'\u05D0\u05D9\u05DF \u05EA\u05E8\u05D2\u05D9\u05DC\u05D9\u05DD \u05D
 hw_no_tasks_parent_desc:'\u05D4\u05DE\u05D8\u05E4\u05DC\u05D9\u05DD \u05E9\u05DC \u05D9\u05DC\u05D3\u05DA \u05D9\u05E9\u05D9\u05D9\u05DB\u05D5 \u05EA\u05E8\u05D2\u05D9\u05DC\u05D9\u05DD \u05DB\u05D0\u05DF.',
 hw_no_tasks_spec_desc:'\u05E9\u05D9\u05D9\u05DB\u05D9 \u05EA\u05E8\u05D2\u05D9\u05DC \u05DC\u05D1\u05D9\u05EA \u05E2\u05D1\u05D5\u05E8 \u05D9\u05DC\u05D3/\u05D4 \u05D6\u05D5.',
 hw_new_task:'+ \u05EA\u05E8\u05D2\u05D9\u05DC \u05D7\u05D3\u05E9',
+hw_new_homework:'+ New homework',
 hw_check_off:'\u05E1\u05D9\u05DE\u05D5\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2',
 hw_completed_today:'\u2705 \u05D1\u05D5\u05E6\u05E2 \u05DC\u05D4\u05D9\u05D5\u05DD',
 hw_archived:'\u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
@@ -15989,7 +15991,7 @@ function _renderHwTaskDashboard(taskId){
   }
   const titleRow=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',marginBottom:'10px',flexWrap:'wrap'}});
   titleRow.appendChild(el('h2',{class:'page-title',style:{margin:0}},[task.title]));
-  if(session?.role==='specialist')titleRow.appendChild(mkBtn('+ New homework','btn-sm btn-primary',()=>{if(window.HUD_HOMEWORK?.mountHomeworkCreateModal)window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild});else showAddHomeworkTaskModal(null);}));
+  if(session?.role==='specialist')titleRow.appendChild(mkBtn(T('hw_new_homework'),'btn-sm btn-primary',()=>window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild})));
   sec.appendChild(titleRow);
   const metaRow=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px',alignItems:'center'}});
   const db=_hwDiffBadge(task.difficulty);if(db)metaRow.appendChild(db);
@@ -16666,7 +16668,7 @@ function renderHomeworkSpec(){
     el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+T('hw_spec_tasks_sub')])
   ]));
   const _hwRemoved=(child?.connectionStatus||'approved')==='removed';
-  if(!_hwRemoved)hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn('+ New homework','btn-md btn-primary',()=>{if(window.HUD_HOMEWORK?.mountHomeworkCreateModal)window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild});else showAddHomeworkTaskModal(null);})]));
+  if(!_hwRemoved)hd.appendChild(el('div',{class:'sec-hd-right'},[mkBtn(T('hw_new_homework'),'btn-md btn-primary',()=>window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild}))]));
   sec.appendChild(hd);
   if(_hwRemoved){const _hwLock=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px',color:'#475569'}});_hwLock.appendChild(el('span',{style:{fontSize:'1.1rem'}},['🔒']));_hwLock.appendChild(el('div',{style:{fontSize:'.83rem',fontWeight:600}},[T('hw_not_connected_no_tasks')]));sec.appendChild(_hwLock);}
   // Tabs
