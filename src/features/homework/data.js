@@ -350,7 +350,7 @@ export async function logExerciseCompletion({ homework, exercise, scheduledDate,
   if (!supa || !sess) throw new Error('Not authenticated');
 
   const { error: v2Err } = await supa.from('homework_completions_v2').insert({
-    exercise_id: exercise.id,
+    homework_exercise_id: exercise.id,
     homework_id: homework.id,
     child_id: childId,
     household_id: String(homework.household_id),

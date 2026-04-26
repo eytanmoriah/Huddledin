@@ -111,7 +111,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
   if (v2ForThis.length) {
     host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '20px' } }, [T('hw4_exercise_progress')]));
     exercises.forEach(ex => {
-      const exComps = v2ForThis.filter(c => c.exercise_id === ex.id);
+      const exComps = v2ForThis.filter(c => c.homework_exercise_id === ex.id);
       const done = exComps.filter(c => c.status === 'done').length;
       const total = exComps.length;
       if (!total) return;
@@ -132,7 +132,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     type: 'v2',
     date: new Date(c.logged_at),
     status: c.status,
-    exercise: exMap[c.exercise_id],
+    exercise: exMap[c.homework_exercise_id],
     note: c.note,
     photoUrl: c.photo_url,
     slot: c.slot,

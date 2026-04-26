@@ -56,7 +56,7 @@ async function _loadAndRender(host, childId, isWeb, H) {
 
   const compMap = {};
   completions.forEach(c => {
-    compMap[c.exercise_id + ':' + c.scheduled_date + ':' + (c.slot || '')] = c;
+    compMap[c.homework_exercise_id + ':' + c.scheduled_date + ':' + (c.slot || '')] = c;
   });
 
   host.innerHTML = '';
