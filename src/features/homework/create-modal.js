@@ -3,13 +3,14 @@
 import { createHomework, updateHomework, loadHomeworkWithExercises, deleteHomework } from './data.js';
 import { renderScheduleBlock, scheduleSummary } from './schedule.js';
 import { renderExerciseRows } from './exercises.js';
+import { saveHomeworkTemplate } from './templates.js';
 import { injectHomeworkStyles } from './styles.js';
 
 const T = (k, p) => window.HUD?.T?.(k, p) || k;
 
 export function mountHomeworkCreateModal(opts = {}) {
   injectHomeworkStyles();
-  const { childId, homeworkId } = opts;
+  const { childId, homeworkId, template } = opts;
   const H = window.HUD || {};
   const child = H.DB?.children?.find(c => c.id === childId);
   const childName = child?.name || 'Patient';
@@ -36,6 +37,24 @@ export function mountHomeworkCreateModal(opts = {}) {
     saving: false,
     dirty: false,
   };
+
+  // Pre-fill from template
+  if (template && !isEdit) {
+    state.homework.title = template.title || '';
+    state.homework.description = template.description || '';
+    state.homework.recurrence = template.recurrence || 'daily';
+    state.homework.specificDays = template.specific_days || [];
+    state.homework.timeOfDay = template.time_of_day || 'morning';
+    state.homework.durationType = template.duration_type || 'open_ended';
+    if (template.exercises_json?.length) {
+      state.exercises = template.exercises_json.map(ex => ({
+        title: ex.title || '', instructions: ex.instructions || '', reps: ex.reps || null, sets: ex.sets || null,
+        durationSeconds: ex.durationSeconds || null, measureUnit: ex.measureUnit || null,
+        overrideRecurrence: ex.overrideRecurrence || null, overrideSpecificDays: ex.overrideSpecificDays || null,
+        overrideTimeOfDay: ex.overrideTimeOfDay || null, attachedFileUrls: [], attachedFileNames: [], _ui: { expanded: false },
+      }));
+    }
+  }
 
   // ── Modal shell ──
   const overlay = document.createElement('div');
@@ -176,7 +195,7 @@ export function mountHomeworkCreateModal(opts = {}) {
   body.appendChild(exContainer);
 
   function _renderEx() {
-    const newEl = renderExerciseRows(state.exercises, (exs) => { state.exercises = exs; state.dirty = true; _updateSaveBtn(); _updateExLabel(); });
+    const newEl = renderExerciseRows(state.exercises, (exs) => { state.exercises = exs; state.dirty = true; _updateSaveBtn(); _updateExLabel(); }, state.homework);
     exContainer.replaceWith(newEl);
     exContainer = newEl;
   }
@@ -195,6 +214,36 @@ export function mountHomeworkCreateModal(opts = {}) {
     const newEl = renderScheduleBlock(state.homework, (s) => { Object.assign(state.homework, s); state.dirty = true; });
     schContainer.replaceWith(newEl);
     schContainer = newEl;
+  }
+
+  // Save as template (create mode only)
+  let _saveAsTemplate = false;
+  let _tmplNameInp = null;
+  if (!isEdit) {
+    const tmplWrap = document.createElement('div');
+    tmplWrap.style.cssText = 'margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9;';
+    const tmplRow = document.createElement('div');
+    tmplRow.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;';
+    const tmplChk = document.createElement('div');
+    tmplChk.className = 'hw2-chk';
+    tmplRow.onclick = () => {
+      _saveAsTemplate = !_saveAsTemplate;
+      tmplChk.className = 'hw2-chk' + (_saveAsTemplate ? ' checked' : '');
+      tmplChk.textContent = _saveAsTemplate ? '\u2713' : '';
+      tmplNameWrap.style.display = _saveAsTemplate ? 'block' : 'none';
+    };
+    tmplRow.appendChild(tmplChk);
+    tmplRow.appendChild(document.createTextNode(T('hw2_save_template')));
+    tmplWrap.appendChild(tmplRow);
+    const tmplNameWrap = document.createElement('div');
+    tmplNameWrap.style.cssText = 'display:none;margin-top:8px;';
+    _tmplNameInp = document.createElement('input');
+    _tmplNameInp.type = 'text';
+    _tmplNameInp.className = 'hw2-input';
+    _tmplNameInp.placeholder = T('hw2_template_name_placeholder');
+    tmplNameWrap.appendChild(_tmplNameInp);
+    tmplWrap.appendChild(tmplNameWrap);
+    body.appendChild(tmplWrap);
   }
 
   // Delete button (edit mode only)
@@ -276,6 +325,12 @@ export function mountHomeworkCreateModal(opts = {}) {
         const all = H.DB?.homeworkTasks || [];
         if (result.homeworkRow) all.unshift({ id: result.homeworkRow.id, childId: result.homeworkRow.child_id, householdId: result.homeworkRow.household_id, specialistId: result.homeworkRow.specialist_id, specialistName: result.homeworkRow.specialist_name, title: hw.title, description: hw.description || '', recurrence: hw.recurrence, specificDays: hw.specificDays || [], durationType: hw.durationType, endDate: hw.endDate, timeOfDay: hw.timeOfDay, isPinned: hw.isPinned, isPaused: false, status: 'active', attachedFileUrls: hw.attachedFileUrls, attachedFileNames: hw.attachedFileNames, createdAt: result.homeworkRow.created_at });
         H.DB.homeworkTasks = all;
+        // Save as template (if checked)
+        if (_saveAsTemplate) {
+          try {
+            await saveHomeworkTemplate({ title: _tmplNameInp?.value?.trim() || hw.title, description: hw.description, recurrence: hw.recurrence, specificDays: hw.specificDays, durationType: hw.durationType, timeOfDay: hw.timeOfDay, exercisesJson: cleanExercises });
+          } catch (e) { console.error('save template:', e); }
+        }
         // Notify parent (skip if quiet save)
         if (notify) {
           try {

@@ -21,6 +21,8 @@ export function injectHomeworkStyles() {
     .hw2-pill.active { background:#0d9488; color:#fff; border-color:#0d9488; }
     .hw2-ghost-btn { padding:8px 14px; border:1.5px solid #d1e0dd; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; font-family:inherit; color:#64748b; transition:background .12s; }
     .hw2-ghost-btn:hover { background:#f0fdf9; }
+    .hw2-chk { width:20px; height:20px; border-radius:6px; border:2px solid #d1e0dd; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex-shrink:0; cursor:pointer; transition:all .12s; }
+    .hw2-chk.checked { background:#0d9488; border-color:#0d9488; }
   `;
   document.head.appendChild(s);
 }

@@ -1,6 +1,8 @@
-// Exercise rows component — renders the list of exercises with add/remove
+// Exercise rows component — list of exercises with add/remove, drag-reorder, per-exercise overrides
 
-export function renderExerciseRows(exercises, onChange) {
+import { renderMiniSchedule } from './schedule.js';
+
+export function renderExerciseRows(exercises, onChange, homeworkState) {
   const el = (tag, attrs = {}, kids = []) => {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -13,22 +15,43 @@ export function renderExerciseRows(exercises, onChange) {
   };
 
   const wrap = el('div');
+  let dragIdx = null;
 
   function _render() {
     wrap.innerHTML = '';
 
     exercises.forEach((ex, idx) => {
-      const row = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '12px', marginBottom: '8px' } });
+      const hasOverride = ex.overrideRecurrence || ex.overrideSpecificDays || ex.overrideTimeOfDay;
+      const row = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '12px', marginBottom: '8px', transition: 'opacity .15s' } });
+      row.draggable = true;
+      row.ondragstart = (e) => { dragIdx = idx; row.style.opacity = '0.5'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); };
+      row.ondragend = () => { row.style.opacity = '1'; dragIdx = null; };
+      row.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+      row.ondrop = (e) => {
+        e.preventDefault();
+        if (dragIdx === null || dragIdx === idx) return;
+        const moved = exercises.splice(dragIdx, 1)[0];
+        exercises.splice(idx, 0, moved);
+        dragIdx = null;
+        onChange(exercises); _render();
+      };
 
-      // Top row: drag handle + title + remove
+      // Top row: drag handle + title + override pill + remove
       const top = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } });
-      top.appendChild(el('span', { style: { color: '#cbd5e1', fontSize: '14px', cursor: 'grab', userSelect: 'none', flexShrink: '0' } }, ['\u22ee\u22ee']));
+      const handle = el('span', { style: { color: '#cbd5e1', fontSize: '14px', cursor: 'grab', userSelect: 'none', flexShrink: '0' } }, ['\u22ee\u22ee']);
+      top.appendChild(handle);
 
       const titleInp = el('input', { type: 'text', class: 'hw2-input', placeholder: 'Exercise title', style: { flex: '1', fontWeight: '600' } });
       titleInp.value = ex.title || '';
       titleInp.maxLength = 200;
       titleInp.oninput = () => { exercises[idx].title = titleInp.value; onChange(exercises); };
       top.appendChild(titleInp);
+
+      // Override pill indicator
+      if (hasOverride) {
+        const pill = el('span', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: '99px', whiteSpace: 'nowrap', flexShrink: '0' } }, ['Custom']);
+        top.appendChild(pill);
+      }
 
       // Reps/duration inline
       const repWrap = el('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', flexShrink: '0' } });
@@ -73,7 +96,7 @@ export function renderExerciseRows(exercises, onChange) {
       };
       row.appendChild(moreBtn);
 
-      // Expanded: instructions + measure mode
+      // Expanded: instructions
       const instrInp = el('textarea', { class: 'hw2-input hw2-textarea', placeholder: 'Optional details for this exercise...', style: { marginBottom: '8px' } });
       instrInp.value = ex.instructions || '';
       instrInp.oninput = () => { exercises[idx].instructions = instrInp.value; onChange(exercises); };
@@ -94,6 +117,30 @@ export function renderExerciseRows(exercises, onChange) {
         measureRow.appendChild(b);
       });
       morePanel.appendChild(measureRow);
+
+      // Per-exercise schedule override
+      const overrideToggle = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: hasOverride ? '#92400e' : '#0d9488', fontSize: '12px', fontWeight: '600', padding: '0', fontFamily: 'inherit', marginBottom: hasOverride ? '0' : '0' } }, [hasOverride ? 'Edit custom schedule' : 'Customize schedule']);
+      let overridePanel = null;
+      let overrideVisible = false;
+      overrideToggle.onclick = () => {
+        overrideVisible = !overrideVisible;
+        if (overrideVisible && !overridePanel) {
+          overridePanel = renderMiniSchedule(
+            { overrideRecurrence: ex.overrideRecurrence, overrideSpecificDays: ex.overrideSpecificDays, overrideTimeOfDay: ex.overrideTimeOfDay },
+            homeworkState || {},
+            (patch) => {
+              exercises[idx].overrideRecurrence = patch.overrideRecurrence || null;
+              exercises[idx].overrideSpecificDays = patch.overrideSpecificDays || null;
+              exercises[idx].overrideTimeOfDay = patch.overrideTimeOfDay || null;
+              onChange(exercises); _render();
+            }
+          );
+          morePanel.appendChild(overridePanel);
+        }
+        if (overridePanel) overridePanel.style.display = overrideVisible ? 'block' : 'none';
+        overrideToggle.textContent = overrideVisible ? 'Hide schedule' : (hasOverride ? 'Edit custom schedule' : 'Customize schedule');
+      };
+      morePanel.appendChild(overrideToggle);
 
       row.appendChild(morePanel);
       wrap.appendChild(row);
