@@ -1,7 +1,7 @@
 // Specialist homework detail view — Phase 3b
 // Routed via S._hwTaskView. Back arrow returns to list.
 
-import { loadHomeworkDetail, postComment } from './data.js';
+import { loadHomeworkDetail, loadCompletionsV2, postComment } from './data.js';
 import { scheduleSummary } from './schedule.js';
 import { injectHomeworkStyles } from './styles.js';
 
@@ -44,6 +44,12 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
 
   const { homework: hw, exercises, occurrences, completions, comments } = result;
   const child = DB?.children?.find(c => c.id === hw.child_id);
+
+  // Load v2 completions and merge into activity
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const v2Completions = await loadCompletionsV2(hw.child_id, fourteenDaysAgo);
+  const v2ForThis = v2Completions.filter(c => c.homework_id === homeworkId);
 
   // ── Header card ──
   const header = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '16px' } });
@@ -101,72 +107,125 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     host.appendChild(exCard);
   });
 
-  // ── Activity section ──
+  // ── Per-exercise progress (v2) ──
+  if (v2ForThis.length) {
+    host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '20px' } }, [T('hw4_exercise_progress')]));
+    exercises.forEach(ex => {
+      const exComps = v2ForThis.filter(c => c.exercise_id === ex.id);
+      const done = exComps.filter(c => c.status === 'done').length;
+      const total = exComps.length;
+      if (!total) return;
+      const row = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', fontSize: '13px' } });
+      row.appendChild(el('span', { style: { flex: '1', color: '#334155', fontWeight: 500 } }, [ex.title]));
+      row.appendChild(el('span', { style: { color: done === total ? '#059669' : '#64748b', fontWeight: 600 } }, [done + '/' + total + ' done']));
+      host.appendChild(row);
+    });
+  }
+
+  // ── Activity section (merged v1 + v2) ──
   host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '20px' } }, [T('hw3_activity')]));
 
-  if (!completions.length) {
+  // Build unified activity list from v2 (preferred) + v1 fallback
+  const exMap = {};
+  exercises.forEach(ex => { exMap[ex.id] = ex; });
+  const activityItems = v2ForThis.map(c => ({
+    type: 'v2',
+    date: new Date(c.logged_at),
+    status: c.status,
+    exercise: exMap[c.exercise_id],
+    note: c.note,
+    photoUrl: c.photo_url,
+    slot: c.slot,
+    id: c.id,
+  }));
+
+  // Add v1 completions that don't overlap with v2
+  const v2Dates = new Set(v2ForThis.map(c => c.scheduled_date));
+  completions.forEach(comp => {
+    const compDate = comp.completed_at ? comp.completed_at.split('T')[0] : '';
+    if (!v2Dates.has(compDate)) {
+      activityItems.push({
+        type: 'v1',
+        date: new Date(comp.completed_at),
+        status: 'done',
+        exercise: null,
+        note: comp.note,
+        photoUrl: comp.photo_url,
+        slot: comp.time_of_day,
+        id: comp.id,
+      });
+    }
+  });
+
+  activityItems.sort((a, b) => b.date - a.date);
+
+  if (!activityItems.length) {
     host.appendChild(el('div', { style: { textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px' } }, [T('hw3_no_activity')]));
     return;
   }
 
-  completions.slice(0, 10).forEach(comp => {
-    const compCard = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', marginBottom: '10px' } });
+  activityItems.slice(0, 15).forEach(item => {
+    const borderColor = item.status === 'cant_do' ? '#fde68a' : item.status === 'skipped' ? '#e2e8f0' : '#e2e8f0';
+    const compCard = el('div', { style: { background: '#fff', border: '1.5px solid ' + borderColor, borderRadius: '10px', padding: '12px 14px', marginBottom: '10px' } });
 
-    const compDate = new Date(comp.completed_at);
-    const relTime = _relTime(compDate);
-    const dayName = compDate.toLocaleDateString([], { weekday: 'short' });
-    const slot = comp.time_of_day ? ' \u00b7 ' + comp.time_of_day : '';
-    compCard.appendChild(el('div', { style: { fontWeight: 600, fontSize: '13px', color: '#0f1a18', marginBottom: '4px' } }, ['\u2713 Completed \u00b7 ' + dayName + slot + ' \u00b7 ' + relTime]));
+    const relTime = _relTime(item.date);
+    const dayName = item.date.toLocaleDateString([], { weekday: 'short' });
+    const slotLabel = item.slot ? ' \u00b7 ' + item.slot : '';
+    const exLabel = item.exercise ? ' \u00b7 ' + item.exercise.title : '';
+    const statusLabels = { done: '\u2713 Done', skipped: '\u2192 Skipped', cant_do: '\u26a0 Couldn\u2019t do' };
+    const statusColors = { done: '#059669', skipped: '#64748b', cant_do: '#d97706' };
+    compCard.appendChild(el('div', { style: { fontWeight: 600, fontSize: '13px', color: statusColors[item.status] || '#0f1a18', marginBottom: '4px' } }, [(statusLabels[item.status] || '\u2713 Done') + exLabel + slotLabel + ' \u00b7 ' + dayName + ' \u00b7 ' + relTime]));
 
-    if (comp.note) compCard.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', fontStyle: 'italic', marginBottom: '6px', lineHeight: '1.4' } }, ['\u201c' + comp.note + '\u201d']));
-    if (comp.photo_url) {
-      const img = el('img', { src: comp.photo_url, style: { maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', display: 'block', marginBottom: '8px', cursor: 'pointer' } });
-      img.onclick = () => window.open(comp.photo_url, '_blank');
+    if (item.note) compCard.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', fontStyle: 'italic', marginBottom: '6px', lineHeight: '1.4' } }, ['\u201c' + item.note + '\u201d']));
+    if (item.photoUrl) {
+      const img = el('img', { src: item.photoUrl, style: { maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', display: 'block', marginBottom: '8px', cursor: 'pointer' } });
+      img.onclick = () => window.open(item.photoUrl, '_blank');
       compCard.appendChild(img);
     }
 
-    // Existing comments
-    const compComments = comments.filter(c => c.completion_id === comp.id);
-    compComments.forEach(cm => {
-      const cmEl = el('div', { style: { background: '#f0fdf9', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', fontSize: '12px', lineHeight: '1.4' } });
-      cmEl.appendChild(el('div', { style: { fontWeight: 700, color: '#0d9488', fontSize: '11px', marginBottom: '2px' } }, ['\ud83d\udcac ' + new Date(cm.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })]));
-      cmEl.appendChild(el('div', { style: { color: '#0f1a18' } }, [cm.comment]));
-      compCard.appendChild(cmEl);
-    });
+    // Comments (v1 only — v2 comments will be added later)
+    if (item.type === 'v1') {
+      const compComments = comments.filter(c => c.completion_id === item.id);
+      compComments.forEach(cm => {
+        const cmEl = el('div', { style: { background: '#f0fdf9', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', fontSize: '12px', lineHeight: '1.4' } });
+        cmEl.appendChild(el('div', { style: { fontWeight: 700, color: '#0d9488', fontSize: '11px', marginBottom: '2px' } }, ['\ud83d\udcac ' + new Date(cm.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })]));
+        cmEl.appendChild(el('div', { style: { color: '#0f1a18' } }, [cm.comment]));
+        compCard.appendChild(cmEl);
+      });
 
-    // Add comment inline
-    const commentHost = el('div');
-    const addBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontSize: '12px', fontWeight: 600, padding: '4px 0', fontFamily: 'inherit' } }, ['\ud83d\udcac ' + T('hw3_add_comment')]);
-    addBtn.onclick = () => {
-      addBtn.style.display = 'none';
-      const inputWrap = el('div', { style: { marginTop: '8px' } });
-      const textarea = el('textarea', { class: 'hw2-input hw2-textarea', placeholder: T('hw3_comment_placeholder'), style: { marginBottom: '6px', minHeight: '50px' } });
-      inputWrap.appendChild(textarea);
-      const btnRow = el('div', { style: { display: 'flex', gap: '6px' } });
-      btnRow.appendChild(mkBtn(T('hw3_send'), 'btn-sm btn-primary', async () => {
-        if (!textarea.value.trim()) { toast('Write a comment first.', 'error'); return; }
-        try {
-          await postComment({ completionId: comp.id, taskId: hw.id, childId: hw.child_id, householdId: hw.household_id, comment: textarea.value.trim() });
-          const newCm = el('div', { style: { background: '#f0fdf9', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', fontSize: '12px', lineHeight: '1.4' } });
-          newCm.appendChild(el('div', { style: { fontWeight: 700, color: '#0d9488', fontSize: '11px', marginBottom: '2px' } }, ['\ud83d\udcac Just now']));
-          newCm.appendChild(el('div', { style: { color: '#0f1a18' } }, [textarea.value.trim()]));
-          commentHost.insertBefore(newCm, commentHost.firstChild);
-          inputWrap.remove();
-          addBtn.style.display = '';
-          toast(T('hw3_comment_sent'));
-          // Notify parent
+      // Add comment inline
+      const commentHost = el('div');
+      const addBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontSize: '12px', fontWeight: 600, padding: '4px 0', fontFamily: 'inherit' } }, ['\ud83d\udcac ' + T('hw3_add_comment')]);
+      addBtn.onclick = () => {
+        addBtn.style.display = 'none';
+        const inputWrap = el('div', { style: { marginTop: '8px' } });
+        const textarea = el('textarea', { class: 'hw2-input hw2-textarea', placeholder: T('hw3_comment_placeholder'), style: { marginBottom: '6px', minHeight: '50px' } });
+        inputWrap.appendChild(textarea);
+        const btnRow = el('div', { style: { display: 'flex', gap: '6px' } });
+        btnRow.appendChild(mkBtn(T('hw3_send'), 'btn-sm btn-primary', async () => {
+          if (!textarea.value.trim()) { toast('Write a comment first.', 'error'); return; }
           try {
-            const childObj = DB?.children?.find(c => c.id === hw.child_id);
-            await H.notifyOtherParty?.('homework', T('notif_hw_comment', { specialist: session?.name || 'Specialist', title: hw.title.slice(0, 30), child: childObj?.name || '' }), hw.child_id, 'homework');
-          } catch (e) { console.error('notify:', e); }
-        } catch (e) { toast('Could not send comment.', 'error'); }
-      }));
-      btnRow.appendChild(mkBtn(T('hw3_cancel'), 'btn-sm btn-ghost', () => { inputWrap.remove(); addBtn.style.display = ''; }));
-      inputWrap.appendChild(btnRow);
-      commentHost.appendChild(inputWrap);
-    };
-    commentHost.appendChild(addBtn);
-    compCard.appendChild(commentHost);
+            await postComment({ completionId: item.id, taskId: hw.id, childId: hw.child_id, householdId: hw.household_id, comment: textarea.value.trim() });
+            const newCm = el('div', { style: { background: '#f0fdf9', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', fontSize: '12px', lineHeight: '1.4' } });
+            newCm.appendChild(el('div', { style: { fontWeight: 700, color: '#0d9488', fontSize: '11px', marginBottom: '2px' } }, ['\ud83d\udcac Just now']));
+            newCm.appendChild(el('div', { style: { color: '#0f1a18' } }, [textarea.value.trim()]));
+            commentHost.insertBefore(newCm, commentHost.firstChild);
+            inputWrap.remove();
+            addBtn.style.display = '';
+            toast(T('hw3_comment_sent'));
+            try {
+              const childObj = DB?.children?.find(c => c.id === hw.child_id);
+              await H.notifyOtherParty?.('homework', T('notif_hw_comment', { specialist: session?.name || 'Specialist', title: hw.title.slice(0, 30), child: childObj?.name || '' }), hw.child_id, 'homework');
+            } catch (e) { console.error('notify:', e); }
+          } catch (e) { toast('Could not send comment.', 'error'); }
+        }));
+        btnRow.appendChild(mkBtn(T('hw3_cancel'), 'btn-sm btn-ghost', () => { inputWrap.remove(); addBtn.style.display = ''; }));
+        inputWrap.appendChild(btnRow);
+        commentHost.appendChild(inputWrap);
+      };
+      commentHost.appendChild(addBtn);
+      compCard.appendChild(commentHost);
+    }
 
     host.appendChild(compCard);
   });

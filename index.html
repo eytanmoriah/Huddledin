@@ -2386,6 +2386,7 @@ function setupHouseholdSync(){
   if(_hhHwTasksChannel)try{_hhHwTasksChannel.unsubscribe();}catch(e){}
   _hhHwTasksChannel=_supa.channel('hh_hw_tasks:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'household_id=eq.'+_hid},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'homework_completions_v2',filter:'household_id=eq.'+_hid},()=>_debouncedRefresh())
     .subscribe();
   if(_hhParentTasksChannel)try{_hhParentTasksChannel.unsubscribe();}catch(e){}
   _hhParentTasksChannel=_supa.channel('hh_parent_tasks:'+_hid)
@@ -3756,6 +3757,24 @@ hw_check_off:'Check Off',
 hw_completed_today:'\u2705 Completed for today',
 hw_archived:'Archived',
 hw_active:'Active',
+hw4_today:'TODAY',
+hw4_this_week:'THIS WEEK',
+hw4_all_homework:'ALL HOMEWORK',
+hw4_daily:'Daily',
+hw4_done:'Done',
+hw4_skipped:'Skipped',
+hw4_cant_do:'Couldn\u2019t do it',
+hw4_note_done:'How did it go? (optional)',
+hw4_note_skipped:'Why skipped? (optional)',
+hw4_note_cant_do:'What went wrong?',
+hw4_add_photo:'Add photo',
+hw4_save:'Save',
+hw4_already_marked:'Already marked for this slot.',
+hw4_marked_done:'\u2705 Marked as done!',
+hw4_marked_skipped:'Marked as skipped.',
+hw4_marked_cant_do:'Noted \u2014 specialist will see this.',
+hw4_notif_cant_do:'\u26a0 {child} couldn\u2019t do: "{title}"',
+hw4_exercise_progress:'EXERCISE PROGRESS',
 // ── Patients (Chunk 14) ──
 patients_title:'\uD83D\uDC64 Patients',
 patients_no_patients:'No patients yet',
@@ -5063,6 +5082,24 @@ hw_check_off:'\u05E1\u05D9\u05DE\u05D5\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2',
 hw_completed_today:'\u2705 \u05D1\u05D5\u05E6\u05E2 \u05DC\u05D4\u05D9\u05D5\u05DD',
 hw_archived:'\u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
 hw_active:'\u05E4\u05E2\u05D9\u05DC',
+hw4_today:'TODAY',
+hw4_this_week:'THIS WEEK',
+hw4_all_homework:'ALL HOMEWORK',
+hw4_daily:'Daily',
+hw4_done:'Done',
+hw4_skipped:'Skipped',
+hw4_cant_do:'Couldn\u2019t do it',
+hw4_note_done:'How did it go? (optional)',
+hw4_note_skipped:'Why skipped? (optional)',
+hw4_note_cant_do:'What went wrong?',
+hw4_add_photo:'Add photo',
+hw4_save:'Save',
+hw4_already_marked:'Already marked for this slot.',
+hw4_marked_done:'\u2705 Marked as done!',
+hw4_marked_skipped:'Marked as skipped.',
+hw4_marked_cant_do:'Noted \u2014 specialist will see this.',
+hw4_notif_cant_do:'\u26a0 {child} couldn\u2019t do: "{title}"',
+hw4_exercise_progress:'EXERCISE PROGRESS',
 // ── Files & Folders ──
 files_title:'\uD83D\uDCC1 \u05E7\u05D1\u05E6\u05D9\u05DD',
 files_new_folder:'\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
@@ -10205,7 +10242,7 @@ function renderContent(){
   if(t==='patient-detail')return renderPatientDashboard();
   if(t==='vault')return renderVault();
   if(t==='todo')return r==='specialist'?renderSpecTodo():renderTodoList();
-  if(t==='homework')return r==='parent'?renderHomeworkParent():renderHomeworkSpec();
+  if(t==='homework')return r==='parent'?window.HUD_HOMEWORK.renderHomeworkParent({childId:S.activeChild,isWeb:window.innerWidth>=1024}):renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
   if(t==='info'&&r==='specialist')return renderSpecInfoCard();
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
