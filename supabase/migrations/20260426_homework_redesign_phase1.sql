@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS homework_completions_v2 (
   homework_exercise_id UUID NOT NULL REFERENCES homework_exercises(id) ON DELETE CASCADE,
   homework_id UUID NOT NULL REFERENCES homework_tasks(id) ON DELETE CASCADE,
   child_id UUID NOT NULL,
-  household_id TEXT NOT NULL,
+  household_id UUID NOT NULL,
   scheduled_date DATE NOT NULL,
   slot TEXT CHECK (slot IS NULL OR slot IN ('morning', 'afternoon', 'evening')),
   status TEXT NOT NULL CHECK (status IN ('done', 'skipped', 'cant_do')),

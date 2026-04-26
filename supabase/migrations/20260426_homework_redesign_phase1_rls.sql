@@ -32,7 +32,7 @@ CREATE POLICY "parents_read_household_exercises"
       SELECT 1 FROM homework_tasks
       WHERE homework_tasks.id = homework_exercises.homework_id
         AND homework_tasks.household_id = (
-          SELECT CAST(household_id AS TEXT) FROM profiles WHERE id = auth.uid()
+          SELECT household_id FROM profiles WHERE id = auth.uid()
         )
     )
   );
@@ -59,14 +59,14 @@ CREATE POLICY "parents_read_household_completions_v2"
   ON homework_completions_v2 FOR SELECT
   TO authenticated
   USING (
-    household_id = (SELECT CAST(household_id AS TEXT) FROM profiles WHERE id = auth.uid())
+    household_id = (SELECT household_id FROM profiles WHERE id = auth.uid())
   );
 
 CREATE POLICY "parents_insert_household_completions_v2"
   ON homework_completions_v2 FOR INSERT
   TO authenticated
   WITH CHECK (
-    household_id = (SELECT CAST(household_id AS TEXT) FROM profiles WHERE id = auth.uid())
+    household_id = (SELECT household_id FROM profiles WHERE id = auth.uid())
     AND logged_by = auth.uid()
   );
 
