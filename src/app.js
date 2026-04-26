@@ -1,13 +1,18 @@
 // Huddledin Module Entry Point
 import { initReports } from './features/reports/index.js';
+import { initHomework, mountHomeworkCreateModal } from './features/homework/index.js';
 
 console.log('[Huddledin] Module system loaded');
 
 if (window.HUD) {
   initReports();
+  initHomework();
 } else {
-  window.addEventListener('hud-ready', () => initReports());
+  window.addEventListener('hud-ready', () => { initReports(); initHomework(); });
 }
+
+// Homework module public API
+window.HUD_HOMEWORK = { mountHomeworkCreateModal };
 
 // ── Lazy loader for file-parser bundle ──
 async function loadFileParserBundle() {
