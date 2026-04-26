@@ -145,6 +145,63 @@ export async function loadHomeworkWithExercises(homeworkId) {
   return { homework: hwRes.data, exercises: exRes.data || [] };
 }
 
+export async function loadHomeworksForChild(childId, includeArchived = false) {
+  const supa = _supa();
+  if (!supa) return [];
+  const statuses = includeArchived ? ['active', 'archived'] : ['active'];
+  const { data: tasks, error: tErr } = await supa.from('homework_tasks')
+    .select('*')
+    .eq('child_id', childId)
+    .in('status', statuses)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (tErr) { console.error('\u274c loadHomeworksForChild:', tErr); return []; }
+  if (!tasks?.length) return [];
+
+  const taskIds = tasks.map(t => t.id);
+  const { data: exercises, error: eErr } = await supa.from('homework_exercises')
+    .select('*')
+    .in('homework_id', taskIds)
+    .order('position');
+  if (eErr) console.error('\u274c loadExercisesForHomeworks:', eErr);
+
+  const exMap = {};
+  (exercises || []).forEach(ex => {
+    if (!exMap[ex.homework_id]) exMap[ex.homework_id] = [];
+    exMap[ex.homework_id].push(ex);
+  });
+
+  return tasks.map(t => ({ ...t, exercises: exMap[t.id] || [] }));
+}
+
+const _pad = n => String(n).padStart(2, '0');
+const _fmtLocal = d => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-' + _pad(d.getDate());
+
+// Reads from local DB.homeworkOccurrences cache; accuracy depends on realtime sync (~500ms debounce).
+export function computeWeekStats(homeworks, occurrences) {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekStartStr = _fmtLocal(weekStart);
+  const sundayEnd = new Date(weekStart);
+  sundayEnd.setDate(sundayEnd.getDate() + 6);
+  const weekEndStr = _fmtLocal(sundayEnd);
+
+  const stats = {};
+  homeworks.forEach(hw => {
+    const hwOccs = (occurrences || []).filter(o =>
+      o.taskId === hw.id && o.date >= weekStartStr && o.date <= weekEndStr
+    );
+    const scheduled = hwOccs.length;
+    const done = hwOccs.filter(o => o.status === 'completed').length;
+    stats[hw.id] = { done, scheduled };
+  });
+  return stats;
+}
+
 export async function deleteHomework(homeworkId) {
   const supa = _supa();
   if (!supa) throw new Error('Not authenticated');

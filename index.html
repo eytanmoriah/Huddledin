@@ -3732,6 +3732,15 @@ hw2_save_template:'Save as template — Reuse for other patients',
 hw2_template_name_placeholder:'Template name (e.g. Daily Breathing)',
 hw2_pick_template:'Use Template',
 hw2_templates_btn:'Templates',
+hw3_no_archived:'No archived homework yet.',
+hw3_week_stat:'This week: {done}/{total} done',
+hw3_archive_title:'Archive homework',
+hw3_archive_body:'Move to archive? You can restore it later.',
+hw3_restore_title:'Restore homework',
+hw3_restore_body:'Move back to active homework?',
+hw3_delete_title:'Delete homework',
+hw3_delete_body:'Permanently delete this homework and all its history?',
+hw3_detail_coming:'Detail view coming soon.',
 hw_check_off:'Check Off',
 hw_completed_today:'\u2705 Completed for today',
 hw_archived:'Archived',
@@ -5019,6 +5028,15 @@ hw2_save_template:'Save as template — Reuse for other patients',
 hw2_template_name_placeholder:'Template name (e.g. Daily Breathing)',
 hw2_pick_template:'Use Template',
 hw2_templates_btn:'Templates',
+hw3_no_archived:'No archived homework yet.',
+hw3_week_stat:'This week: {done}/{total} done',
+hw3_archive_title:'Archive homework',
+hw3_archive_body:'Move to archive? You can restore it later.',
+hw3_restore_title:'Restore homework',
+hw3_restore_body:'Move back to active homework?',
+hw3_delete_title:'Delete homework',
+hw3_delete_body:'Permanently delete this homework and all its history?',
+hw3_detail_coming:'Detail view coming soon.',
 hw_check_off:'\u05E1\u05D9\u05DE\u05D5\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2',
 hw_completed_today:'\u2705 \u05D1\u05D5\u05E6\u05E2 \u05DC\u05D4\u05D9\u05D5\u05DD',
 hw_archived:'\u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
@@ -16703,53 +16721,9 @@ function renderHomeworkSpec(){
     if(!_t||_t.childId!==S.activeChild)S._hwTaskView=null;
   }
   if(S._hwTaskView)return _renderHwTaskDashboard(S._hwTaskView);
-  const child=DB.children.find(c=>c.id===S.activeChild);
-  const allTasks=(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild);
-  const allOccs=DB.homeworkOccurrences||[];
-  const sec=el('div',{class:'section'});
-  const _hwBar=mkSpecBackBar(child?.name);if(_hwBar)sec.appendChild(_hwBar);
-  const hd=el('div',{class:'sec-hd'});
-  hd.appendChild(el('div',{class:'sec-hd-left'},[
-    el('h2',{class:'page-title'},[T('hw_title')]),
-    el('p',{class:'page-sub'},[(child?.avatar||'')+' '+(child?.name||'')+T('hw_spec_tasks_sub')])
-  ]));
-  const _hwRemoved=(child?.connectionStatus||'approved')==='removed';
-  if(!_hwRemoved){const _hwBtns=el('div',{class:'sec-hd-right',style:{display:'flex',gap:'8px'}});_hwBtns.appendChild(mkBtn(T('hw2_templates_btn'),'btn-md btn-ghost',()=>window.HUD_HOMEWORK.openTemplatePicker({onPick:(tmpl)=>window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild,template:tmpl}),onCancel:()=>{}})));_hwBtns.appendChild(mkBtn(T('hw_new_homework'),'btn-md btn-primary',()=>window.HUD_HOMEWORK.mountHomeworkCreateModal({childId:S.activeChild})));hd.appendChild(_hwBtns);}
-  sec.appendChild(hd);
-  if(_hwRemoved){const _hwLock=el('div',{style:{background:'#f1f5f9',border:'1.5px solid #cbd5e1',borderRadius:'var(--r-lg)',padding:'12px 16px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px',color:'#475569'}});_hwLock.appendChild(el('span',{style:{fontSize:'1.1rem'}},['🔒']));_hwLock.appendChild(el('div',{style:{fontSize:'.83rem',fontWeight:600}},[T('hw_not_connected_no_tasks')]));sec.appendChild(_hwLock);}
-  // Tabs
-  const tab=S._hwSpecTab||'active';
-  const activeTasks=allTasks.filter(t=>t.status==='active');
-  const archiveTasks=allTasks.filter(t=>t.status==='archived');
-  const tabBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
-  ['active','archive'].forEach(f=>{
-    const cnt=f==='active'?activeTasks.length:archiveTasks.length;
-    const isAct=tab===f;
-    const tbtn=el('button',{class:isAct?'btn btn-sm btn-primary':'btn btn-sm btn-ghost'},[(f==='active'?T('hw_active'):T('hw_archived'))]);
-    tbtn.appendChild(el('span',{class:'patient-count-badge'},[String(cnt)]));
-    tbtn.onclick=()=>{S._hwSpecTab=f;re();};
-    tabBar.appendChild(tbtn);
-  });
-  sec.appendChild(tabBar);
-  const tasks=tab==='active'?activeTasks:archiveTasks;
-  if(!tasks.length){
-    sec.appendChild(el('div',{class:'empty-state'},[
-      el('span',{class:'empty-state-icon'},['📋']),
-      el('div',{class:'empty-state-title'},[tab==='active'?T('hw_no_tasks'):T('hw_archived')]),
-      el('div',{class:'empty-state-body'},[tab==='active'?T('hw_no_tasks_spec_desc'):T('hw_archived_here')])
-    ]));
-    return sec;
-  }
-  // Pinned section
-  const pinned=tasks.filter(t=>t.isPinned);
-  const rest=tasks.filter(t=>!t.isPinned);
-  if(pinned.length){
-    sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}},[T('hw_pinned_label')]));
-    pinned.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
-    if(rest.length)sec.appendChild(el('div',{style:{fontSize:'.7rem',fontWeight:800,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.06em',margin:'14px 0 8px'}},[T('hw_other_tasks')]));
-  }
-  rest.forEach(t=>sec.appendChild(_mkHwSpecCard(t,allOccs,child)));
-  return sec;
+  // Phase 3a: delegate to new module list view
+  const isWeb=window.innerWidth>=1024;
+  return window.HUD_HOMEWORK.renderHomeworkSpecList({childId:S.activeChild,isWeb});
 }
 
 /* -----------------------------------------------
