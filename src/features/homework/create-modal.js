@@ -317,7 +317,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         overlay.remove(); H.re?.(); H.toast?.(T('hw_task_updated'));
       } else {
         const result = await createHomework({ homework: hw, exercises: cleanExercises });
-        // Transitional bridge: generate occurrences for v1 read code compatibility (removed in Phase 5)
+        // TODO(Phase 6e): Remove this call once v1 reads are gone. See PHASE_6_7_DEFERRED.md.
         if (typeof H._generateOccurrences === 'function') {
           try { await H._generateOccurrences(result.homeworkRow); } catch (e) { console.error('generate occurrences:', e); }
         }

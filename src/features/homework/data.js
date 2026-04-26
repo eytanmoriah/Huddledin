@@ -178,6 +178,7 @@ const _pad = n => String(n).padStart(2, '0');
 const _fmtLocal = d => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-' + _pad(d.getDate());
 
 // Reads from local DB.homeworkOccurrences cache; accuracy depends on realtime sync (~500ms debounce).
+// TODO(Phase 6a): Rewrite from v2 completions + schedule helpers. See PHASE_6_7_DEFERRED.md.
 export function computeWeekStats(homeworks, occurrences) {
   const now = new Date();
   const day = now.getDay();
@@ -202,6 +203,7 @@ export function computeWeekStats(homeworks, occurrences) {
   return stats;
 }
 
+// TODO(Phase 6b): Rewrite to read homework_completions_v2 only. See PHASE_6_7_DEFERRED.md.
 export async function loadHomeworkDetail(homeworkId) {
   const supa = _supa();
   if (!supa) return null;
@@ -344,6 +346,7 @@ export async function loadCompletionsV2(childId, sinceDate) {
   return data || [];
 }
 
+// TODO(Phase 6d): Remove v1 dual-write block (~lines 377-405). See PHASE_6_7_DEFERRED.md.
 export async function logExerciseCompletion({ homework, exercise, scheduledDate, slot, status, note, photoUrl, actualValue, childId }) {
   const supa = _supa();
   const sess = _session();
