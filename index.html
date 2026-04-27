@@ -8620,41 +8620,19 @@ function _renderSpecDtDashboard(sorted,specId,specName){
 
   // ── 4. REPORTS (purple — async) ──
   const cRep=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'purple'});
-  const{subEl:repSub,content:repC}=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'Loading...':'🔒 Upgrade to unlock');
-  const repBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
+  const{content:repC}=_cardHdr(cRep,'purple',hasAi?'📋':'🔒','Reports',hasAi?'':'🔒 Upgrade to unlock');
   if(!hasAi){
+    const repBody=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
     repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#4a7570',lineHeight:'1.5',marginBottom:'8px'}},['Your AI trial has ended. Upgrade to access reports.']));
     const _repUpg=el('button',{style:{background:'#8b5cf6',color:'#fff',border:'none',borderRadius:'8px',padding:'8px 16px',fontFamily:"'Nunito',sans-serif",fontWeight:700,fontSize:'.78rem',cursor:'pointer',transition:'background .14s'}},['Upgrade →']);
     _repUpg.onmouseenter=()=>_repUpg.style.background='#7c3aed';
     _repUpg.onmouseleave=()=>_repUpg.style.background='#8b5cf6';
     _repUpg.onclick=e=>{e.stopPropagation();_showSpecAiUpgradeModal('Reports');};
     repBody.appendChild(_repUpg);
+    repC.appendChild(repBody);
   }
-  repC.appendChild(repBody);
   cRep.onclick=()=>{if(hasAi)switchTab('reports');else _showSpecAiUpgradeModal();};
   grid.appendChild(cRep);
-  if(hasAi&&session?.id!=='demo'){
-    (async()=>{
-      try{
-        const[rr,tr,latestR]=await Promise.all([
-          _supa.from('reports').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
-          _supa.from('report_templates').select('id',{count:'exact',head:true}).eq('specialist_id',specId),
-          _supa.from('reports').select('id,report_type,created_at').eq('specialist_id',specId).order('created_at',{ascending:false}).limit(1)
-        ]);
-        const rc=rr.count||0, tc=tr.count||0;
-        repSub.textContent=rc+' report'+(rc!==1?'s':'')+' · '+tc+' template'+(tc!==1?'s':'');
-        repBody.innerHTML='';
-        if(rc===0){
-          repBody.appendChild(el('div',{style:{fontSize:'.82rem',color:'#8b5cf6',fontWeight:600,padding:'8px 0'}},['Create your first report →']));
-        } else {
-          const lr=latestR.data?.[0];
-          if(lr){
-            repBody.appendChild(el('div',{style:{fontSize:'.72rem',color:'#4a7570'}},['Latest: '+(lr.report_type||'Report')+' · '+(lr.created_at||'').split('T')[0]]));
-          }
-        }
-      }catch(e){console.error('❌ reports:',e);repSub.textContent='—';}
-    })();
-  }
 
   // ── 5. MY STORAGE (teal — async, full-width) ──
   const cSto=el('div',{class:'spec-bubble'+(hasAi?'':' locked'),'data-accent':'teal',style:{gridColumn:'1 / -1'}});

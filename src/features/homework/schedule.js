@@ -1,4 +1,4 @@
-// Schedule block component — cadence, days, times, duration
+// Schedule block component — frequency, days, times, duration
 // Collapsed by default; summary card expands/collapses controls.
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -58,8 +58,8 @@ export function renderScheduleBlock(state, onChange) {
   // Controls container (hidden by default)
   controlsEl = el('div', { style: { display: 'none', marginTop: '12px' } });
 
-  // Cadence
-  controlsEl.appendChild(el('div', { class: 'hw2-section-label' }, ['Cadence']));
+  // Frequency
+  controlsEl.appendChild(el('div', { class: 'hw2-section-label' }, ['Frequency']));
   const cadRow = el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' } });
   const cadOpts = [['daily', 'Daily'], ['specific_days', 'Some days'], ['once', 'Once'], ['every_other_day', 'Every other day']];
   function _renderCad() {
@@ -151,10 +151,6 @@ export function renderMiniSchedule(overrides, homeworkState, onChange) {
 
   const wrap = el('div', { style: { background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px', marginTop: '8px' } });
 
-  const resetBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontSize: '12px', fontWeight: 600, padding: '0 0 8px', fontFamily: 'inherit' } }, ['Reset to homework schedule']);
-  resetBtn.onclick = () => onChange({ overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null });
-  wrap.appendChild(resetBtn);
-
   function _pill(label, active, onclick) {
     const b = el('button', { class: 'hw2-pill' + (active ? ' active' : '') }, [label]);
     b.style.fontSize = '12px'; b.style.padding = '5px 10px';
@@ -162,40 +158,55 @@ export function renderMiniSchedule(overrides, homeworkState, onChange) {
     return b;
   }
 
-  const rec = overrides.overrideRecurrence || homeworkState.recurrence || 'daily';
+  // Mutable local state
+  let rec = overrides.overrideRecurrence || homeworkState.recurrence || 'daily';
   const selDays = new Set(overrides.overrideSpecificDays || homeworkState.specificDays || []);
   const selTimes = new Set((overrides.overrideTimeOfDay || homeworkState.timeOfDay || 'morning').split(',').filter(Boolean));
 
-  // Cadence
-  wrap.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '4px' } }, ['Cadence']));
+  function _emit() {
+    onChange({ overrideRecurrence: rec, overrideSpecificDays: rec === 'specific_days' ? [...selDays] : null, overrideTimeOfDay: [...selTimes].join(',') });
+  }
+
+  // Frequency
+  wrap.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '4px' } }, ['Frequency']));
   const cadRow = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' } });
+  const cadBtns = {};
   [['daily', 'Daily'], ['specific_days', 'Some days'], ['once', 'Once'], ['every_other_day', 'Every other']].forEach(([val, label]) => {
-    cadRow.appendChild(_pill(label, rec === val, () => {
-      onChange({ ...overrides, overrideRecurrence: val });
-    }));
+    const btn = _pill(label, rec === val, () => {
+      Object.values(cadBtns).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rec = val;
+      dayRow.style.display = val === 'specific_days' ? '' : 'none';
+      _emit();
+    });
+    cadBtns[val] = btn;
+    cadRow.appendChild(btn);
   });
   wrap.appendChild(cadRow);
 
-  if (rec === 'specific_days') {
-    const dayRow = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' } });
-    ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].forEach((d, i) => {
-      dayRow.appendChild(_pill(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i], selDays.has(d), () => {
-        if (selDays.has(d)) selDays.delete(d); else selDays.add(d);
-        onChange({ ...overrides, overrideRecurrence: rec, overrideSpecificDays: [...selDays] });
-      }));
+  // Day-of-week row (visible only when rec === 'specific_days')
+  const dayRow = el('div', { style: { display: rec === 'specific_days' ? 'flex' : 'none', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' } });
+  ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].forEach((d, i) => {
+    const btn = _pill(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i], selDays.has(d), () => {
+      if (selDays.has(d)) { selDays.delete(d); btn.classList.remove('active'); }
+      else { selDays.add(d); btn.classList.add('active'); }
+      _emit();
     });
-    wrap.appendChild(dayRow);
-  }
+    dayRow.appendChild(btn);
+  });
+  wrap.appendChild(dayRow);
 
   // Times
   wrap.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '4px' } }, ['Times']));
   const timeRow = el('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } });
   ['morning', 'afternoon', 'evening'].forEach(t => {
-    timeRow.appendChild(_pill(t.charAt(0).toUpperCase() + t.slice(1), selTimes.has(t), () => {
+    const btn = _pill(t.charAt(0).toUpperCase() + t.slice(1), selTimes.has(t), () => {
       if (selTimes.has(t) && selTimes.size <= 1) return;
-      if (selTimes.has(t)) selTimes.delete(t); else selTimes.add(t);
-      onChange({ ...overrides, overrideRecurrence: rec, overrideTimeOfDay: [...selTimes].join(',') });
-    }));
+      if (selTimes.has(t)) { selTimes.delete(t); btn.classList.remove('active'); }
+      else { selTimes.add(t); btn.classList.add('active'); }
+      _emit();
+    });
+    timeRow.appendChild(btn);
   });
   wrap.appendChild(timeRow);
 

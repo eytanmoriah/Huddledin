@@ -17,6 +17,27 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
   const wrap = el('div');
   let dragIdx = null;
 
+  function _rebuildRepWrap(rw, ex, idx) {
+    rw.innerHTML = '';
+    if (ex.sets || ex.reps) {
+      const setsInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '42px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
+      setsInp.value = ex.sets || '';
+      setsInp.oninput = () => { exercises[idx].sets = parseInt(setsInp.value) || null; onChange(exercises); };
+      rw.appendChild(setsInp);
+      rw.appendChild(el('span', { style: { color: '#94a3b8', fontSize: '13px' } }, ['\u00d7']));
+      const repsInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '42px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
+      repsInp.value = ex.reps || '';
+      repsInp.oninput = () => { exercises[idx].reps = parseInt(repsInp.value) || null; onChange(exercises); };
+      rw.appendChild(repsInp);
+    } else if (ex.durationSeconds) {
+      const durInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '50px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
+      durInp.value = Math.round(ex.durationSeconds / 60) || '';
+      durInp.oninput = () => { exercises[idx].durationSeconds = (parseInt(durInp.value) || 0) * 60; onChange(exercises); };
+      rw.appendChild(durInp);
+      rw.appendChild(el('span', { style: { color: '#94a3b8', fontSize: '12px' } }, ['min']));
+    }
+  }
+
   function _render() {
     wrap.innerHTML = '';
 
@@ -55,23 +76,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
 
       // Reps/duration inline
       const repWrap = el('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', flexShrink: '0' } });
-      if (ex.sets || ex.reps) {
-        const setsInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '42px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
-        setsInp.value = ex.sets || '';
-        setsInp.oninput = () => { exercises[idx].sets = parseInt(setsInp.value) || null; onChange(exercises); };
-        repWrap.appendChild(setsInp);
-        repWrap.appendChild(el('span', { style: { color: '#94a3b8', fontSize: '13px' } }, ['\u00d7']));
-        const repsInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '42px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
-        repsInp.value = ex.reps || '';
-        repsInp.oninput = () => { exercises[idx].reps = parseInt(repsInp.value) || null; onChange(exercises); };
-        repWrap.appendChild(repsInp);
-      } else if (ex.durationSeconds) {
-        const durInp = el('input', { type: 'number', class: 'hw2-input', style: { width: '50px', textAlign: 'center', padding: '6px 4px' }, placeholder: '#' });
-        durInp.value = Math.round(ex.durationSeconds / 60) || '';
-        durInp.oninput = () => { exercises[idx].durationSeconds = (parseInt(durInp.value) || 0) * 60; onChange(exercises); };
-        repWrap.appendChild(durInp);
-        repWrap.appendChild(el('span', { style: { color: '#94a3b8', fontSize: '12px' } }, ['min']));
-      }
+      _rebuildRepWrap(repWrap, ex, idx);
       top.appendChild(repWrap);
 
       // Remove button
@@ -105,15 +110,20 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
       // Measure mode selector
       const measureRow = el('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' } });
       const curMode = (ex.sets || ex.reps) ? 'reps' : ex.durationSeconds ? 'duration' : 'none';
+      const measureBtns = {};
       [['none', 'No measure'], ['reps', 'Sets \u00d7 Reps'], ['duration', 'Minutes']].forEach(([val, label]) => {
         const b = el('button', { class: 'hw2-pill' + (curMode === val ? ' active' : '') }, [label]);
         b.onclick = () => {
+          Object.values(measureBtns).forEach(mb => mb.classList.remove('active'));
+          b.classList.add('active');
           if (val === 'none') { exercises[idx].sets = null; exercises[idx].reps = null; exercises[idx].durationSeconds = null; }
           else if (val === 'reps') { exercises[idx].sets = exercises[idx].sets || 1; exercises[idx].reps = exercises[idx].reps || 10; exercises[idx].durationSeconds = null; }
           else { exercises[idx].durationSeconds = exercises[idx].durationSeconds || 300; exercises[idx].sets = null; exercises[idx].reps = null; }
           exercises[idx].measureUnit = val === 'duration' ? 'minutes' : null;
-          onChange(exercises); _render();
+          _rebuildRepWrap(repWrap, exercises[idx], idx);
+          onChange(exercises);
         };
+        measureBtns[val] = b;
         measureRow.appendChild(b);
       });
       morePanel.appendChild(measureRow);
@@ -132,7 +142,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
               exercises[idx].overrideRecurrence = patch.overrideRecurrence || null;
               exercises[idx].overrideSpecificDays = patch.overrideSpecificDays || null;
               exercises[idx].overrideTimeOfDay = patch.overrideTimeOfDay || null;
-              onChange(exercises); _render();
+              onChange(exercises);
             }
           );
           morePanel.appendChild(overridePanel);
