@@ -7239,24 +7239,6 @@ function renderAuth(){
     gBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>'+T('auth_google');
     gBtn.onclick=()=>doGoogleSignIn(selRole);
     formArea.appendChild(gBtn);
-    // Demo mode quick button
-    const demoDiv=el('div',{style:{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--mint-l)',textAlign:'center'}});
-    demoDiv.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--slate-l)',fontWeight:600,marginBottom:'8px'}},[T('auth_demo')]));
-    const demoBtn2=el('button',{class:'btn btn-md btn-secondary btn-full',style:{justifyContent:'center'}},[T('auth_demo_btn')]);
-    demoBtn2.onclick=async()=>{
-      // Quick demo login + load data
-      const r=await doLogin('demo@huddledin.com','demo','parent','Demo Parent');
-      if(r.ok){
-        S.navLevel=0;S.activeTab='dashboard';
-        // Don't show tour in demo mode
-        LS.set('tourDismissed',true);
-        LS.del('tourNeedsShow');
-        // FIX F6: loadDemoData() already calls re() internally — do not call re() again here
-        loadDemoData();
-      }
-    };
-    demoDiv.appendChild(demoBtn2);
-    formArea.appendChild(demoDiv);
   }
   buildForm();
   card.appendChild(body);
@@ -9590,9 +9572,6 @@ function renderGlobalHome(){
     const addBtn=el('button',{class:'wb-btn primary'},[T('welcome_add_first')]);
     addBtn.onclick=()=>showAddChildModal();
     bannerBtns.appendChild(addBtn);
-    const demoBtn=el('button',{class:'wb-btn'},[T('welcome_try_demo')]);
-    demoBtn.onclick=()=>openConfirm(T('welcome_demo_title'),T('welcome_demo_msg'),false,()=>loadDemoData());
-    bannerBtns.appendChild(demoBtn);
     banner.appendChild(bannerBtns);
     sec.appendChild(banner);
 
@@ -19334,54 +19313,56 @@ function renderSettings(){
     sec.appendChild(mc);
   }
 
-  // Onboarding & Demo
+  // Onboarding
   const od=el('div',{class:'card',style:{marginTop:'16px'}});
   od.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'14px'}},[T('settings_onboarding')]));
   const tourDismissed=LS.get('tourDismissed',false);
-  const odRows=[
-    {
-      icon:'🗺️',title:T('settings_tour_title'),desc:tourDismissed?T('settings_tour_desc_dismissed'):T('settings_tour_desc'),
-      btn:T('settings_tour_btn'),action:()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}
-    },
-    {
-      icon:'🎭',title:T('settings_demo_title'),desc:T('settings_demo_desc'),
-      btn:T('settings_demo_btn'),action:()=>openConfirm(T('settings_demo_confirm_title'),T('settings_demo_confirm'),true,()=>loadDemoData())
-    },
+  const tourRow=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0'});
+  tourRow.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},['🗺️']));
+  const tourInfo=el('div',{style:{flex:1}});
+  tourInfo.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem'}},[T('settings_tour_title')]));
+  tourInfo.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginTop:'2px'}},[tourDismissed?T('settings_tour_desc_dismissed'):T('settings_tour_desc')]));
+  tourRow.appendChild(tourInfo);
+  tourRow.appendChild(mkBtn(T('settings_tour_btn'),'btn-sm btn-secondary',()=>{LS.del('tourDismissed');LS.set('tourNeedsShow',true);startTour();}));
+  od.appendChild(tourRow);
+  sec.appendChild(od);
+
+  // Reset
+  const rs=el('div',{class:'card',style:{marginTop:'16px'}});
+  rs.appendChild(el('h3',{style:{fontWeight:800,color:'#b91c1c',marginBottom:'14px'}},[T('settings_reset')]));
+  const resetRows=[
     {
       icon:'📅',title:T('settings_clear_apts_title'),desc:T('settings_clear_apts_desc'),
-      btn:T('settings_clear_apts_btn'),danger:true,
+      btn:T('settings_clear_apts_btn'),
       action:()=>openConfirm(T('settings_clear_apts_title'),T('settings_clear_apts_confirm'),true,async()=>{
         try{
-          if(session?.id!=='demo'){
-            const hid=session?.householdId;
-            if(hid){await _supa.from('appointments').delete().neq('id','x').eq('household_id',hid);}
-            else if(session?.id){await _supa.from('appointments').delete().neq('id','x').eq('parent_id',session.id);}
-          }
+          const hid=session?.householdId;
+          if(hid){await _supa.from('appointments').delete().neq('id','x').eq('household_id',hid);}
+          else if(session?.id){await _supa.from('appointments').delete().neq('id','x').eq('parent_id',session.id);}
           LS.set('appointments',[]);re();toast(T('settings_apts_cleared'));
         }catch(e){LS.set('appointments',[]);re();console.error('clear appointments:',e);toast(T('settings_apts_clear_fail'),'error');}
       })
     },
     {
       icon:'🗑️',title:T('settings_clear_data_title'),desc:T('settings_clear_data_desc'),
-      btn:T('settings_clear_data_btn'),danger:true,
+      btn:T('settings_clear_data_btn'),
       action:()=>openConfirm(T('settings_clear_data_confirm_title'),T('settings_clear_data_confirm'),true,()=>{
-        // Clear all hd9_ keys
         Object.keys(localStorage).filter(k=>k.startsWith('hd9_')).forEach(k=>localStorage.removeItem(k));
         doLogout().then(()=>{re();toast(T('settings_data_cleared'),'info');});
       })
     }
   ];
-  odRows.forEach(({icon,title,desc,btn,action,danger})=>{
+  resetRows.forEach(({icon,title,desc,btn,action})=>{
     const row=d('',[], {display:'flex',alignItems:'center',gap:'12px',padding:'12px 0',borderBottom:'1px solid var(--mint-ll)'});
     row.appendChild(el('span',{style:{fontSize:'1.4rem',flexShrink:0}},[icon]));
     const info=el('div',{style:{flex:1}});
     info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem'}},[title]));
     info.appendChild(el('div',{style:{fontSize:'.75rem',color:'var(--slate)',marginTop:'2px'}},[desc]));
     row.appendChild(info);
-    row.appendChild(mkBtn(btn,'btn-sm '+(danger?'btn-danger':'btn-secondary'),action));
-    od.appendChild(row);
+    row.appendChild(mkBtn(btn,'btn-sm btn-danger',action));
+    rs.appendChild(row);
   });
-  sec.appendChild(od);
+  sec.appendChild(rs);
 
   // Google Calendar integration card
   const gcCard=el('div',{class:'card',style:{marginBottom:'16px'}});
