@@ -34,6 +34,12 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
   const dateLabel = dateObj.toDateString() === today.toDateString() ? 'Today' : dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   subEl.textContent = (slot ? slot.charAt(0).toUpperCase() + slot.slice(1) + ' \u00b7 ' : '') + dateLabel;
   titleWrap.appendChild(subEl);
+  if (exercise.instructions) {
+    const instrEl = document.createElement('div');
+    instrEl.style.cssText = 'font-size:12px;color:#64748b;line-height:1.4;white-space:pre-wrap;margin-top:6px;';
+    instrEl.textContent = exercise.instructions;
+    titleWrap.appendChild(instrEl);
+  }
   header.appendChild(titleWrap);
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '\u2715';

@@ -157,6 +157,10 @@ function _renderHomeworkCard(hw, compMap, childId, isWeb, H) {
   hdr.appendChild(kebab);
   card.appendChild(hdr);
 
+  if (hw.description) {
+    card.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', whiteSpace: 'pre-wrap', padding: '10px 12px', background: '#f0fdf9', borderRadius: '8px', marginBottom: '8px' } }, [hw.description]));
+  }
+
   // Exercise rows
   exercises.forEach(ex => card.appendChild(_renderExerciseRow(hw, ex, compMap, childId, H)));
 
@@ -240,6 +244,7 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
   if (measure) subParts.push(measure);
   if (!scheduledToday && !measure) subParts.push('Not today');
   if (subParts.length) content.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '1px' } }, [subParts.join(' \u00b7 ')]));
+  if (ex.instructions) content.appendChild(el('div', { style: { fontSize: '12px', color: '#64748b', lineHeight: '1.4', whiteSpace: 'pre-wrap', marginTop: '3px' } }, [ex.instructions]));
   row.appendChild(content);
 
   // Right label
