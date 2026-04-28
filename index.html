@@ -3588,6 +3588,14 @@ vault_ai_generated:'\u2705 Summary generated',
 vault_voice_start:'Start Dictation',
 vault_voice_stop:'Stop Dictation',
 vault_voice_commands:'Commands ?',
+// ── Spec Home Tasks tile ──
+home_tasks_title:'Tasks',
+home_tasks_pending:'{n} pending',
+home_tasks_empty:'No pending tasks',
+home_tasks_due_today:'today',
+home_tasks_due_tomorrow:'tomorrow',
+home_tasks_due_overdue:'overdue',
+home_tasks_more:'+{n} more',
 // ── Spec Todo (Chunk 13) ──
 stodo_title:'\u2705 My Tasks',
 stodo_new_task:'+ New Task',
@@ -5064,6 +5072,14 @@ team_remove_msg:'\u05D4\u05DD \u05D9\u05D0\u05D1\u05D3\u05D5 \u05D2\u05D9\u05E9\
 team_removed:'\u2705 \u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA \u05D4\u05D5\u05E1\u05E8/\u05D4',
 team_permissions:'\u05D4\u05E8\u05E9\u05D0\u05D5\u05EA \u05EA\u05D9\u05E7\u05D9\u05D5\u05EA',
 team_request_join:'\u05D1\u05E7\u05E9\u05EA \u05D4\u05E6\u05D8\u05E8\u05E4\u05D5\u05EA',
+// ── Spec Home Tasks tile ──
+home_tasks_title:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA',
+home_tasks_pending:'{n} \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA',
+home_tasks_empty:'\u05D0\u05D9\u05DF \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA',
+home_tasks_due_today:'\u05D4\u05D9\u05D5\u05DD',
+home_tasks_due_tomorrow:'\u05DE\u05D7\u05E8',
+home_tasks_due_overdue:'\u05D1\u05D0\u05D9\u05D7\u05D5\u05E8',
+home_tasks_more:'+{n} \u05E2\u05D5\u05D3',
 // ── Spec Todo ──
 stodo_title:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05DC\u05D9',
 stodo_new_task:'+ \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4',
@@ -8399,7 +8415,6 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   const specProf=session?.profession||getMySpecialistRecord()?.role||'Specialist';
   const todayStr=now.toISOString().slice(0,10);
   const allTasks=(DB.specTasks||[]).filter(t=>t.specialistId===specId||t.specialist_id===specId);
-  const unreadMsgs=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const activePatients=sorted.filter(c=>!(((c.status||'active')==='inactive')||(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]')).includes(c.id)));
   const hasAi=_hasSpecAiAccess();
   const upcomingAppts=(DB.appointments||[]).filter(a=>(a.specialistId===specId||(a.sharedWith||[]).includes(specId))&&a.date&&a.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''));
@@ -8463,26 +8478,48 @@ function _renderSpecDtDashboard(sorted,specId,specName){
   cPat.onclick=()=>{S.activeChild=null;S.activeTab='patients';re();};
   grid.appendChild(cPat);
 
-  // ── 2. MESSAGES (amber) ──
-  const unreadChats=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id));
-  const cMsg=el('div',{class:'spec-bubble','data-accent':'amber'});
-  const{content:msgC}=_cardHdr(cMsg,'amber','💬',T('nav_chat')||'Messages',unreadMsgs>0?(unreadMsgs+' unread'):'');
-  const msgPv=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
-  if(unreadChats.length===0){
-    msgPv.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',padding:'8px 0'}},['All caught up ✨']));
+  // ── 2. TASKS (green) ──
+  const pendingTasks=allTasks.filter(t=>!t.completed&&!t.done).sort((a,b)=>{
+    const pa=a.priority==='urgent'?0:a.priority==='low'?2:1;
+    const pb=b.priority==='urgent'?0:b.priority==='low'?2:1;
+    if(pa!==pb)return pa-pb;
+    if(a.dueDate&&b.dueDate)return a.dueDate.localeCompare(b.dueDate);
+    if(a.dueDate)return -1;if(b.dueDate)return 1;
+    return 0;
+  });
+  const cTsk=el('div',{class:'spec-bubble','data-accent':'green'});
+  const{content:tskC}=_cardHdr(cTsk,'green','✅',T('home_tasks_title'),pendingTasks.length>0?T('home_tasks_pending',{n:pendingTasks.length}):'');
+  const tskPv=el('div',{class:'spec-bubble-preview',style:{flexDirection:'column',gap:'4px'}});
+  if(pendingTasks.length===0){
+    tskPv.appendChild(el('div',{style:{fontSize:'.82rem',color:'#7aaba5',padding:'8px 0'}},[T('home_tasks_empty')]));
   } else {
-    unreadChats.slice(0,3).forEach(c=>{
-      const ch=DB.children.find(k=>k.id===c.childId);
-      const lastMsg=(c.messages||[]).slice(-1)[0];
-      const ts=lastMsg?.createdAt||lastMsg?.ts||'';
-      msgPv.appendChild(_feedRow('💬',(ch?.name?.split(' ')[0])||'Chat',lastMsg?.text||'📷 Photo',ts,()=>{
-        S.activeChild=c.childId||null;S.activeChatChildId=c.childId||null;S.activeChatId=c.id;S.activeTab='chat';S.chatsLoaded=true;re();
-      }));
+    const _tomorrowStr=new Date(now.getTime()+86400000).toISOString().slice(0,10);
+    pendingTasks.slice(0,3).forEach(t=>{
+      const icon=t.priority==='urgent'?'🔴':t.priority==='low'?'🟢':'🟡';
+      let hint='';
+      if(t.dueDate){
+        const dd=t.dueDate.slice(0,10);
+        if(dd<todayStr)hint=T('home_tasks_due_overdue');
+        else if(dd===todayStr)hint=T('home_tasks_due_today');
+        else if(dd===_tomorrowStr)hint=T('home_tasks_due_tomorrow');
+        else hint=new Date(dd+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'});
+      }
+      const row=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',cursor:'pointer',transition:'background .12s',fontSize:'.78rem'}});
+      row.onmouseenter=()=>row.style.background='var(--mint-ll)';
+      row.onmouseleave=()=>row.style.background='';
+      row.appendChild(el('span',{style:{fontSize:'.9rem',flexShrink:0}},[icon]));
+      row.appendChild(el('span',{style:{color:'#4a7570',flex:1,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',fontWeight:t.priority==='urgent'?700:500}},[t.title||'Untitled']));
+      if(hint)row.appendChild(el('span',{style:{color:t.dueDate&&t.dueDate.slice(0,10)<todayStr?'#ef4444':'#7aaba5',fontSize:'.68rem',flexShrink:0,fontWeight:t.dueDate&&t.dueDate.slice(0,10)<todayStr?600:400}},[hint]));
+      row.onclick=e=>{e.stopPropagation();switchTab('todo');};
+      tskPv.appendChild(row);
     });
+    if(pendingTasks.length>3){
+      tskPv.appendChild(el('div',{style:{fontSize:'.72rem',color:'#7aaba5',fontWeight:500,paddingTop:'2px'}},[T('home_tasks_more',{n:pendingTasks.length-3})]));
+    }
   }
-  msgC.appendChild(msgPv);
-  cMsg.onclick=e=>{if(!e.target.closest('[style*="cursor"]')){S.activeChild=null;S.activeChatChildId=null;switchTab('chat');}};
-  grid.appendChild(cMsg);
+  tskC.appendChild(tskPv);
+  cTsk.onclick=()=>switchTab('todo');
+  grid.appendChild(cTsk);
 
   // ── 3. NOTIFICATIONS (orange) ──
   const cNtf=el('div',{class:'spec-bubble','data-accent':'orange'});
