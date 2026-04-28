@@ -12439,14 +12439,48 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
           if(i>-1){Object.assign(apts[i],lsPatch,{seriesDetached:true});DB.appointments=apts;}
           console.log('[calendar-v2] Series edit (just this): '+apt.id);
         } else {
-          const affectedIds=allInSeries.map(a=>a.id);
-          const bulkPatch=dateChanged?{title:dbPatch.title,time:dbPatch.time,end_time:dbPatch.end_time,location:dbPatch.location,notes:dbPatch.notes}:dbPatch;
-          const bulkLsPatch=dateChanged?{title:lsPatch.title,time:lsPatch.time,endTime:lsPatch.endTime,location:lsPatch.location,notes:lsPatch.notes}:lsPatch;
-          await _supa.from('appointments').update(bulkPatch).in('id',affectedIds);
-          const apts=[...DB.appointments];
-          apts.forEach(a=>{if(affectedIds.includes(a.id))Object.assign(a,bulkLsPatch);});
-          DB.appointments=apts;
-          console.log('[calendar-v2] Series edit (all future): '+apt.seriesId+', '+affectedIds.length+' instances updated');
+          const affectedRows=allInSeries;
+          const affectedIds=affectedRows.map(a=>a.id);
+          const _fmtD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          const fieldPatch={};const fieldLsPatch={};
+          if(dbPatch.title!==apt.title){fieldPatch.title=dbPatch.title;fieldLsPatch.title=lsPatch.title;}
+          if(dbPatch.time!==apt.time){fieldPatch.time=dbPatch.time;fieldLsPatch.time=lsPatch.time;}
+          if(dbPatch.end_time!==(apt.endTime||null)){fieldPatch.end_time=dbPatch.end_time;fieldLsPatch.endTime=lsPatch.endTime;}
+          if(dbPatch.location!==(apt.location||null)){fieldPatch.location=dbPatch.location;fieldLsPatch.location=lsPatch.location;}
+          if(dbPatch.notes!==(apt.notes||null)){fieldPatch.notes=dbPatch.notes;fieldLsPatch.notes=lsPatch.notes;}
+          let dayShift=0;
+          if(dateChanged){
+            const oldD=new Date(apt.date+'T12:00:00'),newD=new Date(lsPatch.date+'T12:00:00');
+            dayShift=Math.round((newD-oldD)/(86400000));
+          }
+          if(dateChanged&&(Math.abs(dayShift)>=7||dayShift===0)){
+            await _supa.from('appointments').update({...fieldPatch,date:lsPatch.date,series_detached:true}).eq('id',apt.id);
+            const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
+            if(i>-1){Object.assign(apts[i],fieldLsPatch,{date:lsPatch.date,seriesDetached:true});DB.appointments=apts;}
+            console.log('[calendar-v2] Series edit fell through to just-this due to multi-week shift (dayShift='+dayShift+')');
+          } else if(dateChanged&&Math.abs(dayShift)>=1&&Math.abs(dayShift)<7){
+            for(const row of affectedRows){
+              const rd=new Date(row.date+'T12:00:00');rd.setDate(rd.getDate()+dayShift);
+              const newRowDate=_fmtD(rd);
+              const{error}=await _supa.from('appointments').update({...fieldPatch,date:newRowDate}).eq('id',row.id);
+              if(error)console.error('\u274c series row update:',row.id,error);
+            }
+            const apts=[...DB.appointments];const shiftSet=new Set(affectedIds);
+            apts.forEach(a=>{if(shiftSet.has(a.id)){
+              const rd2=new Date(a.date+'T12:00:00');rd2.setDate(rd2.getDate()+dayShift);
+              Object.assign(a,fieldLsPatch,{date:_fmtD(rd2)});
+            }});
+            DB.appointments=apts;
+            console.log('[calendar-v2] Series edit (all future): '+apt.seriesId+', '+affectedIds.length+' instances, fields: '+Object.keys(fieldPatch).join(',')+', dayShift: '+dayShift);
+          } else {
+            if(Object.keys(fieldPatch).length){
+              await _supa.from('appointments').update(fieldPatch).in('id',affectedIds);
+            }
+            const apts=[...DB.appointments];
+            if(Object.keys(fieldLsPatch).length){apts.forEach(a=>{if(affectedIds.includes(a.id))Object.assign(a,fieldLsPatch);});}
+            DB.appointments=apts;
+            console.log('[calendar-v2] Series edit (all future): '+apt.seriesId+', '+affectedIds.length+' instances, fields: '+Object.keys(fieldPatch).join(','));
+          }
         }
         close();re();toast(T('cal_saved'));
       }catch(e){console.error('series edit:',e);toast(T('apt_could_not_save'),'error');}
