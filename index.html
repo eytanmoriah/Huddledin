@@ -2146,11 +2146,11 @@ async function _refreshPhase2Parent(){
   }catch(e){console.error('load parent_tasks:',e);}
   // Everything else in one parallel batch
   await Promise.allSettled([
-    _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).order('date')
+    _supa.from('appointments').select('*').eq(hid?'household_id':'parent_id',hid||session.id).is('deleted_at',null).order('date')
       .then(({data:apts})=>{
         const _localApts=LS.get('appointments',[])||[];
         const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
-        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null})));
+        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
         _loaded.appointments=true;
       })
       .catch(e=>console.error('refresh appointments:',e)),
@@ -2209,9 +2209,9 @@ async function _refreshPhase2Specialist(){
   // Appointments (approved children only)
   if(approvedIds.length){
     try{
-      const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date');
+      const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
-        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null})));
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
       }
       _loaded.appointments=true;
     }catch(e){console.error('refresh spec appointments:',e);}
@@ -3938,6 +3938,7 @@ apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
 apt_could_not_save:'Could not save.',
+apt_recurring_no_google_sync:'Recurring appointments don\u2019t sync to Google Calendar yet. Single appointments do.',
 apt_add_title:'\u2795 Add Appointment',
 apt_title_placeholder:'e.g. Speech Therapy Session',
 apt_spec_placeholder:'e.g. Dr. Sarah Cohen',
@@ -5303,7 +5304,8 @@ apt_add_title:'\u2795 הוספת תור',
 apt_attending:'\u2705 \u05DE\u05D0\u05E9\u05E8\u05D9\u05DD',
 apt_declined_by:'\u05E1\u05D9\u05E8\u05D1 {name}',
 apt_declined_toast:'\u05D4\u05D0\u05D9\u05E8\u05D5\u05E2 \u05E1\u05D5\u05E8\u05D1. \u05D4\u05DE\u05D8\u05E4\u05DC \u05E7\u05D9\u05D1\u05DC \u05D4\u05EA\u05E8\u05D0\u05D4.',
-apt_could_not_save:'לא ניתן לשמור.',
+apt_could_not_save:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8.',
+apt_recurring_no_google_sync:'\u05EA\u05D5\u05E8\u05D9\u05DD \u05D7\u05D5\u05D6\u05E8\u05D9\u05DD \u05DC\u05D0 \u05DE\u05E1\u05EA\u05E0\u05DB\u05E8\u05E0\u05D9\u05DD \u05DC-Google Calendar \u05E2\u05D3\u05D9\u05D9\u05DF. \u05EA\u05D5\u05E8\u05D9\u05DD \u05D1\u05D5\u05D3\u05D3\u05D9\u05DD \u05DB\u05DF.',
 apt_date_label:'תאריך',
 apt_edit:'\u270F\uFE0F עריכה',
 apt_edit_title:'\u270F\uFE0F עריכת תור',
@@ -12399,9 +12401,9 @@ function renderCalendar(){
     S._calRefreshing=true;
     (async()=>{
       try{
-        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).order('date');
+        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
-          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[]})));
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
           S._calRefreshing=false;re();
         } else {S._calRefreshing=false;}
       }catch(e){S._calRefreshing=false;}
@@ -12609,6 +12611,39 @@ function showGoogleSyncModal(){
   },420);
 }
 
+function _generateAppointmentSeries(baseRow,baseDbRow,recurrence,monthsAhead=6){
+  const _rnd=()=>Math.random().toString(36).slice(2,8);
+  const seriesId='s_'+Date.now()+'_'+_rnd();
+  const baseDate=new Date(baseRow.date+'T12:00:00');
+  let count;
+  if(recurrence==='weekly')count=Math.round((monthsAhead*30)/7);
+  else if(recurrence==='biweekly')count=Math.round((monthsAhead*30)/14);
+  else if(recurrence==='monthly')count=monthsAhead;
+  else return null;
+  const instances=[];
+  for(let i=0;i<count;i++){
+    let d;
+    if(recurrence==='monthly'){
+      const srcDay=baseDate.getDate();
+      const m=baseDate.getMonth()+i;
+      const y=baseDate.getFullYear()+Math.floor(m/12);
+      const mo=m%12;
+      const lastDay=new Date(y,mo+1,0).getDate();
+      d=new Date(y,mo,Math.min(srcDay,lastDay));
+    } else {
+      const gap=recurrence==='weekly'?7:14;
+      d=new Date(baseDate);d.setDate(d.getDate()+i*gap);
+    }
+    const dateStr2=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const aptId='a_'+Date.now()+'_'+_rnd();
+    instances.push({
+      ls:{...baseRow,id:aptId,date:dateStr2,recurrence,seriesId,seriesPosition:i+1,seriesTotal:count,seriesDetached:false},
+      db:{...baseDbRow,id:aptId,date:dateStr2,recurrence,series_id:seriesId,series_position:i+1,series_total:count,series_detached:false}
+    });
+  }
+  return{seriesId,instances};
+}
+
 function showAddEventModalForDate(dateStr,availableChildren){
   // Delegate to the full modal — passes prefilledDate and overrides child selector if needed
   const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
@@ -12695,6 +12730,9 @@ function showAddEventModal(prefilledDate=null){
       const o=el('option');o.value=v;o.textContent=l;recurSel.appendChild(o);
     });
     mb.appendChild(recurSel);
+    const _gcalNote=el('div',{style:{fontSize:'.76rem',color:'#f59e0b',fontWeight:500,marginBottom:'10px',display:'none'}},['⚠️ '+T('apt_recurring_no_google_sync')]);
+    mb.appendChild(_gcalNote);
+    recurSel.onchange=()=>{_gcalNote.style.display=(recurSel.value!=='none'&&session?.googleCalendarEnabled)?'block':'none';};
 
     const sharedWith=[];
 
@@ -12705,40 +12743,53 @@ function showAddEventModal(prefilledDate=null){
       const childId=S.activeChild;
       const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
-      const newApt={id:'a_'+Date.now(),childId,
+      const _specName=si.value||(session?.role==='specialist'?session?.name:null)||null;
+      const _parentId=childRec?.parentId||session.id;
+      const _hhId=childRec?.householdId||getChildHouseholdId(childId);
+      const _specIdVal=session.role==='specialist'?session.id:null;
+      const _rnd6=()=>Math.random().toString(36).slice(2,8);
+      const baseAptId='a_'+Date.now()+'_'+_rnd6();
+      const baseLs={id:baseAptId,childId,
         title:ti.value,specialist:si.value||(session?.role==='specialist'?session?.name:'')||'',
         specialistId:specId2,createdBy:session.id,date:di.value,time:timeStr,
         endTime:endTmi.value||null,location:loci.value||null,
         notes:notesI.value||null,recurrence:recurSel.value,
         type:typeSel.value,sharedWith};
+      const baseDb={id:baseAptId,child_id:childId,
+        parent_id:_parentId,household_id:_hhId,
+        specialist_id:_specIdVal,created_by:session.id,
+        title:ti.value,date:di.value,time:timeStr,
+        end_time:endTmi.value||null,location:loci.value||null,
+        notes:notesI.value||null,recurrence:recurSel.value,
+        type:typeSel.value,shared_with:sharedWith,
+        specialist_name:_specName};
       (async()=>{
         try{
-          await _supa.from('appointments').insert({
-            id:newApt.id,child_id:newApt.childId,
-            parent_id:childRec?.parentId||session.id,
-            household_id:childRec?.householdId||getChildHouseholdId(newApt.childId),
-            specialist_id:session.role==='specialist'?session.id:null,
-            created_by:session.id,
-            title:newApt.title,date:newApt.date,time:newApt.time,
-            end_time:newApt.endTime,location:newApt.location,
-            notes:newApt.notes,recurrence:newApt.recurrence,
-            type:newApt.type,shared_with:newApt.sharedWith,
-            specialist_name:si.value||(session?.role==='specialist'?session?.name:null)||null
-          });
-          const apts=DB.appointments;apts.push(newApt);DB.appointments=apts;
-          // Notify only when specialist books — parents booking their own child's appointment skip notification to other parents
+          const rec=recurSel.value;
+          if(rec!=='none'){
+            const series=_generateAppointmentSeries(baseLs,baseDb,rec);
+            if(!series||!series.instances.length)throw new Error('Series generation failed');
+            const dbRows=series.instances.map(i=>i.db);
+            const{error}=await _supa.from('appointments').insert(dbRows);
+            if(error){console.error('❌ series insert:',error);throw error;}
+            const apts=[...DB.appointments,...series.instances.map(i=>i.ls)];
+            DB.appointments=apts;
+            console.log('[calendar-v2] Series created: '+series.seriesId+', '+series.instances.length+' instances');
+          } else {
+            const{error}=await _supa.from('appointments').insert(baseDb);
+            if(error){console.error('❌ appointment insert:',error);throw error;}
+            const apts=[...DB.appointments];apts.push(baseLs);DB.appointments=apts;
+          }
           if(session?.role==='specialist'){
             const _nc=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
-            await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:newApt.id},null,T('notif_appointment_count',{n:'{n}',name:_nc?.name||''}));
+            await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:baseAptId},null,T('notif_appointment_count',{n:'{n}',name:_nc?.name||''}));
           }
-          // (Specialist sharing removed — parent appointments are private)
-          // Push to Google Calendar (server decides if connected)
-          if(session?.id&&session.id!=='demo'){
+          if(rec==='none'&&session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
             fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
               body:JSON.stringify({userId:session.id,householdId:calChild?.householdId||getChildHouseholdId(childId)||null,appointment:{
-                title:newApt.title,date:newApt.date,time:tmi.value||'09:00 AM',
-                type:newApt.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
+                title:baseLs.title,date:baseLs.date,time:tmi.value||'09:00 AM',
+                type:baseLs.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
               }})
             }).then(r=>r.json()).then(d=>{
               if(d.ok)toast('📅 Added to Google Calendar!','success',3000);
