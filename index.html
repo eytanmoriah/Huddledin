@@ -12431,7 +12431,8 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
     mb.appendChild(radios);
     const btnRow=el('div',{style:{display:'flex',gap:'8px',justifyContent:'flex-end'}});
     btnRow.appendChild(mkBtn(T('apt_edit_choice_cancel'),'btn-md btn-ghost',()=>close()));
-    btnRow.appendChild(mkBtn(T('apt_edit_choice_save'),'btn-md btn-primary',async()=>{
+    const _saveChoiceBtn=mkBtn(T('apt_edit_choice_save'),'btn-md btn-primary',async()=>{
+      _saveChoiceBtn.disabled=true;_saveChoiceBtn.textContent=T('btn_loading');
       try{
         if(choice==='just_this'){
           await _supa.from('appointments').update({...dbPatch,date:lsPatch.date,series_detached:true}).eq('id',apt.id);
@@ -12441,7 +12442,6 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
         } else {
           const affectedRows=allInSeries;
           const affectedIds=affectedRows.map(a=>a.id);
-          const _fmtD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
           const fieldPatch={};const fieldLsPatch={};
           if(dbPatch.title!==apt.title){fieldPatch.title=dbPatch.title;fieldLsPatch.title=lsPatch.title;}
           if(dbPatch.time!==apt.time){fieldPatch.time=dbPatch.time;fieldLsPatch.time=lsPatch.time;}
@@ -12459,21 +12459,14 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
             if(i>-1){Object.assign(apts[i],fieldLsPatch,{date:lsPatch.date,seriesDetached:true});DB.appointments=apts;}
             console.log('[calendar-v2] Series edit fell through to just-this due to multi-week shift (dayShift='+dayShift+')');
           } else if(dateChanged&&Math.abs(dayShift)>=1&&Math.abs(dayShift)<7){
-            for(let _ri=0;_ri<affectedRows.length;_ri++){
-              const row=affectedRows[_ri];
-              const rd=new Date(row.date+'T12:00:00');rd.setDate(rd.getDate()+dayShift);
-              const newRowDate=_fmtD(rd);
-              const{error}=await _supa.from('appointments').update({...fieldPatch,date:newRowDate}).eq('id',row.id);
-              if(error)console.error('\u274c series row update:',row.id,error);
-              if(_ri<affectedRows.length-1)await new Promise(r=>setTimeout(r,50));
-            }
-            const apts=[...DB.appointments];const shiftSet=new Set(affectedIds);
-            apts.forEach(a=>{if(shiftSet.has(a.id)){
-              const rd2=new Date(a.date+'T12:00:00');rd2.setDate(rd2.getDate()+dayShift);
-              Object.assign(a,fieldLsPatch,{date:_fmtD(rd2)});
-            }});
+            const{data:rpcResult,error:rpcErr}=await _supa.rpc('day_shift_series',{p_series_id:apt.seriesId,p_from_date:apt.date,p_day_shift:dayShift,p_field_patch:fieldPatch});
+            if(rpcErr){console.error('\u274c day_shift_series RPC:',rpcErr);throw rpcErr;}
+            const updatedRows=(rpcResult?.rows||[]);
+            const apts=[...DB.appointments];const dateMap={};
+            updatedRows.forEach(r=>{dateMap[r.id]=r.new_date;});
+            apts.forEach(a=>{if(dateMap[a.id]){Object.assign(a,fieldLsPatch,{date:dateMap[a.id]});}});
             DB.appointments=apts;
-            console.log('[calendar-v2] Series edit (all future): '+apt.seriesId+', '+affectedIds.length+' instances, fields: '+Object.keys(fieldPatch).join(',')+', dayShift: '+dayShift);
+            console.log('[calendar-v2] Series edit (all future via RPC): '+apt.seriesId+', '+(rpcResult?.count||0)+' instances, fields: '+Object.keys(fieldPatch).join(',')+', dayShift: '+dayShift);
           } else {
             if(Object.keys(fieldPatch).length){
               await _supa.from('appointments').update(fieldPatch).in('id',affectedIds);
@@ -12485,8 +12478,9 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
           }
         }
         close();re();toast(T('cal_saved'));
-      }catch(e){console.error('series edit:',e);toast(T('apt_could_not_save'),'error');}
-    }));
+      }catch(e){console.error('series edit:',e);toast(T('apt_could_not_save'),'error');_saveChoiceBtn.disabled=false;_saveChoiceBtn.textContent=T('apt_edit_choice_save');}
+    });
+    btnRow.appendChild(_saveChoiceBtn);
     mb.appendChild(btnRow);
   },420);
 }
