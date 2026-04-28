@@ -16322,7 +16322,7 @@ function renderSpecStorage(){
         const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:'10px'}});
         filteredFiles.forEach(file=>{
           const ext=(file.file_type||file.name.split('.').pop()||'').toLowerCase();
-          const tc=_fileThumbColors(ext);
+          const tc=_fileThumbColors({name:file.name});
           const card=el('div',{class:'card hov',style:{padding:0,overflow:'hidden',cursor:'pointer',position:'relative'}});
           // Thumbnail area
           const thumb=el('div',{style:{width:'100%',aspectRatio:'1',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'2.2rem',overflow:'hidden',position:'relative'}});
@@ -16360,7 +16360,7 @@ function renderSpecStorage(){
         // List view
         filteredFiles.forEach(file=>{
           const ext=(file.file_type||file.name.split('.').pop()||'').toLowerCase();
-          const tc=_fileThumbColors(ext);
+          const tc=_fileThumbColors({name:file.name});
           const row=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer'}});
           row.appendChild(el('div',{style:{width:'36px',height:'36px',borderRadius:'8px',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}},[tc.icon]));
           const info=el('div',{style:{flex:1,minWidth:0}});
