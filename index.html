@@ -6133,7 +6133,7 @@ async function approveSpecialistRequest(requestId,selectedFolders){
   }
   const child=DB.children.find(c=>c.id===req.childId);
   // Notify the specialist they've been approved (not the parent themselves)
-  await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files');
+  await notifyOtherParty('invite',`Your access to ${child?.name||"a child"}'s folders has been approved`,req.childId,'files',null,null,T('notif_invite_count',{n:'{n}'}));
   // Add specialist to all existing non-consultation household chats so they see history
   const _approveHhId=child?.household_id||session.householdId;
   if(_supa&&_approveHhId&&req.specialistId&&session.id!=='demo'){
@@ -6462,7 +6462,7 @@ async function _upsertNotif(uid,{type,message,stackMessage,childId,householdId,l
   }catch(e){console.warn('_upsertNotif:',e);}
 }
 
-async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targetUserId=null){
+async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targetUserId=null,stackMessage=null){
   if(session?.id==='demo')return;
   if(!linkTab){
     const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
@@ -6499,7 +6499,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
         }
         _notifRecipients=householdUserIds;
         for(const uid of householdUserIds){
-          await _upsertNotif(uid,{type,message:msg,childId,householdId:hid,linkTab,linkData});
+          await _upsertNotif(uid,{type,message:msg,stackMessage,childId,householdId:hid,linkTab,linkData});
         }
       }
     } else {
@@ -6507,7 +6507,7 @@ async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targ
       const _recipientIds=targetUserId?[targetUserId]:getChildTeam(childId).filter(s=>s.status==='active').map(s=>s.id);
       _notifRecipients=_recipientIds;
       for(const uid of _recipientIds){
-        await _upsertNotif(uid,{type,message:msg,childId,householdId:hid,linkTab,linkData});
+        await _upsertNotif(uid,{type,message:msg,stackMessage,childId,householdId:hid,linkTab,linkData});
       }
     }
     // Pruning handled inside upsert_notification SECURITY DEFINER function
@@ -10690,11 +10690,11 @@ function _notifyFileAction(file,destFolder,isMove){
   // Specialist folder — notify that specialist
   if(isParent&&key.startsWith('spec_')){
     const specId=key.replace('spec_','');
-    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files',null,specId);
+    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files',null,specId,T('notif_file_count',{n:'{n}'}));
   }
   // General/shared folder — notify parents (from specialist)
   if(!isParent&&(key==='general'||!key.startsWith('spec_'+session.id))){
-    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files');
+    notifyOtherParty('files',T(isMove?'notif_file_moved':'notif_file_copied',{name:file.name,folder:destFolder.name}),S.activeChild,'files',null,null,T('notif_file_count',{n:'{n}'}));
   }
 }
 
@@ -11492,7 +11492,7 @@ function showAccessRequest(folder){
           // Replace temp id in local cache with DB-generated UUID
           const _ri=reqs.findIndex(r=>r.id===newReq.id);
           if(_ri>-1&&_srData?.id){reqs[_ri]=Object.assign({},reqs[_ri],{id:_srData.id});DB.specialistRequests=reqs;}
-          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId,specialist_id:specId,folder_key:folder.key});
+          await notifyOtherParty('invite',specName+' is requesting access to the '+folder.name+' folder.',childId,'team',{child_id:childId,specialist_id:specId,folder_key:folder.key},null,T('notif_invite_count',{n:'{n}'}));
           close();
           toast(T('files_request_sent'));
         }catch(e){
@@ -12293,7 +12293,7 @@ function showAptDetailModal(apt,child){
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
         try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpYes:',e);}
-        await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date});
+        await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));
         close();re();toast(T('apt_marked_attending'));
       });
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
@@ -12303,7 +12303,7 @@ function showAptDetailModal(apt,child){
         // Notify specialist that the event was declined
         if(apt.specialistId){
           try{
-            await _upsertNotif(apt.specialistId,{type:'appointment_declined',message:T('apt_declined_by',{name:session.name||'Parent'})+' — '+apt.title,childId:apt.childId,householdId:getChildHouseholdId(apt.childId),linkTab:'calendar',linkData:{aptId:apt.id,aptDate:apt.date}});
+            await _upsertNotif(apt.specialistId,{type:'appointment_declined',message:T('apt_declined_by',{name:session.name||'Parent'})+' — '+apt.title,stackMessage:T('notif_appointment_declined_count',{n:'{n}'}),childId:apt.childId,householdId:getChildHouseholdId(apt.childId),linkTab:'calendar',linkData:{aptId:apt.id,aptDate:apt.date}});
           }catch(e){console.error('❌ decline notif:',e);}
         }
         close();re();toast(T('apt_declined_toast'));
@@ -12692,7 +12692,7 @@ function showAddEventModal(prefilledDate=null){
           // Notify only when specialist books — parents booking their own child's appointment skip notification to other parents
           if(session?.role==='specialist'){
             const _nc=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
-            await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:newApt.id});
+            await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:newApt.id},null,T('notif_appointment_count',{n:'{n}',name:_nc?.name||''}));
           }
           // (Specialist sharing removed — parent appointments are private)
           // Push to Google Calendar (server decides if connected)
@@ -13816,7 +13816,7 @@ function showNewMessageModal(){
         try{
           await _supa.from('chats').insert({id:chat.id,child_id:chat.childId,household_id:_hhId||null,type:chat.type,name:_chatName,participants:_dedupParts2,approved:true,unread_for:[..._hParentIds]});
           const allChats=DB.chats;allChats.push({...chat,name:_chatName});DB.chats=allChats;
-          await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id});
+          await notifyOtherParty('chat',`💬 ${session.name||'A specialist'} started a new chat`,activeChildId,'chat',{chatId:chat.id},null,T('notif_chat_count',{n:'{n}'}));
         }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
       }
       S.activeChatId=chat.id;S.chatsLoaded=true;
@@ -14014,7 +14014,7 @@ function showConsultModal(childId){
         }
         await notifyOtherParty('consult',
           `${spec?.name||'A specialist'} has requested to consult with ${state.targetName} regarding ${child?.name||'your patient'}. This conversation will be ${visText}.`,
-          cid,'team');
+          cid,'team',null,null,T('notif_consult_count',{n:'{n}',name:child?.name||''}));
         close();
         toast('✅ Request sent — awaiting parent approval.');
       }catch(e){
@@ -14607,7 +14607,7 @@ function renderVault(){
                   if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
                   // Notify ALL household members (not just primary parent)
                   const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
-                  await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries');
+                  await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries',null,null,T('notif_report_count',{n:'{n}',name:noteChild?.name||''}));
                   if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
                   S.vaultHasUnsaved=false;re();toast(T('vault_published'));
                 }catch(e){console.error('publish note:',e);toast(T('vault_could_not_publish'),'error');}
@@ -15314,7 +15314,7 @@ function showParentTaskModal(existing=null){
         try{const{error}=await _supa.from('parent_tasks').insert(newTask);if(error)console.error('❌ insert task:',error);}catch(e){console.error('create parent task:',e);}
         // Notify co-parent if assigned to them
         if(assignState.v&&assignState.v!==session.id&&coParent&&session.id!=='demo'){
-          try{await _upsertNotif(assignState.v,{type:'todo',message:T('notif_coparent_task',{name:session.displayName||session.name||'',title:taskTitle}),childId:childSel.value||null,householdId:String(session.householdId),linkTab:'todo'});}catch(e){}
+          try{await _upsertNotif(assignState.v,{type:'todo',message:T('notif_coparent_task',{name:session.displayName||session.name||'',title:taskTitle}),stackMessage:T('notif_todo_count',{n:'{n}'}),childId:childSel.value||null,householdId:String(session.householdId),linkTab:'todo'});}catch(e){}
         }
       }
       // Re-fetch from Supabase to ensure cache is fully in sync
@@ -17605,7 +17605,7 @@ async function _openOrCreateDirectChat(_cid,specId,specName,specRole){
     const{error}=await _supa.from('chats').insert({id:_newId,child_id:_cid,household_id:session.householdId||null,type:'direct',name:_chatName,participants:_parts,approved:true,unread_for:_allParents});
     if(error){console.error('create direct chat:',error);toast(T('chat_could_not_create'),'error');return;}
     const allChats=DB.chats||[];allChats.push({id:_newId,childId:_cid,type:'direct',name:_chatName,participants:_parts,approved:true,messages:[],unreadFor:_allParents,unreadCount:0});DB.chats=allChats;
-    await notifyOtherParty('chat','💬 '+session.name+' started a new chat',_cid,'chat',{chatId:_newId});
+    await notifyOtherParty('chat','💬 '+session.name+' started a new chat',_cid,'chat',{chatId:_newId},null,T('notif_chat_count',{n:'{n}'}));
   }catch(e){console.error('create direct chat:',e);toast('Could not create chat.','error');return;}
   S.activeChatId=_newId;S.chatsLoaded=true;S.activeTab='chat';re();
   toast(T('chat_created'));
@@ -17663,7 +17663,7 @@ function showCreateGroupChatModal(){
           await _supa.from('chats').insert({id:newChat.id,child_id:newChat.childId,household_id:session.householdId||null,type:newChat.type,name:newChat.name,participants:_dedupParts3,approved:true});
           const chats=DB.chats;chats.push(newChat);DB.chats=chats;
           // Notify all participants about the new group chat
-          try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id});}catch(e){}
+          try{await notifyOtherParty('chat','👥 New group chat: "'+name+'" was created',S.activeChild,'chat',{chatId:newChat.id},null,T('notif_chat_count',{n:'{n}'}));}catch(e){}
         }catch(e){console.error('create group chat:',e);toast(T('chat_could_not_create'),'error');_gcBtn.disabled=false;_gcBtn.textContent=T('chat_create_group_btn');return;}
         S.activeChatId=newChat.id;S.activeTab='chat';S.chatsLoaded=true;
         close();re();toast(T('chat_group_created',{name}));

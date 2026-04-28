@@ -220,7 +220,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
             toast(T('hw3_comment_sent'));
             try {
               const childObj = DB?.children?.find(c => c.id === hw.child_id);
-              await H.notifyOtherParty?.('homework', T('notif_hw_comment', { specialist: session?.name || 'Specialist', title: hw.title.slice(0, 30), child: childObj?.name || '' }), hw.child_id, 'homework');
+              await H.notifyOtherParty?.('homework', T('notif_hw_comment', { specialist: session?.name || 'Specialist', title: hw.title.slice(0, 30), child: childObj?.name || '' }), hw.child_id, 'homework', null, null, T('notif_homework_count', { n: '{n}', name: childObj?.name || '' }));
             } catch (e) { console.error('notify:', e); }
           } catch (e) { toast('Could not send comment.', 'error'); }
         }));

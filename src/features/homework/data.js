@@ -408,7 +408,7 @@ export async function logExerciseCompletion({ homework, exercise, scheduledDate,
       const notifMsg = status === 'done'
         ? H.T?.('notif_task_completed', { child: child?.name || 'Child', title: exercise.title?.slice(0, 42) || homework.title?.slice(0, 42) })
         : H.T?.('hw4_notif_cant_do', { child: child?.name || 'Child', title: exercise.title?.slice(0, 42) || homework.title?.slice(0, 42) });
-      await H.notifyOtherParty?.('homework', notifMsg, childId, 'homework', null, homework.specialist_id || null);
+      await H.notifyOtherParty?.('homework', notifMsg, childId, 'homework', null, homework.specialist_id || null, H.T?.('notif_homework_count', { n: '{n}', name: child?.name || '' }));
     } catch (e) { console.error('\u274c completion notify:', e); }
   }
 

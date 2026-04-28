@@ -335,7 +335,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         if (notify) {
           try {
             const childObj = H.DB?.children?.find(c => c.id === childId);
-            await H.notifyOtherParty?.('homework', T('notif_new_task', { child: childObj?.name || '', title: hw.title.slice(0, 42) }), childId, 'homework');
+            await H.notifyOtherParty?.('homework', T('notif_new_task', { child: childObj?.name || '', title: hw.title.slice(0, 42) }), childId, 'homework', null, null, T('notif_homework_count', { n: '{n}', name: childObj?.name || '' }));
           } catch (e) { console.error('notify:', e); }
         }
         overlay.remove(); H.re?.(); H.toast?.(notify ? T('hw_task_assigned') : T('hw2_saved_quiet'));
