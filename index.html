@@ -2150,7 +2150,7 @@ async function _refreshPhase2Parent(){
       .then(({data:apts})=>{
         const _localApts=LS.get('appointments',[])||[];
         const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
-        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
+        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
         _loaded.appointments=true;
       })
       .catch(e=>console.error('refresh appointments:',e)),
@@ -2211,7 +2211,7 @@ async function _refreshPhase2Specialist(){
     try{
       const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
-        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
       }
       _loaded.appointments=true;
     }catch(e){console.error('refresh spec appointments:',e);}
@@ -12606,7 +12606,7 @@ function renderCalendar(){
       try{
         const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
-          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false})));
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
           S._calRefreshing=false;re();
         } else {S._calRefreshing=false;}
       }catch(e){S._calRefreshing=false;}
