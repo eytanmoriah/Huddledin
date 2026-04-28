@@ -12459,11 +12459,13 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
             if(i>-1){Object.assign(apts[i],fieldLsPatch,{date:lsPatch.date,seriesDetached:true});DB.appointments=apts;}
             console.log('[calendar-v2] Series edit fell through to just-this due to multi-week shift (dayShift='+dayShift+')');
           } else if(dateChanged&&Math.abs(dayShift)>=1&&Math.abs(dayShift)<7){
-            for(const row of affectedRows){
+            for(let _ri=0;_ri<affectedRows.length;_ri++){
+              const row=affectedRows[_ri];
               const rd=new Date(row.date+'T12:00:00');rd.setDate(rd.getDate()+dayShift);
               const newRowDate=_fmtD(rd);
               const{error}=await _supa.from('appointments').update({...fieldPatch,date:newRowDate}).eq('id',row.id);
               if(error)console.error('\u274c series row update:',row.id,error);
+              if(_ri<affectedRows.length-1)await new Promise(r=>setTimeout(r,50));
             }
             const apts=[...DB.appointments];const shiftSet=new Set(affectedIds);
             apts.forEach(a=>{if(shiftSet.has(a.id)){
