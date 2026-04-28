@@ -2150,7 +2150,7 @@ async function _refreshPhase2Parent(){
       .then(({data:apts})=>{
         const _localApts=LS.get('appointments',[])||[];
         const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
-        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
+        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
         _loaded.appointments=true;
       })
       .catch(e=>console.error('refresh appointments:',e)),
@@ -2211,7 +2211,7 @@ async function _refreshPhase2Specialist(){
     try{
       const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
-        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
       }
       _loaded.appointments=true;
     }catch(e){console.error('refresh spec appointments:',e);}
@@ -3948,6 +3948,12 @@ apt_delete_all_future:'Delete this and {n} future occurrences',
 apt_delete_all_future_with_past:'Delete this and {n} future occurrences (including {p} past)',
 apt_delete_choice_cancel:'Cancel',
 apt_delete_choice_confirm:'Delete',
+apt_attendance_attended:'Attended',
+apt_attendance_patient_cancelled:'Patient cancelled',
+apt_attendance_no_show:'No-show',
+apt_attendance_therapist_cancelled_self:'I cancelled',
+apt_attendance_therapist_cancelled_parent:'Cancelled by {specialist}',
+apt_attendance_pending:'\u2014',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5337,6 +5343,12 @@ apt_delete_all_future:'מחיקת המופע הזה ו-{n} מופעים עתיד
 apt_delete_all_future_with_past:'מחיקת המופע הזה ו-{n} מופעים עתידיים (כולל {p} שעברו)',
 apt_delete_choice_cancel:'ביטול',
 apt_delete_choice_confirm:'מחיקה',
+apt_attendance_attended:'הגיע/ה',
+apt_attendance_patient_cancelled:'המטופל ביטל',
+apt_attendance_no_show:'לא הגיע/ה',
+apt_attendance_therapist_cancelled_self:'ביטלתי',
+apt_attendance_therapist_cancelled_parent:'בוטל על ידי {specialist}',
+apt_attendance_pending:'—',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -9791,20 +9803,23 @@ function renderMiniCalendar(children,allApts,onExpand){
     const ch=children[ci];
     const color=ch?.color||getChildColor(ci);
     const _mDeclined=a.rsvp==='no';
-    const row=el('div',{class:'mce-item',style:{cursor:'pointer',opacity:_mDeclined?'0.55':'1'}});
+    const _vs=_aptVisualState(a);
+    const _mOpacity=_mDeclined?'0.55':_vs.opacity;
+    const row=el('div',{class:'mce-item',style:{cursor:'pointer',opacity:_mOpacity}});
     if(_mDeclined){
       row.appendChild(el('div',{class:'mce-dot',style:{background:'transparent',border:'1.5px solid var(--slate-l)',boxSizing:'border-box'}}));
     } else {
       row.appendChild(el('div',{class:'mce-dot',style:{background:color}}));
     }
     const info=el('div',{style:{flex:1}});
-    info.appendChild(el('div',{class:'mce-title'},[aptDisplayTitle(a)]));
+    info.appendChild(el('div',{class:'mce-title',style:{textDecoration:_vs.titleStrike?'line-through':'none'}},[aptDisplayTitle(a)]));
     const whenParts=[];
     if(_miniUpcoming){const aptDate=new Date(a.date+'T12:00');whenParts.push(a.date===today?T('cal_today'):aptDate.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));}
     if(a.time)whenParts.push(a.time);
     if(_mDeclined)whenParts.push('Declined');
-    info.appendChild(el('div',{class:'mce-when'},[whenParts.join(' · ')]));
+    info.appendChild(el('div',{class:'mce-when',style:{textDecoration:_vs.timeStrike?'line-through':'none'}},[whenParts.join(' · ')]));
     row.appendChild(info);
+    if(_vs.pillText)row.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:_vs.pillFg,background:_vs.pillBg,padding:'1px 6px',borderRadius:'99px',flexShrink:0}},[ _vs.pillText]));
     if(ch){
       row.appendChild(el('span',{class:'mce-child-pill',style:{background:color+'22',color}},
         [ch.avatar+' '+ch.name.split(' ')[0]]));
@@ -9941,12 +9956,14 @@ function renderCalFullscreen(){
       selApts.forEach(a=>{
         const ch=children.find(c=>c.id===a.childId);
         const color=ch?.color||'var(--teal)';
-        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',[_isRtl()?'borderRight':'borderLeft']:'4px solid '+color}});
+        const _vs2=_aptVisualState(a);
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',opacity:_vs2.opacity,[_isRtl()?'borderRight':'borderLeft']:'4px solid '+color}});
         const info=el('div',{style:{flex:1}});
-        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',textDecoration:_vs2.titleStrike?'line-through':'none'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px',textDecoration:_vs2.timeStrike?'line-through':'none'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
         if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
         card.appendChild(info);
+        if(_vs2.pillText)card.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:_vs2.pillFg,background:_vs2.pillBg,padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},[ _vs2.pillText]));
         if(ch)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[ch.avatar+' '+ch.name.split(' ')[0]]));
         card.onclick=()=>showAptDetailModal(a,ch);
         sec.appendChild(card);
@@ -9961,13 +9978,15 @@ function renderCalFullscreen(){
         const ci=children.findIndex(c=>c.id===a.childId);
         const child=children[ci];
         const color=child?.color||getChildColor(ci);
-        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer'}});
+        const _vs3=_aptVisualState(a);
+        const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',opacity:_vs3.opacity}});
         card.appendChild(el('div',{style:{width:'5px',minHeight:'44px',borderRadius:'99px',background:color,flexShrink:0}}));
         const info=el('div',{style:{flex:1}});
-        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem'}},[aptDisplayTitle(a)]));
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px'}},[a.date+' · '+a.time]));
+        info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',textDecoration:_vs3.titleStrike?'line-through':'none'}},[aptDisplayTitle(a)]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px',textDecoration:_vs3.timeStrike?'line-through':'none'}},[a.date+' · '+a.time]));
         if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
         card.appendChild(info);
+        if(_vs3.pillText)card.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:_vs3.pillFg,background:_vs3.pillBg,padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},[ _vs3.pillText]));
         if(child)card.appendChild(el('span',{class:'badge',style:{background:color+'22',color}},[child.avatar+' '+child.name.split(' ')[0]]));
         card.onclick=()=>showAptDetailModal(a,child);
         sec.appendChild(card);
@@ -12285,6 +12304,16 @@ function _isAptPast(apt){
   return aptEnd<now;
 }
 
+function _aptVisualState(apt){
+  const a=apt.attendance;
+  if(a==='therapist_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_therapist_cancelled_self'),pillBg:'#e2e8f0',pillFg:'#475569'};
+  if(a==='patient_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_patient_cancelled'),pillBg:'#e2e8f0',pillFg:'#475569'};
+  if(a==='no_show')return{opacity:'.65',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_no_show'),pillBg:'#fed7aa',pillFg:'#9a3412'};
+  if(a==='attended')return{opacity:'.70',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_attended'),pillBg:'#bbf7d0',pillFg:'#166534'};
+  if(_isAptPast(apt))return{opacity:'.55',timeStrike:true,titleStrike:false,pillText:null,pillBg:null,pillFg:null};
+  return{opacity:'1',timeStrike:false,titleStrike:false,pillText:null,pillBg:null,pillFg:null};
+}
+
 /* -- Appointment Detail Modal with Permission Logic -- */
 function showAptDetailModal(apt,child){
   const isParent=session?.role==='parent';
@@ -12606,7 +12635,7 @@ function renderCalendar(){
       try{
         const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
-          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null})));
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
           S._calRefreshing=false;re();
         } else {S._calRefreshing=false;}
       }catch(e){S._calRefreshing=false;}
@@ -12756,19 +12785,21 @@ function renderCalendar(){
     _evtList.forEach(apt=>{
       const ch=DB.children.find(c=>c.id===apt.childId);
       const _isDeclined=apt.rsvp==='no';
-      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer',opacity:_isDeclined?'0.6':'1'}});
+      const _vs4=_aptVisualState(apt);
+      const _cardOp=_isDeclined?'0.6':_vs4.opacity;
+      const card=el('div',{class:'card hov',style:{display:'flex',gap:'13px',alignItems:'center',cursor:'pointer',opacity:_cardOp}});
       const barColor=ch?.color||TC[apt.type]||'var(--teal)';
       const bar=el('div',{style:{width:'5px',height:'48px',borderRadius:'3px',background:barColor,flexShrink:0}});
       card.appendChild(bar);
       const info=d('',[], {flex:1});
-      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[aptDisplayTitle(apt)]));
-      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0'}},[aptDisplaySub(apt)]));
+      info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',textDecoration:_vs4.titleStrike?'line-through':'none'}},[aptDisplayTitle(apt)]));
+      info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',margin:'2px 0',textDecoration:_vs4.timeStrike?'line-through':'none'}},[aptDisplaySub(apt)]));
       if(apt.location)info.appendChild(el('div',{style:{fontSize:'.73rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+apt.location]));
       if(ch&&isParent&&S.calendarMode==='joint')info.appendChild(el('div',{style:{fontSize:'.73rem',fontWeight:700,color:ch.color||'var(--teal)'}},[ch.avatar+' '+ch.name]));
       card.appendChild(info);
       const right=d('',[], {textAlign:'right'});
       if(_showUpcoming)right.appendChild(el('div',{style:{fontWeight:800,color:'var(--teal)',fontSize:'.86rem'}},[apt.date]));
-      right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
+      right.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',textDecoration:_vs4.timeStrike?'line-through':'none'}},[apt.time]));
       card.appendChild(right);
       // RSVP status pill
       if(session?.role==='specialist'){
@@ -12782,6 +12813,7 @@ function renderCalendar(){
       } else if(_isDeclined){
         card.appendChild(el('span',{style:{fontSize:'.66rem',fontWeight:700,color:'var(--slate-l)',background:'#f1f5f9',padding:'2px 8px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},['Declined']));
       }
+      if(_vs4.pillText)card.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:_vs4.pillFg,background:_vs4.pillBg,padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},[ _vs4.pillText]));
       card.onclick=()=>showAptDetailModal(apt,ch||child);
       stack.appendChild(card);
     });
