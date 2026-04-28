@@ -3942,6 +3942,12 @@ apt_edit_choice_cancel:'Cancel',
 apt_edit_choice_save:'Save',
 apt_series_info:'Part of {recurrence} series: {position} of {total}',
 apt_series_detached:'Detached from series',
+apt_delete_choice_title:'Delete \u201c{title}\u201d',
+apt_delete_just_this:'Just this occurrence',
+apt_delete_all_future:'Delete this and {n} future occurrences',
+apt_delete_all_future_with_past:'Delete this and {n} future occurrences (including {p} past)',
+apt_delete_choice_cancel:'Cancel',
+apt_delete_choice_confirm:'Delete',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5325,6 +5331,12 @@ apt_edit_choice_cancel:'ביטול',
 apt_edit_choice_save:'שמירה',
 apt_series_info:'חלק מסדרת {recurrence}: {position} מתוך {total}',
 apt_series_detached:'מנותק מהסדרה',
+apt_delete_choice_title:'מחיקת “{title}”',
+apt_delete_just_this:'רק המופע הזה',
+apt_delete_all_future:'מחיקת המופע הזה ו-{n} מופעים עתידיים',
+apt_delete_all_future_with_past:'מחיקת המופע הזה ו-{n} מופעים עתידיים (כולל {p} שעברו)',
+apt_delete_choice_cancel:'ביטול',
+apt_delete_choice_confirm:'מחיקה',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12261,6 +12273,18 @@ function showHandshakeModal(spec){
    CALENDAR
 ----------------------------------------------- */
 
+function _isAptPast(apt){
+  const now=new Date();
+  const dateStr=apt.date||'';
+  const endTime=apt.endTime||apt.end_time||null;
+  const startTime=(apt.time||'').split(' \u2013 ')[0]||'09:00';
+  const timeToUse=endTime||startTime;
+  const m2=(timeToUse.match(/(\d{1,2}):(\d{2})/)||['','9','0']);
+  const aptEnd=new Date(dateStr+'T'+String(m2[1]).padStart(2,'0')+':'+String(m2[2]).padStart(2,'0')+':00');
+  if(!endTime)aptEnd.setMinutes(aptEnd.getMinutes()+60);
+  return aptEnd<now;
+}
+
 /* -- Appointment Detail Modal with Permission Logic -- */
 function showAptDetailModal(apt,child){
   const isParent=session?.role==='parent';
@@ -12321,11 +12345,17 @@ function showAptDetailModal(apt,child){
       }
       actRow.appendChild(mkBtn(T('apt_edit'),'btn-md btn-secondary',()=>{close();showEditAptModal(apt);}));
       actRow.appendChild(mkBtn('🗑️ '+T('cal_delete'),'btn-md btn-danger',()=>{
-        openConfirm(T('cal_delete_confirm'),'Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
-          try{await _supa.from('appointments').delete().eq('id',apt.id);}catch(e){console.error('❌ deleteApt:',e);}
-          DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);
-          close();re();toast(T('cal_deleted'));
-        });
+        const isSeries=apt.seriesId&&!apt.seriesDetached;
+        if(isSeries){close();_showSeriesDeleteChoice(apt);}
+        else{
+          openConfirm(T('cal_delete_confirm'),'Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
+            try{
+              if(_isAptPast(apt)){await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).eq('id',apt.id);const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);if(i>-1){apts[i].deletedAt=new Date().toISOString();DB.appointments=apts;}}
+              else{await _supa.from('appointments').delete().eq('id',apt.id);DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);}
+            }catch(e){console.error('\u274c deleteApt:',e);}
+            close();re();toast(T('cal_deleted'));
+          });
+        }
       }));
     } else {
       // Not creator — show RSVP (accept/decline)
@@ -12414,7 +12444,7 @@ function showEditAptModal(apt){
 
 function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
   const todayStr=new Date().toISOString().split('T')[0];
-  const allInSeries=(DB.appointments||[]).filter(a=>a.seriesId===apt.seriesId&&!a.seriesDetached&&a.date>=apt.date);
+  const allInSeries=(DB.appointments||[]).filter(a=>a.seriesId===apt.seriesId&&!a.seriesDetached&&a.date>=apt.date&&!a.deletedAt);
   const futureCount=allInSeries.filter(a=>a.date>=todayStr).length;
   const pastCount=allInSeries.filter(a=>a.date<todayStr).length;
   const totalAffected=allInSeries.length;
@@ -12485,6 +12515,60 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
   },420);
 }
 
+function _showSeriesDeleteChoice(apt){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const allInSeries=(DB.appointments||[]).filter(a=>a.seriesId===apt.seriesId&&!a.seriesDetached&&a.date>=apt.date&&!a.deletedAt);
+  const pastRows=allInSeries.filter(a=>_isAptPast(a));
+  const futureRows=allInSeries.filter(a=>!_isAptPast(a));
+  const totalAffected=allInSeries.length;
+  const pastCount=pastRows.length;
+  openModal(T('apt_delete_choice_title',{title:apt.title}),(mb,close)=>{
+    let choice='just_this';
+    const radios=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px'}});
+    radios.appendChild(_seriesRadio(T('apt_delete_just_this'),true,()=>{choice='just_this';}));
+    let allFutureLabel;
+    if(pastCount>0)allFutureLabel=T('apt_delete_all_future_with_past',{n:String(totalAffected-1),p:String(pastCount)});
+    else allFutureLabel=T('apt_delete_all_future',{n:String(totalAffected-1)});
+    radios.appendChild(_seriesRadio(allFutureLabel,false,()=>{choice='all_future';}));
+    mb.appendChild(radios);
+    const btnRow=el('div',{style:{display:'flex',gap:'8px',justifyContent:'flex-end'}});
+    btnRow.appendChild(mkBtn(T('apt_delete_choice_cancel'),'btn-md btn-ghost',()=>close()));
+    const _delBtn=mkBtn(T('apt_delete_choice_confirm'),'btn-md btn-danger',async()=>{
+      _delBtn.disabled=true;_delBtn.textContent=T('btn_loading');
+      try{
+        if(choice==='just_this'){
+          if(_isAptPast(apt)){
+            await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).eq('id',apt.id);
+            const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
+            if(i>-1){apts[i].deletedAt=new Date().toISOString();DB.appointments=apts;}
+          } else {
+            await _supa.from('appointments').delete().eq('id',apt.id);
+            DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);
+          }
+          console.log('[calendar-v2] Series delete (just this): '+apt.id);
+        } else {
+          const pastIds=pastRows.map(a=>a.id);
+          const futureIds=futureRows.map(a=>a.id);
+          if(pastIds.length){
+            const{error}=await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).in('id',pastIds);
+            if(error)console.error('\u274c series soft-delete:',error);
+          }
+          if(futureIds.length){
+            const{error}=await _supa.from('appointments').delete().in('id',futureIds);
+            if(error)console.error('\u274c series hard-delete:',error);
+          }
+          const softSet=new Set(pastIds);const hardSet=new Set(futureIds);
+          const apts=[...DB.appointments].map(a=>softSet.has(a.id)?{...a,deletedAt:new Date().toISOString()}:a).filter(a=>!hardSet.has(a.id));
+          DB.appointments=apts;
+          console.log('[calendar-v2] Series delete (all future): '+apt.seriesId+', '+futureIds.length+' hard, '+pastIds.length+' soft');
+        }
+        close();re();toast(T('cal_deleted'));
+      }catch(e){console.error('series delete:',e);toast(T('apt_could_not_save'),'error');_delBtn.disabled=false;_delBtn.textContent=T('apt_delete_choice_confirm');}
+    });
+    btnRow.appendChild(_delBtn);mb.appendChild(btnRow);
+  },420);
+}
+
 function _seriesRadio(label,checked,onSelect){
   const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderRadius:'10px',border:'1.5px solid '+(checked?'var(--teal)':'var(--mint-l)'),cursor:'pointer',background:checked?'var(--mint-ll)':'#fff',transition:'all .12s'}});
   const dot=el('div',{style:{width:'18px',height:'18px',borderRadius:'50%',border:'2px solid '+(checked?'var(--teal)':'var(--slate-l)'),display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
@@ -12512,7 +12596,7 @@ function renderCalendar(){
   if(!S.calSelectedDate)S.calSelectedDate=new Date().toISOString().split('T')[0];
   const isParent=session?.role==='parent';
   const allChildren=DB.children;
-  const _allApts=LS.get('appointments',[]);
+  const _allApts=LS.get('appointments',[]).filter(a=>!a.deletedAt);
   const _myChildren=LS.get('children',[]);
   const _myPatientIds=isParent?[]:_myChildren.map(c=>c.id);
   // Specialist: if children are loaded but appointments cache is empty, trigger a background refresh
@@ -12573,7 +12657,7 @@ function renderCalendar(){
   calCard.dataset.monthKey='calMonth';
 
   // Grid builder — reusable for in-place month swap
-  const _getApts=()=>{const a=LS.get('appointments',[]);return isParent?(S.calendarMode==='joint'?a:a.filter(x=>x.childId===S.activeChild)):a.filter(x=>((S.calendarMode==='joint'||!S.activeChild)?_myPatientIds.includes(x.childId):x.childId===S.activeChild)&&(x.specialistId===session.id||(Array.isArray(x.sharedWith)&&x.sharedWith.includes(session.id))));};
+  const _getApts=()=>{const a=LS.get('appointments',[]).filter(x=>!x.deletedAt);return isParent?(S.calendarMode==='joint'?a:a.filter(x=>x.childId===S.activeChild)):a.filter(x=>((S.calendarMode==='joint'||!S.activeChild)?_myPatientIds.includes(x.childId):x.childId===S.activeChild)&&(x.specialistId===session.id||(Array.isArray(x.sharedWith)&&x.sharedWith.includes(session.id))));};
   calCard._mkGrid=function(y,m){
     const apts=_getApts();
     const dIM=new Date(y,m+1,0).getDate();
