@@ -109,6 +109,8 @@ Read this file first before any Huddledin task. Also check for relevant skills:
 
 20. **Foreign key checks before bulk DELETE.** `reports.template_id` references `report_templates.id`. When deleting both, delete reports FIRST then templates.
 
+21. **Soft delete on past appointments.** Past appointments (date + end_time < now()) use soft delete via `deleted_at TIMESTAMPTZ`. Future appointments hard delete. All appointment SELECT queries must filter `WHERE deleted_at IS NULL`. The partial index `idx_appointments_date_household` already enforces this on the index side.
+
 ---
 
 ## 🔐 Security & Privacy
@@ -454,6 +456,7 @@ Catches regressions early when isolating the cause is cheap.
 - `20260415_ai_rate_limit.sql` — ai_usage table + index
 - `20260416_add_reply_to_messages.sql` — reply_to_id column
 - `20260425_add_reports_name.sql` — reports.name column with 1-100 char check (manual via Supabase SQL editor)
+- `20260429_calendar_v2_schema.sql` — series + attendance + soft delete columns for calendar v2
 
 ### Edge Functions
 - `paddle-webhook` — stores subscription + cancel_url
@@ -534,5 +537,6 @@ Active issues to review:
 ### Gitignored (private project notes)
 - `REPORT_SYSTEM_REFERENCE.md` — Tiptap-based report system architectural reference
 - `HUDDLEDIN_HANDOVER.md` — chat-to-chat handover doc with current state, decisions, backlog
+- `calendar-v2-design.md` — Calendar v2 design doc (recurring appointments, day view, attendance tracking)
 
 These are kept locally but not committed. Useful for onboarding new Claude sessions.
