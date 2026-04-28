@@ -56,11 +56,12 @@ BEGIN
   LOOP
     UPDATE appointments SET
       date = _row.date + (p_day_shift || ' days')::interval,
-      title = COALESCE(p_field_patch->>'title', title),
-      time = COALESCE(p_field_patch->>'time', time),
+      title = CASE WHEN p_field_patch ? 'title' THEN p_field_patch->>'title' ELSE title END,
+      time = CASE WHEN p_field_patch ? 'time' THEN p_field_patch->>'time' ELSE time END,
       end_time = CASE WHEN p_field_patch ? 'end_time' THEN p_field_patch->>'end_time' ELSE end_time END,
       location = CASE WHEN p_field_patch ? 'location' THEN p_field_patch->>'location' ELSE location END,
-      notes = CASE WHEN p_field_patch ? 'notes' THEN p_field_patch->>'notes' ELSE notes END
+      notes = CASE WHEN p_field_patch ? 'notes' THEN p_field_patch->>'notes' ELSE notes END,
+      type = CASE WHEN p_field_patch ? 'type' THEN p_field_patch->>'type' ELSE type END
     WHERE id = _row.id;
 
     _updated_rows := _updated_rows || jsonb_build_object(
