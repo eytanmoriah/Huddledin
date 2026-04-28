@@ -3934,6 +3934,14 @@ apt_declined_by:'Declined by {name}',
 apt_declined_toast:'Event declined. The specialist has been notified.',
 apt_marked_not_attending:'Marked as Not Attending.',
 apt_edit_title:'\u270F\uFE0F Edit Appointment',
+apt_edit_choice_title:'Edit “{title}”',
+apt_edit_just_this:'Just this occurrence',
+apt_edit_all_future:'This and all future occurrences',
+apt_edit_all_future_with_past:'This and {n} future occurrences (including {p} past)',
+apt_edit_choice_cancel:'Cancel',
+apt_edit_choice_save:'Save',
+apt_series_info:'Part of {recurrence} series: {position} of {total}',
+apt_series_detached:'Detached from series',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5309,6 +5317,14 @@ apt_recurring_no_google_sync:'\u05EA\u05D5\u05E8\u05D9\u05DD \u05D7\u05D5\u05D6\
 apt_date_label:'תאריך',
 apt_edit:'\u270F\uFE0F עריכה',
 apt_edit_title:'\u270F\uFE0F עריכת תור',
+apt_edit_choice_title:'עריכת “{title}”',
+apt_edit_just_this:'רק המופע הזה',
+apt_edit_all_future:'המופע הזה וכל המופעים העתידיים',
+apt_edit_all_future_with_past:'המופע הזה ו-{n} מופעים עתידיים (כולל {p} שעברו)',
+apt_edit_choice_cancel:'ביטול',
+apt_edit_choice_save:'שמירה',
+apt_series_info:'חלק מסדרת {recurrence}: {position} מתוך {total}',
+apt_series_detached:'מנותק מהסדרה',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12272,7 +12288,7 @@ function showAptDetailModal(apt,child){
       apt.specialist&&apt.specialist!=='TBD'?['👤',isParent?T('cal_event_specialist'):T('apt_session_with'),apt.specialist]:null,
       apt.location?['📍',T('cal_event_location'),apt.location]:null,
       child?['🧒',T('cal_event_child'),child.name]:null,
-      apt.recurrence&&apt.recurrence!=='none'?['🔁',T('cal_repeats'),{weekly:T('cal_repeats_weekly'),biweekly:T('cal_repeats_biweekly'),monthly:T('cal_repeats_monthly')}[apt.recurrence]||apt.recurrence]:null,
+      apt.seriesId?(apt.seriesDetached?['🔁',T('cal_repeats'),T('apt_series_detached')]:['🔁',T('cal_repeats'),T('apt_series_info',{recurrence:{weekly:T('cal_repeats_weekly'),biweekly:T('cal_repeats_biweekly'),monthly:T('cal_repeats_monthly')}[apt.recurrence]||apt.recurrence,position:String(apt.seriesPosition||'?'),total:String(apt.seriesTotal||'?')})]):(apt.recurrence&&apt.recurrence!=='none'?['🔁',T('cal_repeats'),{weekly:T('cal_repeats_weekly'),biweekly:T('cal_repeats_biweekly'),monthly:T('cal_repeats_monthly')}[apt.recurrence]||apt.recurrence]:null),
     ].filter(Boolean);
     rows.forEach(([icon,label,val])=>{
       const row=el('div',{style:{display:'flex',gap:'10px',alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--mint-ll)'}});
@@ -12372,20 +12388,93 @@ function showEditAptModal(apt){
     const loci=el('input',{class:'inp',value:apt.location||'',placeholder:T('apt_loc_placeholder'),style:{marginBottom:'10px'}});mb.appendChild(loci);
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_notes')]));
     const notesI=el('textarea',{class:'inp',style:{marginBottom:'14px',minHeight:'56px',resize:'vertical'}},['']);mb.appendChild(notesI);
-    // Fetch notes from Supabase (PHI not cached). Disable while loading to prevent blank-save.
     if(apt.id){notesI.disabled=true;notesI.placeholder='Loading…';_fetchAppointmentNotes(apt.id).then(_n=>{notesI.value=_n||'';notesI.disabled=false;notesI.placeholder='';});}
     mb.appendChild(mkBtn(T('cal_save'),'btn-lg btn-primary btn-full',async()=>{
       if(!ti.value||!di.value){toast(T('apt_title_date_required'),'error');return;}
       if(notesI.disabled){toast('Still loading notes — please wait a moment.','error');return;}
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):(apt.time||'TBD');
-      try{
-        await _supa.from('appointments').update({title:ti.value,date:di.value,time:timeStr,end_time:endTmi.value||null,location:loci.value||null,notes:notesI.value||null}).eq('id',apt.id);
-        const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
-        if(i>-1){Object.assign(apts[i],{title:ti.value,date:di.value,time:timeStr,endTime:endTmi.value||null,location:loci.value||null,notes:notesI.value||null});DB.appointments=apts;}
-        close();re();toast(T('cal_saved'));
-      }catch(e){toast(T('apt_could_not_save'),'error');}
+      const patch={title:ti.value,time:timeStr,end_time:endTmi.value||null,location:loci.value||null,notes:notesI.value||null};
+      const lsPatch={title:ti.value,time:timeStr,endTime:endTmi.value||null,location:loci.value||null,notes:notesI.value||null};
+      const dateChanged=di.value!==apt.date;
+      const isSeries=apt.seriesId&&!apt.seriesDetached;
+      if(isSeries){
+        close();
+        _showSeriesEditChoice(apt,{...patch,date:di.value},{...lsPatch,date:di.value},dateChanged);
+      } else {
+        try{
+          await _supa.from('appointments').update({...patch,date:di.value}).eq('id',apt.id);
+          const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
+          if(i>-1){Object.assign(apts[i],{...lsPatch,date:di.value});DB.appointments=apts;}
+          close();re();toast(T('cal_saved'));
+        }catch(e){toast(T('apt_could_not_save'),'error');}
+      }
     }));
   },520);
+}
+
+function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const allInSeries=(DB.appointments||[]).filter(a=>a.seriesId===apt.seriesId&&!a.seriesDetached&&a.date>=apt.date);
+  const futureCount=allInSeries.filter(a=>a.date>=todayStr).length;
+  const pastCount=allInSeries.filter(a=>a.date<todayStr).length;
+  const totalAffected=allInSeries.length;
+  openModal(T('apt_edit_choice_title',{title:apt.title}),(mb,close)=>{
+    let choice='just_this';
+    const radios=el('div',{style:{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px'}});
+    const r1=_seriesRadio(T('apt_edit_just_this'),true,()=>{choice='just_this';});
+    radios.appendChild(r1);
+    let allFutureLabel;
+    if(pastCount>0)allFutureLabel=T('apt_edit_all_future_with_past',{n:String(totalAffected-1),p:String(pastCount)});
+    else allFutureLabel=T('apt_edit_all_future');
+    const r2=_seriesRadio(allFutureLabel,false,()=>{choice='all_future';});
+    radios.appendChild(r2);
+    mb.appendChild(radios);
+    const btnRow=el('div',{style:{display:'flex',gap:'8px',justifyContent:'flex-end'}});
+    btnRow.appendChild(mkBtn(T('apt_edit_choice_cancel'),'btn-md btn-ghost',()=>close()));
+    btnRow.appendChild(mkBtn(T('apt_edit_choice_save'),'btn-md btn-primary',async()=>{
+      try{
+        if(choice==='just_this'){
+          await _supa.from('appointments').update({...dbPatch,date:lsPatch.date,series_detached:true}).eq('id',apt.id);
+          const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
+          if(i>-1){Object.assign(apts[i],lsPatch,{seriesDetached:true});DB.appointments=apts;}
+          console.log('[calendar-v2] Series edit (just this): '+apt.id);
+        } else {
+          const affectedIds=allInSeries.map(a=>a.id);
+          const bulkPatch=dateChanged?{title:dbPatch.title,time:dbPatch.time,end_time:dbPatch.end_time,location:dbPatch.location,notes:dbPatch.notes}:dbPatch;
+          const bulkLsPatch=dateChanged?{title:lsPatch.title,time:lsPatch.time,endTime:lsPatch.endTime,location:lsPatch.location,notes:lsPatch.notes}:lsPatch;
+          await _supa.from('appointments').update(bulkPatch).in('id',affectedIds);
+          const apts=[...DB.appointments];
+          apts.forEach(a=>{if(affectedIds.includes(a.id))Object.assign(a,bulkLsPatch);});
+          DB.appointments=apts;
+          console.log('[calendar-v2] Series edit (all future): '+apt.seriesId+', '+affectedIds.length+' instances updated');
+        }
+        close();re();toast(T('cal_saved'));
+      }catch(e){console.error('series edit:',e);toast(T('apt_could_not_save'),'error');}
+    }));
+    mb.appendChild(btnRow);
+  },420);
+}
+
+function _seriesRadio(label,checked,onSelect){
+  const row=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderRadius:'10px',border:'1.5px solid '+(checked?'var(--teal)':'var(--mint-l)'),cursor:'pointer',background:checked?'var(--mint-ll)':'#fff',transition:'all .12s'}});
+  const dot=el('div',{style:{width:'18px',height:'18px',borderRadius:'50%',border:'2px solid '+(checked?'var(--teal)':'var(--slate-l)'),display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+  const inner=el('div',{style:{width:'10px',height:'10px',borderRadius:'50%',background:checked?'var(--teal)':'transparent'}});
+  dot.appendChild(inner);row.appendChild(dot);
+  row.appendChild(el('span',{style:{fontSize:'.86rem',fontWeight:checked?700:500,color:'var(--navy)'}},[label]));
+  row.onclick=()=>{
+    onSelect();
+    row.style.borderColor='var(--teal)';row.style.background='var(--mint-ll)';
+    dot.style.borderColor='var(--teal)';inner.style.background='var(--teal)';
+    row.querySelector('span').style.fontWeight='700';
+    const sibs=row.parentElement?.children;
+    if(sibs)for(const s of sibs){
+      if(s!==row){s.style.borderColor='var(--mint-l)';s.style.background='#fff';
+        const d2=s.querySelector('div>div');if(d2)d2.style.background='transparent';
+        s.querySelector('div').style.borderColor='var(--slate-l)';
+        s.querySelector('span').style.fontWeight='500';}
+    }
+  };
+  return row;
 }
 
 function renderCalendar(){
