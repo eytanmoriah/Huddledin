@@ -2403,15 +2403,15 @@ let _chatSub=null;
 
 // Real-time permissions sync for specialist — picks up permission grants instantly
 let _specPermsChannel=null;
-let _specChildChannels=[];
+let _specAptsChannel=null,_specChildDataChannel=null;
 function setupSpecialistSync(){
   if(!session||session.role!=='specialist'||!_supa)return;
   const specId=session.specialistId||session.id;
   if(!specId)return;
-  if(_specPermsChannel)_specPermsChannel.unsubscribe();
-  _specChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_specChildChannels=[];
+  if(_specPermsChannel)try{_specPermsChannel.unsubscribe();}catch(e){}
+  if(_specAptsChannel)try{_specAptsChannel.unsubscribe();}catch(e){}
+  if(_specChildDataChannel)try{_specChildDataChannel.unsubscribe();}catch(e){}
   // Subscribe to all specialist-relevant tables in one channel
-  const childIds=(LS.get('children',[])||[]).map(c=>c.id);
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // specialist_requests changes — fires on approval, removal, or new connection via invite
@@ -2435,24 +2435,42 @@ function setupSpecialistSync(){
     // homework_tasks changes — fires on all events (INSERT, UPDATE, DELETE) so specialist sees new, archived, and deleted tasks
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_tasks',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     .subscribe();
-  // Subscribe to per-child tables for each patient
-  const childIds2=(LS.get('children',[])||[]).map(c=>c.id);
-  childIds2.forEach(cid=>{
-    const _ca=_supa.channel('spec_apts:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
-      .subscribe();
-    _specChildChannels.push(_ca);
-    const _cm=_supa.channel('spec_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;_debouncedChatRefresh();})
-      .subscribe();
-    _specChildChannels.push(_cm);
-    // Vault notes and files for this child
-    const _cd=_supa.channel('spec_child_data:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
-      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>{_debouncedRefresh();})
-      .subscribe();
-    _specChildChannels.push(_cd);
-  });
+  // Consolidated specialist child-data channels — client-side patient gating
+  // (specialist scope spans multiple households, no server-side household filter possible)
+  _specAptsChannel=_supa.channel('spec_apts:'+specId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myPatientIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
+    .subscribe();
+  _specChildDataChannel=_supa.channel('spec_child_data:'+specId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myPatientIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},(p)=>{
+      if(p.new?.sender_id===session?.id)return;
+      if(S.activeTab==='chat'&&S.activeChatId)return;
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myPatientIds.has(String(cid)))return;
+      _debouncedChatRefresh();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'files'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myPatientIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
+    .subscribe();
 }
 
 async function loadChatsFromSupabase(){
@@ -2840,9 +2858,8 @@ async function doLogout(){
   // Clean up push subscription for this device
   try{await _unsubscribePush();}catch(e){}
   // Unsubscribe all realtime channels
-  [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_hhChildDataChannel,_hhFilesChannel,_subscriptionChannel,_specPermsChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
-  _specChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_specChildChannels=[];
-  _householdChannel=null;_hhNotifsChannel=null;_hhHwTasksChannel=null;_hhParentTasksChannel=null;_hhChildDataChannel=null;_hhFilesChannel=null;_subscriptionChannel=null;_specPermsChannel=null;_specSubChannel=null;_chatSub=null;
+  [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_hhChildDataChannel,_hhFilesChannel,_subscriptionChannel,_specPermsChannel,_specAptsChannel,_specChildDataChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
+  _householdChannel=null;_hhNotifsChannel=null;_hhHwTasksChannel=null;_hhParentTasksChannel=null;_hhChildDataChannel=null;_hhFilesChannel=null;_subscriptionChannel=null;_specPermsChannel=null;_specAptsChannel=null;_specChildDataChannel=null;_specSubChannel=null;_chatSub=null;
   // Reset nav state immediately — prevents stale view flashing before login screen appears
   S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.webCal=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
