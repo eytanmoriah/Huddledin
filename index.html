@@ -2026,7 +2026,9 @@ async function _refreshPhase1Specialist(){
       LS.set('children',_mappedVisible);
       _loaded.children=true;
       const approvedMapped=_mappedVisible.filter(c=>c.connectionStatus==='approved');
-      if(!S.activeChild||!_mappedVisible.some(c=>c.id===S.activeChild)){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
+      // Skip auto-assign when on the joint main calendar — would jump the user to a child-context view
+      const onJointCalendar=S.activeTab==='calendar'&&S.calendarMode==='joint';
+      if(!onJointCalendar&&(!S.activeChild||!_mappedVisible.some(c=>c.id===S.activeChild))){if(approvedMapped.length>0)S.activeChild=approvedMapped[0].id;}
       setupSpecialistSync();
       const _newlyRemoved=_mappedVisible.filter(c=>{
         const _prevStatus=localStorage.getItem('hd9_status_'+c.id);
