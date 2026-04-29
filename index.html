@@ -2270,21 +2270,45 @@ let _seenTimestamps={};
 const _localParentTaskChanges=new Set();
 function _debouncedChatRefresh(){
   if(_chatRefreshTimer)clearTimeout(_chatRefreshTimer);
-  _chatRefreshTimer=setTimeout(()=>{_chatRefreshTimer=null;loadChatsFromSupabase().then(()=>re()).catch(e=>console.error('❌ debouncedChatRefresh:',e));},500);
+  _chatRefreshTimer=setTimeout(()=>{
+    _chatRefreshTimer=null;
+    loadChatsFromSupabase().then(()=>{
+      if(S.activeTab==='chat')re();
+      else _rebuildBnav();
+    }).catch(e=>console.error('❌ debouncedChatRefresh:',e));
+  },500);
 }
-function _debouncedRefresh(){
+let _refreshAllSurfaces=false;
+let _refreshSurfaceSet=new Set();
+function _debouncedRefresh(surface){
+  if(!surface)_refreshAllSurfaces=true;
+  else _refreshSurfaceSet.add(surface);
   if(_refreshTimer)clearTimeout(_refreshTimer);
   _refreshTimer=setTimeout(()=>{
     _refreshTimer=null;
     // Skip refresh during active drag (with 30s safety cap so a stuck flag doesn't hang refresh)
     if(_dragInProgress&&(Date.now()-_dragStartedAt)<30000){S._refreshDeferred=true;return;}
+    const _unconditional=_refreshAllSurfaces;
+    const _surfaces=new Set(_refreshSurfaceSet);
+    _refreshAllSurfaces=false;
+    _refreshSurfaceSet.clear();
     const _chatsWereLoaded=S.chatsLoaded;
     refreshFromSupabase().then(()=>{
       if((S._suppressRefreshCount||0)>0){S._refreshDeferred=true;return;}
-      if(_chatsWereLoaded)loadChatsFromSupabase().then(()=>re());
-      else re();
+      const _doIt=()=>{
+        if(_unconditional||_surfaces.has(S.activeTab))re();
+        else _rebuildBnav();
+      };
+      if(_chatsWereLoaded)loadChatsFromSupabase().then(_doIt);
+      else _doIt();
     });
   },300);
+}
+// In-place bottom-nav rebuild — used when realtime data changes but user is not on the affected surface
+function _rebuildBnav(){
+  const old=document.getElementById('bottom-nav');
+  if(!old)return;
+  old.replaceWith(renderBottomNav());
 }
 
 // Real-time household sync — subscribes to children/specialists changes
@@ -2357,7 +2381,7 @@ function setupHouseholdSync(){
       if(!cid)return;
       const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
       if(!myChildIds.has(String(cid)))return;
-      _debouncedRefresh();
+      _debouncedRefresh('vault');
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'household_id=eq.'+_hid},(p)=>{
       if(p.new?.sender_id===session?.id)return;
@@ -2372,7 +2396,7 @@ function setupHouseholdSync(){
       if(!cid)return;
       const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
       if(!myChildIds.has(String(cid)))return;
-      _debouncedRefresh();
+      _debouncedRefresh('files');
     })
     .subscribe();
 }
@@ -2452,7 +2476,7 @@ function setupSpecialistSync(){
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
       if(!myPatientIds.has(String(cid)))return;
-      _debouncedRefresh();
+      _debouncedRefresh('vault');
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},(p)=>{
       if(p.new?.sender_id===session?.id)return;
@@ -2468,7 +2492,7 @@ function setupSpecialistSync(){
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
       if(!myPatientIds.has(String(cid)))return;
-      _debouncedRefresh();
+      _debouncedRefresh('files');
     })
     .subscribe();
 }
