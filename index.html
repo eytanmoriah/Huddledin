@@ -2150,7 +2150,7 @@ async function _refreshPhase2Parent(){
       .then(({data:apts})=>{
         const _localApts=LS.get('appointments',[])||[];
         const _localReadMap={};_localApts.forEach(a=>{if(a.parentReadAt)_localReadMap[a.id]=a.parentReadAt;});
-        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
+        LS.set('appointments',(apts||[]).map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,parentReadAt:a.parent_read_at||_localReadMap[a.id]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
         _loaded.appointments=true;
       })
       .catch(e=>console.error('refresh appointments:',e)),
@@ -2211,7 +2211,7 @@ async function _refreshPhase2Specialist(){
     try{
       const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
-        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
       }
       _loaded.appointments=true;
     }catch(e){console.error('refresh spec appointments:',e);}
@@ -3954,6 +3954,12 @@ apt_attendance_no_show:'No-show',
 apt_attendance_therapist_cancelled_self:'I cancelled',
 apt_attendance_therapist_cancelled_parent:'Cancelled by {specialist}',
 apt_attendance_pending:'\u2014',
+apt_attendance_label:'Attendance',
+apt_attendance_not_marked:'Not yet marked',
+apt_attendance_marked_subtitle:'Last marked {time} {by}',
+apt_attendance_clear:'Clear',
+apt_attendance_marked_by_you:'by you',
+apt_attendance_marked_by_other:'by Specialist',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5349,6 +5355,12 @@ apt_attendance_no_show:'לא הגיע/ה',
 apt_attendance_therapist_cancelled_self:'ביטלתי',
 apt_attendance_therapist_cancelled_parent:'בוטל על ידי {specialist}',
 apt_attendance_pending:'—',
+apt_attendance_label:'נוכחות',
+apt_attendance_not_marked:'טרם סומן',
+apt_attendance_marked_subtitle:'סומן {time} {by}',
+apt_attendance_clear:'ניקוי',
+apt_attendance_marked_by_you:'על ידיך',
+apt_attendance_marked_by_other:'על ידי מטפל/ת',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12306,7 +12318,11 @@ function _isAptPast(apt){
 
 function _aptVisualState(apt){
   const a=apt.attendance;
-  if(a==='therapist_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_therapist_cancelled_self'),pillBg:'#e2e8f0',pillFg:'#475569'};
+  const isParentView=session?.role==='parent';
+  if(a==='therapist_cancelled'){
+    const txt=isParentView?T('apt_attendance_therapist_cancelled_parent',{specialist:apt.specialist||'Specialist'}):T('apt_attendance_therapist_cancelled_self');
+    return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:txt,pillBg:'#e2e8f0',pillFg:'#475569'};
+  }
   if(a==='patient_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_patient_cancelled'),pillBg:'#e2e8f0',pillFg:'#475569'};
   if(a==='no_show')return{opacity:'.65',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_no_show'),pillBg:'#fed7aa',pillFg:'#9a3412'};
   if(a==='attended')return{opacity:'.70',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_attended'),pillBg:'#bbf7d0',pillFg:'#166534'};
@@ -12355,6 +12371,87 @@ function showAptDetailModal(apt,child){
     _fetchAppointmentNotes(apt.id).then(_n=>{
       if(_n)_notesHolder.appendChild(el('div',{style:{padding:'10px 12px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.8rem',color:'var(--slate)',lineHeight:'1.6'}},[_n]));
     });
+    // Attendance section — specialist only
+    if(!isParent){
+      const attSec=el('div',{style:{marginTop:'16px',paddingTop:'14px',borderTop:'1.5px solid var(--mint-l)'}});
+      attSec.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:'10px'}},[T('apt_attendance_label')]));
+      const attBtnRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'10px'}});
+      const attOpts=[
+        {v:'attended',label:T('apt_attendance_attended'),bg:'#bbf7d0',fg:'#166534'},
+        {v:'patient_cancelled',label:T('apt_attendance_patient_cancelled'),bg:'#e2e8f0',fg:'#475569'},
+        {v:'no_show',label:T('apt_attendance_no_show'),bg:'#fed7aa',fg:'#9a3412'},
+        {v:'therapist_cancelled',label:T('apt_attendance_therapist_cancelled_self'),bg:'#e2e8f0',fg:'#475569'}
+      ];
+      const attBtns=[];
+      const attSubtitleEl=el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginBottom:'6px'}});
+      const clearBtn=el('button',{style:{background:'none',border:'none',color:'var(--teal)',fontSize:'.74rem',fontWeight:700,padding:'2px 0',cursor:'pointer',fontFamily:'inherit'}},[T('apt_attendance_clear')]);
+      function _renderAttSubtitle(){
+        attSubtitleEl.innerHTML='';
+        if(apt.attendanceMarkedAt){
+          const d=new Date(apt.attendanceMarkedAt);
+          const diffSec=Math.max(0,Math.floor((Date.now()-d.getTime())/1000));
+          let timeStr;
+          if(diffSec<60)timeStr='just now';
+          else if(diffSec<3600)timeStr=Math.floor(diffSec/60)+'m ago';
+          else if(diffSec<86400)timeStr=Math.floor(diffSec/3600)+'h ago';
+          else timeStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+          const byStr=apt.attendanceMarkedBy===session.id?T('apt_attendance_marked_by_you'):T('apt_attendance_marked_by_other');
+          attSubtitleEl.textContent=T('apt_attendance_marked_subtitle',{time:timeStr,by:byStr});
+          clearBtn.style.display='inline-block';
+        } else {
+          attSubtitleEl.textContent=T('apt_attendance_not_marked');
+          clearBtn.style.display='none';
+        }
+      }
+      function _renderAttBtns(){
+        attBtns.forEach(({btn,opt})=>{
+          const sel=apt.attendance===opt.v;
+          btn.style.background=sel?opt.bg:'transparent';
+          btn.style.color=sel?opt.fg:'var(--slate)';
+          btn.style.border='1.5px solid '+(sel?opt.fg:'var(--mint-l)');
+          btn.style.fontWeight=sel?'700':'500';
+        });
+      }
+      async function _setAttendance(newVal){
+        attBtns.forEach(({btn})=>{btn.disabled=true;});
+        clearBtn.disabled=true;
+        const nowIso=new Date().toISOString();
+        const dbPatch=newVal===null
+          ?{attendance:null,attendance_marked_at:null,attendance_marked_by:null}
+          :{attendance:newVal,attendance_marked_at:nowIso,attendance_marked_by:session.id};
+        const lsPatch=newVal===null
+          ?{attendance:null,attendanceMarkedAt:null,attendanceMarkedBy:null}
+          :{attendance:newVal,attendanceMarkedAt:nowIso,attendanceMarkedBy:session.id};
+        const prev={attendance:apt.attendance,attendanceMarkedAt:apt.attendanceMarkedAt,attendanceMarkedBy:apt.attendanceMarkedBy};
+        Object.assign(apt,lsPatch);
+        const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
+        if(i>-1){Object.assign(apts[i],lsPatch);DB.appointments=apts;}
+        _renderAttBtns();_renderAttSubtitle();
+        const{error}=await _supa.from('appointments').update(dbPatch).eq('id',apt.id);
+        if(error){
+          console.error('❌ attendance update:',error);
+          Object.assign(apt,prev);
+          const apts2=[...DB.appointments];const i2=apts2.findIndex(a=>a.id===apt.id);
+          if(i2>-1){Object.assign(apts2[i2],prev);DB.appointments=apts2;}
+          _renderAttBtns();_renderAttSubtitle();
+          toast(T('apt_could_not_save'),'error');
+        }
+        attBtns.forEach(({btn})=>{btn.disabled=false;});
+        clearBtn.disabled=false;
+      }
+      attOpts.forEach(opt=>{
+        const btn=el('button',{style:{padding:'8px 12px',borderRadius:'8px',fontSize:'.78rem',cursor:'pointer',fontFamily:'inherit',transition:'all .12s',flexShrink:0}},[opt.label]);
+        btn.onclick=()=>{if(apt.attendance!==opt.v)_setAttendance(opt.v);};
+        attBtns.push({btn,opt});
+        attBtnRow.appendChild(btn);
+      });
+      attSec.appendChild(attBtnRow);
+      attSec.appendChild(attSubtitleEl);
+      clearBtn.onclick=()=>_setAttendance(null);
+      attSec.appendChild(clearBtn);
+      _renderAttBtns();_renderAttSubtitle();
+      mb.appendChild(attSec);
+    }
     // Action buttons — permission-based
     const actRow=el('div',{style:{display:'flex',gap:'8px',marginTop:'16px',flexWrap:'wrap'}});
     if(isCreator){
@@ -12635,7 +12732,7 @@ function renderCalendar(){
       try{
         const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
-          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null})));
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
           S._calRefreshing=false;re();
         } else {S._calRefreshing=false;}
       }catch(e){S._calRefreshing=false;}
