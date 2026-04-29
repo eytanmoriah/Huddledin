@@ -2289,7 +2289,7 @@ function _debouncedRefresh(){
 
 // Real-time household sync — subscribes to children/specialists changes
 let _householdChannel=null,_hhNotifsChannel=null,_hhHwTasksChannel=null,_hhParentTasksChannel=null;
-let _hhChildChannels=[];
+let _hhChildDataChannel=null,_hhFilesChannel=null;
 function setupHouseholdSync(){
   if(!session||session.role!=='parent'||!session.householdId)return;
   if(_householdChannel)_householdChannel.unsubscribe();
@@ -2344,22 +2344,31 @@ function setupHouseholdSync(){
       }
     })
     .subscribe();
-  _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
-  const _hhChildren=(DB.children||[]).map(c=>c.id).filter(Boolean);
-  _hhChildren.forEach(cid=>{
-    const _cv=_supa.channel('hh_vnotes:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'child_id=eq.'+cid},()=>_debouncedRefresh())
-      .subscribe();
-    _hhChildChannels.push(_cv);
-    const _cf=_supa.channel('hh_files:'+cid)
-      .on('postgres_changes',{event:'*',schema:'public',table:'files',filter:'child_id=eq.'+cid},()=>_debouncedRefresh())
-      .subscribe();
-    _hhChildChannels.push(_cf);
-    const _cm=_supa.channel('hh_msgs:'+cid)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'child_id=eq.'+cid},(p)=>{if(p.new?.sender_id===session?.id)return;if(S.activeTab==='chat'&&S.activeChatId)return;_debouncedChatRefresh();})
-      .subscribe();
-    _hhChildChannels.push(_cm);
-  });
+  if(_hhChildDataChannel)try{_hhChildDataChannel.unsubscribe();}catch(e){}
+  _hhChildDataChannel=_supa.channel('hh_child_data:'+_hid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myChildIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'household_id=eq.'+_hid},(p)=>{
+      if(p.new?.sender_id===session?.id)return;
+      if(S.activeTab==='chat'&&S.activeChatId)return;
+      _debouncedChatRefresh();
+    })
+    .subscribe();
+  if(_hhFilesChannel)try{_hhFilesChannel.unsubscribe();}catch(e){}
+  _hhFilesChannel=_supa.channel('hh_files:'+_hid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'files'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myChildIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
+    .subscribe();
 }
 
 // Real-time subscription sync — reacts to webhook-driven status changes
@@ -2825,10 +2834,9 @@ async function doLogout(){
   // Clean up push subscription for this device
   try{await _unsubscribePush();}catch(e){}
   // Unsubscribe all realtime channels
-  [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_subscriptionChannel,_specPermsChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
-  _hhChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_hhChildChannels=[];
+  [_householdChannel,_hhNotifsChannel,_hhHwTasksChannel,_hhParentTasksChannel,_hhChildDataChannel,_hhFilesChannel,_subscriptionChannel,_specPermsChannel,_specSubChannel,_chatSub].forEach(ch=>{if(ch)try{ch.unsubscribe();}catch(e){}});
   _specChildChannels.forEach(ch=>{try{ch.unsubscribe();}catch(e){}});_specChildChannels=[];
-  _householdChannel=null;_hhNotifsChannel=null;_hhHwTasksChannel=null;_hhParentTasksChannel=null;_subscriptionChannel=null;_specPermsChannel=null;_specSubChannel=null;_chatSub=null;
+  _householdChannel=null;_hhNotifsChannel=null;_hhHwTasksChannel=null;_hhParentTasksChannel=null;_hhChildDataChannel=null;_hhFilesChannel=null;_subscriptionChannel=null;_specPermsChannel=null;_specSubChannel=null;_chatSub=null;
   // Reset nav state immediately — prevents stale view flashing before login screen appears
   S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S.calFullscreen=false;S.webCal=false;S.isDrawerOpen=false;
   await _supa.auth.signOut();
