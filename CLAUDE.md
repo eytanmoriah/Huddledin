@@ -525,6 +525,35 @@ Active issues to review:
 
 ---
 
+## Architectural patterns (apply when relevant)
+
+### Pattern: Realtime + modals
+**When this applies:** Adding a feature where the user stays in a modal AND that modal writes to `appointments`, `homework_tasks`, or `parent_tasks` (realtime-subscribed tables).
+**Symptom if missed:** Modal closes by itself ~1-2s after the write because `_debouncedRefresh` triggers `re()` which strips overlays at line 19885.
+**Pattern to apply:** Use the suppress counter (`S._suppressRefreshCount`). Increment before openModal, decrement on modal close, run deferred `re()` when count hits 0. Reference: `showAptDetailModal` (commit 9878e16).
+
+### Pattern: Bulk per-row updates with different values
+**When this applies:** Updating N rows of the same table where each row needs a different value (e.g., date shift, sequential numbering).
+**Symptom if missed:** Sequential JS for-loop with awaits saturates PostgREST/PgBouncer connection pool around row 19, statements time out at code 57014 'canceling statement due to statement timeout'.
+**Pattern to apply:** Use a Postgres function with SECURITY DEFINER that does all updates server-side in one round-trip. Reference: `day_shift_series` Postgres function (supabase/migrations/20260429_day_shift_function.sql, commit f37745b).
+
+### Pattern: Hybrid hard/soft delete for past vs future
+**When this applies:** Building a delete flow for records where past entries should preserve clinical history but future entries can be cleanly removed.
+**Symptom if missed:** Either accumulating dead rows (hard-delete only loses past records) or accumulating soft-deleted rows that bloat the table (soft-delete only).
+**Pattern to apply:** Past rows soft-delete via `UPDATE deleted_at = NOW()`. Future rows hard-delete via `DELETE WHERE id = X`. For bulk operations on mixed ranges, split into pastIds + futureIds arrays, run separate bulk UPDATE / DELETE. All SELECTs filter `deleted_at IS NULL`. Reference: `_showSeriesDeleteChoice` (commit d22a8d6).
+
+### Pattern: Diagnosing hung Supabase writes
+**When this applies:** A series of UPDATEs from JS suddenly start failing with 500 errors and code 57014 'canceling statement due to statement timeout'.
+**Symptom if missed:** Spending an hour assuming the issue is in JS code when the actual cause is connection pool saturation in PostgREST/PgBouncer.
+**Pattern to apply:** Run `SELECT pid, now() - query_start AS duration, state FROM pg_stat_activity WHERE state = 'idle in transaction'` in Supabase SQL editor. Kill leaked connections with `SELECT pg_terminate_backend(pid)`. The actual fix is consolidating writes — see Pattern 2.
+
+### Pattern: Audit-then-greenlight before implementation
+**When this applies:** Implementing any non-trivial feature change (more than ~30 lines or any branching logic).
+**Symptom if missed:** Subtle bugs ship that the audit would have caught — D2b's date-collapse, D5's modal auto-close, etc.
+**Pattern to apply:** First prompt to Claude Code says "Investigation only first. Don't change anything until I confirm scope." Read findings, refine scope, then greenlight. The audit phase costs minutes; skipping it can cost hours.
+
+---
+
 ## 📚 Documentation Files
 
 ### Committed
