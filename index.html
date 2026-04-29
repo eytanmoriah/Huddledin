@@ -12952,7 +12952,7 @@ function _renderDayView(calCard,allApts,isRtl){
     }
     block.onclick=(e)=>{e.stopPropagation();showAptDetailModal(apt,ch);};
     grid.appendChild(block);
-    const _canDrag=!_isParent&&apt.specialistId===session.id;
+    const _canDrag=apt.createdBy?(apt.createdBy===session.id):(_isParent?true:(apt.specialistId===session.specialistId||apt.specialistId===session.id));
     if(_canDrag)_calendarDragBind(block,{apt,scrollContainer,grid,isWeek:false,weekDays:[focusDateStr],isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
   });
 
@@ -13117,7 +13117,7 @@ function _renderWeekView(calCard,allApts,isRtl){
       }
       block.onclick=(e)=>{e.stopPropagation();showAptDetailModal(apt,ch);};
       col.appendChild(block);
-      const _canDragW=!_isParentW&&apt.specialistId===session.id;
+      const _canDragW=apt.createdBy?(apt.createdBy===session.id):(_isParentW?true:(apt.specialistId===session.specialistId||apt.specialistId===session.id));
       if(_canDragW)_calendarDragBind(block,{apt,scrollContainer,grid,isWeek:true,weekDays:weekDays.map(_fmtD),isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
     });
     dayCols[ds]=col;
