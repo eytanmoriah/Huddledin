@@ -2211,7 +2211,7 @@ async function _refreshPhase2Specialist(){
   // Appointments (approved children only)
   if(approvedIds.length){
     try{
-      const {data:apts}=await _supa.from('appointments').select('*').in('child_id',approvedIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
+      const {data:apts}=await _supa.from('appointments').select('*').or(`and(specialist_id.eq.${session.id},child_id.is.null),child_id.in.(${approvedIds.join(',')}),shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
         LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
       }
@@ -3914,6 +3914,8 @@ cal_sync_outlook:'Outlook',
 cal_sync_all:'Sync all appointments to {name}',
 cal_sync_coming_soon:'\uD83D\uDD17 {name} sync \u2014 coming soon!',
 cal_for_which_child:'For which child?',
+cal_for_which_patient:'For which patient?',
+cal_personal_block:'Personal (no patient)',
 cal_session_type:'Session type',
 cal_session_type_placeholder:'Search or type a session type\u2026',
 cal_repeat_label:'Repeat',
@@ -5402,6 +5404,8 @@ cal_does_not_repeat:'לא חוזר',
 cal_end_label:'סיום',
 cal_events_count:'{n} אירועים',
 cal_for_which_child:'עבור איזה ילד/ה?',
+cal_for_which_patient:'עבור איזה מטופל/ת?',
+cal_personal_block:'אישי (ללא מטופל)',
 cal_no_events_day:'אין אירועים ביום הזה.',
 cal_no_specs_child:'אין מטפלים מחוברים לילד/ה.',
 cal_repeat_label:'חזרה',
@@ -12878,11 +12882,27 @@ function _renderDayView(calCard,allApts,isRtl){
 
   // Appointment blocks
   const layout=_computeDayLayout(dayApts);
+  const _isParent=session?.role==='parent';
   layout.forEach(({apt,start,end,col,totalCols})=>{
     const top=(start/15)*SLOT_H;
     const height=Math.max(SLOT_H,((end-start)/15)*SLOT_H);
     const colWidth=`calc((100% - ${TIME_COL_W}px) / ${totalCols})`;
     const leftOffset=`calc(${TIME_COL_W}px + (${col} * (100% - ${TIME_COL_W}px) / ${totalCols}))`;
+    const isAnonymous=!_isParent&&S.calendarMode==='child'&&S.activeChild&&apt.childId!==S.activeChild;
+    if(isAnonymous){
+      const block=el('div',{style:{
+        position:'absolute',top:top+'px',height:(height-2)+'px',
+        [isRtl?'right':'left']:leftOffset,
+        width:`calc(${colWidth} - 4px)`,
+        background:'rgba(148,163,184,.15)',border:'1.5px solid var(--slate-l)',
+        borderInlineStart:'4px solid var(--slate-l)',
+        borderRadius:'6px',padding:'3px 6px',
+        cursor:'default',overflow:'hidden',
+        boxSizing:'border-box'
+      }});
+      grid.appendChild(block);
+      return;
+    }
     const ch=DB.children.find(c=>c.id===apt.childId);
     const childColor=ch?.color||TC[apt.type]||'var(--teal)';
     const vs=_aptVisualState(apt);
@@ -13028,9 +13048,25 @@ function _renderWeekView(calCard,allApts,isRtl){
     // Blocks for this day
     const dayApts=wkApts.filter(a=>a.date===ds);
     const layout=_computeDayLayout(dayApts);
+    const _isParentW=session?.role==='parent';
     layout.forEach(({apt,start,end,col:colIdx,totalCols})=>{
       const top=(start/15)*SLOT_H;
       const height=Math.max(SLOT_H,((end-start)/15)*SLOT_H);
+      const isAnonymous=!_isParentW&&S.calendarMode==='child'&&S.activeChild&&apt.childId!==S.activeChild;
+      if(isAnonymous){
+        const block=el('div',{style:{
+          position:'absolute',top:top+'px',height:(height-2)+'px',
+          [isRtl?'right':'left']:`calc(${colIdx} * 100% / ${totalCols} + 2px)`,
+          width:`calc(100% / ${totalCols} - 4px)`,
+          background:'rgba(148,163,184,.15)',border:'1.5px solid var(--slate-l)',
+          borderInlineStart:'3px solid var(--slate-l)',
+          borderRadius:'5px',padding:'2px 4px',
+          cursor:'default',overflow:'hidden',
+          boxSizing:'border-box'
+        }});
+        col.appendChild(block);
+        return;
+      }
       const ch=DB.children.find(c=>c.id===apt.childId);
       const childColor=ch?.color||TC[apt.type]||'var(--teal)';
       const vs=_aptVisualState(apt);
@@ -13102,7 +13138,7 @@ function renderCalendar(){
     S._calRefreshing=true;
     (async()=>{
       try{
-        const {data:apts}=await _supa.from('appointments').select('*').in('child_id',_myPatientIds).or(`specialist_id.eq.${session.id},shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
+        const {data:apts}=await _supa.from('appointments').select('*').or(`and(specialist_id.eq.${session.id},child_id.is.null),child_id.in.(${_myPatientIds.join(',')}),shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
           LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
           S._calRefreshing=false;re();
@@ -13119,7 +13155,7 @@ function renderCalendar(){
     ?(S.calendarMode==='joint'
       ?_allApts
       :_allApts.filter(a=>a.childId===S.activeChild))
-    :_allApts.filter(a=>((S.calendarMode==='joint'||!S.activeChild)?_myPatientIds.includes(a.childId):a.childId===S.activeChild)&&(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id))));
+    :_allApts.filter(a=>(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id)))&&(a.childId==null||_myPatientIds.includes(a.childId)));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const _isWebCal=window.innerWidth>=1024;
@@ -13160,7 +13196,7 @@ function renderCalendar(){
   calCard.dataset.monthKey='calMonth';
 
   // Grid builder — reusable for in-place month swap
-  const _getApts=()=>{const a=LS.get('appointments',[]).filter(x=>!x.deletedAt);return isParent?(S.calendarMode==='joint'?a:a.filter(x=>x.childId===S.activeChild)):a.filter(x=>((S.calendarMode==='joint'||!S.activeChild)?_myPatientIds.includes(x.childId):x.childId===S.activeChild)&&(x.specialistId===session.id||(Array.isArray(x.sharedWith)&&x.sharedWith.includes(session.id))));};
+  const _getApts=()=>{const a=LS.get('appointments',[]).filter(x=>!x.deletedAt);return isParent?(S.calendarMode==='joint'?a:a.filter(x=>x.childId===S.activeChild)):a.filter(x=>(x.specialistId===session.id||(Array.isArray(x.sharedWith)&&x.sharedWith.includes(session.id)))&&(x.childId==null||_myPatientIds.includes(x.childId)));};
   calCard._mkGrid=function(y,m){
     const apts=_getApts();
     const dIM=new Date(y,m+1,0).getDate();
@@ -13190,6 +13226,11 @@ function renderCalendar(){
       cell.onclick=()=>_selectDay();
       cell.appendChild(num);
       da.forEach(a=>{
+        const isAnonDot=!isParent&&S.calendarMode==='child'&&S.activeChild&&a.childId!==S.activeChild;
+        if(isAnonDot){
+          cell.appendChild(el('div',{class:'cal-dot',style:{background:'var(--slate-l)'}}));
+          return;
+        }
         const dotColor=(isParent&&S.calendarMode==='joint')?(allChildren.find(c=>c.id===a.childId)?.color||'var(--teal)'):(TC[a.type]||'var(--teal)');
         if(a.rsvp==='no'){
           cell.appendChild(el('div',{class:'cal-dot',style:{background:'transparent',border:'1.5px solid #94a3b8',width:'5px',height:'5px',boxSizing:'border-box'}}));
@@ -13283,6 +13324,15 @@ function renderCalendar(){
       stack.appendChild(_emptyDay);
     }
     _evtList.forEach(apt=>{
+      const isAnonymous=!isParent&&S.calendarMode==='child'&&S.activeChild&&apt.childId!==S.activeChild;
+      if(isAnonymous){
+        const card=el('div',{style:{display:'flex',gap:'13px',alignItems:'center',background:'rgba(148,163,184,.15)',border:'1px solid var(--slate-l)',borderInlineStart:'4px solid var(--slate-l)',borderRadius:'8px',padding:'13px 16px',cursor:'default'}});
+        // Time on right gives the only positional info; keep block deliberately empty otherwise
+        card.appendChild(el('div',{style:{flex:1,height:'48px'}}));
+        if(apt.time)card.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[apt.time]));
+        stack.appendChild(card);
+        return;
+      }
       const ch=DB.children.find(c=>c.id===apt.childId);
       const _isDeclined=apt.rsvp==='no';
       const _vs4=_aptVisualState(apt);
@@ -13494,14 +13544,25 @@ function showAddEventModalForDate(dateStr,availableChildren){
 
 function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=null){
   openModal(T('apt_add_title'),(mb,close)=>{
-    // Child selector
+    // Child/patient selector
     const children=DB.children;
-    if(children.length>1){
-      mb.appendChild(el('div',{class:'inp-label'},[T('cal_for_which_child')]));
+    const _isSpec=session?.role==='specialist';
+    // Specialists always get the picker (with Personal option). Parents get it only when >1 child.
+    let _selectedChild=_isSpec?null:(S.activeChild||(children[0]?.id||null));
+    if(_isSpec||children.length>1){
+      mb.appendChild(el('div',{class:'inp-label'},[T(_isSpec?'cal_for_which_patient':'cal_for_which_child')]));
       const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
-      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===S.activeChild)o.selected=true;childSel.appendChild(o);});
-      childSel.onchange=e=>{S.activeChild=e.target.value;};
-      if(!S.activeChild)S.activeChild=children[0].id;
+      if(_isSpec){
+        const oPersonal=el('option');oPersonal.value='__personal__';oPersonal.textContent='🕒 '+T('cal_personal_block');childSel.appendChild(oPersonal);
+        const oPick=el('option');oPick.value='';oPick.textContent='— '+T('cal_for_which_patient')+' —';oPick.disabled=true;oPick.selected=true;childSel.appendChild(oPick);
+      }
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(!_isSpec&&c.id===_selectedChild)o.selected=true;childSel.appendChild(o);});
+      childSel.onchange=e=>{
+        const v=e.target.value;
+        if(v==='__personal__')_selectedChild=null;
+        else if(v==='')_selectedChild=null;
+        else _selectedChild=v;
+      };
       mb.appendChild(childSel);
     }
 
@@ -13579,14 +13640,16 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
 
     const _aptSaveBtn=mkBtn('✅ '+T('cal_add_appointment'),'btn-lg btn-primary btn-full',()=>{
       if(!ti.value||!di.value){toast(T('apt_title_date_required'),'error');return;}
+      // Parents must select a child; specialists may save with no patient (personal block)
+      if(!_isSpec&&!_selectedChild){toast(T('apt_title_date_required'),'error');return;}
       _aptSaveBtn.disabled=true;_aptSaveBtn.textContent=T('btn_loading');
       const specId2=session?.specialistId||null;
-      const childId=S.activeChild;
-      const childRec=(LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId);
+      const childId=_selectedChild;
+      const childRec=childId?((LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId)):null;
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
       const _specName=si.value||(session?.role==='specialist'?session?.name:null)||null;
-      const _parentId=childRec?.parentId||session.id;
-      const _hhId=childRec?.householdId||getChildHouseholdId(childId);
+      const _parentId=childRec?.parentId||(childId?session.id:null);
+      const _hhId=childId?(childRec?.householdId||getChildHouseholdId(childId)):null;
       const _specIdVal=session.role==='specialist'?session.id:null;
       const _rnd6=()=>Math.random().toString(36).slice(2,8);
       const baseAptId='a_'+Date.now()+'_'+_rnd6();
@@ -13621,7 +13684,7 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
             if(error){console.error('❌ appointment insert:',error);throw error;}
             const apts=[...DB.appointments];apts.push(baseLs);DB.appointments=apts;
           }
-          if(session?.role==='specialist'){
+          if(session?.role==='specialist'&&childId){
             const _nc=DB.children.find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
             await notifyOtherParty('appointments',T('notif_new_apt',{child:_nc?.name||'',title:ti.value}),childId,'calendar',{aptDate:di.value,aptId:baseAptId},null,T('notif_appointment_count',{n:'{n}',name:_nc?.name||''}));
           }
