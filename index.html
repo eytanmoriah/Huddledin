@@ -3965,6 +3965,9 @@ apt_attendance_saved:'Saved',
 apt_attendance_cleared:'Cleared',
 report_not_found:'Report not found or no longer available',
 apt_series_extended:'Recurring appointments extended',
+cal_view_mode_month:'Month',
+cal_view_mode_week:'Week',
+cal_view_mode_day:'Day',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5370,6 +5373,9 @@ apt_attendance_saved:'נשמר',
 apt_attendance_cleared:'נוקה',
 report_not_found:'הדוח לא נמצא או אינו זמין יותר',
 apt_series_extended:'תורים חוזרים הוארכו',
+cal_view_mode_month:'חודש',
+cal_view_mode_week:'שבוע',
+cal_view_mode_day:'יום',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12763,6 +12769,151 @@ function _seriesRadio(label,checked,onSelect){
   return row;
 }
 
+function _parseAptMinutes(apt){
+  // Returns {start, end} in minutes-from-midnight. Defaults to 9am+60min if unparseable.
+  if(!apt.time||apt.time==='TBD')return{start:9*60,end:10*60};
+  const parts=apt.time.split(' – ');
+  const _toMin=s=>{const m=(s||'').match(/(\d{1,2}):(\d{2})/);if(!m)return null;return parseInt(m[1])*60+parseInt(m[2]);};
+  const start=_toMin(parts[0]);
+  let end=_toMin(parts[1])||_toMin(apt.endTime);
+  if(start==null)return{start:9*60,end:10*60};
+  if(end==null||end<=start)end=start+60;
+  return{start,end};
+}
+
+function _computeDayLayout(apts){
+  // Sweep-line column assignment. Returns array of {apt, col, totalCols}.
+  const items=apts.map(a=>{const m=_parseAptMinutes(a);return{apt:a,start:m.start,end:m.end};});
+  items.sort((a,b)=>a.start-b.start||a.end-b.end);
+  // Build clusters of overlapping events
+  const result=[];
+  let cluster=[];
+  let clusterEnd=0;
+  function flush(){
+    if(!cluster.length)return;
+    // Assign columns greedily within cluster
+    const cols=[];
+    cluster.forEach(it=>{
+      let placed=false;
+      for(let c=0;c<cols.length;c++){
+        if(cols[c]<=it.start){cols[c]=it.end;it.col=c;placed=true;break;}
+      }
+      if(!placed){it.col=cols.length;cols.push(it.end);}
+    });
+    const totalCols=cols.length;
+    cluster.forEach(it=>{result.push({apt:it.apt,start:it.start,end:it.end,col:it.col,totalCols});});
+    cluster=[];clusterEnd=0;
+  }
+  items.forEach(it=>{
+    if(it.start>=clusterEnd&&cluster.length){flush();}
+    cluster.push(it);
+    if(it.end>clusterEnd)clusterEnd=it.end;
+  });
+  flush();
+  return result;
+}
+
+function _renderDayView(calCard,allApts,isRtl){
+  const SLOT_H=24; // px per 15-min slot
+  const TOTAL_HEIGHT=24*4*SLOT_H; // 2304px for full 24h
+  const VISIBLE_HEIGHT=600; // viewport
+  const TIME_COL_W=56;
+  const focusDateStr=S.calDayDate;
+  const focusDate=new Date(focusDateStr+'T12:00:00');
+  const todayStr=new Date().toISOString().split('T')[0];
+  // Day nav header
+  const dayHd=el('div',{class:'cal-hd',style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px'}});
+  const dayLabel=focusDate.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const _prevChev=isRtl?'›':'‹';
+  const _nextChev=isRtl?'‹':'›';
+  const _prevBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_prevChev]);
+  _prevBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()-1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;re();};
+  const _nextBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_nextChev]);
+  _nextBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()+1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;re();};
+  const _navWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+  _navWrap.appendChild(_prevBtn);
+  _navWrap.appendChild(el('span',{style:{fontWeight:800,fontSize:'1rem',color:'#fff',minWidth:'200px',textAlign:'center'}},[dayLabel]));
+  _navWrap.appendChild(_nextBtn);
+  dayHd.appendChild(_navWrap);
+  const dayApts=allApts.filter(a=>a.date===focusDateStr&&!a.deletedAt);
+  dayHd.appendChild(el('span',{style:{fontSize:'.8rem',opacity:'.8',color:'#fff'}},[dayApts.length+' '+(dayApts.length===1?'event':'events')]));
+  calCard.appendChild(dayHd);
+
+  // Scroll container
+  const scrollContainer=el('div',{style:{position:'relative',height:VISIBLE_HEIGHT+'px',overflowY:'auto',background:'#fff'}});
+  const grid=el('div',{style:{position:'relative',height:TOTAL_HEIGHT+'px',width:'100%'}});
+
+  // Hour rows (background lines + time labels)
+  for(let h=0;h<24;h++){
+    const row=el('div',{style:{position:'absolute',top:(h*4*SLOT_H)+'px',left:'0',right:'0',height:(4*SLOT_H)+'px',borderTop:'1px solid #e2e8f0'}});
+    const lbl=el('div',{style:{position:'absolute',top:'-7px',[isRtl?'right':'left']:'4px',fontSize:'.68rem',color:'#94a3b8',fontWeight:600,background:'#fff',padding:'0 4px',width:(TIME_COL_W-8)+'px',textAlign:isRtl?'right':'left'}},[String(h).padStart(2,'0')+':00']);
+    row.appendChild(lbl);
+    grid.appendChild(row);
+  }
+
+  // 15-min tap targets (empty slots → create)
+  for(let i=0;i<96;i++){
+    const slotMin=i*15;
+    const slot=el('div',{style:{position:'absolute',top:(i*SLOT_H)+'px',[isRtl?'right':'left']:TIME_COL_W+'px',[isRtl?'left':'right']:'0',height:SLOT_H+'px',cursor:'pointer'}});
+    slot.onclick=()=>{
+      const hh=String(Math.floor(slotMin/60)).padStart(2,'0');
+      const mm=String(slotMin%60).padStart(2,'0');
+      const endMin=slotMin+30;
+      const eh=String(Math.floor(endMin/60)%24).padStart(2,'0');
+      const em=String(endMin%60).padStart(2,'0');
+      showAddEventModal(focusDateStr,hh+':'+mm,eh+':'+em);
+    };
+    grid.appendChild(slot);
+  }
+
+  // Appointment blocks
+  const layout=_computeDayLayout(dayApts);
+  layout.forEach(({apt,start,end,col,totalCols})=>{
+    const top=(start/15)*SLOT_H;
+    const height=Math.max(SLOT_H,((end-start)/15)*SLOT_H);
+    const colWidth=`calc((100% - ${TIME_COL_W}px) / ${totalCols})`;
+    const leftOffset=`calc(${TIME_COL_W}px + ${col} * ${colWidth.replace('calc(','').replace(')','')})`;
+    const ch=DB.children.find(c=>c.id===apt.childId);
+    const childColor=ch?.color||TC[apt.type]||'var(--teal)';
+    const vs=_aptVisualState(apt);
+    const block=el('div',{style:{
+      position:'absolute',top:top+'px',height:(height-2)+'px',
+      [isRtl?'right':'left']:leftOffset,
+      width:`calc(${colWidth} - 4px)`,
+      background:'#fff',border:'1.5px solid '+childColor,
+      borderInlineStart:'4px solid '+childColor,
+      borderRadius:'6px',padding:'3px 6px',
+      cursor:'pointer',overflow:'hidden',
+      opacity:vs.opacity,
+      boxSizing:'border-box',
+      fontSize:'.72rem',lineHeight:'1.2'
+    }});
+    const titleEl=el('div',{style:{fontWeight:700,color:'var(--navy)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textDecoration:vs.titleStrike?'line-through':'none'}},[aptDisplayTitle(apt)]);
+    block.appendChild(titleEl);
+    if(height>=30){
+      const timeStr=_aptTimeDisplay(apt);
+      block.appendChild(el('div',{style:{fontSize:'.66rem',color:'var(--slate)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textDecoration:vs.timeStrike?'line-through':'none'}},[timeStr]));
+    }
+    if(height>=60&&apt.location){
+      block.appendChild(el('div',{style:{fontSize:'.62rem',color:'var(--slate-l)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},['📍 '+apt.location]));
+    }
+    if(vs.pillText&&height>=45){
+      block.appendChild(el('span',{style:{display:'inline-block',marginTop:'2px',fontSize:'.58rem',fontWeight:700,color:vs.pillFg,background:vs.pillBg,padding:'1px 5px',borderRadius:'99px'}},[vs.pillText]));
+    }
+    block.onclick=(e)=>{e.stopPropagation();showAptDetailModal(apt,ch);};
+    grid.appendChild(block);
+  });
+
+  scrollContainer.appendChild(grid);
+  calCard.appendChild(scrollContainer);
+
+  // Default scroll to 8am on first render of this day
+  if(!S._dayViewScrolled){
+    S._dayViewScrolled=true;
+    requestAnimationFrame(()=>{scrollContainer.scrollTop=8*4*SLOT_H;});
+  }
+}
+
 function renderCalendar(){
   // Default selected day to today when calendar opens
   if(!S.calSelectedDate)S.calSelectedDate=new Date().toISOString().split('T')[0];
@@ -12876,28 +13027,55 @@ function renderCalendar(){
     return{grid:g,count:apts.length};
   };
 
-  // Header
-  const calHd2=el('div',{class:'cal-hd',style:{display:'flex',alignItems:'center',justifyContent:'space-between'}});
-  const _calMonthLabel=_calBase.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  const _calPrevChev=_isRtl()?'›':'‹';
-  const _calNextChev=_isRtl()?'‹':'›';
-  const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
-  _calNavLeft.onclick=()=>_calNav('calMonth',-1);
-  const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
-  _calNavRight.onclick=()=>_calNav('calMonth',1);
-  const _calMonthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
-  _calMonthNav.appendChild(_calNavLeft);
-  _calMonthNav.appendChild(el('span',{class:'ff','data-cal-label':'1',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center',color:'#fff'}},[_calMonthLabel]));
-  _calMonthNav.appendChild(_calNavRight);
-  calHd2.appendChild(_calMonthNav);
-  calHd2.appendChild(el('span',{'data-cal-count':'1',style:{fontSize:'.8rem',opacity:'.8'}},[childApts.length+' events']));
-  calCard.appendChild(calHd2);
+  // View-mode toggle bar
+  if(!S.calView)S.calView='month';
+  if(!S.calDayDate)S.calDayDate=calTodayStr;
+  const _calViewBar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'var(--teal-d)',gap:'8px',flexWrap:'wrap'}});
+  const _calViewToggle=el('div',{style:{display:'flex',gap:'2px',background:'rgba(255,255,255,.15)',borderRadius:'7px',padding:'2px'}});
+  ['month','week','day'].forEach(v=>{
+    const sel=S.calView===v;
+    const b=el('button',{style:{background:sel?'#fff':'transparent',color:sel?'var(--teal-d)':'#fff',border:'none',borderRadius:'5px',padding:'5px 12px',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all .12s'}},[T('cal_view_mode_'+v)]);
+    b.onclick=()=>{if(S.calView!==v){S.calView=v;S.calDayDate=calTodayStr;S._dayViewScrolled=false;re();}};
+    _calViewToggle.appendChild(b);
+  });
+  _calViewBar.appendChild(_calViewToggle);
+  const _todayBtn=el('button',{style:{background:'rgba(255,255,255,.15)',color:'#fff',border:'none',borderRadius:'5px',padding:'5px 12px',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit'}},[T('cal_today')]);
+  _todayBtn.onclick=()=>{S.calMonth=0;S.calDayDate=calTodayStr;S._dayViewScrolled=false;re();};
+  _calViewBar.appendChild(_todayBtn);
+  calCard.appendChild(_calViewBar);
 
-  // Initial grid
-  const _initGrid=calCard._mkGrid(calYear,calMonth);
-  calCard.appendChild(_initGrid.grid);
-  _addCalSwipe(calCard,'calMonth');
+  if(S.calView==='month'){
+    // Header (Month nav)
+    const calHd2=el('div',{class:'cal-hd',style:{display:'flex',alignItems:'center',justifyContent:'space-between'}});
+    const _calMonthLabel=_calBase.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    const _calPrevChev=_isRtl()?'›':'‹';
+    const _calNextChev=_isRtl()?'‹':'›';
+    const _calNavLeft=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calPrevChev]);
+    _calNavLeft.onclick=()=>_calNav('calMonth',-1);
+    const _calNavRight=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 8px',minWidth:'44px',minHeight:'44px',display:'inline-flex',alignItems:'center',justifyContent:'center'}},[_calNextChev]);
+    _calNavRight.onclick=()=>_calNav('calMonth',1);
+    const _calMonthNav=el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}});
+    _calMonthNav.appendChild(_calNavLeft);
+    _calMonthNav.appendChild(el('span',{class:'ff','data-cal-label':'1',style:{fontWeight:800,fontSize:'1.08rem',minWidth:'130px',textAlign:'center',color:'#fff'}},[_calMonthLabel]));
+    _calMonthNav.appendChild(_calNavRight);
+    calHd2.appendChild(_calMonthNav);
+    calHd2.appendChild(el('span',{'data-cal-count':'1',style:{fontSize:'.8rem',opacity:'.8'}},[childApts.length+' events']));
+    calCard.appendChild(calHd2);
+
+    // Initial grid
+    const _initGrid=calCard._mkGrid(calYear,calMonth);
+    calCard.appendChild(_initGrid.grid);
+    _addCalSwipe(calCard,'calMonth');
+  } else if(S.calView==='day'){
+    _renderDayView(calCard,childApts,_isRtl());
+  } else if(S.calView==='week'){
+    // Stage 2 placeholder
+    calCard.appendChild(el('div',{style:{padding:'40px 20px',textAlign:'center',color:'var(--slate)'}},['Week view — coming soon']));
+  }
   sec.appendChild(calCard);
+
+  // Events section — only for month view (day/week views render events inside the grid)
+  if(S.calView!=='month'){return sec;}
 
   // Events section — day view (default) or upcoming view (toggle)
   // Wrapped in a rebuild helper so day-tap can update in-place without a full re()
@@ -13140,7 +13318,7 @@ function showAddEventModalForDate(dateStr,availableChildren){
   showAddEventModal(dateStr||new Date().toISOString().split('T')[0]);
 }
 
-function showAddEventModal(prefilledDate=null){
+function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=null){
   openModal(T('apt_add_title'),(mb,close)=>{
     // Child selector
     const children=DB.children;
@@ -13170,7 +13348,9 @@ function showAddEventModal(prefilledDate=null){
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_time')]));
     const timeRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}});
     const tmi=el('input',{class:'inp',type:'time'});
+    if(prefilledStart)tmi.value=prefilledStart;
     const endTmi=el('input',{class:'inp',type:'time'});
+    if(prefilledEnd)endTmi.value=prefilledEnd;
     const sw=el('div');sw.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_start_label')]));sw.appendChild(tmi);
     const ew=el('div');ew.appendChild(el('div',{style:{fontSize:'.7rem',color:'var(--slate)',marginBottom:'2px'}},[T('cal_end_label')]));ew.appendChild(endTmi);
     timeRow.appendChild(sw);timeRow.appendChild(ew);
