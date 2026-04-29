@@ -2269,6 +2269,7 @@ function _debouncedRefresh(){
     _refreshTimer=null;
     const _chatsWereLoaded=S.chatsLoaded;
     refreshFromSupabase().then(()=>{
+      if((S._suppressRefreshCount||0)>0){S._refreshDeferred=true;return;}
       if(_chatsWereLoaded)loadChatsFromSupabase().then(()=>re());
       else re();
     });
@@ -12343,6 +12344,7 @@ function showAptDetailModal(apt,child){
     :(isParent?true:(apt.specialistId===session.specialistId||apt.specialistId===session.id));
   const dateLabel=new Date(apt.date+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const typeLabel={speech:T('apt_type_speech'),ot:T('apt_type_ot'),pt:T('apt_type_pt'),psychology:T('apt_type_psychology'),general:T('apt_type_general')}[apt.type]||T('apt_type_general');
+  S._suppressRefreshCount=(S._suppressRefreshCount||0)+1;
   openModal(T('apt_title_label'),(mb,close)=>{
     // Header
     const hdr=el('div',{style:{display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1.5px solid var(--mint-l)'}});
@@ -12541,6 +12543,24 @@ function showAptDetailModal(apt,child){
     }
     mb.appendChild(actRow);
   },480);
+  // Decrement suppress counter when this modal closes (any path: X, tap-outside, re()-strip)
+  const _aptOv=document.body.lastElementChild;
+  if(_aptOv&&_aptOv.classList.contains('overlay')){
+    const _obs=new MutationObserver(()=>{
+      if(!_aptOv.isConnected){
+        _obs.disconnect();
+        S._suppressRefreshCount=Math.max(0,(S._suppressRefreshCount||0)-1);
+        if(S._suppressRefreshCount===0&&S._refreshDeferred){
+          S._refreshDeferred=false;
+          re();
+        }
+      }
+    });
+    _obs.observe(document.body,{childList:true});
+  } else {
+    // Fallback: openModal didn't append where expected — decrement immediately to avoid leak
+    S._suppressRefreshCount=Math.max(0,(S._suppressRefreshCount||0)-1);
+  }
 }
 
 /* -- Edit Appointment Modal -- */
