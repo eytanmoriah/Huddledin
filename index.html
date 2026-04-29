@@ -12349,13 +12349,21 @@ function _aptVisualState(apt){
   const isParentView=session?.role==='parent';
   if(a==='therapist_cancelled'){
     const txt=isParentView?T('apt_attendance_therapist_cancelled_parent',{specialist:apt.specialist||'Specialist'}):T('apt_attendance_therapist_cancelled_self');
-    return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:txt,pillBg:'#e2e8f0',pillFg:'#475569'};
+    return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:txt,pillBg:'#e2e8f0',pillFg:'#475569',rsvpDeclined:false};
   }
-  if(a==='patient_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_patient_cancelled'),pillBg:'#e2e8f0',pillFg:'#475569'};
-  if(a==='no_show')return{opacity:'.65',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_no_show'),pillBg:'#fed7aa',pillFg:'#9a3412'};
-  if(a==='attended')return{opacity:'.70',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_attended'),pillBg:'#bbf7d0',pillFg:'#166534'};
-  if(_isAptPast(apt))return{opacity:'.55',timeStrike:true,titleStrike:false,pillText:null,pillBg:null,pillFg:null};
-  return{opacity:'1',timeStrike:false,titleStrike:false,pillText:null,pillBg:null,pillFg:null};
+  if(a==='patient_cancelled')return{opacity:'.50',timeStrike:true,titleStrike:true,pillText:T('apt_attendance_patient_cancelled'),pillBg:'#e2e8f0',pillFg:'#475569',rsvpDeclined:false};
+  if(a==='no_show')return{opacity:'.65',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_no_show'),pillBg:'#fed7aa',pillFg:'#9a3412',rsvpDeclined:false};
+  if(a==='attended')return{opacity:'.70',timeStrike:false,titleStrike:false,pillText:T('apt_attendance_attended'),pillBg:'#bbf7d0',pillFg:'#166534',rsvpDeclined:false};
+  const declined=apt.rsvp==='no';
+  if(_isAptPast(apt))return{opacity:declined?'.45':'.55',timeStrike:true,titleStrike:false,pillText:null,pillBg:null,pillFg:null,rsvpDeclined:declined};
+  return{opacity:declined?'.55':'1',timeStrike:false,titleStrike:false,pillText:null,pillBg:null,pillFg:null,rsvpDeclined:declined};
+}
+
+// Returns a hex color with appended alpha (e.g. '#14b8a6' + '1F' → '#14b8a61F').
+// If color isn't a 7-char hex (CSS var, named color), returns null so caller falls back to no tint.
+function _aptTintBg(color){
+  if(typeof color==='string'&&/^#[0-9a-fA-F]{6}$/.test(color))return color+'1F';
+  return null;
 }
 
 /* -- Appointment Detail Modal with Permission Logic -- */
@@ -12906,11 +12914,14 @@ function _renderDayView(calCard,allApts,isRtl){
     const ch=DB.children.find(c=>c.id===apt.childId);
     const childColor=ch?.color||TC[apt.type]||'var(--teal)';
     const vs=_aptVisualState(apt);
+    const _tint=_aptTintBg(childColor);
+    const _bg=vs.rsvpDeclined?'#fff':(_tint||'#fff');
+    const _borderStyle=vs.rsvpDeclined?'dashed':'solid';
     const block=el('div',{style:{
       position:'absolute',top:top+'px',height:(height-2)+'px',
       [isRtl?'right':'left']:leftOffset,
       width:`calc(${colWidth} - 4px)`,
-      background:'#fff',border:'1.5px solid '+childColor,
+      background:_bg,border:'1.5px '+_borderStyle+' '+childColor,
       borderInlineStart:'4px solid '+childColor,
       borderRadius:'6px',padding:'3px 6px',
       cursor:'pointer',overflow:'hidden',
@@ -13070,11 +13081,14 @@ function _renderWeekView(calCard,allApts,isRtl){
       const ch=DB.children.find(c=>c.id===apt.childId);
       const childColor=ch?.color||TC[apt.type]||'var(--teal)';
       const vs=_aptVisualState(apt);
+      const _tintW=_aptTintBg(childColor);
+      const _bgW=vs.rsvpDeclined?'#fff':(_tintW||'#fff');
+      const _borderStyleW=vs.rsvpDeclined?'dashed':'solid';
       const block=el('div',{style:{
         position:'absolute',top:top+'px',height:(height-2)+'px',
         [isRtl?'right':'left']:`calc(${colIdx} * 100% / ${totalCols} + 2px)`,
         width:`calc(100% / ${totalCols} - 4px)`,
-        background:'#fff',border:'1.5px solid '+childColor,
+        background:_bgW,border:'1.5px '+_borderStyleW+' '+childColor,
         borderInlineStart:'3px solid '+childColor,
         borderRadius:'5px',padding:'2px 4px',
         cursor:'pointer',overflow:'hidden',
