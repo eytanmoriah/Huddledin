@@ -3963,6 +3963,7 @@ apt_attendance_marked_by_you:'by you',
 apt_attendance_marked_by_other:'by Specialist',
 apt_attendance_saved:'Saved',
 apt_attendance_cleared:'Cleared',
+report_not_found:'Report not found or no longer available',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5366,6 +5367,7 @@ apt_attendance_marked_by_you:'על ידיך',
 apt_attendance_marked_by_other:'על ידי מטפל/ת',
 apt_attendance_saved:'נשמר',
 apt_attendance_cleared:'נוקה',
+report_not_found:'הדוח לא נמצא או אינו זמין יותר',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -9977,7 +9979,7 @@ function renderCalFullscreen(){
         const card=el('div',{class:'card hov',style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'9px',padding:'13px 16px',cursor:'pointer',opacity:_vs2.opacity,[_isRtl()?'borderRight':'borderLeft']:'4px solid '+color}});
         const info=el('div',{style:{flex:1}});
         info.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.88rem',textDecoration:_vs2.titleStrike?'line-through':'none'}},[aptDisplayTitle(a)]));
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px',textDecoration:_vs2.timeStrike?'line-through':'none'}},[a.time+(a.endTime?' – '+a.endTime:'')]));
+        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'var(--teal)',fontWeight:700,marginTop:'2px',textDecoration:_vs2.timeStrike?'line-through':'none'}},[_aptTimeDisplay(a)]));
         if(a.location)info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate-l)',marginTop:'1px'}},['📍 '+a.location]));
         card.appendChild(info);
         if(_vs2.pillText)card.appendChild(el('span',{style:{fontSize:'.62rem',fontWeight:700,color:_vs2.pillFg,background:_vs2.pillBg,padding:'2px 7px',borderRadius:'99px',flexShrink:0,alignSelf:'center'}},[ _vs2.pillText]));
@@ -10205,6 +10207,11 @@ function aptDisplaySub(apt){
     return label+(apt.location?' · '+apt.location:'');
   }
   return apt.location||apt.specialist||'';
+}
+function _aptTimeDisplay(a){
+  if(!a.time)return '';
+  if(a.time.includes(' – '))return a.time;
+  return a.endTime?a.time+' – '+a.endTime:a.time;
 }
 
 function renderContent(){
@@ -12359,7 +12366,7 @@ function showAptDetailModal(apt,child){
     mb.appendChild(hdr);
     // Details grid
     const rows=[
-      apt.time?['🕐',T('cal_event_time'),apt.time+(apt.endTime?' – '+apt.endTime:'')]:null,
+      apt.time?['🕐',T('cal_event_time'),_aptTimeDisplay(apt)]:null,
       apt.specialist&&apt.specialist!=='TBD'?['👤',isParent?T('cal_event_specialist'):T('apt_session_with'),apt.specialist]:null,
       apt.location?['📍',T('cal_event_location'),apt.location]:null,
       child?['🧒',T('cal_event_child'),child.name]:null,

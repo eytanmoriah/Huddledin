@@ -340,12 +340,12 @@ async function loadReport(reportId) {
   if (!supa) return { error: 'not_authenticated' };
   const { data, error } = await supa.from('reports')
     .select('id, name, content, schema_version, child_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, finalized_at')
-    .eq('id', reportId)
-    .single();
+    .eq('id', reportId);
   if (error) { console.error('\u274c report load:', error); return { error: error.message }; }
-  if (!data) return { error: 'not_found' };
-  if (data.schema_version && data.schema_version !== 1) return { error: 'unsupported_schema' };
-  return { data };
+  if (!data || data.length === 0) return { error: 'not_found' };
+  const row = data[0];
+  if (row.schema_version && row.schema_version !== 1) return { error: 'unsupported_schema' };
+  return { data: row };
 }
 
 export async function mountGateEditor(containerEl, opts = {}) {
@@ -371,6 +371,14 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
   if (reportId && !opts.startNew) {
     const result = await loadReport(reportId);
+    if (result.error === 'not_found') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('draft');
+      history.replaceState(null, '', url.pathname + (url.search ? url.search : '') + url.hash);
+      _toast?.(window.HUD?.T?.('report_not_found') || 'Report not found or no longer available', 'error');
+      opts._closeModal?.();
+      return null;
+    }
     if (result.error) {
       containerEl.textContent = '';
       const errMsg = result.error === 'unsupported_schema'
