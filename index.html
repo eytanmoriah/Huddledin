@@ -12829,9 +12829,9 @@ function _renderDayView(calCard,allApts,isRtl){
   const _prevChev=isRtl?'›':'‹';
   const _nextChev=isRtl?'‹':'›';
   const _prevBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_prevChev]);
-  _prevBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()-1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;re();};
+  _prevBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()-1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;S._lastDayScrollTop=null;S._lastDayScrollKey=null;re();};
   const _nextBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_nextChev]);
-  _nextBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()+1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;re();};
+  _nextBtn.onclick=()=>{const d=new Date(focusDateStr+'T12:00:00');d.setDate(d.getDate()+1);S.calDayDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');S._dayViewScrolled=false;S._lastDayScrollTop=null;S._lastDayScrollKey=null;re();};
   const _navWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
   _navWrap.appendChild(_prevBtn);
   // Stacked header: weekday abbreviation + date number (lavender circle if today) + full date
@@ -12928,8 +12928,14 @@ function _renderDayView(calCard,allApts,isRtl){
   scrollContainer.appendChild(grid);
   calCard.appendChild(scrollContainer);
 
-  // Default scroll to 8am on first render of this day
-  if(!S._dayViewScrolled){
+  // Wire scroll listener to preserve position across re()
+  scrollContainer.addEventListener('scroll',()=>{S._lastDayScrollTop=scrollContainer.scrollTop;S._lastDayScrollKey=focusDateStr;},{passive:true});
+
+  // Restore scroll if same date and we have a saved position; else 8am default on first render
+  const sameDate=S._lastDayScrollKey===focusDateStr;
+  if(sameDate&&S._lastDayScrollTop!=null){
+    requestAnimationFrame(()=>{scrollContainer.scrollTop=S._lastDayScrollTop;});
+  } else if(!S._dayViewScrolled){
     S._dayViewScrolled=true;
     requestAnimationFrame(()=>{scrollContainer.scrollTop=8*4*SLOT_H;});
   }
@@ -12953,9 +12959,9 @@ function _renderWeekView(calCard,allApts,isRtl){
   const _prevChev=isRtl?'›':'‹';
   const _nextChev=isRtl?'‹':'›';
   const _prevBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_prevChev]);
-  _prevBtn.onclick=()=>{const d=new Date(focusDate);d.setDate(d.getDate()-7);S.calDayDate=_fmtD(d);S._dayViewScrolled=false;re();};
+  _prevBtn.onclick=()=>{const d=new Date(focusDate);d.setDate(d.getDate()-7);S.calDayDate=_fmtD(d);S._dayViewScrolled=false;S._lastWeekScrollTop=null;S._lastWeekScrollKey=null;re();};
   const _nextBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'1.2rem',color:'#fff',padding:'4px 10px',minWidth:'44px',minHeight:'44px'}},[_nextChev]);
-  _nextBtn.onclick=()=>{const d=new Date(focusDate);d.setDate(d.getDate()+7);S.calDayDate=_fmtD(d);S._dayViewScrolled=false;re();};
+  _nextBtn.onclick=()=>{const d=new Date(focusDate);d.setDate(d.getDate()+7);S.calDayDate=_fmtD(d);S._dayViewScrolled=false;S._lastWeekScrollTop=null;S._lastWeekScrollKey=null;re();};
   const _navWrap=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}});
   _navWrap.appendChild(_prevBtn);
   const sameMonth=weekStart.getMonth()===weekEnd.getMonth();
@@ -12980,7 +12986,7 @@ function _renderWeekView(calCard,allApts,isRtl){
     const colHd=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',cursor:'pointer',padding:'4px 0'}});
     colHd.appendChild(el('div',{style:{fontSize:'.62rem',fontWeight:700,letterSpacing:'.06em',color:'#64748b',textTransform:'uppercase'}},[d.toLocaleDateString([],{weekday:'short'})]));
     colHd.appendChild(el('div',{style:{fontSize:'.92rem',fontWeight:800,width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'50%',background:isToday?'var(--lav-l)':'transparent',color:isToday?'var(--lav-d)':'var(--navy)',marginTop:'2px'}},[String(d.getDate())]));
-    colHd.onclick=()=>{S.calView='day';S.calDayDate=ds;S._dayViewScrolled=false;re();};
+    colHd.onclick=()=>{S.calView='day';S.calDayDate=ds;S._dayViewScrolled=false;S._lastDayScrollTop=null;S._lastDayScrollKey=null;re();};
     colHdRow.appendChild(colHd);
   });
   calCard.appendChild(colHdRow);
@@ -13066,7 +13072,14 @@ function _renderWeekView(calCard,allApts,isRtl){
   }
   scrollContainer.appendChild(grid);
   calCard.appendChild(scrollContainer);
-  if(!S._dayViewScrolled){
+  // Wire scroll listener to preserve position across re()
+  const _weekStartKey=_fmtD(weekStart);
+  scrollContainer.addEventListener('scroll',()=>{S._lastWeekScrollTop=scrollContainer.scrollTop;S._lastWeekScrollKey=_weekStartKey;},{passive:true});
+  // Restore scroll if same week and we have a saved position; else 8am default on first render
+  const sameWeek=S._lastWeekScrollKey===_weekStartKey;
+  if(sameWeek&&S._lastWeekScrollTop!=null){
+    requestAnimationFrame(()=>{scrollContainer.scrollTop=S._lastWeekScrollTop;});
+  } else if(!S._dayViewScrolled){
     S._dayViewScrolled=true;
     requestAnimationFrame(()=>{scrollContainer.scrollTop=8*4*SLOT_H;});
   }
@@ -13188,19 +13201,19 @@ function renderCalendar(){
   };
 
   // View-mode toggle bar
-  if(!S.calView)S.calView='month';
+  if(!S.calView)S.calView='week';
   if(!S.calDayDate)S.calDayDate=calTodayStr;
   const _calViewBar=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'var(--teal-d)',gap:'8px',flexWrap:'wrap'}});
   const _calViewToggle=el('div',{style:{display:'flex',gap:'2px',background:'rgba(255,255,255,.15)',borderRadius:'7px',padding:'2px'}});
   ['month','week','day'].forEach(v=>{
     const sel=S.calView===v;
     const b=el('button',{style:{background:sel?'#fff':'transparent',color:sel?'var(--teal-d)':'#fff',border:'none',borderRadius:'5px',padding:'5px 12px',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all .12s'}},[T('cal_view_mode_'+v)]);
-    b.onclick=()=>{if(S.calView!==v){S.calView=v;S.calDayDate=calTodayStr;S._dayViewScrolled=false;re();}};
+    b.onclick=()=>{if(S.calView!==v){S.calView=v;S.calDayDate=calTodayStr;S._dayViewScrolled=false;S._lastDayScrollTop=null;S._lastDayScrollKey=null;S._lastWeekScrollTop=null;S._lastWeekScrollKey=null;re();}};
     _calViewToggle.appendChild(b);
   });
   _calViewBar.appendChild(_calViewToggle);
   const _todayBtn=el('button',{style:{background:'rgba(255,255,255,.15)',color:'#fff',border:'none',borderRadius:'5px',padding:'5px 12px',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit'}},[T('cal_today')]);
-  _todayBtn.onclick=()=>{S.calMonth=0;S.calDayDate=calTodayStr;S._dayViewScrolled=false;re();};
+  _todayBtn.onclick=()=>{S.calMonth=0;S.calDayDate=calTodayStr;S._dayViewScrolled=false;S._lastDayScrollTop=null;S._lastDayScrollKey=null;S._lastWeekScrollTop=null;S._lastWeekScrollKey=null;re();};
   _calViewBar.appendChild(_todayBtn);
   calCard.appendChild(_calViewBar);
 
