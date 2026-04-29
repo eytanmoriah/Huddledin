@@ -15760,7 +15760,9 @@ function renderVault(){
             // Clear in-flight drafts (content is now saved to Supabase)
             if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];
             if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
-            S.vaultHasUnsaved=false;re();toast(T('vault_draft_saved'));
+            S.vaultHasUnsaved=false;
+            saveDraftBtn.disabled=false;
+            toast(T('vault_draft_saved'));
           }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');saveDraftBtn.disabled=false;}
         });
 
