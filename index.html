@@ -12952,7 +12952,8 @@ function _renderDayView(calCard,allApts,isRtl){
     }
     block.onclick=(e)=>{e.stopPropagation();showAptDetailModal(apt,ch);};
     grid.appendChild(block);
-    _calendarDragBind(block,{apt,scrollContainer,grid,isWeek:false,weekDays:[focusDateStr],isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
+    const _canDrag=!_isParent&&apt.specialistId===session.id;
+    if(_canDrag)_calendarDragBind(block,{apt,scrollContainer,grid,isWeek:false,weekDays:[focusDateStr],isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
   });
 
   // Now line — only when viewing today
@@ -13116,7 +13117,8 @@ function _renderWeekView(calCard,allApts,isRtl){
       }
       block.onclick=(e)=>{e.stopPropagation();showAptDetailModal(apt,ch);};
       col.appendChild(block);
-      _calendarDragBind(block,{apt,scrollContainer,grid,isWeek:true,weekDays:weekDays.map(_fmtD),isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
+      const _canDragW=!_isParentW&&apt.specialistId===session.id;
+      if(_canDragW)_calendarDragBind(block,{apt,scrollContainer,grid,isWeek:true,weekDays:weekDays.map(_fmtD),isRtl,onDrop:({apt:_a,newMinutesFromMidnight,newDateStr})=>_saveDrop(_a,newMinutesFromMidnight,newDateStr)});
     });
     dayCols[ds]=col;
     grid.appendChild(col);
@@ -13162,7 +13164,7 @@ function _calendarDragBind(blockEl,opts){
     blockEl.style.cursor='grab';
     _dragInProgress=false;
   }
-  function _gridY(clientY){const r=grid.getBoundingClientRect();return clientY-r.top+scrollContainer.scrollTop;}
+  function _gridY(clientY){const r=grid.getBoundingClientRect();return clientY-r.top;}
   function _snapMins(y){const slots=Math.round(y/_CAL_SLOT_H);const m=Math.max(0,Math.min(95,slots))*15;return m;}
   function _colFromX(clientX){
     if(!isWeek)return 0;
