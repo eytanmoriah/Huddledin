@@ -3960,6 +3960,8 @@ apt_attendance_marked_subtitle:'Last marked {time} {by}',
 apt_attendance_clear:'Clear',
 apt_attendance_marked_by_you:'by you',
 apt_attendance_marked_by_other:'by Specialist',
+apt_attendance_saved:'Saved',
+apt_attendance_cleared:'Cleared',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5361,6 +5363,8 @@ apt_attendance_marked_subtitle:'סומן {time} {by}',
 apt_attendance_clear:'ניקוי',
 apt_attendance_marked_by_you:'על ידיך',
 apt_attendance_marked_by_other:'על ידי מטפל/ת',
+apt_attendance_saved:'נשמר',
+apt_attendance_cleared:'נוקה',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12415,6 +12419,10 @@ function showAptDetailModal(apt,child){
       async function _setAttendance(newVal){
         attBtns.forEach(({btn})=>{btn.disabled=true;});
         clearBtn.disabled=true;
+        const tappedEntry=newVal===null?null:attBtns.find(b=>b.opt.v===newVal);
+        const tappedBtn=tappedEntry?.btn;
+        const origLabel=tappedBtn?tappedBtn.textContent:null;
+        if(tappedBtn)tappedBtn.textContent='…';
         const nowIso=new Date().toISOString();
         const dbPatch=newVal===null
           ?{attendance:null,attendance_marked_at:null,attendance_marked_by:null}
@@ -12434,10 +12442,19 @@ function showAptDetailModal(apt,child){
           const apts2=[...DB.appointments];const i2=apts2.findIndex(a=>a.id===apt.id);
           if(i2>-1){Object.assign(apts2[i2],prev);DB.appointments=apts2;}
           _renderAttBtns();_renderAttSubtitle();
+          if(tappedBtn&&origLabel)tappedBtn.textContent=origLabel;
           toast(T('apt_could_not_save'),'error');
+          attBtns.forEach(({btn})=>{btn.disabled=false;});
+          clearBtn.disabled=false;
+          return;
         }
-        attBtns.forEach(({btn})=>{btn.disabled=false;});
-        clearBtn.disabled=false;
+        if(tappedBtn){
+          tappedBtn.textContent='✓';
+          setTimeout(()=>{if(origLabel)tappedBtn.textContent=origLabel;attBtns.forEach(({btn})=>{btn.disabled=false;});clearBtn.disabled=false;},800);
+        } else {
+          attBtns.forEach(({btn})=>{btn.disabled=false;});clearBtn.disabled=false;
+        }
+        toast(newVal===null?T('apt_attendance_cleared'):T('apt_attendance_saved'));
       }
       attOpts.forEach(opt=>{
         const btn=el('button',{style:{padding:'8px 12px',borderRadius:'8px',fontSize:'.78rem',cursor:'pointer',fontFamily:'inherit',transition:'all .12s',flexShrink:0}},[opt.label]);
