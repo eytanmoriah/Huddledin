@@ -3964,6 +3964,7 @@ apt_attendance_marked_by_other:'by Specialist',
 apt_attendance_saved:'Saved',
 apt_attendance_cleared:'Cleared',
 report_not_found:'Report not found or no longer available',
+apt_series_extended:'Recurring appointments extended',
 apt_date_label:'Date',
 apt_loc_placeholder:'Clinic, Zoom, Home\u2026',
 apt_title_date_required:'Title and date required.',
@@ -5368,6 +5369,7 @@ apt_attendance_marked_by_other:'על ידי מטפל/ת',
 apt_attendance_saved:'נשמר',
 apt_attendance_cleared:'נוקה',
 report_not_found:'הדוח לא נמצא או אינו זמין יותר',
+apt_series_extended:'תורים חוזרים הוארכו',
 apt_loc_placeholder:'מרפאה, Zoom, בבית\u2026',
 apt_loc_placeholder_full:'לדוגמה: מרפאה, Zoom, ביקור בית',
 apt_marked_attending:'סומן כמגיעים \u2705',
@@ -12782,6 +12784,11 @@ function renderCalendar(){
       }catch(e){S._calRefreshing=false;}
     })();
   }
+  // Rolling extension — once per session
+  if(!S._extensionsRunThisSession&&!isParent&&session?.id&&session.id!=='demo'){
+    S._extensionsRunThisSession=true;
+    setTimeout(()=>{_runRollingExtensions().catch(e=>console.error('❌ rolling extension:',e));},500);
+  }
   const childApts=isParent
     ?(S.calendarMode==='joint'
       ?_allApts
@@ -13018,6 +13025,110 @@ function _generateAppointmentSeries(baseRow,baseDbRow,recurrence,monthsAhead=6){
     });
   }
   return{seriesId,instances};
+}
+
+function _extendAppointmentSeries(existingRows,monthsAhead=3){
+  if(!existingRows||existingRows.length===0)return null;
+  const _rnd=()=>Math.random().toString(36).slice(2,8);
+  const _fmtD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const sorted=[...existingRows].sort((a,b)=>a.date.localeCompare(b.date));
+  const lastRow=sorted[sorted.length-1];
+  const recurrence=lastRow.recurrence||'weekly';
+  const seriesId=lastRow.seriesId;
+  const maxPos=Math.max(...existingRows.map(r=>r.seriesPosition||0));
+  let count;
+  if(recurrence==='weekly')count=13;
+  else if(recurrence==='biweekly')count=6;
+  else if(recurrence==='monthly')count=3;
+  else return null;
+  const anchorDate=new Date(lastRow.date+'T12:00:00');
+  const instances=[];
+  for(let i=1;i<=count;i++){
+    let d;
+    if(recurrence==='monthly'){
+      const srcDay=anchorDate.getDate();
+      const m=anchorDate.getMonth()+i;
+      const y=anchorDate.getFullYear()+Math.floor(m/12);
+      const mo=((m%12)+12)%12;
+      const lastDay=new Date(y,mo+1,0).getDate();
+      d=new Date(y,mo,Math.min(srcDay,lastDay));
+    } else {
+      const gap=recurrence==='weekly'?7:14;
+      d=new Date(anchorDate);d.setDate(d.getDate()+i*gap);
+    }
+    const dateStr2=_fmtD(d);
+    const aptId='a_'+Date.now()+'_'+_rnd();
+    const newPos=maxPos+i;
+    instances.push({
+      ls:{...lastRow,id:aptId,date:dateStr2,recurrence,seriesId,seriesPosition:newPos,seriesDetached:false,deletedAt:null,attendance:null,attendanceMarkedAt:null,attendanceMarkedBy:null,rsvp:null},
+      db:{
+        id:aptId,child_id:lastRow.childId,
+        parent_id:lastRow.parentId||null,household_id:lastRow.householdId||null,
+        specialist_id:lastRow.specialistId||null,created_by:lastRow.createdBy||null,
+        title:lastRow.title,date:dateStr2,time:lastRow.time||'TBD',
+        end_time:lastRow.endTime||null,location:lastRow.location||null,
+        notes:null,recurrence,
+        type:lastRow.type||'general',shared_with:lastRow.sharedWith||[],
+        specialist_name:lastRow.specialist||null,
+        series_id:seriesId,series_position:newPos,series_detached:false
+      }
+    });
+  }
+  return{instances,newTotal:maxPos+count};
+}
+
+async function _runRollingExtensions(){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const cutoff=new Date();cutoff.setMonth(cutoff.getMonth()+3);
+  const cutoffStr=cutoff.toISOString().split('T')[0];
+  const allApts=DB.appointments||[];
+  const bySeries={};
+  allApts.forEach(a=>{
+    if(!a.seriesId||a.seriesDetached||a.deletedAt)return;
+    if(!bySeries[a.seriesId])bySeries[a.seriesId]=[];
+    bySeries[a.seriesId].push(a);
+  });
+  const seriesIds=Object.keys(bySeries);
+  console.log('[calendar-v2] Rolling extension starting, evaluating '+seriesIds.length+' series');
+  const needsExtension=[];
+  seriesIds.forEach(sid=>{
+    const rows=bySeries[sid];
+    const futureRows=rows.filter(r=>r.date>=todayStr);
+    if(futureRows.length===0)return;
+    const maxDate=futureRows.reduce((m,r)=>r.date>m?r.date:m,futureRows[0].date);
+    if(maxDate<cutoffStr)needsExtension.push({sid,rows});
+  });
+  if(needsExtension.length===0){
+    console.log('[calendar-v2] Rolling extension complete: 0 extended, 0 errors');
+    return;
+  }
+  let successCount=0,errorCount=0;
+  let allNewLsRows=[];
+  for(const{sid,rows} of needsExtension){
+    try{
+      const result=_extendAppointmentSeries(rows);
+      if(!result||!result.instances.length){console.error('❌ extend series '+sid+': no instances generated');errorCount++;continue;}
+      const dbRows=result.instances.map(i=>i.db);
+      const{error:insErr}=await _supa.from('appointments').insert(dbRows);
+      if(insErr){console.error('❌ extend series '+sid+' insert:',insErr);errorCount++;continue;}
+      const{error:updErr}=await _supa.from('appointments').update({series_total:result.newTotal}).eq('series_id',sid);
+      if(updErr){console.error('❌ extend series '+sid+' total update:',updErr);}
+      result.instances.forEach(i=>{allNewLsRows.push({...i.ls,seriesTotal:result.newTotal});});
+      successCount++;
+      console.log('[calendar-v2] Extending series '+sid+': +'+result.instances.length+' instances ('+(rows[0].recurrence||'weekly')+')');
+    }catch(e){console.error('❌ extend series '+sid+':',e);errorCount++;}
+  }
+  if(allNewLsRows.length>0){
+    const apts=[...DB.appointments];
+    const extendedSeriesIds=new Set(needsExtension.map(x=>x.sid).slice(0,successCount));
+    const totalsBy={};
+    allNewLsRows.forEach(r=>{totalsBy[r.seriesId]=r.seriesTotal;});
+    apts.forEach(a=>{if(extendedSeriesIds.has(a.seriesId)&&totalsBy[a.seriesId])a.seriesTotal=totalsBy[a.seriesId];});
+    apts.push(...allNewLsRows);
+    DB.appointments=apts;
+    toast(T('apt_series_extended'));
+  }
+  console.log('[calendar-v2] Rolling extension complete: '+successCount+' extended, '+errorCount+' errors');
 }
 
 function showAddEventModalForDate(dateStr,availableChildren){
