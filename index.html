@@ -2297,7 +2297,13 @@ function setupHouseholdSync(){
     .on('postgres_changes',{event:'*',schema:'public',table:'children',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'specialists',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'invites'},(p)=>{
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myChildIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
     .subscribe();
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
