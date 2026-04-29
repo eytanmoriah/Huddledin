@@ -12872,7 +12872,7 @@ function _renderDayView(calCard,allApts,isRtl){
     const top=(start/15)*SLOT_H;
     const height=Math.max(SLOT_H,((end-start)/15)*SLOT_H);
     const colWidth=`calc((100% - ${TIME_COL_W}px) / ${totalCols})`;
-    const leftOffset=`calc(${TIME_COL_W}px + ${col} * ${colWidth.replace('calc(','').replace(')','')})`;
+    const leftOffset=`calc(${TIME_COL_W}px + (${col} * (100% - ${TIME_COL_W}px) / ${totalCols}))`;
     const ch=DB.children.find(c=>c.id===apt.childId);
     const childColor=ch?.color||TC[apt.type]||'var(--teal)';
     const vs=_aptVisualState(apt);
@@ -12888,7 +12888,7 @@ function _renderDayView(calCard,allApts,isRtl){
       boxSizing:'border-box',
       fontSize:'.72rem',lineHeight:'1.2'
     }});
-    const titleEl=el('div',{style:{fontWeight:700,color:'var(--navy)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textDecoration:vs.titleStrike?'line-through':'none'}},[aptDisplayTitle(apt)]);
+    const titleEl=el('div',{style:{fontWeight:700,color:'var(--navy)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textDecoration:vs.titleStrike?'line-through':'none'}},[apt.title||aptDisplayTitle(apt)]);
     block.appendChild(titleEl);
     if(height>=30){
       const timeStr=_aptTimeDisplay(apt);
