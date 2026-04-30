@@ -1915,10 +1915,11 @@ const SB = {
     const payload={child_id:file.childId||null,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
     const {data,error}=await _supa.from('files').insert(payload).select('id').single();
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
+    _trackerAdd(_localFileChanges,data?.id);
     return data;
   },
-  async renameFile(fileId,name){const{error}=await _supa.from('files').update({name}).eq('id',fileId);if(error){console.error('❌ renameFile:',error);return false;}return true;},
-  async deleteFile(fileId){const{error}=await _supa.from('files').delete().eq('id',fileId);if(error){console.error('❌ deleteFile:',error);return false;}return true;},
+  async renameFile(fileId,name){_trackerAdd(_localFileChanges,fileId);const{error}=await _supa.from('files').update({name}).eq('id',fileId);if(error){console.error('❌ renameFile:',error);return false;}return true;},
+  async deleteFile(fileId){_trackerAdd(_localFileChanges,fileId);const{error}=await _supa.from('files').delete().eq('id',fileId);if(error){console.error('❌ deleteFile:',error);return false;}return true;},
   async deleteFolder(folderId){const{error}=await _supa.from('folders').delete().eq('id',folderId);if(error){console.error('❌ deleteFolder:',error);return false;}return true;},
   async addFolder(folder){
     const folderId=folder.id||('f_'+folder.childId+'_'+folder.key+'_'+Date.now());
@@ -2268,6 +2269,18 @@ function _minutesToTimeStr(mins){const h=Math.floor(mins/60)%24;const m=mins%60;
 let _chatRefreshTimer=null;
 let _seenTimestamps={};
 const _localParentTaskChanges=new Set();
+const _localApptChanges=new Set();
+const _localVaultNoteChanges=new Set();
+const _localFileChanges=new Set();
+function _trackerAdd(set,id){
+  if(!id)return;
+  set.add(id);
+  setTimeout(()=>set.delete(id),5000);
+}
+function _trackerAddBulk(set,ids){
+  if(!Array.isArray(ids))return;
+  ids.forEach(id=>{if(id){set.add(id);setTimeout(()=>set.delete(id),5000);}});
+}
 function _debouncedChatRefresh(){
   if(_chatRefreshTimer)clearTimeout(_chatRefreshTimer);
   _chatRefreshTimer=setTimeout(()=>{
@@ -2328,7 +2341,14 @@ function setupHouseholdSync(){
       if(!myChildIds.has(String(cid)))return;
       _debouncedRefresh();
     })
-    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},()=>_debouncedRefresh())
+    .on('postgres_changes',{event:'*',schema:'public',table:'appointments',filter:'household_id=eq.'+session.householdId},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localApptChanges.has(_id)){
+        _localApptChanges.delete(_id);
+        return;
+      }
+      _debouncedRefresh();
+    })
     .subscribe();
   // Notifications — dedicated channel (removed from household channel to stay under 7-listener limit)
   if(_hhNotifsChannel)try{_hhNotifsChannel.unsubscribe();}catch(e){}
@@ -2396,6 +2416,11 @@ function setupHouseholdSync(){
   if(_hhChildDataChannel)try{_hhChildDataChannel.unsubscribe();}catch(e){}
   _hhChildDataChannel=_supa.channel('hh_child_data:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localVaultNoteChanges.has(_id)){
+        _localVaultNoteChanges.delete(_id);
+        return;
+      }
       const cid=p.new?.child_id||p.old?.child_id;
       if(!cid)return;
       const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
@@ -2411,6 +2436,11 @@ function setupHouseholdSync(){
   if(_hhFilesChannel)try{_hhFilesChannel.unsubscribe();}catch(e){}
   _hhFilesChannel=_supa.channel('hh_files:'+_hid)
     .on('postgres_changes',{event:'*',schema:'public',table:'files'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localFileChanges.has(_id)){
+        _localFileChanges.delete(_id);
+        return;
+      }
       const cid=p.new?.child_id||p.old?.child_id;
       if(!cid)return;
       const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
@@ -2486,6 +2516,14 @@ function setupSpecialistSync(){
   // (specialist scope spans multiple households, no server-side household filter possible)
   _specAptsChannel=_supa.channel('spec_apts:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localApptChanges.has(_id)){
+        _localApptChanges.delete(_id);
+        return;
+      }
+      // Column-check fallback for any RPC/path that bypassed the tracker
+      const writerId=p.new?.created_by||p.old?.created_by;
+      if(writerId&&writerId===session?.id)return;
       const cid=p.new?.child_id||p.old?.child_id;
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
@@ -2495,6 +2533,11 @@ function setupSpecialistSync(){
     .subscribe();
   _specChildDataChannel=_supa.channel('spec_child_data:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localVaultNoteChanges.has(_id)){
+        _localVaultNoteChanges.delete(_id);
+        return;
+      }
       const cid=p.new?.child_id||p.old?.child_id;
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
@@ -2511,6 +2554,11 @@ function setupSpecialistSync(){
       _debouncedChatRefresh();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'files'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localFileChanges.has(_id)){
+        _localFileChanges.delete(_id);
+        return;
+      }
       const cid=p.new?.child_id||p.old?.child_id;
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
@@ -9437,6 +9485,7 @@ function switchTab(id){
         _unreadChildApts.forEach(a=>{a.parentReadAt=_now;});
         LS.set('appointments',_allApts);
         const _aptIds=_unreadChildApts.map(a=>a.id);
+        _trackerAddBulk(_localApptChanges,_aptIds);
         (async()=>{try{const{error}=await _supa.from('appointments').update({parent_read_at:_now}).in('id',_aptIds);if(error)console.error('❌ mark apts read:',error);}catch(e){console.error('mark apts read:',e);}})();
       }
     }
@@ -9495,6 +9544,7 @@ function renderBottomNav(){
             _unreadAll.forEach(a=>{a.parentReadAt=_now;});
             LS.set('appointments',_allApts);
             const _ids=_unreadAll.map(a=>a.id);
+            _trackerAddBulk(_localApptChanges,_ids);
             (async()=>{try{const{error}=await _supa.from('appointments').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark apts read:',error);}catch(e){}})();
           }
         }
@@ -10135,6 +10185,7 @@ function _gvUploadToInbox(){
       if(upErr)throw upErr;
       const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(path,900);
       const{data:saved,error:insErr}=await _supa.from('files').insert({uploaded_by:session.id,name:f.name,storage_path:path,mime_type:f.type||'application/octet-stream',size_bytes:f.size||0,category:'inbox',child_id:null,shared_with:[]}).select('id').single();
+      _trackerAdd(_localFileChanges,saved?.id);
       if(insErr)throw insErr;
       const files=DB.globalInboxFiles||[];
       files.unshift({id:saved.id,name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB',storagePath:path,url:signedData?.signedUrl||null});
@@ -10220,6 +10271,7 @@ function showProcessFileSheet(file){
         moveBtn.disabled=true;moveBtn.textContent=T('gv_sorting');
         try{
           const childId=childSel.value;const folderKey=folderSel.value;
+          _trackerAdd(_localFileChanges,file.id);
           const{error}=await _supa.from('files').update({child_id:childId,category:folderKey}).eq('id',file.id);
           if(error)throw error;
           DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
@@ -10255,6 +10307,7 @@ function showProcessFileSheet(file){
         shareBtn.disabled=true;shareBtn.textContent=T('gv_sorting');
         try{
           const childId=childSel2.value;const specId=specSel.value;const folderKey='spec_'+specId;
+          _trackerAdd(_localFileChanges,file.id);
           const{error}=await _supa.from('files').update({child_id:childId,category:folderKey}).eq('id',file.id);
           if(error)throw error;
           DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
@@ -10277,6 +10330,7 @@ function showProcessFileSheet(file){
     opt3.appendChild(o3t);
     opt3.onclick=()=>openConfirm(T('gv_delete_confirm'),T('gv_delete_confirm_msg'),true,async()=>{
       try{
+        _trackerAdd(_localFileChanges,file.id);
         await _supa.from('files').delete().eq('id',file.id);
         if(file.storagePath)await _supa.storage.from('huddledin-files').remove([file.storagePath]);
       }catch(e){console.error('delete inbox file:',e);}
@@ -10867,6 +10921,7 @@ function _showFileMoveModal(file,srcFolder,isParent,mode){
 }
 
 async function _moveFile(file,srcFolder,destFolder){
+  _trackerAdd(_localFileChanges,file.id);
   const{error}=await _supa.from('files').update({category:destFolder.key}).eq('id',file.id);
   if(error)throw error;
   const fls=DB.folders;
@@ -10889,6 +10944,7 @@ async function _copyFile(file,destFolder){
     storage_path:newPath,mime_type:blob.type||'application/octet-stream',
     size_bytes:blob.size||0,category:destFolder.key,shared_with:[]
   }).select('id').single();
+  _trackerAdd(_localFileChanges,saved?.id);
   if(insErr)throw insErr;
   const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(newPath,900);
   const fls=DB.folders;
@@ -11664,6 +11720,7 @@ function showFilePermModal(file,folder){
       if(_supa&&session?.id!=='demo'){
         const _fo=DB.folders.find(f=>f.id===folder.id);
         const _fi2=_fo?.files.find(x=>x.id===file.id);
+        _trackerAdd(_localFileChanges,file.id);
         const {error:_fErr}=await _supa.from('files').update({shared_with:_fi2?.sharedWith||[]}).eq('id',file.id);
         if(_fErr){_sfBtn.disabled=false;_sfBtn.textContent=T('files_save_perms');toast(T('files_could_not_save_perms',{msg:_fErr.message}),'error');return;}
       }
@@ -12555,6 +12612,7 @@ function showAptDetailModal(apt,child){
         const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){Object.assign(apts[i],lsPatch);DB.appointments=apts;}
         _renderAttBtns();_renderAttSubtitle();
+        _trackerAdd(_localApptChanges,apt.id);
         const{error}=await _supa.from('appointments').update(dbPatch).eq('id',apt.id);
         if(error){
           console.error('❌ attendance update:',error);
@@ -12613,6 +12671,7 @@ function showAptDetailModal(apt,child){
         else{
           openConfirm(T('cal_delete_confirm'),'Remove "'+apt.title+'"? This cannot be undone.',true,async()=>{
             try{
+              _trackerAdd(_localApptChanges,apt.id);
               if(_isAptPast(apt)){await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).eq('id',apt.id);const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);if(i>-1){apts[i].deletedAt=new Date().toISOString();DB.appointments=apts;}}
               else{await _supa.from('appointments').delete().eq('id',apt.id);DB.appointments=(DB.appointments||[]).filter(a=>a.id!==apt.id);}
             }catch(e){console.error('\u274c deleteApt:',e);}
@@ -12640,6 +12699,7 @@ function showAptDetailModal(apt,child){
       const attending=mkBtn(T('apt_attending'),'btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
+        _trackerAdd(_localApptChanges,apt.id);
         try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpYes:',e);}
         await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));
         close();re();toast(T('apt_marked_attending'));
@@ -12647,6 +12707,7 @@ function showAptDetailModal(apt,child){
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
+        _trackerAdd(_localApptChanges,apt.id);
         try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpNo:',e);}
         // Notify specialist that the event was declined
         if(apt.specialistId){
@@ -12713,6 +12774,7 @@ function showEditAptModal(apt){
         _showSeriesEditChoice(apt,{...patch,date:di.value},{...lsPatch,date:di.value},dateChanged);
       } else {
         try{
+          _trackerAdd(_localApptChanges,apt.id);
           await _supa.from('appointments').update({...patch,date:di.value}).eq('id',apt.id);
           const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
           if(i>-1){Object.assign(apts[i],{...lsPatch,date:di.value});DB.appointments=apts;}
@@ -12746,6 +12808,7 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
       _saveChoiceBtn.disabled=true;_saveChoiceBtn.textContent=T('btn_loading');
       try{
         if(choice==='just_this'){
+          _trackerAdd(_localApptChanges,apt.id);
           await _supa.from('appointments').update({...dbPatch,date:lsPatch.date,series_detached:true}).eq('id',apt.id);
           const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
           if(i>-1){Object.assign(apts[i],lsPatch,{seriesDetached:true});DB.appointments=apts;}
@@ -12765,6 +12828,7 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
             dayShift=Math.round((newD-oldD)/(86400000));
           }
           if(dateChanged&&(Math.abs(dayShift)>=7||dayShift===0)){
+            _trackerAdd(_localApptChanges,apt.id);
             await _supa.from('appointments').update({...fieldPatch,date:lsPatch.date,series_detached:true}).eq('id',apt.id);
             const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
             if(i>-1){Object.assign(apts[i],fieldLsPatch,{date:lsPatch.date,seriesDetached:true});DB.appointments=apts;}
@@ -12773,6 +12837,7 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
             const{data:rpcResult,error:rpcErr}=await _supa.rpc('day_shift_series',{p_series_id:apt.seriesId,p_from_date:apt.date,p_day_shift:dayShift,p_field_patch:fieldPatch});
             if(rpcErr){console.error('\u274c day_shift_series RPC:',rpcErr);throw rpcErr;}
             const updatedRows=(rpcResult?.rows||[]);
+            _trackerAddBulk(_localApptChanges,updatedRows.map(r=>r.id));
             const apts=[...DB.appointments];const dateMap={};
             updatedRows.forEach(r=>{dateMap[r.id]=r.new_date;});
             apts.forEach(a=>{if(dateMap[a.id]){Object.assign(a,fieldLsPatch,{date:dateMap[a.id]});}});
@@ -12780,6 +12845,7 @@ function _showSeriesEditChoice(apt,dbPatch,lsPatch,dateChanged){
             console.log('[calendar-v2] Series edit (all future via RPC): '+apt.seriesId+', '+(rpcResult?.count||0)+' instances, fields: '+Object.keys(fieldPatch).join(',')+', dayShift: '+dayShift);
           } else {
             if(Object.keys(fieldPatch).length){
+              _trackerAddBulk(_localApptChanges,affectedIds);
               await _supa.from('appointments').update(fieldPatch).in('id',affectedIds);
             }
             const apts=[...DB.appointments];
@@ -12818,6 +12884,7 @@ function _showSeriesDeleteChoice(apt){
       _delBtn.disabled=true;_delBtn.textContent=T('btn_loading');
       try{
         if(choice==='just_this'){
+          _trackerAdd(_localApptChanges,apt.id);
           if(_isAptPast(apt)){
             await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).eq('id',apt.id);
             const apts=[...DB.appointments];const i=apts.findIndex(a=>a.id===apt.id);
@@ -12831,10 +12898,12 @@ function _showSeriesDeleteChoice(apt){
           const pastIds=pastRows.map(a=>a.id);
           const futureIds=futureRows.map(a=>a.id);
           if(pastIds.length){
+            _trackerAddBulk(_localApptChanges,pastIds);
             const{error}=await _supa.from('appointments').update({deleted_at:new Date().toISOString()}).in('id',pastIds);
             if(error)console.error('\u274c series soft-delete:',error);
           }
           if(futureIds.length){
+            _trackerAddBulk(_localApptChanges,futureIds);
             const{error}=await _supa.from('appointments').delete().in('id',futureIds);
             if(error)console.error('\u274c series hard-delete:',error);
           }
@@ -13448,6 +13517,7 @@ function _saveDrop(apt,newMins,newDateStr){
   Object.assign(apts[i],lsPatch);
   DB.appointments=apts;
   re();
+  _trackerAdd(_localApptChanges,apt.id);
   _supa.from('appointments').update(dbPatch).eq('id',apt.id).then(({error})=>{
     if(error){
       console.error('❌ reschedule:',error);
@@ -13850,6 +13920,7 @@ async function _runRollingExtensions(){
       const result=_extendAppointmentSeries(rows);
       if(!result||!result.instances.length){console.error('❌ extend series '+sid+': no instances generated');errorCount++;continue;}
       const dbRows=result.instances.map(i=>i.db);
+      _trackerAddBulk(_localApptChanges,dbRows.map(r=>r.id));
       const{error:insErr}=await _supa.from('appointments').insert(dbRows);
       if(insErr){console.error('❌ extend series '+sid+' insert:',insErr);errorCount++;continue;}
       const{error:updErr}=await _supa.from('appointments').update({series_total:result.newTotal}).eq('series_id',sid);
@@ -14013,12 +14084,14 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
             const series=_generateAppointmentSeries(baseLs,baseDb,rec);
             if(!series||!series.instances.length)throw new Error('Series generation failed');
             const dbRows=series.instances.map(i=>i.db);
+            _trackerAddBulk(_localApptChanges,dbRows.map(r=>r.id));
             const{error}=await _supa.from('appointments').insert(dbRows);
             if(error){console.error('❌ series insert:',error);throw error;}
             const apts=[...DB.appointments,...series.instances.map(i=>i.ls)];
             DB.appointments=apts;
             console.log('[calendar-v2] Series created: '+series.seriesId+', '+series.instances.length+' instances');
           } else {
+            _trackerAdd(_localApptChanges,baseAptId);
             const{error}=await _supa.from('appointments').insert(baseDb);
             if(error){console.error('❌ appointment insert:',error);throw error;}
             const apts=[...DB.appointments];apts.push(baseLs);DB.appointments=apts;
@@ -15400,6 +15473,7 @@ function renderVault(){
       const _fmtTitle=_formatNoteTitle(_now);
       const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:today,title:_fmtTitle,content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
       try{
+        _trackerAdd(_localVaultNoteChanges,nn.id);
         await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:DB.children.find(c=>c.id===nn.childId)?.householdId||null,title:nn.title,content:'',is_draft:true,locked:false,published:false,last_saved:new Date().toISOString()});
       }catch(e){console.error('create vault note:',e);}
       const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
@@ -15776,6 +15850,7 @@ function renderVault(){
           const _summary=S.vaultSummary||note.summary||null;
           const _lastSaved=new Date().toISOString().split('T')[0]+' '+now;
           try{
+            _trackerAdd(_localVaultNoteChanges,note.id);
             await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
             // Update cache to match what was saved
             const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
@@ -15841,6 +15916,7 @@ function renderVault(){
                     const _title=ti.value;
                     const _content=ta.value;
                     const _summary=S.vaultSummary||note.summary||null;
+                    _trackerAdd(_localVaultNoteChanges,note.id);
                     try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                     // Update cache to match what was saved
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
@@ -15860,6 +15936,7 @@ function renderVault(){
                 const _title=ti.value;
                 const _content=ta.value;
                 const _summary=S.vaultSummary||note.summary||null;
+                _trackerAdd(_localVaultNoteChanges,note.id);
                 try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                 // Update cache to match what was saved
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
@@ -15880,10 +15957,12 @@ function renderVault(){
               if(session&&session.id!=='demo'){
                 try{
                   // Try hard delete first (requires RLS policy for unpublished drafts)
+                  _trackerAdd(_localVaultNoteChanges,note.id);
                   const{error}=await _supa.from('vault_notes').delete().eq('id',note.id);
                   if(error){
                     // Fallback: soft-delete by clearing content and marking title
                     console.warn('Hard delete blocked by RLS, using soft delete:',error.message);
+                    _trackerAdd(_localVaultNoteChanges,note.id);
                     await _supa.from('vault_notes').update({title:'__DELETED__',content:'',summary:'',published:false}).eq('id',note.id);
                   }
                 }catch(e){console.error('delete note:',e);}
@@ -15934,6 +16013,7 @@ function renderVault(){
                 const _content=ta.value;
                 const _summary=S.vaultSummary||note.summary||null;
                 try{
+                  _trackerAdd(_localVaultNoteChanges,note.id);
                   await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
                   // Update cache to match what was saved
                   const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
@@ -16420,7 +16500,7 @@ function _deleteParentTask(task){
   openConfirm(T('ptodo_delete_confirm'),T('ptodo_delete_msg')+' "'+task.title+'".', true, async()=>{
     const arr=(DB.parentTasks||[]).filter(t=>t.id!==task.id);
     DB.parentTasks=arr;
-    _localParentTaskChanges.add(task.id);
+    _trackerAdd(_localParentTaskChanges,task.id);
     re();
     try{const{error}=await _supa.from('parent_tasks').delete().eq('id',task.id);if(error)console.error('❌ delete task:',error);}catch(e){}
     toast('Task deleted');
@@ -16449,7 +16529,7 @@ function _renderParentTaskCard(task,container,children,coParent){
     arr[idx].completed_by=newCompleted?session.id:null;
     arr[idx].completed_at=newCompleted?now:null;
     DB.parentTasks=arr;
-    _localParentTaskChanges.add(task.id);
+    _trackerAdd(_localParentTaskChanges,task.id);
     re();
     _supa.from('parent_tasks').update({completed:newCompleted,completed_by:newCompleted?session.id:null,completed_at:newCompleted?now:null}).eq('id',task.id).then(({error})=>{if(error)console.error('❌ parent_task toggle failed:',error);});
   };
@@ -16619,7 +16699,7 @@ function showParentTaskModal(existing=null){
     if(existing){
       const delBtn=mkBtn(T('stodo_delete_task'),'btn-sm btn-ghost',async()=>{
         DB.parentTasks=(DB.parentTasks||[]).filter(t=>t.id!==existing.id);
-        _localParentTaskChanges.add(existing.id);
+        _trackerAdd(_localParentTaskChanges,existing.id);
         try{const{error}=await _supa.from('parent_tasks').delete().eq('id',existing.id);if(error)console.error('❌ delete task:',error);}catch(e){}
         close();re();toast(T('ptodo_task_deleted'));
       });
@@ -16637,13 +16717,13 @@ function showParentTaskModal(existing=null){
         const upd={title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,assigned_to:assignState.v,child_id:childSel.value||null,due_date:dueInp.value||null,reminder:remSel.value||null};
         const idx=(DB.parentTasks||[]).findIndex(t=>t.id===existing.id);
         if(idx>-1)Object.assign(DB.parentTasks[idx],upd);
-        _localParentTaskChanges.add(existing.id);
+        _trackerAdd(_localParentTaskChanges,existing.id);
         try{const{error}=await _supa.from('parent_tasks').update(upd).eq('id',existing.id);if(error)console.error('❌ update task:',error);}catch(e){console.error('update parent task:',e);}
       } else {
         const id='pt_'+Date.now();
         const newTask={id,household_id:String(session.householdId),created_by:session.id,assigned_to:assignState.v,child_id:childSel.value||null,title:taskTitle,notes:notesInp.value.trim()||null,category:catSel.value,priority:priState.v,due_date:dueInp.value||null,reminder:remSel.value||null,completed:false,created_at:now};
         (DB.parentTasks||[]).unshift(newTask);
-        _localParentTaskChanges.add(id);
+        _trackerAdd(_localParentTaskChanges,id);
         try{const{error}=await _supa.from('parent_tasks').insert(newTask);if(error)console.error('❌ insert task:',error);}catch(e){console.error('create parent task:',e);}
         // Notify co-parent if assigned to them
         if(assignState.v&&assignState.v!==session.id&&coParent&&session.id!=='demo'){
@@ -17721,7 +17801,8 @@ function _showCopyToPatientModal(file){
         const{error:upErr}=await _supa.storage.from('huddledin-files').upload(destPath,blob,{contentType:blob.type,upsert:false});
         if(upErr)throw upErr;
         // Insert file record
-        await _supa.from('files').insert({child_id:childSel.value,uploaded_by:session.id,name:file.name,storage_path:destPath,mime_type:blob.type,size_bytes:file.size_bytes||0,category:folderSel.options[folderSel.selectedIndex]?.dataset?.key||'general'});
+        const{data:_copyIns}=await _supa.from('files').insert({child_id:childSel.value,uploaded_by:session.id,name:file.name,storage_path:destPath,mime_type:blob.type,size_bytes:file.size_bytes||0,category:folderSel.options[folderSel.selectedIndex]?.dataset?.key||'general'}).select('id').single();
+        _trackerAdd(_localFileChanges,_copyIns?.id);
         close();toast(T('storage_copied'));
       }catch(e){console.error('copy to patient:',e);toast(T('storage_upload_failed'),'error');}
     }));
@@ -18802,6 +18883,7 @@ function renderSessionSummaries(){
       LS.set('vaultNotes',_allNotes);
       if(session?.id!=='demo'){
         const _ids=_toMark.map(n=>n.id);
+        _trackerAddBulk(_localVaultNoteChanges,_ids);
         (async()=>{try{const{error}=await _supa.from('vault_notes').update({parent_read_at:_now}).in('id',_ids);if(error)console.error('❌ mark notes read:',error);}catch(e){console.error('mark notes read:',e);}})();
       }
     }
@@ -18862,6 +18944,7 @@ function renderSessionSummaries(){
       if(!isOpen&&_isUnread&&session?.id!=='demo'){
         note.parentReadAt=new Date().toISOString();
         LS.set('vaultNotes',DB.vaultNotes||[]);// force LS write
+        _trackerAdd(_localVaultNoteChanges,note.id);
         (async()=>{try{await _supa.from('vault_notes').update({parent_read_at:note.parentReadAt}).eq('id',note.id);}catch(e){}})();
       }
       re();
