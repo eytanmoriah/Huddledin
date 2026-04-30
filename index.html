@@ -13045,7 +13045,7 @@ function _renderDayView(calCard,allApts,isRtl){
       showAddEventModal(focusDateStr,hh+':'+mm,eh+':'+em);
     };
     grid.appendChild(slot);
-    _calendarSlotDragBind(slot,{dateStr:focusDateStr,anchorMins:slotMin,container:grid,isRtl,layoutMode:'day'});
+    _calendarSlotDragBind(slot,{dateStr:focusDateStr,anchorMins:slotMin,container:grid,scrollContainer,isRtl,layoutMode:'day'});
   }
 
   // Appointment blocks
@@ -13224,7 +13224,7 @@ function _renderWeekView(calCard,allApts,isRtl){
         showAddEventModal(ds,hh+':'+mm,eh+':'+em);
       };
       col.appendChild(slot);
-      _calendarSlotDragBind(slot,{dateStr:ds,anchorMins:slotMin,container:col,isRtl,layoutMode:'week'});
+      _calendarSlotDragBind(slot,{dateStr:ds,anchorMins:slotMin,container:col,scrollContainer,isRtl,layoutMode:'week'});
     }
     // Blocks for this day
     const dayApts=wkApts.filter(a=>a.date===ds);
@@ -13461,7 +13461,7 @@ function _calendarDragBind(blockEl,opts){
 
 // ── Calendar v2 — drag to create ──
 function _calendarSlotDragBind(slotEl,opts){
-  const{dateStr,anchorMins,container,isRtl,layoutMode}=opts;
+  const{dateStr,anchorMins,container,scrollContainer,isRtl,layoutMode}=opts;
   slotEl.style.touchAction='pan-y';
   const TIME_COL_W=48;
   let didDrag=false,preview=null,tooltip=null,startX=0,startY=0;
@@ -13473,6 +13473,7 @@ function _calendarSlotDragBind(slotEl,opts){
     if(preview)preview.remove();preview=null;
     if(tooltip)tooltip.remove();tooltip=null;
     slotEl.style.touchAction='pan-y';
+    if(scrollContainer)scrollContainer.style.touchAction='';
     if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
     _holdActive=false;
     _dragInProgress=false;
@@ -13557,12 +13558,14 @@ function _calendarSlotDragBind(slotEl,opts){
         _holdTimer=null;
         _holdActive=true;
         _dragInProgress=true;_dragStartedAt=Date.now();
+        if(scrollContainer)scrollContainer.style.touchAction='none';
         try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
         if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
       },500);
     } else {
       _holdActive=true;
       _dragInProgress=true;_dragStartedAt=Date.now();
+      if(scrollContainer)scrollContainer.style.touchAction='none';
       try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
     }
     document.addEventListener('pointermove',_onMove);
