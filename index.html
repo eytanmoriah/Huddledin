@@ -16098,7 +16098,7 @@ function renderVault(){
           const _lastSaved=new Date().toISOString().split('T')[0]+' '+now;
           try{
             _trackerAdd(_localVaultNoteChanges,note.id);
-            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
             // Update cache to match what was saved
             const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
             if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].isDraft=true;ns[i].lastSaved=_lastSaved;DB.vaultNotes=ns;}
@@ -16164,7 +16164,7 @@ function renderVault(){
                     const _content=ta.value;
                     const _summary=S.vaultSummary||note.summary||null;
                     _trackerAdd(_localVaultNoteChanges,note.id);
-                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                     // Update cache to match what was saved
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                     if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -16184,7 +16184,7 @@ function renderVault(){
                 const _content=ta.value;
                 const _summary=S.vaultSummary||note.summary||null;
                 _trackerAdd(_localVaultNoteChanges,note.id);
-                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                 // Update cache to match what was saved
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                 if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -16261,7 +16261,7 @@ function renderVault(){
                 const _summary=S.vaultSummary||note.summary||null;
                 try{
                   _trackerAdd(_localVaultNoteChanges,note.id);
-                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:null,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
                   // Update cache to match what was saved
                   const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                   if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
