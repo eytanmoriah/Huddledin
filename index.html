@@ -13462,7 +13462,7 @@ function _calendarDragBind(blockEl,opts){
 // ── Calendar v2 — drag to create ──
 function _calendarSlotDragBind(slotEl,opts){
   const{dateStr,anchorMins,container,isRtl,layoutMode}=opts;
-  slotEl.style.touchAction='none';
+  slotEl.style.touchAction='pan-y';
   const TIME_COL_W=48;
   let didDrag=false,preview=null,tooltip=null,startX=0,startY=0;
   let _holdTimer=null,_holdActive=false,_capturedPointerType='mouse';
@@ -13472,7 +13472,7 @@ function _calendarSlotDragBind(slotEl,opts){
   function _cleanup(){
     if(preview)preview.remove();preview=null;
     if(tooltip)tooltip.remove();tooltip=null;
-    slotEl.style.touchAction='none';
+    slotEl.style.touchAction='pan-y';
     if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
     _holdActive=false;
     _dragInProgress=false;
