@@ -13530,6 +13530,7 @@ function _calendarSlotDragBind(slotEl,opts){
     // Make preview tap/drag-receptive for confirm + move
     preview.style.pointerEvents='auto';
     preview.style.cursor='pointer';
+    preview.style.touchAction='none';
     preview.addEventListener('pointerdown',ev=>{
       ev.stopPropagation();
       _previewMoveStartX=ev.clientX;
@@ -13622,6 +13623,9 @@ function _calendarSlotDragBind(slotEl,opts){
     _activePreviewCancel=null;
   }
   function _confirmPreview(){
+    const _suppressor=ev=>{ev.stopPropagation();ev.preventDefault();};
+    document.addEventListener('click',_suppressor,true);
+    setTimeout(()=>{try{document.removeEventListener('click',_suppressor,true);}catch(_){}},350);
     const startM=_currentStartM;
     const endM=_currentEndM;
     _detachPreviewHandles();
@@ -13629,6 +13633,9 @@ function _calendarSlotDragBind(slotEl,opts){
     showAddEventModal(dateStr,_minutesToTimeStr(startM),_minutesToTimeStr(endM));
   }
   function _cancelPreview(){
+    const _suppressor=ev=>{ev.stopPropagation();ev.preventDefault();};
+    document.addEventListener('click',_suppressor,true);
+    setTimeout(()=>{try{document.removeEventListener('click',_suppressor,true);}catch(_){}},350);
     _detachPreviewHandles();
     _cleanup();
   }
