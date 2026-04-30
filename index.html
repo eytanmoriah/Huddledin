@@ -13319,15 +13319,17 @@ function _renderWeekView(calCard,allApts,isRtl){
 // ── Calendar v2 — drag to reschedule ──
 function _calendarDragBind(blockEl,opts){
   const{apt,scrollContainer,grid,isWeek,weekDays,isRtl,onDrop}=opts;
-  blockEl.style.touchAction='none';
-  blockEl.style.cursor='grab';
   let startX=0,startY=0,didDrag=false,ghost=null,tooltip=null,startMins=0,startCol=0;
+  let _holdTimer=null,_holdActive=false,_capturedPointerType='mouse';
   const _dur=()=>{const m=_parseAptMinutes(apt);return m.end-m.start;};
   function _cleanup(){
     if(ghost)ghost.remove();ghost=null;
     if(tooltip)tooltip.remove();tooltip=null;
     blockEl.style.opacity='';
-    blockEl.style.cursor='grab';
+    blockEl.style.cursor='';
+    blockEl.style.touchAction='';
+    if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
+    _holdActive=false;
     _dragInProgress=false;
   }
   function _gridY(clientY){const r=grid.getBoundingClientRect();return clientY-r.top;}
@@ -13342,6 +13344,13 @@ function _calendarDragBind(blockEl,opts){
     return Math.max(0,Math.min(6,rawCol));
   }
   function _onMove(e){
+    if(!_holdActive){
+      if(_holdTimer&&(Math.abs(e.clientY-startY)>10||Math.abs(e.clientX-startX)>10)){
+        clearTimeout(_holdTimer);_holdTimer=null;
+        _onCancel();
+      }
+      return;
+    }
     const dx=e.clientX-startX,dy=e.clientY-startY;
     if(!didDrag&&Math.abs(dx)<5&&Math.abs(dy)<5)return;
     didDrag=true;
@@ -13366,6 +13375,10 @@ function _calendarDragBind(blockEl,opts){
     document.removeEventListener('pointerup',_onUp);
     document.removeEventListener('pointercancel',_onCancel);
     document.removeEventListener('keydown',_onKey);
+    if(_holdTimer){
+      clearTimeout(_holdTimer);_holdTimer=null;
+      return;
+    }
     if(didDrag){
       const newMins=_snapMins(_gridY(e.clientY));
       const colIdx=_colFromX(e.clientX);
@@ -13373,7 +13386,8 @@ function _calendarDragBind(blockEl,opts){
       // Suppress the click that follows pointerup
       const _suppress=ev=>{ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',_suppress,true);};
       document.addEventListener('click',_suppress,true);
-      setTimeout(()=>{try{document.removeEventListener('click',_suppress,true);}catch(_){}},100);
+      const _suppressMs=_capturedPointerType==='touch'?350:100;
+      setTimeout(()=>{try{document.removeEventListener('click',_suppress,true);}catch(_){}},_suppressMs);
       _cleanup();
       // Only fire onDrop if anything actually changed
       if(newMins!==startMins||newDateStr!==apt.date){
@@ -13391,13 +13405,12 @@ function _calendarDragBind(blockEl,opts){
     _cleanup();
   }
   function _onKey(e){if(e.key==='Escape')_onCancel();}
-  blockEl.addEventListener('pointerdown',e=>{
-    if(e.button!==undefined&&e.button!==0)return;
-    startX=e.clientX;startY=e.clientY;didDrag=false;
-    const m=_parseAptMinutes(apt);startMins=m.start;startCol=0;
+  function _engageDragMode(e){
+    _holdActive=true;
     _dragInProgress=true;_dragStartedAt=Date.now();
-    blockEl.style.opacity='0.5';
+    blockEl.style.touchAction='none';
     blockEl.style.cursor='grabbing';
+    blockEl.style.opacity='0.5';
     // Build ghost = clone of block, repositioned in grid coordinate space
     ghost=blockEl.cloneNode(true);
     ghost.style.opacity='0.85';
@@ -13422,6 +13435,22 @@ function _calendarDragBind(blockEl,opts){
     tooltip.style.top=(e.clientY+8)+'px';
     document.body.appendChild(tooltip);
     try{blockEl.setPointerCapture(e.pointerId);}catch(_){}
+  }
+  blockEl.addEventListener('pointerdown',e=>{
+    if(e.button!==undefined&&e.button!==0)return;
+    startX=e.clientX;startY=e.clientY;didDrag=false;_holdActive=false;
+    _capturedPointerType=e.pointerType||'mouse';
+    const m=_parseAptMinutes(apt);startMins=m.start;startCol=0;
+    if(e.pointerType==='touch'){
+      if(_holdTimer)clearTimeout(_holdTimer);
+      _holdTimer=setTimeout(()=>{
+        _holdTimer=null;
+        _engageDragMode(e);
+        if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
+      },500);
+    } else {
+      _engageDragMode(e);
+    }
     document.addEventListener('pointermove',_onMove);
     document.addEventListener('pointerup',_onUp);
     document.addEventListener('pointercancel',_onCancel);
@@ -13433,16 +13462,26 @@ function _calendarDragBind(blockEl,opts){
 function _calendarSlotDragBind(slotEl,opts){
   const{dateStr,anchorMins,container,isRtl,layoutMode}=opts;
   const TIME_COL_W=48;
-  let didDrag=false,preview=null,tooltip=null,startY=0;
+  let didDrag=false,preview=null,tooltip=null,startX=0,startY=0;
+  let _holdTimer=null,_holdActive=false,_capturedPointerType='mouse';
   function _localY(clientY){const r=container.getBoundingClientRect();return clientY-r.top;}
   function _snapMins(y){const slots=Math.round(y/_CAL_SLOT_H);return Math.max(0,Math.min(96,slots))*15;}
   function _fmtDur(mins){if(mins>=60){const h=Math.floor(mins/60);const m=mins%60;return h+'h'+(m?(' '+m+'m'):'');}return mins+'m';}
   function _cleanup(){
     if(preview)preview.remove();preview=null;
     if(tooltip)tooltip.remove();tooltip=null;
+    if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
+    _holdActive=false;
     _dragInProgress=false;
   }
   function _onMove(e){
+    if(!_holdActive){
+      if(_holdTimer&&(Math.abs(e.clientY-startY)>10||Math.abs(e.clientX-startX)>10)){
+        clearTimeout(_holdTimer);_holdTimer=null;
+        _onCancel();
+      }
+      return;
+    }
     const dy=e.clientY-startY;
     if(!didDrag&&Math.abs(dy)<5)return;
     didDrag=true;
@@ -13478,6 +13517,10 @@ function _calendarSlotDragBind(slotEl,opts){
     document.removeEventListener('pointerup',_onUp);
     document.removeEventListener('pointercancel',_onCancel);
     document.removeEventListener('keydown',_onKey);
+    if(_holdTimer){
+      clearTimeout(_holdTimer);_holdTimer=null;
+      return;
+    }
     if(didDrag){
       const currentMins=_snapMins(_localY(e.clientY));
       const startM=Math.min(anchorMins,currentMins);
@@ -13485,7 +13528,8 @@ function _calendarSlotDragBind(slotEl,opts){
       const endM=Math.max(endRaw,startM+15);
       const _suppress=ev=>{ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',_suppress,true);};
       document.addEventListener('click',_suppress,true);
-      setTimeout(()=>{try{document.removeEventListener('click',_suppress,true);}catch(_){}},100);
+      const _suppressMs=_capturedPointerType==='touch'?350:100;
+      setTimeout(()=>{try{document.removeEventListener('click',_suppress,true);}catch(_){}},_suppressMs);
       _cleanup();
       showAddEventModal(dateStr,_minutesToTimeStr(startM),_minutesToTimeStr(endM));
     } else {
@@ -13502,10 +13546,22 @@ function _calendarSlotDragBind(slotEl,opts){
   function _onKey(e){if(e.key==='Escape')_onCancel();}
   slotEl.addEventListener('pointerdown',e=>{
     if(e.button!==undefined&&e.button!==0)return;
-    if(e.pointerType==='touch')return;
-    startY=e.clientY;didDrag=false;
-    _dragInProgress=true;_dragStartedAt=Date.now();
-    try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
+    startX=e.clientX;startY=e.clientY;didDrag=false;_holdActive=false;
+    _capturedPointerType=e.pointerType||'mouse';
+    if(e.pointerType==='touch'){
+      if(_holdTimer)clearTimeout(_holdTimer);
+      _holdTimer=setTimeout(()=>{
+        _holdTimer=null;
+        _holdActive=true;
+        _dragInProgress=true;_dragStartedAt=Date.now();
+        try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
+        if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
+      },500);
+    } else {
+      _holdActive=true;
+      _dragInProgress=true;_dragStartedAt=Date.now();
+      try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
+    }
     document.addEventListener('pointermove',_onMove);
     document.addEventListener('pointerup',_onUp);
     document.addEventListener('pointercancel',_onCancel);
