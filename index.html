@@ -13352,10 +13352,10 @@ function _calendarDragBind(blockEl,opts){
       }
       return;
     }
+    e.preventDefault();
     const dx=e.clientX-startX,dy=e.clientY-startY;
     if(!didDrag&&Math.abs(dx)<5&&Math.abs(dy)<5)return;
     didDrag=true;
-    e.preventDefault();
     const mins=_snapMins(_gridY(e.clientY));
     if(ghost){
       ghost.style.top=((mins/15)*_CAL_SLOT_H)+'px';
@@ -13452,7 +13452,7 @@ function _calendarDragBind(blockEl,opts){
     } else {
       _engageDragMode(e);
     }
-    document.addEventListener('pointermove',_onMove);
+    document.addEventListener('pointermove',_onMove,{passive:false});
     document.addEventListener('pointerup',_onUp);
     document.addEventListener('pointercancel',_onCancel);
     document.addEventListener('keydown',_onKey);
@@ -13473,7 +13473,6 @@ function _calendarSlotDragBind(slotEl,opts){
     if(preview)preview.remove();preview=null;
     if(tooltip)tooltip.remove();tooltip=null;
     slotEl.style.touchAction='pan-y';
-    if(scrollContainer)scrollContainer.style.touchAction='';
     if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
     _holdActive=false;
     _dragInProgress=false;
@@ -13486,10 +13485,10 @@ function _calendarSlotDragBind(slotEl,opts){
       }
       return;
     }
+    e.preventDefault();
     const dy=e.clientY-startY;
     if(!didDrag&&Math.abs(dy)<5)return;
     didDrag=true;
-    e.preventDefault();
     const currentMins=_snapMins(_localY(e.clientY));
     const startM=Math.min(anchorMins,currentMins);
     const endRaw=Math.max(anchorMins,currentMins);
@@ -13558,17 +13557,15 @@ function _calendarSlotDragBind(slotEl,opts){
         _holdTimer=null;
         _holdActive=true;
         _dragInProgress=true;_dragStartedAt=Date.now();
-        if(scrollContainer)scrollContainer.style.touchAction='none';
         try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
         if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
       },500);
     } else {
       _holdActive=true;
       _dragInProgress=true;_dragStartedAt=Date.now();
-      if(scrollContainer)scrollContainer.style.touchAction='none';
       try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
     }
-    document.addEventListener('pointermove',_onMove);
+    document.addEventListener('pointermove',_onMove,{passive:false});
     document.addEventListener('pointerup',_onUp);
     document.addEventListener('pointercancel',_onCancel);
     document.addEventListener('keydown',_onKey);
