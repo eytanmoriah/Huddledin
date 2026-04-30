@@ -2416,16 +2416,12 @@ function setupHouseholdSync(){
     .subscribe();
   if(_hhChildDataChannel)try{_hhChildDataChannel.unsubscribe();}catch(e){}
   _hhChildDataChannel=_supa.channel('hh_child_data:'+_hid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes'},(p)=>{
+    .on('postgres_changes',{event:'*',schema:'public',table:'vault_notes',filter:'household_id=eq.'+_hid},(p)=>{
       const _id=p.new?.id||p.old?.id;
       if(_id&&_localVaultNoteChanges.has(_id)){
         _localVaultNoteChanges.delete(_id);
         return;
       }
-      const cid=p.new?.child_id||p.old?.child_id;
-      if(!cid)return;
-      const myChildIds=new Set((DB.children||[]).map(c=>String(c.id)));
-      if(!myChildIds.has(String(cid)))return;
       _debouncedRefresh('vault');
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'household_id=eq.'+_hid},(p)=>{
