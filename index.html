@@ -2265,6 +2265,7 @@ let _nowLineInterval=null;
 const _CAL_SLOT_H=24; // px per 15-min slot
 let _dragInProgress=false;
 let _dragStartedAt=0;
+let _activePreviewCancel=null;
 function _minutesToTimeStr(mins){const h=Math.floor(mins/60)%24;const m=mins%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');}
 let _chatRefreshTimer=null;
 let _seenTimestamps={};
@@ -13469,6 +13470,9 @@ function _calendarSlotDragBind(slotEl,opts){
   let _currentStartM=anchorMins;
   let _currentEndM=anchorMins+30;
   let _topHandle=null,_bottomHandle=null,_cancelBtn=null;
+  let _previewHoldTimer=null,_previewHoldActive=false;
+  let _previewMoveStartX=0,_previewMoveStartY=0;
+  let _previewOriginalStartM=0,_previewOriginalEndM=0;
   function _localY(clientY){const r=container.getBoundingClientRect();return clientY-r.top;}
   function _snapMins(y){const slots=Math.round(y/_CAL_SLOT_H);return Math.max(0,Math.min(96,slots))*15;}
   function _fmtDur(mins){if(mins>=60){const h=Math.floor(mins/60);const m=mins%60;return h+'h'+(m?(' '+m+'m'):'');}return mins+'m';}
@@ -13523,12 +13527,65 @@ function _calendarSlotDragBind(slotEl,opts){
   }
   function _attachPreviewHandles(){
     _currentStartM=anchorMins;
-    // Make preview tap-receptive for confirm
+    // Make preview tap/drag-receptive for confirm + move
     preview.style.pointerEvents='auto';
     preview.style.cursor='pointer';
-    preview.addEventListener('click',ev=>{
+    preview.addEventListener('pointerdown',ev=>{
       ev.stopPropagation();
-      _confirmPreview();
+      _previewMoveStartX=ev.clientX;
+      _previewMoveStartY=ev.clientY;
+      _previewOriginalStartM=_currentStartM;
+      _previewOriginalEndM=_currentEndM;
+      _previewHoldActive=false;
+      if(_previewHoldTimer)clearTimeout(_previewHoldTimer);
+      _previewHoldTimer=setTimeout(()=>{
+        _previewHoldTimer=null;
+        _previewHoldActive=true;
+        if(scrollContainer)scrollContainer.style.touchAction='none';
+        try{preview.setPointerCapture(ev.pointerId);}catch(_){}
+        preview.style.opacity='0.6';
+        if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
+      },500);
+      const onMove=mv=>{
+        if(!_previewHoldActive){
+          if(_previewHoldTimer&&(Math.abs(mv.clientY-_previewMoveStartY)>10||Math.abs(mv.clientX-_previewMoveStartX)>10)){
+            clearTimeout(_previewHoldTimer);_previewHoldTimer=null;
+            document.removeEventListener('pointermove',onMove);
+            document.removeEventListener('pointerup',onUp);
+            document.removeEventListener('pointercancel',onUp);
+          }
+          return;
+        }
+        mv.preventDefault();
+        const dy=mv.clientY-_previewMoveStartY;
+        const slotsDelta=Math.round(dy/_CAL_SLOT_H);
+        const minutesDelta=slotsDelta*15;
+        let newStartM=_previewOriginalStartM+minutesDelta;
+        let newEndM=_previewOriginalEndM+minutesDelta;
+        if(newStartM<0){const adj=-newStartM;newStartM+=adj;newEndM+=adj;}
+        if(newEndM>1440){const adj=newEndM-1440;newStartM-=adj;newEndM-=adj;}
+        _currentStartM=newStartM;
+        _currentEndM=newEndM;
+        _renderPreview(_currentStartM,_currentEndM,mv);
+      };
+      const onUp=()=>{
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onUp);
+        document.removeEventListener('pointercancel',onUp);
+        if(_previewHoldTimer){
+          clearTimeout(_previewHoldTimer);_previewHoldTimer=null;
+          _confirmPreview();
+          return;
+        }
+        if(_previewHoldActive){
+          preview.style.opacity='';
+          if(scrollContainer)scrollContainer.style.touchAction='';
+          _previewHoldActive=false;
+        }
+      };
+      document.addEventListener('pointermove',onMove,{passive:false});
+      document.addEventListener('pointerup',onUp);
+      document.addEventListener('pointercancel',onUp);
     });
     // Top handle — small grip dots (36x16)
     _topHandle=document.createElement('div');
@@ -13545,6 +13602,7 @@ function _calendarSlotDragBind(slotEl,opts){
     _cancelBtn.style.cssText='position:absolute;top:-12px;right:-12px;width:24px;height:24px;background:#fff;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:.9rem;font-weight:700;cursor:pointer;touch-action:none;pointer-events:auto;z-index:6;';
     _cancelBtn.textContent='✕';
     preview.appendChild(_cancelBtn);
+    _cancelBtn.addEventListener('pointerdown',ev=>ev.stopPropagation());
     _cancelBtn.addEventListener('click',ev=>{
       ev.stopPropagation();
       _cancelPreview();
@@ -13554,11 +13612,14 @@ function _calendarSlotDragBind(slotEl,opts){
     _bindHandleDrag(_bottomHandle,false);
     _topHandle.addEventListener('click',ev=>ev.stopPropagation());
     _bottomHandle.addEventListener('click',ev=>ev.stopPropagation());
+    _activePreviewCancel=_cancelPreview;
   }
   function _detachPreviewHandles(){
     if(_topHandle){_topHandle.remove();_topHandle=null;}
     if(_bottomHandle){_bottomHandle.remove();_bottomHandle=null;}
     if(_cancelBtn){_cancelBtn.remove();_cancelBtn=null;}
+    if(_previewHoldTimer){clearTimeout(_previewHoldTimer);_previewHoldTimer=null;}
+    _activePreviewCancel=null;
   }
   function _confirmPreview(){
     const startM=_currentStartM;
@@ -13579,6 +13640,7 @@ function _calendarSlotDragBind(slotEl,opts){
     if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
     _holdActive=false;
     _dragInProgress=false;
+    _activePreviewCancel=null;
   }
   function _onMove(e){
     if(!_holdActive){
@@ -13640,6 +13702,7 @@ function _calendarSlotDragBind(slotEl,opts){
       if(_holdTimer)clearTimeout(_holdTimer);
       _holdTimer=setTimeout(()=>{
         _holdTimer=null;
+        if(_activePreviewCancel)_activePreviewCancel();
         _holdActive=true;
         _dragInProgress=true;_dragStartedAt=Date.now();
         if(scrollContainer)scrollContainer.style.touchAction='none';
@@ -13648,9 +13711,11 @@ function _calendarSlotDragBind(slotEl,opts){
         didDrag=true;
         _currentEndM=anchorMins+30;
         _renderPreview(anchorMins,_currentEndM,e);
+        _activePreviewCancel=_cancelPreview;
         if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
       },500);
     } else {
+      if(_activePreviewCancel)_activePreviewCancel();
       _holdActive=true;
       _dragInProgress=true;_dragStartedAt=Date.now();
       if(scrollContainer)scrollContainer.style.touchAction='none';
