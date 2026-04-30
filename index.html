@@ -14183,6 +14183,107 @@ async function _runRollingExtensions(){
   console.log('[calendar-v2] Rolling extension complete: '+successCount+' extended, '+errorCount+' errors');
 }
 
+function makePatientCombo(opts){
+  const {
+    children=[],
+    placeholder='Search…',
+    personalOption=false,
+    noneOption=null,
+    initialValue=null,
+    onChange=()=>{},
+    showSearchAlways=false
+  }=opts||{};
+  const _showSearch=showSearchAlways||children.length>5;
+  const options=[];
+  if(personalOption)options.push({value:'__personal__',label:'🕒 '+T('cal_personal_block')});
+  if(noneOption)options.push({value:noneOption.value,label:noneOption.label});
+  children.forEach(c=>options.push({value:c.id,label:(c.avatar||'🧒')+' '+c.name,_searchKey:c.name.toLowerCase()}));
+  let _value=initialValue||'';
+  const _findLabel=v=>{const o=options.find(x=>x.value===v);return o?o.label:'';};
+  const _placeholderText='— '+placeholder+' —';
+  const wrap=el('div',{style:{position:'relative',marginBottom:'12px'}});
+  let display,searchInput;
+  if(_showSearch){
+    display=el('input',{class:'inp',placeholder:placeholder,autocomplete:'off',inputMode:'search'});
+    display.value=_value?_findLabel(_value):'';
+    searchInput=display;
+  } else {
+    display=el('div',{class:'inp',style:{cursor:'pointer',display:'flex',alignItems:'center',userSelect:'none'}});
+    display.textContent=_value?_findLabel(_value):_placeholderText;
+    display.style.color=_value?'var(--navy)':'var(--slate)';
+  }
+  wrap.appendChild(display);
+  const dropdown=el('div',{style:{display:'none',position:'absolute',top:'100%',left:0,right:0,maxHeight:'220px',overflowY:'auto',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'0 0 10px 10px',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:20}});
+  const _build=q=>{
+    dropdown.innerHTML='';
+    const _q=(q||'').toLowerCase();
+    let matches;
+    if(!_q){
+      matches=options;
+    } else {
+      matches=options.filter(o=>o._searchKey&&o._searchKey.includes(_q));
+    }
+    if(!matches.length){dropdown.style.display='none';return;}
+    matches.forEach(opt=>{
+      const item=el('div',{style:{padding:'8px 12px',fontSize:'.82rem',cursor:'pointer'}});
+      item.textContent=opt.label;
+      item.onmouseenter=()=>{item.style.background='var(--mint-ll)';};
+      item.onmouseleave=()=>{item.style.background='transparent';};
+      item.onmousedown=e=>{
+        e.preventDefault();
+        _value=opt.value;
+        if(_showSearch){
+          searchInput.value=opt.label;
+        } else {
+          display.textContent=opt.label;
+          display.style.color='var(--navy)';
+        }
+        dropdown.style.display='none';
+        onChange(opt.value);
+      };
+      dropdown.appendChild(item);
+    });
+    dropdown.style.display='block';
+  };
+  if(_showSearch){
+    searchInput.onfocus=()=>{searchInput.select();_build('');};
+    searchInput.oninput=()=>_build(searchInput.value);
+    searchInput.onblur=()=>{setTimeout(()=>{dropdown.style.display='none';if(_value)searchInput.value=_findLabel(_value);},150);};
+  } else {
+    display.onclick=()=>{
+      if(dropdown.style.display==='block'){
+        dropdown.style.display='none';
+      } else {
+        _build('');
+        setTimeout(()=>{
+          const _outside=ev=>{
+            if(!wrap.contains(ev.target)){
+              dropdown.style.display='none';
+              document.removeEventListener('click',_outside,true);
+            }
+          };
+          document.addEventListener('click',_outside,true);
+        },0);
+      }
+    };
+  }
+  wrap.appendChild(dropdown);
+  return {
+    wrap,
+    getValue:()=>_value,
+    setValue:v=>{
+      _value=v||'';
+      const lbl=_findLabel(_value);
+      if(_showSearch){
+        searchInput.value=lbl;
+      } else {
+        display.textContent=lbl||_placeholderText;
+        display.style.color=lbl?'var(--navy)':'var(--slate)';
+      }
+    }
+  };
+}
+
 function showAddEventModalForDate(dateStr,availableChildren){
   // Delegate to the full modal — passes prefilledDate and overrides child selector if needed
   const theChildren=availableChildren&&availableChildren.length>0?availableChildren:DB.children;
@@ -14206,21 +14307,14 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
       :(S.activeChild||(children[0]?.id||null));
     if(_isSpec||children.length>1){
       mb.appendChild(el('div',{class:'inp-label'},[T(_isSpec?'cal_for_which_patient':'cal_for_which_child')]));
-      const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
-      if(_isSpec){
-        const oPersonal=el('option');oPersonal.value='__personal__';oPersonal.textContent='🕒 '+T('cal_personal_block');childSel.appendChild(oPersonal);
-        if(!_selectedChild){
-          const oPick=el('option');oPick.value='';oPick.textContent='— '+T('cal_for_which_patient')+' —';oPick.disabled=true;oPick.selected=true;childSel.appendChild(oPick);
-        }
-      }
-      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===_selectedChild)o.selected=true;childSel.appendChild(o);});
-      childSel.onchange=e=>{
-        const v=e.target.value;
-        if(v==='__personal__')_selectedChild=null;
-        else if(v==='')_selectedChild=null;
-        else _selectedChild=v;
-      };
-      mb.appendChild(childSel);
+      const _picker=makePatientCombo({
+        children:children,
+        placeholder:T(_isSpec?'cal_for_which_patient':'cal_for_which_child'),
+        personalOption:_isSpec,
+        initialValue:_selectedChild,
+        onChange:v=>{_selectedChild=v==='__personal__'?null:(v||null);}
+      });
+      mb.appendChild(_picker.wrap);
     }
 
     mb.appendChild(el('div',{class:'inp-label'},[T('cal_event_title')+' *']));
