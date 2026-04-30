@@ -13466,33 +13466,11 @@ function _calendarSlotDragBind(slotEl,opts){
   const TIME_COL_W=48;
   let didDrag=false,preview=null,tooltip=null,startX=0,startY=0;
   let _holdTimer=null,_holdActive=false,_capturedPointerType='mouse';
+  let _currentEndM=anchorMins+30;
   function _localY(clientY){const r=container.getBoundingClientRect();return clientY-r.top;}
   function _snapMins(y){const slots=Math.round(y/_CAL_SLOT_H);return Math.max(0,Math.min(96,slots))*15;}
   function _fmtDur(mins){if(mins>=60){const h=Math.floor(mins/60);const m=mins%60;return h+'h'+(m?(' '+m+'m'):'');}return mins+'m';}
-  function _cleanup(){
-    if(preview)preview.remove();preview=null;
-    if(tooltip)tooltip.remove();tooltip=null;
-    slotEl.style.touchAction='pan-y';
-    if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
-    _holdActive=false;
-    _dragInProgress=false;
-  }
-  function _onMove(e){
-    if(!_holdActive){
-      if(_holdTimer&&(Math.abs(e.clientY-startY)>10||Math.abs(e.clientX-startX)>10)){
-        clearTimeout(_holdTimer);_holdTimer=null;
-        _onCancel();
-      }
-      return;
-    }
-    e.preventDefault();
-    const dy=e.clientY-startY;
-    if(!didDrag&&Math.abs(dy)<5)return;
-    didDrag=true;
-    const currentMins=_snapMins(_localY(e.clientY));
-    const startM=Math.min(anchorMins,currentMins);
-    const endRaw=Math.max(anchorMins,currentMins);
-    const endM=Math.max(endRaw,startM+15);
+  function _renderPreview(startM,endM,e){
     if(!preview){
       preview=document.createElement('div');
       preview.style.cssText='position:absolute;background:rgba(13,148,136,.18);border:1.5px dashed var(--teal);border-radius:6px;pointer-events:none;z-index:5;box-sizing:border-box;';
@@ -13515,6 +13493,31 @@ function _calendarSlotDragBind(slotEl,opts){
     tooltip.style.left=(e.clientX+12)+'px';
     tooltip.style.top=(e.clientY+8)+'px';
   }
+  function _cleanup(){
+    if(preview)preview.remove();preview=null;
+    if(tooltip)tooltip.remove();tooltip=null;
+    slotEl.style.touchAction='pan-y';
+    if(scrollContainer)scrollContainer.style.touchAction='';
+    if(_holdTimer){clearTimeout(_holdTimer);_holdTimer=null;}
+    _holdActive=false;
+    _dragInProgress=false;
+  }
+  function _onMove(e){
+    if(!_holdActive){
+      if(_holdTimer&&(Math.abs(e.clientY-startY)>10||Math.abs(e.clientX-startX)>10)){
+        clearTimeout(_holdTimer);_holdTimer=null;
+        _onCancel();
+      }
+      return;
+    }
+    e.preventDefault();
+    const dy=e.clientY-startY;
+    if(!didDrag&&Math.abs(dy)<5)return;
+    didDrag=true;
+    const currentMins=_snapMins(_localY(e.clientY));
+    _currentEndM=Math.max(anchorMins+15,currentMins);
+    _renderPreview(anchorMins,_currentEndM,e);
+  }
   function _onUp(e){
     document.removeEventListener('pointermove',_onMove);
     document.removeEventListener('pointerup',_onUp);
@@ -13525,10 +13528,8 @@ function _calendarSlotDragBind(slotEl,opts){
       return;
     }
     if(didDrag){
-      const currentMins=_snapMins(_localY(e.clientY));
-      const startM=Math.min(anchorMins,currentMins);
-      const endRaw=Math.max(anchorMins,currentMins);
-      const endM=Math.max(endRaw,startM+15);
+      const startM=anchorMins;
+      const endM=_currentEndM;
       const _suppress=ev=>{ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',_suppress,true);};
       document.addEventListener('click',_suppress,true);
       const _suppressMs=_capturedPointerType==='touch'?350:100;
@@ -13557,12 +13558,18 @@ function _calendarSlotDragBind(slotEl,opts){
         _holdTimer=null;
         _holdActive=true;
         _dragInProgress=true;_dragStartedAt=Date.now();
+        if(scrollContainer)scrollContainer.style.touchAction='none';
         try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
+        // Default 30-min preview anchored at this slot
+        didDrag=true;
+        _currentEndM=anchorMins+30;
+        _renderPreview(anchorMins,_currentEndM,e);
         if(navigator.vibrate)try{navigator.vibrate(10);}catch(_){}
       },500);
     } else {
       _holdActive=true;
       _dragInProgress=true;_dragStartedAt=Date.now();
+      if(scrollContainer)scrollContainer.style.touchAction='none';
       try{slotEl.setPointerCapture(e.pointerId);}catch(_){}
     }
     document.addEventListener('pointermove',_onMove,{passive:false});
