@@ -12557,10 +12557,13 @@ function showAptDetailModal(apt,child){
       const attSec=el('div',{style:{marginTop:'16px',paddingTop:'14px',borderTop:'1.5px solid var(--mint-l)'}});
       attSec.appendChild(el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--slate)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:'10px'}},[T('apt_attendance_label')]));
       const attBtnRow=el('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'10px'}});
+      const isPersonalBlock=!apt.childId;
       const attOpts=[
         {v:'attended',label:T('apt_attendance_attended'),bg:'#bbf7d0',fg:'#166534'},
-        {v:'patient_cancelled',label:T('apt_attendance_patient_cancelled'),bg:'#e2e8f0',fg:'#475569'},
-        {v:'no_show',label:T('apt_attendance_no_show'),bg:'#fed7aa',fg:'#9a3412'},
+        ...(isPersonalBlock?[]:[
+          {v:'patient_cancelled',label:T('apt_attendance_patient_cancelled'),bg:'#e2e8f0',fg:'#475569'},
+          {v:'no_show',label:T('apt_attendance_no_show'),bg:'#fed7aa',fg:'#9a3412'},
+        ]),
         {v:'therapist_cancelled',label:T('apt_attendance_therapist_cancelled_self'),bg:'#e2e8f0',fg:'#475569'}
       ];
       const attBtns=[];
@@ -13125,7 +13128,14 @@ function _renderDayView(calCard,allApts,isRtl){
 
   // Restore scroll if same date and we have a saved position; else 8am default on first render
   const sameDate=S._lastDayScrollKey===focusDateStr;
-  if(sameDate&&S._lastDayScrollTop!=null){
+  if(S._scrollToMins!=null){
+    const targetTop=(S._scrollToMins/15)*SLOT_H;
+    const desiredTop=Math.max(0,Math.min(TOTAL_HEIGHT-VISIBLE_HEIGHT,targetTop-VISIBLE_HEIGHT/3));
+    S._scrollToMins=null;
+    S._lastDayScrollTop=desiredTop;
+    S._lastDayScrollKey=focusDateStr;
+    requestAnimationFrame(()=>{scrollContainer.scrollTop=desiredTop;});
+  } else if(sameDate&&S._lastDayScrollTop!=null){
     requestAnimationFrame(()=>{scrollContainer.scrollTop=S._lastDayScrollTop;});
   } else if(!S._dayViewScrolled){
     S._dayViewScrolled=true;
@@ -13291,7 +13301,14 @@ function _renderWeekView(calCard,allApts,isRtl){
   scrollContainer.addEventListener('scroll',()=>{S._lastWeekScrollTop=scrollContainer.scrollTop;S._lastWeekScrollKey=_weekStartKey;},{passive:true});
   // Restore scroll if same week and we have a saved position; else 8am default on first render
   const sameWeek=S._lastWeekScrollKey===_weekStartKey;
-  if(sameWeek&&S._lastWeekScrollTop!=null){
+  if(S._scrollToMins!=null){
+    const targetTop=(S._scrollToMins/15)*SLOT_H;
+    const desiredTop=Math.max(0,Math.min(TOTAL_HEIGHT-VISIBLE_HEIGHT,targetTop-VISIBLE_HEIGHT/3));
+    S._scrollToMins=null;
+    S._lastWeekScrollTop=desiredTop;
+    S._lastWeekScrollKey=_weekStartKey;
+    requestAnimationFrame(()=>{scrollContainer.scrollTop=desiredTop;});
+  } else if(sameWeek&&S._lastWeekScrollTop!=null){
     requestAnimationFrame(()=>{scrollContainer.scrollTop=S._lastWeekScrollTop;});
   } else if(!S._dayViewScrolled){
     S._dayViewScrolled=true;
@@ -13516,6 +13533,7 @@ function _saveDrop(apt,newMins,newDateStr){
   const prev={...apts[i]};
   Object.assign(apts[i],lsPatch);
   DB.appointments=apts;
+  S._scrollToMins=newMins;
   re();
   _trackerAdd(_localApptChanges,apt.id);
   _supa.from('appointments').update(dbPatch).eq('id',apt.id).then(({error})=>{
@@ -13958,15 +13976,22 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
     const children=DB.children;
     const _isSpec=session?.role==='specialist';
     // Specialists always get the picker (with Personal option). Parents get it only when >1 child.
-    let _selectedChild=_isSpec?null:(S.activeChild||(children[0]?.id||null));
+    // For specialists in patient context (calendarMode='child' + activeChild visible), pre-select that patient.
+    const _isPatientContext=_isSpec&&S.calendarMode==='child'&&S.activeChild;
+    const _activeChildVisible=_isPatientContext&&children.some(c=>c.id===S.activeChild);
+    let _selectedChild=_isSpec
+      ?(_activeChildVisible?S.activeChild:null)
+      :(S.activeChild||(children[0]?.id||null));
     if(_isSpec||children.length>1){
       mb.appendChild(el('div',{class:'inp-label'},[T(_isSpec?'cal_for_which_patient':'cal_for_which_child')]));
       const childSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
       if(_isSpec){
         const oPersonal=el('option');oPersonal.value='__personal__';oPersonal.textContent='🕒 '+T('cal_personal_block');childSel.appendChild(oPersonal);
-        const oPick=el('option');oPick.value='';oPick.textContent='— '+T('cal_for_which_patient')+' —';oPick.disabled=true;oPick.selected=true;childSel.appendChild(oPick);
+        if(!_selectedChild){
+          const oPick=el('option');oPick.value='';oPick.textContent='— '+T('cal_for_which_patient')+' —';oPick.disabled=true;oPick.selected=true;childSel.appendChild(oPick);
+        }
       }
-      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(!_isSpec&&c.id===_selectedChild)o.selected=true;childSel.appendChild(o);});
+      children.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=c.avatar+' '+c.name;if(c.id===_selectedChild)o.selected=true;childSel.appendChild(o);});
       childSel.onchange=e=>{
         const v=e.target.value;
         if(v==='__personal__')_selectedChild=null;
