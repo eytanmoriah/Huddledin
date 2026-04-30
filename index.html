@@ -13468,7 +13468,7 @@ function _calendarSlotDragBind(slotEl,opts){
   let _holdTimer=null,_holdActive=false,_capturedPointerType='mouse';
   let _currentStartM=anchorMins;
   let _currentEndM=anchorMins+30;
-  let _topHandle=null,_bottomHandle=null,_saveBtn=null,_outsideClickHandler=null;
+  let _topHandle=null,_bottomHandle=null,_cancelBtn=null;
   function _localY(clientY){const r=container.getBoundingClientRect();return clientY-r.top;}
   function _snapMins(y){const slots=Math.round(y/_CAL_SLOT_H);return Math.max(0,Math.min(96,slots))*15;}
   function _fmtDur(mins){if(mins>=60){const h=Math.floor(mins/60);const m=mins%60;return h+'h'+(m?(' '+m+'m'):'');}return mins+'m';}
@@ -13523,41 +13523,42 @@ function _calendarSlotDragBind(slotEl,opts){
   }
   function _attachPreviewHandles(){
     _currentStartM=anchorMins;
-    _topHandle=document.createElement('div');
-    _topHandle.style.cssText='position:absolute;top:-12px;left:50%;transform:translateX(-50%);width:60px;height:24px;background:var(--teal);border-radius:12px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:700;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.18);z-index:6;';
-    _topHandle.textContent='⋮⋮';
-    preview.appendChild(_topHandle);
-    _bottomHandle=document.createElement('div');
-    _bottomHandle.style.cssText='position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);width:60px;height:24px;background:var(--teal);border-radius:12px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:700;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.18);z-index:6;';
-    _bottomHandle.textContent='⋮⋮';
-    preview.appendChild(_bottomHandle);
-    _saveBtn=document.createElement('div');
-    _saveBtn.style.cssText='position:absolute;bottom:-44px;right:0;background:var(--teal);color:#fff;padding:8px 16px;border-radius:20px;font-size:.85rem;font-weight:700;cursor:pointer;touch-action:none;pointer-events:auto;box-shadow:0 3px 10px rgba(13,148,136,.3);z-index:6;display:flex;align-items:center;gap:6px;';
-    _saveBtn.textContent='✓ Save';
-    preview.appendChild(_saveBtn);
-    _bindHandleDrag(_topHandle,true);
-    _bindHandleDrag(_bottomHandle,false);
-    _saveBtn.addEventListener('pointerdown',ev=>{
-      ev.stopPropagation();ev.preventDefault();
+    // Make preview tap-receptive for confirm
+    preview.style.pointerEvents='auto';
+    preview.style.cursor='pointer';
+    preview.addEventListener('click',ev=>{
+      ev.stopPropagation();
       _confirmPreview();
     });
-    _outsideClickHandler=ev=>{
-      if(!preview)return;
-      if(preview.contains(ev.target))return;
+    // Top handle — small grip dots (36x16)
+    _topHandle=document.createElement('div');
+    _topHandle.style.cssText='position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:36px;height:16px;background:var(--teal);border-radius:8px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.65rem;font-weight:700;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.18);z-index:6;';
+    _topHandle.textContent='⋮⋮';
+    preview.appendChild(_topHandle);
+    // Bottom handle — same dimensions
+    _bottomHandle=document.createElement('div');
+    _bottomHandle.style.cssText='position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:36px;height:16px;background:var(--teal);border-radius:8px;cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.65rem;font-weight:700;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.18);z-index:6;';
+    _bottomHandle.textContent='⋮⋮';
+    preview.appendChild(_bottomHandle);
+    // Cancel ✕ at top-right
+    _cancelBtn=document.createElement('div');
+    _cancelBtn.style.cssText='position:absolute;top:-12px;right:-12px;width:24px;height:24px;background:#fff;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:.9rem;font-weight:700;cursor:pointer;touch-action:none;pointer-events:auto;z-index:6;';
+    _cancelBtn.textContent='✕';
+    preview.appendChild(_cancelBtn);
+    _cancelBtn.addEventListener('click',ev=>{
+      ev.stopPropagation();
       _cancelPreview();
-    };
-    requestAnimationFrame(()=>{
-      document.addEventListener('pointerdown',_outsideClickHandler,true);
     });
-    const _clickSuppressor=ev=>{ev.stopPropagation();ev.preventDefault();};
-    document.addEventListener('click',_clickSuppressor,true);
-    setTimeout(()=>{try{document.removeEventListener('click',_clickSuppressor,true);}catch(_){}},350);
+    // Wire handle drags + click-stoppers so taps on handles don't bubble to preview confirm
+    _bindHandleDrag(_topHandle,true);
+    _bindHandleDrag(_bottomHandle,false);
+    _topHandle.addEventListener('click',ev=>ev.stopPropagation());
+    _bottomHandle.addEventListener('click',ev=>ev.stopPropagation());
   }
   function _detachPreviewHandles(){
     if(_topHandle){_topHandle.remove();_topHandle=null;}
     if(_bottomHandle){_bottomHandle.remove();_bottomHandle=null;}
-    if(_saveBtn){_saveBtn.remove();_saveBtn=null;}
-    if(_outsideClickHandler){document.removeEventListener('pointerdown',_outsideClickHandler,true);_outsideClickHandler=null;}
+    if(_cancelBtn){_cancelBtn.remove();_cancelBtn=null;}
   }
   function _confirmPreview(){
     const startM=_currentStartM;
