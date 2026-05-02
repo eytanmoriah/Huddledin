@@ -72,7 +72,7 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
             let openUrl = null;
             if (path) {
               try {
-                const supa = H._supa && H._supa();
+                const supa = H._supa;
                 if (supa) {
                   const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
                   if (data?.signedUrl) openUrl = data.signedUrl;
@@ -89,7 +89,7 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
           (async () => {
             if (path) {
               try {
-                const supa = H._supa && H._supa();
+                const supa = H._supa;
                 if (supa) {
                   const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
                   if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }

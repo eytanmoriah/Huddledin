@@ -204,7 +204,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
           if (!imgEl) return;
           if (path) {
             try {
-              const supa = ctx && ctx.H && ctx.H._supa && ctx.H._supa();
+              const supa = ctx && ctx.H && ctx.H._supa;
               if (supa) {
                 const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
                 if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }
