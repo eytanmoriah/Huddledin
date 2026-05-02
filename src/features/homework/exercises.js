@@ -241,6 +241,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
           onPick: (picked) => {
             showRenameDialog({
               originalName: picked.name,
+              sourceExt: picked.file_type || _extractExt(picked.name),
               onConfirm: async (finalName) => {
                 await _copyAndLinkFromStorage(picked, finalName, ctx, exercises, idx, exAttachBtn, onChange, _renderExFiles);
               }
@@ -272,6 +273,12 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
 
   _render();
   return wrap;
+}
+
+function _extractExt(filename) {
+  const dot = (filename || '').lastIndexOf('.');
+  if (dot <= 0) return '';
+  return filename.slice(dot + 1).toLowerCase();
 }
 
 async function _copyAndLinkFromStorage(picked, finalName, ctx, exercises, idx, exAttachBtn, onChange, _renderExFiles) {
