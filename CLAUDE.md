@@ -1,6 +1,6 @@
 # CLAUDE.md — Huddledin Developer Guidelines
 
-**Last updated:** April 25, 2026
+**Last updated:** May 2, 2026
 
 Read this file first before any Huddledin task. Also check for relevant skills:
 - `C:/Users/eytan/.claude/skills/huddledin-web-design/SKILL.md` — for any web UI work
@@ -457,6 +457,7 @@ Catches regressions early when isolating the cause is cheap.
 - `20260416_add_reply_to_messages.sql` — reply_to_id column
 - `20260425_add_reports_name.sql` — reports.name column with 1-100 char check (manual via Supabase SQL editor)
 - `20260429_calendar_v2_schema.sql` — series + attendance + soft delete columns for calendar v2
+- `20260502_homework_attached_file_paths.sql` — `attached_file_paths TEXT[]` on `homework_tasks` and `homework_exercises` (path-based storage alongside legacy URL columns; foundation for storage picker)
 
 ### Edge Functions
 - `paddle-webhook` — stores subscription + cancel_url
@@ -551,6 +552,67 @@ Active issues to review:
 **When this applies:** Implementing any non-trivial feature change (more than ~30 lines or any branching logic).
 **Symptom if missed:** Subtle bugs ship that the audit would have caught — D2b's date-collapse, D5's modal auto-close, etc.
 **Pattern to apply:** First prompt to Claude Code says "Investigation only first. Don't change anything until I confirm scope." Read findings, refine scope, then greenlight. The audit phase costs minutes; skipping it can cost hours.
+
+---
+
+## Architectural gotchas from sessions
+
+### HUD bridge `_supa` gotcha
+
+There are TWO patterns for accessing the Supabase client. Mixing them up causes silent failures.
+
+**Pattern 1 — Local wrapper function (used in some modules):**
+```js
+function _supa() { return window.HUD?._supa; }
+const { data } = await _supa().from('...');
+```
+
+**Pattern 2 — Direct HUD bridge access:**
+```js
+const H = window.HUD;
+const supa = H._supa;        // ✅ correct — object directly
+const supa = H._supa();      // ❌ wrong — TypeError, often caught silently
+```
+
+`HUD._supa` is the Supabase client object directly, NOT a function. The TypeError gets swallowed by surrounding try/catch and masked by fallback paths. Real example: Session B storage picker shipped with `H._supa && H._supa()` — chip clicks silently failed for path-only attachments because they had no legacy URL fallback.
+
+**Rule:** when accessing the Supabase client through the HUD bridge, write `H._supa` (no parens). The local-wrapper convention (`function _supa()` returning the bridge property) exists in `data.js`, `templates.js`, `tiptap-gate.js` — calling THOSE is correct because they're functions that unwrap the property.
+
+### Vercel deploy verification protocol
+
+After every push to main, verify the deploy actually shipped before testing behavior:
+
+```js
+fetch('/public/app.bundle.js?bust=' + Date.now())
+  .then(r => r.text())
+  .then(t => console.log('Has new code:', t.indexOf('expectedString') > -1));
+```
+
+Or for index.html changes:
+```js
+fetch('/index.html?bust=' + Date.now())
+  .then(r => r.text())
+  .then(t => console.log('Has new code:', t.indexOf('expectedString') > -1));
+```
+
+If push reaches GitHub but Vercel doesn't pick it up, force the webhook with an empty commit:
+```bash
+git commit --allow-empty -m "chore: force vercel rebuild"
+git push
+```
+
+### Don't pre-blame the agent
+
+When something looks wrong post-deploy, gather diagnostic data first (Network tab, Console output, Supabase row inspection) before assuming the code is broken. Often the issue is environment-specific or transient (Vercel cache, Supabase 544s, expired session, etc.). Yesterday's "Eytan's image won't load" turned out to be three specific files with intermittent 544s, not a code bug.
+
+### Folder + permission model (current state)
+
+- `folders` table: flat per child (no `parent_folder_id` today). Adding nesting requires schema + render refactor across ~6 sites.
+- `folder_permissions`: granular, persistent, real DB rows. Format `(specialist_id, child_id, folder_key)`. Realtime-synced.
+- `DB.specialistVaults.authorizedSpecialistIds`: parallel LS-only system, not persisted to Supabase. Looks abandoned/half-built. Pending: investigate-or-delete decision.
+- Specialist approval auto-creates a folder `key='spec_'+specialistId` AND a folder_permissions row at `index.html:6335-6349`.
+- Patient files link to folders via string match: `files.category === folders.key`. NOT a foreign key. Renaming a folder's key would silently strand files.
+- Open RLS on folders/files pre-launch — flagged for HIPAA hardening.
 
 ---
 
