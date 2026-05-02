@@ -2273,6 +2273,7 @@ const _localParentTaskChanges=new Set();
 const _localApptChanges=new Set();
 const _localVaultNoteChanges=new Set();
 const _localFileChanges=new Set();
+const _localCompletionChanges=new Set();
 function _trackerAdd(set,id){
   if(!id)return;
   set.add(id);
@@ -2372,7 +2373,20 @@ function setupHouseholdSync(){
       _debouncedRefresh();
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'homework_completions_v2',filter:'household_id=eq.'+_hid},(p)=>{
+      const _id=p.new?.id;
+      if(_id&&_localCompletionChanges.has(_id)){_localCompletionChanges.delete(_id);return;}
       if(p.new?.logged_by===session?.id)return;
+      _debouncedRefresh();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'homework_completions_v2',filter:'household_id=eq.'+_hid},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localCompletionChanges.has(_id)){_localCompletionChanges.delete(_id);return;}
+      _debouncedRefresh();
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'homework_completions_v2'},(p)=>{
+      // DELETE listener has NO filter — default replica identity may omit household_id from p.old
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localCompletionChanges.has(_id)){_localCompletionChanges.delete(_id);return;}
       _debouncedRefresh();
     })
     .subscribe();
@@ -3832,6 +3846,12 @@ hw4_both:'Both',
 hw4_how_many_reps:'How many reps did you complete?',
 hw4_how_many_min:'How many minutes?',
 hw4_pick_slot:'Pick which session first.',
+hw4_edit_response:'Editing response',
+hw4_update:'Update',
+hw4_delete_response:'Delete response',
+hw4_delete_response_confirm:'Delete this response? The exercise will be unmarked.',
+hw4_response_deleted:'✓ Response deleted',
+hw4_response_stale:'This response was removed. Please refresh.',
 // ── Patients (Chunk 14) ──
 patients_title:'\uD83D\uDC64 Patients',
 patients_no_patients:'No patients yet',
@@ -5189,6 +5209,12 @@ hw4_both:'Both',
 hw4_how_many_reps:'How many reps did you complete?',
 hw4_how_many_min:'How many minutes?',
 hw4_pick_slot:'Pick which session first.',
+hw4_edit_response:'עריכת תגובה',
+hw4_update:'עדכון',
+hw4_delete_response:'מחיקת תגובה',
+hw4_delete_response_confirm:'למחוק את התגובה הזו? התרגיל יסומן כלא נעשה.',
+hw4_response_deleted:'✓ התגובה נמחקה',
+hw4_response_stale:'התגובה הוסרה. רעננו את הדף.',
 // ── Files & Folders ──
 files_title:'\uD83D\uDCC1 \u05E7\u05D1\u05E6\u05D9\u05DD',
 files_new_folder:'\u05EA\u05D9\u05E7\u05D9\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
@@ -21651,6 +21677,7 @@ window.HUD={
   _debouncedRefresh,_formatBytes,_isRtl,_startSide,_endSide,
   _speechLang,_availableLangs,_lang,
   _generateOccurrences,notifyOtherParty,getChildHouseholdId,
+  _trackCompletionChange:(id)=>_trackerAdd(_localCompletionChanges,id),
 };
 window.dispatchEvent(new Event('hud-ready'));
 </script>

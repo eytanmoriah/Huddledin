@@ -215,7 +215,13 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
   else if (hasCantDo) { rightLabel = T('hw4_cant_do'); rightColor = '#d97706'; }
   else if (hasSkipped) { rightLabel = T('hw4_skipped'); rightColor = '#94a3b8'; }
 
-  const interactive = scheduledToday && !allDone && !hasCantDo && !hasSkipped;
+  const interactive = scheduledToday;
+
+  // Edit-mode lookup: single-slot exercises with an existing completion → edit; multi-slot deferred to v2
+  let existingCompletion = null;
+  if (interactive && slots.length === 1) {
+    existingCompletion = compMap[ex.id + ':' + todayStr + ':' + slots[0]] || null;
+  }
 
   const row = el('div', { style: {
     display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px',
@@ -254,7 +260,14 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
 
   if (interactive) {
     row.onclick = () => {
-      mountCompleteModal({ homework: hw, exercise: ex, slot: slots.length === 1 ? slots[0] : null, scheduledDate: todayStr, childId, onSaved: () => H.re?.() });
+      mountCompleteModal({
+        homework: hw, exercise: ex,
+        slot: slots.length === 1 ? slots[0] : null,
+        scheduledDate: todayStr,
+        childId,
+        existingCompletion,
+        onSaved: () => H.re?.(),
+      });
     };
   }
 

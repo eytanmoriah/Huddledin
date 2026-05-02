@@ -365,7 +365,8 @@ export async function logExerciseCompletion({
   if (isUpdate) {
     // Preserve logged_at \u2014 represents when parent FIRST marked the exercise.
     // Specialist's retroactive \u23f1 indicator depends on this not being refreshed.
-    const { error: upErr } = await supa.from('homework_completions_v2')
+    window.HUD?._trackCompletionChange?.(existingCompletionId);
+    const { data: upRows, error: upErr } = await supa.from('homework_completions_v2')
       .update({
         status,
         note: note || null,
@@ -373,14 +374,20 @@ export async function logExerciseCompletion({
         actual_value: actualValue ?? null,
         slot: slot || null,
       })
-      .eq('id', existingCompletionId);
+      .eq('id', existingCompletionId)
+      .select('id');
 
     if (upErr) {
       console.error('\u274c logExerciseCompletion v2 update:', upErr);
       throw upErr;
     }
+
+    // 0 rows updated \u2192 row was deleted by another household member between hydration and edit
+    if (!upRows || upRows.length === 0) {
+      return { alreadyMarked: false, updated: false, stale: true };
+    }
   } else {
-    const { error: v2Err } = await supa.from('homework_completions_v2').insert({
+    const { data: insRow, error: v2Err } = await supa.from('homework_completions_v2').insert({
       homework_exercise_id: exercise.id,
       homework_id: homework.id,
       child_id: childId,
@@ -392,7 +399,7 @@ export async function logExerciseCompletion({
       photo_url: photoUrl || null,
       actual_value: actualValue ?? null,
       logged_by: sess.id,
-    });
+    }).select('id').single();
 
     if (v2Err) {
       if (v2Err.code === '23505' || /duplicate key|unique constraint/i.test(v2Err.message || '')) {
@@ -401,6 +408,7 @@ export async function logExerciseCompletion({
       console.error('\u274c logExerciseCompletion v2:', v2Err);
       throw v2Err;
     }
+    if (insRow?.id) window.HUD?._trackCompletionChange?.(insRow.id);
 
     // Dual-write to v1 only for 'done' status (old schema can't represent skipped/cant_do).
     // Skipped on UPDATE \u2014 the v1 row from the original INSERT remains; v2 wins on display
@@ -446,6 +454,22 @@ export async function logExerciseCompletion({
   }
 
   return { alreadyMarked: false, updated: isUpdate };
+}
+
+// Delete a single completion row. Used by the "Delete response" button in edit mode.
+// v1 dual-write hangover: legacy homework_completions / homework_occurrences rows are NOT
+// cleaned up here. detail-view.js merges with v2 preference, so live UI is correct, but
+// after a v2 delete the v1 row reappears in the specialist's activity feed until Phase 6d
+// sunsets the dual-write entirely. Tracked in deferred items.
+export async function deleteExerciseCompletion(completionId) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  window.HUD?._trackCompletionChange?.(completionId);
+  const { error } = await supa.from('homework_completions_v2').delete().eq('id', completionId);
+  if (error) {
+    console.error('❌ deleteExerciseCompletion:', error);
+    throw error;
+  }
 }
 
 export async function deleteHomework(homeworkId) {
