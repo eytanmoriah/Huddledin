@@ -11551,6 +11551,18 @@ function showAddFolderModal(){
             if(si>-1){if(!specs[si].permissions[S.activeChild])specs[si].permissions[S.activeChild]=[];specs[si].permissions[S.activeChild].push(key);}
           });
           DB.specialists=specs;
+          if(_supa){
+            try{
+              await Promise.all(selected.map(sId=>
+                _supa.from('folder_permissions').upsert({
+                  specialist_id:String(sId),
+                  child_id:S.activeChild,
+                  folder_key:key,
+                  granted_at:new Date().toISOString()
+                }).then(({error:_e})=>{if(_e)console.error('❌ upsert folder_permissions (new folder):',_e);})
+              ));
+            }catch(e){console.error('❌ folder permissions save:',e);toast('❌ Could not save folder permissions. Please try again.','error');}
+          }
         }
         close();re();toast(T('files_folder_created',{name}));
       }catch(e){console.error('create folder:',e);toast(T('files_create_failed'),'error');}
