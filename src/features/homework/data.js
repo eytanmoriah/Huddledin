@@ -350,63 +350,92 @@ export async function loadCompletionsV2(childId, sinceDate) {
   return data || [];
 }
 
-// TODO(Phase 6d): Remove v1 dual-write block (~lines 377-405). See PHASE_6_7_DEFERRED.md.
-export async function logExerciseCompletion({ homework, exercise, scheduledDate, slot, status, note, photoUrl, actualValue, childId }) {
+// TODO(Phase 6d): Remove v1 dual-write block. See PHASE_6_7_DEFERRED.md.
+// existingCompletionId + previousStatus enable edit-mode (UPDATE branch) \u2014 see Session 1 plan.
+export async function logExerciseCompletion({
+  homework, exercise, scheduledDate, slot, status, note, photoUrl, actualValue, childId,
+  existingCompletionId, previousStatus,
+}) {
   const supa = _supa();
   const sess = _session();
   if (!supa || !sess) throw new Error('Not authenticated');
 
-  const { error: v2Err } = await supa.from('homework_completions_v2').insert({
-    homework_exercise_id: exercise.id,
-    homework_id: homework.id,
-    child_id: childId,
-    household_id: String(homework.household_id),
-    scheduled_date: scheduledDate,
-    slot: slot || null,
-    status,
-    note: note || null,
-    photo_url: photoUrl || null,
-    actual_value: actualValue ?? null,
-    logged_by: sess.id,
-  });
+  const isUpdate = !!existingCompletionId;
 
-  if (v2Err) {
-    if (v2Err.code === '23505' || /duplicate key|unique constraint/i.test(v2Err.message || '')) {
-      return { alreadyMarked: true };
+  if (isUpdate) {
+    // Preserve logged_at \u2014 represents when parent FIRST marked the exercise.
+    // Specialist's retroactive \u23f1 indicator depends on this not being refreshed.
+    const { error: upErr } = await supa.from('homework_completions_v2')
+      .update({
+        status,
+        note: note || null,
+        photo_url: photoUrl || null,
+        actual_value: actualValue ?? null,
+        slot: slot || null,
+      })
+      .eq('id', existingCompletionId);
+
+    if (upErr) {
+      console.error('\u274c logExerciseCompletion v2 update:', upErr);
+      throw upErr;
     }
-    console.error('\u274c logExerciseCompletion v2:', v2Err);
-    throw v2Err;
-  }
+  } else {
+    const { error: v2Err } = await supa.from('homework_completions_v2').insert({
+      homework_exercise_id: exercise.id,
+      homework_id: homework.id,
+      child_id: childId,
+      household_id: String(homework.household_id),
+      scheduled_date: scheduledDate,
+      slot: slot || null,
+      status,
+      note: note || null,
+      photo_url: photoUrl || null,
+      actual_value: actualValue ?? null,
+      logged_by: sess.id,
+    });
 
-  // Dual-write to v1 only for 'done' status (old schema can't represent skipped/cant_do)
-  if (status === 'done') {
-    try {
-      const { data: occ } = await supa.from('homework_occurrences')
-        .select('id')
-        .eq('task_id', homework.id)
-        .eq('scheduled_date', scheduledDate)
-        .eq('time_of_day', slot || 'morning')
-        .limit(1);
-      if (occ?.length) {
-        const { error: occErr } = await supa.from('homework_occurrences').update({ status: 'completed' }).eq('id', occ[0].id);
-        if (occErr) console.error('\u274c v1 occurrence update:', occErr);
-        const { error: compErr } = await supa.from('homework_completions').insert({
-          occurrence_id: occ[0].id,
-          task_id: homework.id,
-          child_id: childId,
-          completed_by: sess.id,
-          note: note || null,
-          photo_url: photoUrl || null,
-          completed_at: new Date().toISOString(),
-        });
-        if (compErr) console.error('\u274c v1 completion insert:', compErr);
+    if (v2Err) {
+      if (v2Err.code === '23505' || /duplicate key|unique constraint/i.test(v2Err.message || '')) {
+        return { alreadyMarked: true };
       }
-    } catch (e) { console.error('\u274c v1 dual-write:', e); }
+      console.error('\u274c logExerciseCompletion v2:', v2Err);
+      throw v2Err;
+    }
+
+    // Dual-write to v1 only for 'done' status (old schema can't represent skipped/cant_do).
+    // Skipped on UPDATE \u2014 the v1 row from the original INSERT remains; v2 wins on display
+    // (detail-view.js merges with v2 preference). Sunset planned in Phase 6d.
+    if (status === 'done') {
+      try {
+        const { data: occ } = await supa.from('homework_occurrences')
+          .select('id')
+          .eq('task_id', homework.id)
+          .eq('scheduled_date', scheduledDate)
+          .eq('time_of_day', slot || 'morning')
+          .limit(1);
+        if (occ?.length) {
+          const { error: occErr } = await supa.from('homework_occurrences').update({ status: 'completed' }).eq('id', occ[0].id);
+          if (occErr) console.error('\u274c v1 occurrence update:', occErr);
+          const { error: compErr } = await supa.from('homework_completions').insert({
+            occurrence_id: occ[0].id,
+            task_id: homework.id,
+            child_id: childId,
+            completed_by: sess.id,
+            note: note || null,
+            photo_url: photoUrl || null,
+            completed_at: new Date().toISOString(),
+          });
+          if (compErr) console.error('\u274c v1 completion insert:', compErr);
+        }
+      } catch (e) { console.error('\u274c v1 dual-write:', e); }
+    }
   }
 
-  // Notification to specialist
+  // Notification to specialist \u2014 suppress note/photo-only edits.
+  // INSERT always notifies (a fresh status change). UPDATE only notifies when status changed.
   const H = window.HUD || {};
-  if (status === 'done' || status === 'cant_do') {
+  const statusChanged = !isUpdate || status !== previousStatus;
+  if ((status === 'done' || status === 'cant_do') && statusChanged) {
     try {
       const child = H.DB?.children?.find(c => c.id === childId);
       const notifMsg = status === 'done'
@@ -416,7 +445,7 @@ export async function logExerciseCompletion({ homework, exercise, scheduledDate,
     } catch (e) { console.error('\u274c completion notify:', e); }
   }
 
-  return { alreadyMarked: false };
+  return { alreadyMarked: false, updated: isUpdate };
 }
 
 export async function deleteHomework(homeworkId) {
