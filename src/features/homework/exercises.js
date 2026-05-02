@@ -1,6 +1,9 @@
 // Exercise rows component — list of exercises with add/remove, drag-reorder, per-exercise overrides
 
 import { renderMiniSchedule } from './schedule.js';
+import { showUploadChooser } from '../storage-picker/upload-chooser.js';
+import { showStorageBrowser } from '../storage-picker/storage-browser.js';
+import { showRenameDialog } from '../storage-picker/rename-dialog.js';
 
 export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
   const el = (tag, attrs = {}, kids = []) => {
@@ -213,7 +216,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
       }
       _renderExFiles();
 
-      exAttachBtn.onclick = async () => {
+      const _pickFromDevice = () => {
         const fi = document.createElement('input');
         fi.type = 'file'; fi.multiple = true; fi.accept = 'image/*,video/*,.pdf,.doc,.docx';
         fi.onchange = async (ev) => {
@@ -233,6 +236,27 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
         fi.click();
       };
 
+      const _pickFromStorage = () => {
+        showStorageBrowser({
+          onPick: (picked) => {
+            showRenameDialog({
+              originalName: picked.name,
+              onConfirm: async (finalName) => {
+                await _copyAndLinkFromStorage(picked, finalName, ctx, exercises, idx, exAttachBtn, onChange, _renderExFiles);
+              }
+            });
+          }
+        });
+      };
+
+      exAttachBtn.onclick = () => {
+        if (exAttachBtn.disabled) return; // tap-debounce
+        showUploadChooser({
+          onPickDevice: _pickFromDevice,
+          onPickStorage: _pickFromStorage,
+        });
+      };
+
       row.appendChild(morePanel);
       wrap.appendChild(row);
     });
@@ -248,4 +272,80 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
 
   _render();
   return wrap;
+}
+
+async function _copyAndLinkFromStorage(picked, finalName, ctx, exercises, idx, exAttachBtn, onChange, _renderExFiles) {
+  const H = ctx.H;
+  const { _supa, SB, session, DB, toast } = H;
+
+  // Look up the patient's spec_<specialistId> folder for vault_files.category
+  const specFolder = (DB.folders || []).find(f =>
+    f.childId === ctx.childId && f.key === 'spec_' + session.id
+  );
+  if (!specFolder) {
+    toast?.('Specialist folder missing for this patient.', 'error');
+    console.error('❌ no spec folder for child:', ctx.childId, 'spec:', session.id);
+    return;
+  }
+
+  exAttachBtn.disabled = true;
+  exAttachBtn.textContent = 'Copying…';
+  try {
+    // Server-side cross-bucket copy via fetch+blob+upload (proven pattern from _showCopyToPatientModal)
+    const { data: signedSrc, error: signErr } = await _supa.storage
+      .from('specialist-storage')
+      .createSignedUrl(picked.storage_path, 300);
+    if (signErr || !signedSrc?.signedUrl) throw signErr || new Error('signed url failed');
+
+    const resp = await fetch(signedSrc.signedUrl);
+    if (!resp.ok) throw new Error('source fetch failed: ' + resp.status);
+    const blob = await resp.blob();
+
+    const destPath = 'homework/' + ctx.childId + '/' + Date.now() + '_' + finalName;
+    const { error: upErr } = await _supa.storage
+      .from('huddledin-files')
+      .upload(destPath, blob, { contentType: blob.type, upsert: false });
+    if (upErr) throw upErr;
+
+    // Insert vault_files row in patient's spec folder so it appears in the parent's vault under the spec's auto-folder
+    const saved = await SB.addFile({
+      childId: ctx.childId,
+      uploadedBy: session.id,
+      name: finalName,
+      storagePath: destPath,
+      mimeType: blob.type || 'application/octet-stream',
+      sizeBytes: picked.size_bytes || blob.size || 0,
+      category: specFolder.key,
+    });
+
+    // Update local DB.folders cache so the file appears immediately in the parent's vault
+    const fls = DB.folders;
+    const fo = fls.find(f => f.id === specFolder.id);
+    if (fo) {
+      fo.files = fo.files || [];
+      fo.files.push({
+        id: saved?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'f_' + Date.now()),
+        name: finalName,
+        date: new Date().toISOString().split('T')[0],
+        locked: false,
+        sharedWith: [],
+        uploadedBy: session.id,
+        url: null,
+      });
+      DB.folders = fls;
+    }
+
+    // Push to exercise state — same shape as device-upload path
+    exercises[idx].attachedFilePaths.push(destPath);
+    exercises[idx].attachedFileUrls.push(null); // signed URL is rendered on demand from path
+    exercises[idx].attachedFileNames.push(finalName);
+    onChange(exercises);
+    _renderExFiles();
+    toast?.('✅ Attached "' + finalName + '"');
+  } catch (e) {
+    console.error('❌ copy from storage:', e);
+    toast?.('Could not copy from storage.', 'error');
+  }
+  exAttachBtn.disabled = false;
+  exAttachBtn.textContent = '📎 Attach file';
 }
