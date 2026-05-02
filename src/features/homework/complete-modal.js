@@ -40,6 +40,69 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
     instrEl.textContent = exercise.instructions;
     titleWrap.appendChild(instrEl);
   }
+  // Attachment chips (per-exercise)
+  {
+    const attachPaths = exercise.attached_file_paths || [];
+    const attachUrls = exercise.attached_file_urls || [];
+    const attachNames = exercise.attached_file_names || [];
+    const attachCount = Math.max(attachPaths.length, attachUrls.length, attachNames.length);
+    if (attachCount > 0) {
+      const attachWrap = document.createElement('div');
+      attachWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;';
+      for (let i = 0; i < attachCount; i++) {
+        const path = attachPaths[i] || null;
+        const legacyUrl = attachUrls[i] || null;
+        const name = attachNames[i] || 'File';
+        const isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
+        const chip = document.createElement('div');
+        chip.style.cssText = 'display:flex;align-items:center;gap:4px;background:#f0fdf9;border:1px solid #d1e0dd;border-radius:6px;padding:4px 8px;font-size:12px;color:#0f1a18;cursor:pointer;';
+        let imgEl = null;
+        if (isImg) {
+          imgEl = document.createElement('img');
+          imgEl.style.cssText = 'width:20px;height:20px;object-fit:cover;border-radius:3px;';
+          chip.appendChild(imgEl);
+        } else {
+          chip.appendChild(document.createTextNode('📄'));
+        }
+        chip.appendChild(document.createTextNode(name));
+        chip.onclick = () => {
+          // iOS Safari: open about:blank synchronously to preserve user-gesture context
+          const tab = window.open('about:blank', '_blank');
+          (async () => {
+            let openUrl = null;
+            if (path) {
+              try {
+                const supa = H._supa && H._supa();
+                if (supa) {
+                  const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
+                  if (data?.signedUrl) openUrl = data.signedUrl;
+                }
+              } catch (_) {}
+            }
+            if (!openUrl && legacyUrl) openUrl = legacyUrl;
+            if (openUrl && tab) tab.location = openUrl;
+            else if (tab) tab.close();
+          })();
+        };
+        attachWrap.appendChild(chip);
+        if (imgEl) {
+          (async () => {
+            if (path) {
+              try {
+                const supa = H._supa && H._supa();
+                if (supa) {
+                  const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
+                  if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }
+                }
+              } catch (_) {}
+            }
+            if (legacyUrl) imgEl.src = legacyUrl;
+          })();
+        }
+      }
+      titleWrap.appendChild(attachWrap);
+    }
+  }
   header.appendChild(titleWrap);
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '\u2715';

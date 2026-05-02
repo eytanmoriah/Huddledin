@@ -243,6 +243,8 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
   const measure = (ex.sets && ex.reps) ? ex.sets + '\u00d7' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
   if (measure) subParts.push(measure);
   if (!scheduledToday && !measure) subParts.push('Not today');
+  const attachCount = Math.max((ex.attached_file_paths || []).length, (ex.attached_file_urls || []).length);
+  if (attachCount > 0) subParts.push('\ud83d\udcce ' + attachCount);
   if (subParts.length) content.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '1px' } }, [subParts.join(' \u00b7 ')]));
   if (ex.instructions) content.appendChild(el('div', { style: { fontSize: '12px', color: '#64748b', lineHeight: '1.4', whiteSpace: 'pre-wrap', marginTop: '3px' } }, [ex.instructions]));
   row.appendChild(content);
