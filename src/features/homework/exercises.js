@@ -2,7 +2,7 @@
 
 import { renderMiniSchedule } from './schedule.js';
 
-export function renderExerciseRows(exercises, onChange, homeworkState) {
+export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
   const el = (tag, attrs = {}, kids = []) => {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -151,6 +151,87 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
         overrideToggle.textContent = overrideVisible ? 'Hide schedule' : (hasOverride ? 'Edit custom schedule' : 'Customize schedule');
       };
       morePanel.appendChild(overrideToggle);
+
+      // Per-exercise attachments
+      const attachLabel = el('div', { style: { fontSize: '12px', fontWeight: '600', color: '#475569', marginTop: '10px', marginBottom: '6px' } }, ['Attachments']);
+      morePanel.appendChild(attachLabel);
+      const exFilePreview = el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' } });
+      morePanel.appendChild(exFilePreview);
+      const exAttachBtn = el('button', { class: 'hw2-ghost-btn', style: { marginBottom: '8px' } }, ['📎 Attach file']);
+      morePanel.appendChild(exAttachBtn);
+
+      function _renderExFiles() {
+        exFilePreview.innerHTML = '';
+        const paths = exercises[idx].attachedFilePaths || [];
+        const urls = exercises[idx].attachedFileUrls || [];
+        const names = exercises[idx].attachedFileNames || [];
+        const count = Math.max(paths.length, urls.length, names.length);
+        const chips = [];
+        for (let i = 0; i < count; i++) {
+          const path = paths[i] || null;
+          const legacyUrl = urls[i] || null;
+          const name = names[i] || 'File';
+          const isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
+          const chip = el('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', background: '#f0fdf9', border: '1px solid #d1e0dd', borderRadius: '6px', padding: '4px 8px', fontSize: '12px', color: '#0f1a18' } });
+          let imgEl = null;
+          if (isImg) {
+            imgEl = document.createElement('img');
+            imgEl.style.cssText = 'width:20px;height:20px;object-fit:cover;border-radius:3px;';
+            chip.appendChild(imgEl);
+          } else {
+            chip.appendChild(document.createTextNode('📄'));
+          }
+          chip.appendChild(document.createTextNode(name));
+          const rm = document.createElement('button');
+          rm.textContent = '✕';
+          rm.style.cssText = 'background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0 2px;';
+          const fileIdx = i;
+          rm.onclick = () => {
+            exercises[idx].attachedFilePaths.splice(fileIdx, 1);
+            exercises[idx].attachedFileUrls.splice(fileIdx, 1);
+            exercises[idx].attachedFileNames.splice(fileIdx, 1);
+            onChange(exercises);
+            _renderExFiles();
+          };
+          chip.appendChild(rm);
+          exFilePreview.appendChild(chip);
+          chips.push({ imgEl, path, legacyUrl });
+        }
+        chips.forEach(async ({ imgEl, path, legacyUrl }) => {
+          if (!imgEl) return;
+          if (path) {
+            try {
+              const supa = ctx && ctx.H && ctx.H._supa && ctx.H._supa();
+              if (supa) {
+                const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
+                if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }
+              }
+            } catch (_) {}
+          }
+          if (legacyUrl) imgEl.src = legacyUrl;
+        });
+      }
+      _renderExFiles();
+
+      exAttachBtn.onclick = async () => {
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.multiple = true; fi.accept = 'image/*,video/*,.pdf,.doc,.docx';
+        fi.onchange = async (ev) => {
+          exAttachBtn.disabled = true; exAttachBtn.textContent = 'Uploading…';
+          try {
+            for (const f of Array.from(ev.target.files)) {
+              const { path, url } = await ctx.H.SB.uploadFile('homework/' + ctx.childId, f);
+              exercises[idx].attachedFilePaths.push(path);
+              exercises[idx].attachedFileUrls.push(url);
+              exercises[idx].attachedFileNames.push(f.name);
+            }
+            onChange(exercises);
+            _renderExFiles();
+          } catch (e) { console.error('exercise file upload:', e); ctx.H.toast?.('Could not upload file.', 'error'); }
+          exAttachBtn.disabled = false; exAttachBtn.textContent = '📎 Attach file';
+        };
+        fi.click();
+      };
 
       row.appendChild(morePanel);
       wrap.appendChild(row);

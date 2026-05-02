@@ -132,95 +132,6 @@ export function mountHomeworkCreateModal(opts = {}) {
   notesInp.oninput = () => { state.homework.description = notesInp.value; state.dirty = true; };
   body.appendChild(notesInp);
 
-  // Attach buttons
-  const attachRow = document.createElement('div');
-  attachRow.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;';
-  const attachFileBtn = document.createElement('button');
-  attachFileBtn.className = 'hw2-ghost-btn';
-  attachFileBtn.textContent = '\ud83d\udcce ' + T('hw2_attach_file');
-  attachFileBtn.onclick = () => _uploadFiles();
-  attachRow.appendChild(attachFileBtn);
-  body.appendChild(attachRow);
-
-  // File preview area
-  const filePreview = document.createElement('div');
-  filePreview.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;';
-  body.appendChild(filePreview);
-
-  function _renderFiles() {
-    filePreview.innerHTML = '';
-    const paths = state.homework.attachedFilePaths || [];
-    const urls = state.homework.attachedFileUrls || [];
-    const names = state.homework.attachedFileNames || [];
-    const count = Math.max(paths.length, urls.length, names.length);
-    const chips = [];
-    for (let i = 0; i < count; i++) {
-      const path = paths[i] || null;
-      const legacyUrl = urls[i] || null;
-      const name = names[i] || 'File';
-      const isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
-      const chip = document.createElement('div');
-      chip.style.cssText = 'display:flex;align-items:center;gap:4px;background:#f0fdf9;border:1px solid #d1e0dd;border-radius:6px;padding:4px 8px;font-size:12px;color:#0f1a18;';
-      let imgEl = null;
-      if (isImg) {
-        imgEl = document.createElement('img');
-        imgEl.style.cssText = 'width:20px;height:20px;object-fit:cover;border-radius:3px;';
-        chip.appendChild(imgEl);
-      } else {
-        chip.appendChild(document.createTextNode('\ud83d\udcc4'));
-      }
-      chip.appendChild(document.createTextNode(name));
-      const rm = document.createElement('button');
-      rm.textContent = '\u2715';
-      rm.style.cssText = 'background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0 2px;';
-      const idx = i;
-      rm.onclick = () => {
-        state.homework.attachedFilePaths.splice(idx, 1);
-        state.homework.attachedFileUrls.splice(idx, 1);
-        state.homework.attachedFileNames.splice(idx, 1);
-        state.dirty = true;
-        _renderFiles();
-      };
-      chip.appendChild(rm);
-      filePreview.appendChild(chip);
-      chips.push({ imgEl, path, legacyUrl });
-    }
-    // Async-fill image sources: prefer fresh signed URL from path, fall back to legacy URL string
-    chips.forEach(async ({ imgEl, path, legacyUrl }) => {
-      if (!imgEl) return;
-      if (path) {
-        try {
-          const supa = H._supa && H._supa();
-          if (supa) {
-            const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
-            if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }
-          }
-        } catch (_) {}
-      }
-      if (legacyUrl) imgEl.src = legacyUrl;
-    });
-  }
-
-  async function _uploadFiles() {
-    const fi = document.createElement('input');
-    fi.type = 'file'; fi.multiple = true; fi.accept = 'image/*,video/*,.pdf,.doc,.docx';
-    fi.onchange = async (ev) => {
-      attachFileBtn.disabled = true; attachFileBtn.textContent = 'Uploading\u2026';
-      try {
-        for (const f of Array.from(ev.target.files)) {
-          const { path, url } = await H.SB.uploadFile('homework/' + childId, f);
-          state.homework.attachedFilePaths.push(path);
-          state.homework.attachedFileUrls.push(url);
-          state.homework.attachedFileNames.push(f.name);
-        }
-        state.dirty = true;
-        _renderFiles();
-      } catch (e) { console.error('hw file upload:', e); H.toast?.('Could not upload file.', 'error'); }
-      attachFileBtn.disabled = false; attachFileBtn.textContent = '\ud83d\udcce ' + T('hw2_attach_file');
-    };
-    fi.click();
-  }
-
   // Exercises section
   const exLabel = document.createElement('div');
   exLabel.className = 'hw2-section-label';
@@ -233,7 +144,7 @@ export function mountHomeworkCreateModal(opts = {}) {
   body.appendChild(exContainer);
 
   function _renderEx() {
-    const newEl = renderExerciseRows(state.exercises, (exs) => { state.exercises = exs; state.dirty = true; _updateSaveBtn(); _updateExLabel(); }, state.homework);
+    const newEl = renderExerciseRows(state.exercises, (exs) => { state.exercises = exs; state.dirty = true; _updateSaveBtn(); _updateExLabel(); }, state.homework, { childId, H });
     exContainer.replaceWith(newEl);
     exContainer = newEl;
   }
@@ -410,9 +321,14 @@ export function mountHomeworkCreateModal(opts = {}) {
       state.homework.durationType = hw.duration_type || 'open_ended';
       state.homework.endDate = hw.end_date || null;
       state.homework.isPinned = hw.is_pinned || false;
-      state.homework.attachedFileUrls = hw.attached_file_urls || [];
-      state.homework.attachedFilePaths = hw.attached_file_paths || [];
-      state.homework.attachedFileNames = hw.attached_file_names || [];
+      // Legacy migration: homework-level attachments → exercise[0]
+      const _legacyUrls = hw.attached_file_urls || [];
+      const _legacyPaths = hw.attached_file_paths || [];
+      const _legacyNames = hw.attached_file_names || [];
+      // Homework-level state stays empty going forward; new writes will persist empty arrays
+      state.homework.attachedFileUrls = [];
+      state.homework.attachedFilePaths = [];
+      state.homework.attachedFileNames = [];
 
       titleInp.value = state.homework.title;
       notesInp.value = state.homework.description;
@@ -435,7 +351,16 @@ export function mountHomeworkCreateModal(opts = {}) {
       }));
       if (!state.exercises.length) state.exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false } });
 
-      _renderFiles();
+      // Apply legacy migration to exercise[0] (only if legacy lists are non-empty AND exercise[0] doesn't already have attachments)
+      if ((_legacyPaths.length || _legacyUrls.length) && state.exercises[0]) {
+        const e0 = state.exercises[0];
+        if (!e0.attachedFilePaths.length && !e0.attachedFileUrls.length) {
+          e0.attachedFilePaths = [..._legacyPaths];
+          e0.attachedFileUrls = [..._legacyUrls];
+          e0.attachedFileNames = [..._legacyNames];
+        }
+      }
+
       _renderEx();
       _renderSch();
       _updateSaveBtn();
