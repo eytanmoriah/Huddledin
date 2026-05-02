@@ -29,10 +29,11 @@ export function mountHomeworkCreateModal(opts = {}) {
       endDate: null,
       isPinned: false,
       attachedFileUrls: [],
+      attachedFilePaths: [],
       attachedFileNames: [],
     },
     exercises: [
-      { title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFileNames: [], _ui: { expanded: false } }
+      { title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false } }
     ],
     saving: false,
     dirty: false,
@@ -51,7 +52,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         title: ex.title || '', instructions: ex.instructions || '', reps: ex.reps || null, sets: ex.sets || null,
         durationSeconds: ex.durationSeconds || null, measureUnit: ex.measureUnit || null,
         overrideRecurrence: ex.overrideRecurrence || null, overrideSpecificDays: ex.overrideSpecificDays || null,
-        overrideTimeOfDay: ex.overrideTimeOfDay || null, attachedFileUrls: [], attachedFileNames: [], _ui: { expanded: false },
+        overrideTimeOfDay: ex.overrideTimeOfDay || null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false },
       }));
     }
   }
@@ -148,19 +149,55 @@ export function mountHomeworkCreateModal(opts = {}) {
 
   function _renderFiles() {
     filePreview.innerHTML = '';
-    state.homework.attachedFileUrls.forEach((url, i) => {
+    const paths = state.homework.attachedFilePaths || [];
+    const urls = state.homework.attachedFileUrls || [];
+    const names = state.homework.attachedFileNames || [];
+    const count = Math.max(paths.length, urls.length, names.length);
+    const chips = [];
+    for (let i = 0; i < count; i++) {
+      const path = paths[i] || null;
+      const legacyUrl = urls[i] || null;
+      const name = names[i] || 'File';
+      const isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
       const chip = document.createElement('div');
       chip.style.cssText = 'display:flex;align-items:center;gap:4px;background:#f0fdf9;border:1px solid #d1e0dd;border-radius:6px;padding:4px 8px;font-size:12px;color:#0f1a18;';
-      const isImg = /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url);
-      if (isImg) { const img = document.createElement('img'); img.src = url; img.style.cssText = 'width:20px;height:20px;object-fit:cover;border-radius:3px;'; chip.appendChild(img); }
-      else chip.appendChild(document.createTextNode('\ud83d\udcc4'));
-      chip.appendChild(document.createTextNode(state.homework.attachedFileNames[i] || 'File'));
+      let imgEl = null;
+      if (isImg) {
+        imgEl = document.createElement('img');
+        imgEl.style.cssText = 'width:20px;height:20px;object-fit:cover;border-radius:3px;';
+        chip.appendChild(imgEl);
+      } else {
+        chip.appendChild(document.createTextNode('\ud83d\udcc4'));
+      }
+      chip.appendChild(document.createTextNode(name));
       const rm = document.createElement('button');
       rm.textContent = '\u2715';
       rm.style.cssText = 'background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0 2px;';
-      rm.onclick = () => { state.homework.attachedFileUrls.splice(i, 1); state.homework.attachedFileNames.splice(i, 1); state.dirty = true; _renderFiles(); };
+      const idx = i;
+      rm.onclick = () => {
+        state.homework.attachedFilePaths.splice(idx, 1);
+        state.homework.attachedFileUrls.splice(idx, 1);
+        state.homework.attachedFileNames.splice(idx, 1);
+        state.dirty = true;
+        _renderFiles();
+      };
       chip.appendChild(rm);
       filePreview.appendChild(chip);
+      chips.push({ imgEl, path, legacyUrl });
+    }
+    // Async-fill image sources: prefer fresh signed URL from path, fall back to legacy URL string
+    chips.forEach(async ({ imgEl, path, legacyUrl }) => {
+      if (!imgEl) return;
+      if (path) {
+        try {
+          const supa = H._supa && H._supa();
+          if (supa) {
+            const { data } = await supa.storage.from('huddledin-files').createSignedUrl(path, 900);
+            if (data?.signedUrl) { imgEl.src = data.signedUrl; return; }
+          }
+        } catch (_) {}
+      }
+      if (legacyUrl) imgEl.src = legacyUrl;
     });
   }
 
@@ -171,7 +208,8 @@ export function mountHomeworkCreateModal(opts = {}) {
       attachFileBtn.disabled = true; attachFileBtn.textContent = 'Uploading\u2026';
       try {
         for (const f of Array.from(ev.target.files)) {
-          const { url } = await H.SB.uploadFile('homework/' + childId, f);
+          const { path, url } = await H.SB.uploadFile('homework/' + childId, f);
+          state.homework.attachedFilePaths.push(path);
           state.homework.attachedFileUrls.push(url);
           state.homework.attachedFileNames.push(f.name);
         }
@@ -311,7 +349,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         const all = H.DB?.homeworkTasks || [];
         const idx = all.findIndex(t => t.id === homeworkId);
         if (idx > -1) {
-          all[idx] = { ...all[idx], title: hw.title, description: hw.description, recurrence: hw.recurrence, specificDays: hw.specificDays || [], durationType: hw.durationType, endDate: hw.endDate, timeOfDay: hw.timeOfDay, isPinned: hw.isPinned, attachedFileUrls: hw.attachedFileUrls, attachedFileNames: hw.attachedFileNames };
+          all[idx] = { ...all[idx], title: hw.title, description: hw.description, recurrence: hw.recurrence, specificDays: hw.specificDays || [], durationType: hw.durationType, endDate: hw.endDate, timeOfDay: hw.timeOfDay, isPinned: hw.isPinned, attachedFileUrls: hw.attachedFileUrls, attachedFilePaths: hw.attachedFilePaths, attachedFileNames: hw.attachedFileNames };
           H.DB.homeworkTasks = all;
         }
         overlay.remove(); H.re?.(); H.toast?.(T('hw_task_updated'));
@@ -323,7 +361,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         }
         // C4: use real created_at from DB response
         const all = H.DB?.homeworkTasks || [];
-        if (result.homeworkRow) all.unshift({ id: result.homeworkRow.id, childId: result.homeworkRow.child_id, householdId: result.homeworkRow.household_id, specialistId: result.homeworkRow.specialist_id, specialistName: result.homeworkRow.specialist_name, title: hw.title, description: hw.description || '', recurrence: hw.recurrence, specificDays: hw.specificDays || [], durationType: hw.durationType, endDate: hw.endDate, timeOfDay: hw.timeOfDay, isPinned: hw.isPinned, isPaused: false, status: 'active', attachedFileUrls: hw.attachedFileUrls, attachedFileNames: hw.attachedFileNames, createdAt: result.homeworkRow.created_at });
+        if (result.homeworkRow) all.unshift({ id: result.homeworkRow.id, childId: result.homeworkRow.child_id, householdId: result.homeworkRow.household_id, specialistId: result.homeworkRow.specialist_id, specialistName: result.homeworkRow.specialist_name, title: hw.title, description: hw.description || '', recurrence: hw.recurrence, specificDays: hw.specificDays || [], durationType: hw.durationType, endDate: hw.endDate, timeOfDay: hw.timeOfDay, isPinned: hw.isPinned, isPaused: false, status: 'active', attachedFileUrls: hw.attachedFileUrls, attachedFilePaths: hw.attachedFilePaths, attachedFileNames: hw.attachedFileNames, createdAt: result.homeworkRow.created_at });
         H.DB.homeworkTasks = all;
         // Save as template (if checked)
         if (_saveAsTemplate) {
@@ -373,6 +411,7 @@ export function mountHomeworkCreateModal(opts = {}) {
       state.homework.endDate = hw.end_date || null;
       state.homework.isPinned = hw.is_pinned || false;
       state.homework.attachedFileUrls = hw.attached_file_urls || [];
+      state.homework.attachedFilePaths = hw.attached_file_paths || [];
       state.homework.attachedFileNames = hw.attached_file_names || [];
 
       titleInp.value = state.homework.title;
@@ -390,10 +429,11 @@ export function mountHomeworkCreateModal(opts = {}) {
         overrideSpecificDays: ex.override_specific_days,
         overrideTimeOfDay: ex.override_time_of_day,
         attachedFileUrls: ex.attached_file_urls || [],
+        attachedFilePaths: ex.attached_file_paths || [],
         attachedFileNames: ex.attached_file_names || [],
         _ui: { expanded: false },
       }));
-      if (!state.exercises.length) state.exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFileNames: [], _ui: { expanded: false } });
+      if (!state.exercises.length) state.exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false } });
 
       _renderFiles();
       _renderEx();

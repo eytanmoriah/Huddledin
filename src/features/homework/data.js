@@ -27,6 +27,7 @@ export async function createHomework({ homework, exercises }) {
     is_paused: false,
     status: 'active',
     attached_file_urls: homework.attachedFileUrls || [],
+    attached_file_paths: homework.attachedFilePaths || [],
     attached_file_names: homework.attachedFileNames || [],
   }).select('*').single();
 
@@ -45,6 +46,7 @@ export async function createHomework({ homework, exercises }) {
     override_specific_days: ex.overrideSpecificDays || null,
     override_time_of_day: ex.overrideTimeOfDay || null,
     attached_file_urls: ex.attachedFileUrls || [],
+    attached_file_paths: ex.attachedFilePaths || [],
     attached_file_names: ex.attachedFileNames || [],
   }));
 
@@ -74,6 +76,7 @@ export async function updateHomework({ homeworkId, homework, exercises }) {
     time_of_day: homework.timeOfDay || '',
     is_pinned: homework.isPinned || false,
     attached_file_urls: homework.attachedFileUrls || [],
+    attached_file_paths: homework.attachedFilePaths || [],
     attached_file_names: homework.attachedFileNames || [],
     updated_at: new Date().toISOString(),
   }).eq('id', homeworkId);
@@ -102,6 +105,7 @@ export async function updateHomework({ homeworkId, homework, exercises }) {
       override_specific_days: ex.overrideSpecificDays || null,
       override_time_of_day: ex.overrideTimeOfDay || null,
       attached_file_urls: ex.attachedFileUrls || [],
+      attached_file_paths: ex.attachedFilePaths || [],
       attached_file_names: ex.attachedFileNames || [],
       updated_at: new Date().toISOString(),
     };

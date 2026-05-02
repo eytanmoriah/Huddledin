@@ -159,7 +159,7 @@ export function renderExerciseRows(exercises, onChange, homeworkState) {
     // Add exercise button
     const addBtn = el('button', { style: { width: '100%', padding: '10px', background: '#f0fdf9', border: '1.5px dashed #d1e0dd', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', color: '#0d9488', fontWeight: '600', fontFamily: 'inherit' } }, ['+ Add exercise']);
     addBtn.onclick = () => {
-      exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFileNames: [], _ui: { expanded: false } });
+      exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false } });
       onChange(exercises); _render();
     };
     wrap.appendChild(addBtn);
