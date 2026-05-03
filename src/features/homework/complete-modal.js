@@ -327,6 +327,42 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
     const photoBtn = document.createElement('button');
     photoBtn.className = 'hw2-ghost-btn';
     photoBtn.textContent = photoUrl ? ('✓ ' + (T('hw4_add_photo') || 'Photo added')) : ('📷 ' + T('hw4_add_photo'));
+
+    // Sub-commit 3: thumbnail beside the button when a photo is attached
+    const renderThumb = () => {
+      const existing = photoRow.querySelector('[data-photo-thumb]');
+      if (existing) existing.remove();
+      if (!photoPath && !photoUrl) return;
+      const thumb = document.createElement('img');
+      thumb.dataset.photoThumb = 'true';
+      thumb.style.cssText = 'width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer;background:#f0fdf9;flex-shrink:0;';
+      thumb.onerror = () => { thumb.style.opacity = '0.5'; };
+      // Async-fill src
+      (async () => {
+        let url = null;
+        if (photoPath) {
+          try { url = await H.SB?.signFile?.(photoPath); } catch (_) {}
+        }
+        if (!url && photoUrl) url = photoUrl;
+        if (url) thumb.src = url;
+        else thumb.onerror();
+      })();
+      // Tap thumbnail: open full-size in new tab (iOS-safe pattern)
+      thumb.onclick = () => {
+        const tab = window.open('about:blank', '_blank');
+        (async () => {
+          let url = null;
+          if (photoPath) {
+            try { url = await H.SB?.signFile?.(photoPath); } catch (_) {}
+          }
+          if (!url && photoUrl) url = photoUrl;
+          if (url && tab) tab.location = url;
+          else if (tab) tab.close();
+        })();
+      };
+      photoRow.insertBefore(thumb, photoBtn);
+    };
+
     photoBtn.onclick = async () => {
       const fi = document.createElement('input');
       fi.type = 'file'; fi.accept = 'image/*'; fi.capture = 'environment';
@@ -338,12 +374,14 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
           photoPath = path;
           photoUrl = url;
           photoBtn.textContent = '✓ Photo added';
+          renderThumb();
         } catch (e) { H.toast?.('Upload failed.', 'error'); photoBtn.textContent = '📷 ' + T('hw4_add_photo'); }
         photoBtn.disabled = false;
       };
       fi.click();
     };
     photoRow.appendChild(photoBtn);
+    renderThumb();   // initial render if hydrated with existing photo
     actionHost.appendChild(photoRow);
 
     // Save / Update button

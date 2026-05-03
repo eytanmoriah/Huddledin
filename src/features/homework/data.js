@@ -447,10 +447,12 @@ export async function logExerciseCompletion({
   const statusChanged = !isUpdate || status !== previousStatus;
   if ((status === 'done' || status === 'cant_do') && statusChanged) {
     try {
+      const photoHint = (photoPath || photoUrl) ? '\ud83d\udcf7 ' : '';
       const child = H.DB?.children?.find(c => c.id === childId);
-      const notifMsg = status === 'done'
+      const baseMsg = status === 'done'
         ? H.T?.('notif_task_completed', { child: child?.name || 'Child', title: exercise.title?.slice(0, 42) || homework.title?.slice(0, 42) })
         : H.T?.('hw4_notif_cant_do', { child: child?.name || 'Child', title: exercise.title?.slice(0, 42) || homework.title?.slice(0, 42) });
+      const notifMsg = photoHint + baseMsg;
       await H.notifyOtherParty?.('homework', notifMsg, childId, 'homework', null, homework.specialist_id || null, H.T?.('notif_homework_count', { n: '{n}', name: child?.name || '' }));
     } catch (e) { console.error('\u274c completion notify:', e); }
   }

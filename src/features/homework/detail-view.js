@@ -232,6 +232,48 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
           else if (tab) tab.close();
         })();
       };
+
+      // Download button — uses {download} signed-URL option for proper Content-Disposition
+      const dlBtn = el('button', {
+        style: {
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#0d9488', fontSize: '11px', fontWeight: 600,
+          padding: '4px 0 8px', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', gap: '4px',
+        },
+      }, ['⬇ Download']);
+      let isDownloading = false;
+      dlBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if (isDownloading) return;
+        isDownloading = true;
+        dlBtn.disabled = true;
+        dlBtn.style.opacity = '0.4';
+        try {
+          const titleRaw = item.exercise?.title || 'photo';
+          const titleSafe = titleRaw.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40) || 'photo';
+          const dateStr = item.scheduledDate ? item.scheduledDate.toISOString().slice(0, 10) : 'unknown';
+          const filename = titleSafe + '_' + dateStr + '.jpg';
+          let url = null;
+          if (item.photoPath) {
+            try { url = await window.HUD?.SB?.signFile?.(item.photoPath, { download: filename }); } catch (_) {}
+          }
+          if (!url && item.photoUrl) url = item.photoUrl;
+          if (url) {
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.style.display = 'none';
+            document.body.appendChild(a); a.click();
+            setTimeout(() => a.remove(), 0);
+          }
+        } finally {
+          setTimeout(() => {
+            isDownloading = false;
+            dlBtn.disabled = false;
+            dlBtn.style.opacity = '1';
+          }, 1000);
+        }
+      };
+      compCard.appendChild(dlBtn);
     }
 
     // Comments (v1 only — v2 comments will be added later)
