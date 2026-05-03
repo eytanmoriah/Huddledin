@@ -1898,18 +1898,19 @@ const SB = {
   async getMessages(childId){const {data}=await _supa.from('messages').select('*').eq('child_id',childId).order('created_at');return data||[];},
   async sendMessage(msg){const {data}=await _supa.from('messages').insert(msg).select().single();return data;},
   async getFolders(childId){
+    // Sub-commit 2.5: stores paths only — render sites sign on demand via SB.signFile.
     const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
     if(!fData||!fData.length)return[];
-    const folderIds=fData.map(f=>f.id);
     const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type').eq('child_id',childId);
-    return Promise.all(fData.map(async f=>({
+    return fData.map(f=>({
       id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
-      files:await Promise.all((fiData||[]).filter(fi=>fi.category===f.key).map(async fi=>({
+      files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
         id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
         sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
-        url:fi.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(fi.storage_path,900)).data?.signedUrl||null:null
-      })))
-    })));
+        storagePath:fi.storage_path,mimeType:fi.mime_type||null,
+        url:null  // tombstone — signed lazily at render
+      }))
+    }));
   },
   async addFile(file){
     const payload={child_id:file.childId||null,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
@@ -1933,6 +1934,18 @@ const SB = {
     if(error)throw error;
     const {data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(path,900);
     return {path,url:signedData?.signedUrl||null};
+  },
+  // Sub-commit 2.5: lazy URL signing. opts: { ttl=900, download=name|true }
+  async signFile(storagePath,opts){
+    if(!storagePath)return null;
+    const ttl=(opts&&opts.ttl)||900;
+    try{
+      const args=[storagePath,ttl];
+      if(opts&&opts.download)args.push({download:opts.download===true?true:String(opts.download)});
+      const {data,error}=await _supa.storage.from('huddledin-files').createSignedUrl(...args);
+      if(error){console.error('❌ signFile:',error);return null;}
+      return data?.signedUrl||null;
+    }catch(e){console.error('❌ signFile exception:',e);return null;}
   },
   async acceptInvite(token){
     const {data}=await _supa.from('invites').select('*').eq('token',token).eq('accepted',false).single();
@@ -2116,9 +2129,12 @@ async function _refreshPhase2Parent(){
   try{
     const{data:_ibxData}=await _supa.from('files').select('id,name,created_at,storage_path,mime_type,size_bytes').is('child_id',null).eq('category','inbox').eq('uploaded_by',session.id).order('created_at',{ascending:false});
     if(_ibxData){
-      const _ibxMapped=await Promise.all(_ibxData.map(async f=>{
-        const _su=f.storage_path?(await _supa.storage.from('huddledin-files').createSignedUrl(f.storage_path,900)).data?.signedUrl||null:null;
-        return{id:f.id,name:f.name,type:(f.name||'').split('.').pop()||'file',date:f.created_at?f.created_at.split('T')[0]:'',size:f.size_bytes?Math.round(f.size_bytes/1024)+' KB':'',storagePath:f.storage_path,url:_su};
+      // Sub-commit 2.5: paths only, sign on render
+      const _ibxMapped=_ibxData.map(f=>({
+        id:f.id,name:f.name,type:(f.name||'').split('.').pop()||'file',
+        date:f.created_at?f.created_at.split('T')[0]:'',
+        size:f.size_bytes?Math.round(f.size_bytes/1024)+' KB':'',
+        storagePath:f.storage_path,mimeType:f.mime_type||null,url:null
       }));
       LS.set('globalInboxFiles',_ibxMapped);
     }
@@ -2274,10 +2290,42 @@ const _localApptChanges=new Set();
 const _localVaultNoteChanges=new Set();
 const _localFileChanges=new Set();
 const _localCompletionChanges=new Set();
+// Sub-commit 2.5: one-time invalidation of pre-fix LS folder cache (had `url` field, no `storagePath`).
+(()=>{try{
+  const cf=LS.get('folders',null);
+  if(Array.isArray(cf)&&cf.length){
+    const sample=cf.find(f=>Array.isArray(f.files)&&f.files.length>0);
+    const firstFile=sample?.files?.[0];
+    if(firstFile&&'url' in firstFile&&!('storagePath' in firstFile)){
+      LS.set('folders',[]);
+    }
+  }
+  const ibx=LS.get('globalInboxFiles',null);
+  if(Array.isArray(ibx)&&ibx.length){
+    const f0=ibx[0];
+    // Inbox already stored storagePath, but had eager-signed url. After fix, url:null.
+    // No shape mismatch — entries with stale url are harmless because render won't read it.
+    // No invalidation needed.
+  }
+}catch(_){}})();
 function _trackerAdd(set,id){
   if(!id)return;
   set.add(id);
   setTimeout(()=>set.delete(id),5000);
+}
+// Sub-commit 2.5: concurrency-limited signed URL fetch for render contexts.
+// Defends against Cloudflare/Supabase 544 rate-limit when many thumbs render at once.
+const _signSem={active:0,queue:[]};
+async function _signFilePool(storagePath,opts){
+  if(!storagePath)return null;
+  if(_signSem.active>=4)await new Promise(r=>_signSem.queue.push(r));
+  _signSem.active++;
+  try{return await SB.signFile(storagePath,opts);}
+  finally{
+    _signSem.active--;
+    const next=_signSem.queue.shift();
+    if(next)next();
+  }
 }
 function _trackerAddBulk(set,ids){
   if(!Array.isArray(ids))return;
@@ -10206,12 +10254,11 @@ function _gvUploadToInbox(){
       const path='inbox/'+session.id+'/'+Date.now()+'_'+f.name;
       const{error:upErr}=await _supa.storage.from('huddledin-files').upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});
       if(upErr)throw upErr;
-      const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(path,900);
       const{data:saved,error:insErr}=await _supa.from('files').insert({uploaded_by:session.id,name:f.name,storage_path:path,mime_type:f.type||'application/octet-stream',size_bytes:f.size||0,category:'inbox',child_id:null,shared_with:[]}).select('id').single();
       _trackerAdd(_localFileChanges,saved?.id);
       if(insErr)throw insErr;
       const files=DB.globalInboxFiles||[];
-      files.unshift({id:saved.id,name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB',storagePath:path,url:signedData?.signedUrl||null});
+      files.unshift({id:saved.id,name:f.name,type:f.name.split('.').pop()||'file',date:new Date().toISOString().split('T')[0],size:Math.round(f.size/1024)+' KB',storagePath:path,mimeType:f.type||'application/octet-stream',url:null});
       DB.globalInboxFiles=files;
       toast(T('welcome_file_added'));re();
     }catch(e){console.error('inbox upload:',e);toast(T('gv_upload_failed'),'error');}
@@ -10248,8 +10295,8 @@ function renderGlobalVault(){
     info.appendChild(el('div',{class:'gv-file-name'},[f.name]));
     info.appendChild(el('div',{class:'gv-file-date'},[f.date+' · '+(f.size||'')]));
     item.appendChild(info);
-    // Preview button if url exists
-    if(f.url){
+    // Preview button if file has a path (sub-commit 2.5: lazy sign at click time)
+    if(f.storagePath||f.url){
       const pvBtn=el('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--teal)',fontSize:'.9rem',padding:'4px 8px',flexShrink:0}},['👁']);
       pvBtn.onclick=e=>{e.stopPropagation();_filePreview(f);};
       item.appendChild(pvBtn);
@@ -10299,7 +10346,7 @@ function showProcessFileSheet(file){
           if(error)throw error;
           DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
           const fArr=DB.folders;const fi=fArr.findIndex(f2=>f2.key===folderKey&&f2.childId===childId);
-          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,url:file.url||null});DB.folders=fArr;}
+          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,storagePath:file.storagePath||null,mimeType:file.mimeType||null,url:null});DB.folders=fArr;}
           close();toast('📂 '+T('files_moved'));re();
         }catch(e){console.error('sort file:',e);toast(T('gv_upload_failed'),'error');moveBtn.disabled=false;moveBtn.textContent=T('gv_move_btn');}
       });
@@ -10335,7 +10382,7 @@ function showProcessFileSheet(file){
           if(error)throw error;
           DB.globalInboxFiles=(DB.globalInboxFiles||[]).filter(f2=>f2.id!==file.id);
           const fArr=DB.folders;const fi=fArr.findIndex(f2=>f2.key===folderKey&&f2.childId===childId);
-          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,url:file.url||null});DB.folders=fArr;}
+          if(fi>-1){fArr[fi].files.push({id:file.id,name:file.name,date:file.date,locked:false,sharedWith:[],uploadedBy:session.id,storagePath:file.storagePath||null,mimeType:file.mimeType||null,url:null});DB.folders=fArr;}
           const spec=(DB.specialists||[]).find(s=>s.id===specId);
           close();toast('📤 Shared with '+(spec?.name||'specialist')+'!');re();
         }catch(e){console.error('share file:',e);toast(T('gv_upload_failed'),'error');shareBtn.disabled=false;shareBtn.textContent=T('gv_share_btn');}
@@ -10673,8 +10720,8 @@ function getFileThumb(f){
   const isSheet=['xls','xlsx'].includes(ext);
   const isVideo=['mp4','mov','avi'].includes(ext);
   const isAudio=['mp3','wav','m4a'].includes(ext);
-  if(isImg&&f.url)return {type:'img',src:f.url};
-  if(isPdf&&f.url)return {type:'pdf',src:f.url};
+  if(isImg&&f.storagePath)return {type:'img',storagePath:f.storagePath};
+  if(isPdf&&f.storagePath)return {type:'pdf',storagePath:f.storagePath};
   if(isDoc)return {type:'icon',icon:'📝',color:'#2563eb'};
   if(isSheet)return {type:'icon',icon:'📊',color:'#16a34a'};
   if(isVideo)return {type:'icon',icon:'🎬',color:'#7c3aed'};
@@ -10800,12 +10847,22 @@ async function _downloadImage(url,name){
 }
 
 function _filePreview(f,folder,isParentCtx,gallery){
-  // gallery = {images:[{name,url}], startIdx} — optional; enables prev/next navigation
+  // gallery items can be {name,url} (chat shape) OR {name,storagePath} (vault shape post-sub-commit-2.5)
   const images=gallery?.images?.length ? gallery.images : [f];
   let idx=gallery?.startIdx||0;
   if(idx<0||idx>=images.length)idx=0;
   const cur=()=>images[idx];
-  if(!cur()?.url)return;
+  if(!cur())return;
+  // Per-image signed URL cache so gallery nav doesn't re-sign on each swap
+  const _urlCache=new Map();
+  async function _resolveUrl(item){
+    if(!item)return null;
+    if(item.url)return item.url;
+    if(_urlCache.has(item))return _urlCache.get(item);
+    const u=item.storagePath?await SB.signFile(item.storagePath):null;
+    _urlCache.set(item,u);
+    return u;
+  }
   const ov=el('div',{style:{position:'fixed',inset:'0',background:'rgba(0,0,0,.88)',zIndex:9999,display:'flex',flexDirection:'column'}});
   const bar=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',padding:'12px 16px',flexShrink:0}});
   const titleEl=el('span',{style:{color:'#fff',fontWeight:700,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},[cur().name]);
@@ -10828,19 +10885,31 @@ function _filePreview(f,folder,isParentCtx,gallery){
   const ext=(cur().name||'').split('.').pop().toLowerCase();
   const isImgExt=['jpg','jpeg','png','gif','webp'].includes(ext);
   let imgEl=null, iframeEl=null, unavailEl=null;
-  if(isImgExt){
-    imgEl=el('img',{src:cur().url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}});
-    body.appendChild(imgEl);
-  } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
-    iframeEl=el('iframe',{src:ext==='pdf'?cur().url:'https://docs.google.com/viewer?url='+encodeURIComponent(cur().url)+'&embedded=true',style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}});
-    body.appendChild(iframeEl);
-  } else {
-    unavailEl=el('div',{style:{textAlign:'center',color:'#fff'}});
-    unavailEl.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
-    unavailEl.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},[T('files_preview_unavail')]));
-    unavailEl.appendChild(el('a',{href:cur().url,download:cur().name,style:{color:'var(--teal)',fontWeight:700}},[T('files_download')]));
-    body.appendChild(unavailEl);
-  }
+  // Async-resolve URL on entry (vault items have only storagePath; chat items already have url).
+  // Render placeholder synchronously, swap to real content when URL is signed.
+  const loadingEl=el('div',{style:{color:'#fff',fontWeight:600,opacity:.7}},['Loading…']);
+  body.appendChild(loadingEl);
+  (async()=>{
+    const url=await _resolveUrl(cur());
+    if(!url){loadingEl.textContent='Could not load file.';setTimeout(()=>{cleanup();ov.remove();},1500);toast(T('files_preview_unavail')||'Could not preview.','error');return;}
+    loadingEl.remove();
+    if(isImgExt){
+      imgEl=el('img',{src:url,style:{maxWidth:'100%',maxHeight:'100%',borderRadius:'12px',objectFit:'contain'}});
+      body.appendChild(imgEl);
+    } else if(ext==='pdf'||['doc','docx','xls','xlsx'].includes(ext)){
+      iframeEl=el('iframe',{src:ext==='pdf'?url:'https://docs.google.com/viewer?url='+encodeURIComponent(url)+'&embedded=true',style:{width:'100%',height:'100%',border:'none',borderRadius:'8px',background:'#fff'}});
+      body.appendChild(iframeEl);
+    } else {
+      unavailEl=el('div',{style:{textAlign:'center',color:'#fff'}});
+      unavailEl.appendChild(el('div',{style:{fontSize:'3rem',marginBottom:'16px'}},['📎']));
+      unavailEl.appendChild(el('div',{style:{marginBottom:'20px',fontWeight:600}},[T('files_preview_unavail')]));
+      unavailEl.appendChild(el('a',{href:url,download:cur().name,style:{color:'var(--teal)',fontWeight:700}},[T('files_download')]));
+      body.appendChild(unavailEl);
+    }
+    // Reattach gallery nav buttons if they were created (gallery code below appends them after this block)
+    if(prevBtn)body.appendChild(prevBtn);
+    if(nextBtn)body.appendChild(nextBtn);
+  })();
 
   // Gallery nav (only when multiple images)
   let prevBtn=null, nextBtn=null;
@@ -10859,7 +10928,10 @@ function _filePreview(f,folder,isParentCtx,gallery){
     const c=cur();
     titleEl.textContent=c.name;
     counterEl.textContent=(idx+1)+' / '+images.length;
-    if(imgEl)imgEl.src=c.url;
+    if(imgEl){
+      // Vault items use storagePath; chat items have url. Cache prevents re-sign on repeat nav.
+      (async()=>{const u=await _resolveUrl(c);if(u&&imgEl)imgEl.src=u;})();
+    }
     if(prevBtn)prevBtn.style.display=idx>0?'flex':'none';
     if(nextBtn)nextBtn.style.display=idx<images.length-1?'flex':'none';
   };
@@ -10956,8 +11028,11 @@ async function _moveFile(file,srcFolder,destFolder){
 }
 
 async function _copyFile(file,destFolder){
-  if(!file.url)throw new Error('No file URL');
-  const resp=await fetch(file.url);
+  const srcPath=file.storagePath||null;
+  if(!srcPath)throw new Error('No file storagePath');
+  const srcUrl=await SB.signFile(srcPath,{ttl:300});
+  if(!srcUrl)throw new Error('Could not sign source URL');
+  const resp=await fetch(srcUrl);
   const blob=await resp.blob();
   const newPath=S.activeChild+'/'+Date.now()+'_copy_'+file.name;
   const{error:upErr}=await _supa.storage.from('huddledin-files').upload(newPath,blob,{contentType:blob.type||'application/octet-stream',upsert:false});
@@ -10969,10 +11044,9 @@ async function _copyFile(file,destFolder){
   }).select('id').single();
   _trackerAdd(_localFileChanges,saved?.id);
   if(insErr)throw insErr;
-  const{data:signedData}=await _supa.storage.from('huddledin-files').createSignedUrl(newPath,900);
   const fls=DB.folders;
   const dst=fls.find(f=>f.id===destFolder.id);
-  if(dst)dst.files.push({id:saved.id,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url:signedData?.signedUrl||null});
+  if(dst)dst.files.push({id:saved.id,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,storagePath:newPath,mimeType:blob.type||'application/octet-stream',url:null});
   DB.folders=fls;
 }
 
@@ -10994,9 +11068,18 @@ function _notifyFileAction(file,destFolder,isMove){
 function _getFileActionDefs(f,folder,isParent,opts={}){
   const {onClose}=opts;
   const defs=[];
-  if(f.url){
+  if(f.storagePath){
     defs.push({icon:'👁',label:T('files_view_btn')||'View',fn:()=>{if(onClose)onClose();_filePreview(f,folder,isParent);}});
-    defs.push({icon:'⬇',label:T('files_download')||'Save',fn:async()=>{try{const resp=await fetch(f.url);const blob=await resp.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}catch(e){window.open(f.url,'_blank');}}});
+    defs.push({icon:'⬇',label:T('files_download')||'Save',fn:async()=>{
+      const url=await SB.signFile(f.storagePath,{download:f.name});
+      if(!url){toast(T('gv_upload_failed')||'Could not download.','error');return;}
+      try{
+        const resp=await fetch(url);const blob=await resp.blob();
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;
+        document.body.appendChild(a);a.click();
+        setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+      }catch(e){window.open(url,'_blank');}
+    }});
   }
   if(isParent&&!f.locked){
     defs.push({icon:'✏️',label:T('files_rename'),fn:()=>{
@@ -11128,8 +11211,9 @@ function renderFolderGrid(folder,isParent,childColor){
       // Colored icon square
       const iconSq=el('div',{style:{width:'36px',height:'36px',borderRadius:'8px',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}});
       if(thumb.type==='img'){
-        const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'8px'},loading:'lazy'});
+        const img=el('img',{style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'8px'},loading:'lazy'});
         img.onerror=()=>{img.remove();iconSq.textContent=tc.icon;};iconSq.appendChild(img);
+        (async()=>{const u=await _signFilePool(thumb.storagePath);if(u)img.src=u;else{img.remove();iconSq.textContent=tc.icon;}})();
       } else {iconSq.textContent=tc.icon;}
       main.appendChild(iconSq);
       const info=el('div',{style:{flex:1,minWidth:0}});
@@ -11155,9 +11239,10 @@ function renderFolderGrid(folder,isParent,childColor){
       // Square thumbnail area
       const thumbArea=el('div',{style:{aspectRatio:'1',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative'}});
       if(thumb.type==='img'){
-        const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
+        const img=el('img',{style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
         img.onerror=()=>{img.remove();thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['🖼️']));};
         thumbArea.appendChild(img);
+        (async()=>{const u=await _signFilePool(thumb.storagePath);if(u)img.src=u;else{img.onerror();}})();
       } else if(thumb.type==='pdf'){
         thumbArea.style.background='#fef3c7';thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['📄']));
       } else {
@@ -11521,7 +11606,7 @@ function showShareModal(file){
         // Update local cache so UI reflects immediately without a full refresh
         const fls=DB.folders;
         const fi2=fls.find(f=>f.id===folderId);
-        if(fi2)fi2.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
+        if(fi2)fi2.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,storagePath:path,mimeType:file.type||'application/octet-stream',url:null});
         DB.folders=fls;
         close();re();toast('✅ "'+file.name+'" uploaded!');track('File Uploaded');
       }catch(e){console.error('upload failed:',e);toast('❌ Upload failed. Please try again.','error');upBtn.innerHTML='📤 Upload';upBtn.disabled=false;}
@@ -11641,9 +11726,10 @@ function showFolderModal(folder,isParent){
         // Square thumbnail
         const thumbArea=el('div',{style:{aspectRatio:'1',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',position:'relative'}});
         if(thumb.type==='img'){
-          const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
+          const img=el('img',{style:{width:'100%',height:'100%',objectFit:'cover'},loading:'lazy'});
           img.onerror=()=>{img.remove();thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['🖼️']));};
           thumbArea.appendChild(img);
+          (async()=>{const u=await _signFilePool(thumb.storagePath);if(u)img.src=u;else{img.onerror();}})();
         } else if(thumb.type==='pdf'){
           thumbArea.style.background='#fef3c7';thumbArea.appendChild(el('span',{style:{fontSize:'28px'}},['📄']));
         } else {
@@ -11659,7 +11745,7 @@ function showFolderModal(folder,isParent){
             // Preview thumbnail at top
             const tc2=_fileThumbColors(f);const thumb2=getFileThumb(f);
             const prevArea=el('div',{style:{height:'160px',background:tc2.bg,borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',marginBottom:'14px'}});
-            if(thumb2.type==='img'){const img2=el('img',{src:thumb2.src,style:{width:'100%',height:'100%',objectFit:'contain'},loading:'lazy'});img2.onerror=()=>{img2.remove();prevArea.appendChild(el('span',{style:{fontSize:'3rem'}},['🖼️']));};prevArea.appendChild(img2);}
+            if(thumb2.type==='img'){const img2=el('img',{style:{width:'100%',height:'100%',objectFit:'contain'},loading:'lazy'});img2.onerror=()=>{img2.remove();prevArea.appendChild(el('span',{style:{fontSize:'3rem'}},['🖼️']));};prevArea.appendChild(img2);(async()=>{const u=await _signFilePool(thumb2.storagePath);if(u)img2.src=u;else img2.onerror();})();}
             else{prevArea.appendChild(el('span',{style:{fontSize:'3rem'}},[tc2.icon]));}
             amb.appendChild(prevArea);
             if(f.date)amb.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'10px'}},[f.date]));
@@ -11679,8 +11765,9 @@ function showFolderModal(folder,isParent){
         // Colored icon square
         const iconSq=el('div',{style:{width:'36px',height:'36px',borderRadius:'8px',background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0,overflow:'hidden'}});
         if(thumb.type==='img'){
-          const img=el('img',{src:thumb.src,style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'8px'},loading:'lazy'});
+          const img=el('img',{style:{width:'100%',height:'100%',objectFit:'cover',borderRadius:'8px'},loading:'lazy'});
           img.onerror=()=>{img.remove();iconSq.textContent=tc.icon;};iconSq.appendChild(img);
+          (async()=>{const u=await _signFilePool(thumb.storagePath);if(u)img.src=u;else img.onerror();})();
         } else {iconSq.textContent=tc.icon;}
         topRow.appendChild(iconSq);
         const info=el('div',{style:{flex:1}});
@@ -11712,7 +11799,7 @@ function showFolderModal(folder,isParent){
           const fileId=saved?.id||crypto.randomUUID();
           const fls=DB.folders;
           const fo=fls.find(x=>x.id===folder.id);
-          if(fo)fo.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,url});
+          if(fo)fo.files.push({id:fileId,name:file.name,date:new Date().toISOString().split('T')[0],locked:false,sharedWith:[],uploadedBy:session.id,storagePath:path,mimeType:file.type||'application/octet-stream',url:null});
           DB.folders=fls;
           close();showFolderModal({...folder,files:fo?.files||folder.files},isParent);
           toast('✅ "'+file.name+'" uploaded!');
