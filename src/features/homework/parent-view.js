@@ -1,5 +1,6 @@
 // Parent homework view — Phase 4 redesign
 // Collapsible specialist sections, per-exercise status rows, week day-pills
+// Sub-commit 3: date-strip nav + past-date marking
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -28,30 +29,49 @@ export function renderHomeworkParent({ childId, isWeb }) {
     sec.appendChild(backBar);
   }
 
+  const todayStr = _fmtLocal(new Date());
+  // If active date was set for a different child, clear it (avoids stale dates across child switches)
+  if (S && S._hwActiveDate && S._hwActiveDateForChild !== childId) {
+    S._hwActiveDate = null;
+    S._hwActiveDateForChild = null;
+  }
+  const activeDate = S?._hwActiveDate || todayStr;
+  const isViewingPast = activeDate !== todayStr;
+
   const headerWrap = el('div', { style: { marginBottom: '18px' } });
   headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
-  const today = new Date();
-  const dateSub = (child?.avatar || '') + ' ' + (child?.name || '') + ' \u00b7 ' + today.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-  headerWrap.appendChild(el('p', { class: 'page-sub' }, [dateSub]));
+
+  const dateObj = isViewingPast ? new Date(activeDate + 'T12:00:00') : new Date();
+  const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
+  const datePart = dateObj.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const subPrefix = isViewingPast ? 'Viewing ' : '';
+  const subEl = el('p', { class: 'page-sub' });
+  subEl.appendChild(document.createTextNode(childPart + ' · ' + subPrefix + datePart));
+  if (isViewingPast) {
+    const link = el('span', { style: { color: '#0d9488', fontWeight: 600, cursor: 'pointer', marginInlineStart: '8px', textDecoration: 'underline' } }, ['Return to today']);
+    link.onclick = () => { S._hwActiveDate = null; re(); };
+    subEl.appendChild(link);
+  }
+  headerWrap.appendChild(subEl);
   sec.appendChild(headerWrap);
 
   const host = el('div');
   host.appendChild(el('div', { style: { textAlign: 'center', padding: '24px', color: '#64748b' } }, [T('btn_loading')]));
   sec.appendChild(host);
 
-  _loadAndRender(host, childId, isWeb, H);
+  _loadAndRender(host, childId, isWeb, H, activeDate);
   return sec;
 }
 
-async function _loadAndRender(host, childId, isWeb, H) {
+async function _loadAndRender(host, childId, isWeb, H, activeDate) {
   const { el } = H;
 
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
   const [homeworks, completions] = await Promise.all([
     loadHomeworkForParent(childId),
-    loadCompletionsV2(childId, fourteenDaysAgo),
+    loadCompletionsV2(childId, ninetyDaysAgo),
   ]);
 
   const compMap = {};
@@ -63,15 +83,111 @@ async function _loadAndRender(host, childId, isWeb, H) {
 
   if (!homeworks.length) {
     host.appendChild(el('div', { class: 'empty-state' }, [
-      el('span', { class: 'empty-state-icon' }, ['\ud83d\udccb']),
+      el('span', { class: 'empty-state-icon' }, ['📋']),
       el('div', { class: 'empty-state-title' }, [T('hw_no_tasks')]),
       el('div', { class: 'empty-state-body' }, [T('hw_no_tasks_parent_desc')])
     ]));
     return;
   }
 
+  // Date strip — controls activeDate via S._hwActiveDate (scoped to current child)
+  const strip = _renderDateStrip(homeworks, compMap, H, activeDate, (newDate) => {
+    H.S._hwActiveDate = newDate;                                  // null = today
+    H.S._hwActiveDateForChild = newDate ? childId : null;         // tag for cross-child clear
+    H.re?.();
+  });
+  host.appendChild(strip);
+  // Scroll today into view (right edge) after mount
+  requestAnimationFrame(() => { try { strip.scrollLeft = strip.scrollWidth; } catch (_) {} });
+
   const specGroups = _groupBySpecialist(homeworks, H);
-  specGroups.forEach(group => host.appendChild(_renderSpecialistSection(group, compMap, childId, isWeb, H)));
+  let renderedSections = 0;
+  specGroups.forEach(group => {
+    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate);
+    if (section) { host.appendChild(section); renderedSections++; }
+  });
+
+  // Past-date with no scheduled work in any homework
+  if (renderedSections === 0) {
+    host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
+      el('span', { class: 'empty-state-icon' }, ['📅']),
+      el('div', { class: 'empty-state-title' }, ['No exercises scheduled']),
+      el('div', { class: 'empty-state-body' }, ['Nothing was scheduled for this day.']),
+    ]));
+  }
+}
+
+function _renderDateStrip(homeworks, compMap, H, activeDate, onSelect) {
+  const { el } = H;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = _fmtLocal(today);
+  const daysBack = window.innerWidth >= 768 ? 14 : 30;
+
+  const strip = el('div', { style: {
+    display: 'flex', gap: '6px', overflowX: 'auto',
+    padding: '4px 2px 12px', marginBottom: '12px',
+    WebkitOverflowScrolling: 'touch',
+    scrollbarWidth: 'none',
+  } });
+  // Hide webkit scrollbar
+  strip.style.cssText += ';-ms-overflow-style:none;';
+
+  const dates = [];
+  for (let i = daysBack; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    dates.push(d);
+  }
+
+  dates.forEach(d => {
+    const dStr = _fmtLocal(d);
+    const isToday = dStr === todayStr;
+    const isFuture = d > today;
+    const isActive = activeDate === dStr;
+    const dot = _aggregateDayState(homeworks, d, compMap, today);
+
+    const pill = el('div', { style: {
+      flexShrink: '0', width: '56px', height: '64px',
+      borderRadius: '12px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      cursor: isFuture ? 'default' : 'pointer',
+      background: (isActive && isToday) ? '#0d9488' : (isActive ? '#fff' : (isFuture ? 'transparent' : '#f5fafa')),
+      color: (isActive && isToday) ? '#fff' : (isFuture ? '#cbd5e1' : '#0f1a18'),
+      border: (isActive && !isToday) ? '2px solid #0d9488' : (isFuture ? '1px dashed #e2e8f0' : '1px solid transparent'),
+      opacity: isFuture ? '0.5' : '1',
+      transition: 'all .12s',
+      userSelect: 'none',
+      WebkitTouchCallout: 'none',
+    } });
+    pill.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 600, opacity: '0.8' } }, [d.toLocaleDateString([], { weekday: 'short' })]));
+    pill.appendChild(el('div', { style: { fontSize: '15px', fontWeight: 700, marginTop: '2px' } }, [String(d.getDate())]));
+    const dotEl = el('div', { style: { width: '6px', height: '6px', borderRadius: '50%', marginTop: '4px', background: dot || 'transparent' } });
+    pill.appendChild(dotEl);
+
+    if (!isFuture) {
+      pill.onclick = () => onSelect(isToday ? null : dStr);
+    }
+    strip.appendChild(pill);
+  });
+
+  return strip;
+}
+
+function _aggregateDayState(homeworks, date, compMap, today) {
+  const dStr = _fmtLocal(date);
+  let totalSlots = 0, completedSlots = 0;
+  (homeworks || []).forEach(hw => {
+    (hw.exercises || []).forEach(ex => {
+      const slots = exerciseSlotsOn(hw, ex, date);
+      slots.forEach(slot => {
+        totalSlots++;
+        if (compMap[ex.id + ':' + dStr + ':' + slot]) completedSlots++;
+      });
+    });
+  });
+  if (totalSlots === 0) return null;
+  if (completedSlots === totalSlots) return '#10b981';   // green: all done
+  if (date < today) return '#f59e0b';                    // amber: missed past
+  return null;                                            // today partial → no dot
 }
 
 function _groupBySpecialist(homeworks, H) {
@@ -93,44 +209,52 @@ function _groupBySpecialist(homeworks, H) {
   return Object.values(map);
 }
 
-function _renderSpecialistSection(group, compMap, childId, isWeb, H) {
+function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate) {
   const { el } = H;
   const { specId, specName, specRole, homeworks } = group;
   const collapsed = _collapseState[specId] || false;
+
+  // Build cards first; if all are empty for activeDate, hide the entire section
+  const cards = homeworks.map(hw => _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate)).filter(Boolean);
+  if (cards.length === 0) return null;
 
   const section = el('div', { style: { marginBottom: '20px' } });
 
   // Header
   const header = el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: '#f5fafa', borderRadius: '10px', cursor: 'pointer', userSelect: 'none', marginBottom: collapsed ? '0' : '10px', transition: 'margin-bottom .15s' } });
-  const chevron = el('span', { style: { fontSize: '11px', color: '#4a7570', width: '14px', textAlign: 'center', flexShrink: '0' } }, [collapsed ? '\u25b6' : '\u25bc']);
+  const chevron = el('span', { style: { fontSize: '11px', color: '#4a7570', width: '14px', textAlign: 'center', flexShrink: '0' } }, [collapsed ? '▶' : '▼']);
   header.appendChild(chevron);
-  const nameEl = el('span', { style: { flex: '1', fontWeight: 600, fontSize: '14px', color: '#0f1a18' } }, [specName + (specRole ? ' \u00b7 ' + specRole : '')]);
+  const nameEl = el('span', { style: { flex: '1', fontWeight: 600, fontSize: '14px', color: '#0f1a18' } }, [specName + (specRole ? ' · ' + specRole : '')]);
   header.appendChild(nameEl);
-  header.appendChild(el('span', { style: { fontSize: '12px', color: '#64748b', fontWeight: 500, flexShrink: '0' } }, [homeworks.length + ' active']));
+  header.appendChild(el('span', { style: { fontSize: '12px', color: '#64748b', fontWeight: 500, flexShrink: '0' } }, [cards.length + (cards.length === homeworks.length ? ' active' : ' shown')]));
 
   const body = el('div', { style: {
-    display: collapsed ? 'none' : (isWeb && homeworks.length >= 4 ? 'grid' : 'flex'),
-    gridTemplateColumns: isWeb && homeworks.length >= 4 ? 'repeat(auto-fit,minmax(380px,1fr))' : undefined,
+    display: collapsed ? 'none' : (isWeb && cards.length >= 4 ? 'grid' : 'flex'),
+    gridTemplateColumns: isWeb && cards.length >= 4 ? 'repeat(auto-fit,minmax(380px,1fr))' : undefined,
     flexDirection: 'column',
     gap: '12px',
   } });
 
   header.onclick = () => {
     _collapseState[specId] = !_collapseState[specId];
-    body.style.display = _collapseState[specId] ? 'none' : (isWeb && homeworks.length >= 4 ? 'grid' : 'flex');
-    chevron.textContent = _collapseState[specId] ? '\u25b6' : '\u25bc';
+    body.style.display = _collapseState[specId] ? 'none' : (isWeb && cards.length >= 4 ? 'grid' : 'flex');
+    chevron.textContent = _collapseState[specId] ? '▶' : '▼';
     header.style.marginBottom = _collapseState[specId] ? '0' : '10px';
   };
 
   section.appendChild(header);
-  homeworks.forEach(hw => body.appendChild(_renderHomeworkCard(hw, compMap, childId, isWeb, H)));
+  cards.forEach(c => body.appendChild(c));
   section.appendChild(body);
   return section;
 }
 
-function _renderHomeworkCard(hw, compMap, childId, isWeb, H) {
+function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate) {
   const { el } = H;
   const exercises = hw.exercises || [];
+
+  // Build exercise rows; if all are null (none scheduled on activeDate), hide the card
+  const rows = exercises.map(ex => _renderExerciseRow(hw, ex, compMap, childId, H, activeDate)).filter(Boolean);
+  if (rows.length === 0) return null;
 
   const card = el('div', { style: { background: '#fff', border: '1px solid #e8f4f2', borderRadius: '14px', padding: isWeb ? '20px' : '14px 14px 10px', boxShadow: '0 1px 3px rgba(13,148,136,.08),0 1px 2px rgba(0,0,0,.04)', transition: 'box-shadow .15s,border-color .15s' } });
   if (isWeb) {
@@ -145,14 +269,14 @@ function _renderHomeworkCard(hw, compMap, childId, isWeb, H) {
   const schedParts = [];
   const rec = hw.recurrence || 'daily';
   if (rec === 'daily') schedParts.push(T('hw4_daily'));
-  else if (rec === 'specific_days') schedParts.push((hw.specific_days || []).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(' \u00b7 '));
+  else if (rec === 'specific_days') schedParts.push((hw.specific_days || []).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(' · '));
   else if (rec === 'every_other_day') schedParts.push('Every other day');
   else if (rec === 'once') schedParts.push('Once');
   else schedParts.push(rec);
   schedParts.push(exercises.length + ' exercise' + (exercises.length !== 1 ? 's' : ''));
-  hdrLeft.appendChild(el('div', { style: { fontSize: '12px', color: '#7aaba5', fontWeight: 500 } }, [schedParts.join(' \u00b7 ')]));
+  hdrLeft.appendChild(el('div', { style: { fontSize: '12px', color: '#7aaba5', fontWeight: 500 } }, [schedParts.join(' · ')]));
   hdr.appendChild(hdrLeft);
-  const kebab = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#94a3b8', padding: '4px 6px', borderRadius: '6px', lineHeight: '1' } }, ['\u22ef']);
+  const kebab = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#94a3b8', padding: '4px 6px', borderRadius: '6px', lineHeight: '1' } }, ['⋯']);
   kebab.onclick = (e) => e.stopPropagation();
   hdr.appendChild(kebab);
   card.appendChild(hdr);
@@ -161,73 +285,84 @@ function _renderHomeworkCard(hw, compMap, childId, isWeb, H) {
     card.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', whiteSpace: 'pre-wrap', padding: '10px 12px', background: '#f0fdf9', borderRadius: '8px', marginBottom: '8px' } }, [hw.description]));
   }
 
-  // Exercise rows
-  exercises.forEach(ex => card.appendChild(_renderExerciseRow(hw, ex, compMap, childId, H)));
+  rows.forEach(row => card.appendChild(row));
 
-  // Week footer
+  // Week footer (display-only, always shows current week regardless of activeDate)
   card.appendChild(_renderWeekFooter(hw, compMap, el));
 
   return card;
 }
 
-function _renderExerciseRow(hw, ex, compMap, childId, H) {
+function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
   const { el } = H;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayStr = _fmtLocal(today);
-  const slots = exerciseSlotsOn(hw, ex, today);
-  const scheduledToday = slots.length > 0;
+  const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+  const todayStr = _fmtLocal(todayDate);
+  const activeDateStr = activeDate || todayStr;
+  const activeDateObj = new Date(activeDateStr + 'T12:00:00');
+  const isToday = activeDateStr === todayStr;
+  const isPast = activeDateObj < todayDate;
+
+  const slots = exerciseSlotsOn(hw, ex, activeDateObj);
+  const scheduledOn = slots.length > 0;
+
+  // Past dates: hide rows for exercises that weren't scheduled that day
+  if (!isToday && !scheduledOn) return null;
 
   let doneCount = 0, cantDoCount = 0, skippedCount = 0;
   slots.forEach(slot => {
-    const comp = compMap[ex.id + ':' + todayStr + ':' + slot];
+    const comp = compMap[ex.id + ':' + activeDateStr + ':' + slot];
     if (comp?.status === 'done') doneCount++;
     else if (comp?.status === 'cant_do') cantDoCount++;
     else if (comp?.status === 'skipped') skippedCount++;
   });
 
-  const allDone = scheduledToday && doneCount === slots.length;
+  const allDone = scheduledOn && doneCount === slots.length;
   const hasCantDo = cantDoCount > 0;
-  // hasSkipped checked after hasCantDo — cant_do takes priority in display
   const hasSkipped = skippedCount > 0 && doneCount === 0 && cantDoCount === 0;
-  const pending = scheduledToday && !allDone && !hasCantDo && !hasSkipped;
+  const hasAnyCompletion = doneCount > 0 || cantDoCount > 0 || skippedCount > 0;
+  // Past-scheduled-but-unmarked: surface "Missed" cue
+  const isMissedPast = isPast && scheduledOn && !hasAnyCompletion;
 
   // Status icon
   let iconText, iconBg, iconColor;
-  if (!scheduledToday) { iconText = '\u25cb'; iconBg = 'transparent'; iconColor = '#c4dbd8'; }
-  else if (allDone) { iconText = '\u2713'; iconBg = '#0d9488'; iconColor = '#fff'; }
-  else if (hasCantDo) { iconText = '\u26a0'; iconBg = '#fef3c7'; iconColor = '#d97706'; }
-  else if (hasSkipped) { iconText = '\u2014'; iconBg = '#f1f5f9'; iconColor = '#94a3b8'; }
+  if (!scheduledOn) { iconText = '○'; iconBg = 'transparent'; iconColor = '#c4dbd8'; }
+  else if (allDone) { iconText = '✓'; iconBg = '#0d9488'; iconColor = '#fff'; }
+  else if (hasCantDo) { iconText = '⚠'; iconBg = '#fef3c7'; iconColor = '#d97706'; }
+  else if (hasSkipped) { iconText = '—'; iconBg = '#f1f5f9'; iconColor = '#94a3b8'; }
   else if (slots.length > 1 && doneCount > 0) { iconText = doneCount + '/' + slots.length; iconBg = '#E1F5EE'; iconColor = '#0d9488'; }
-  else { iconText = '\u25cb'; iconBg = '#E1F5EE'; iconColor = '#0d9488'; }
+  else if (isMissedPast) { iconText = '○'; iconBg = '#fef3c7'; iconColor = '#d97706'; }
+  else { iconText = '○'; iconBg = '#E1F5EE'; iconColor = '#0d9488'; }
 
   // Row background
   let rowBg, rowBorder;
-  if (!scheduledToday) { rowBg = 'transparent'; rowBorder = 'transparent'; }
+  if (!scheduledOn) { rowBg = 'transparent'; rowBorder = 'transparent'; }
   else if (allDone) { rowBg = '#E1F5EE'; rowBorder = 'rgba(13,148,136,.25)'; }
   else if (hasCantDo) { rowBg = '#FAEEDA'; rowBorder = 'rgba(217,119,6,.25)'; }
   else if (hasSkipped) { rowBg = '#f8fafc'; rowBorder = '#e2e8f0'; }
+  else if (isMissedPast) { rowBg = '#fffbeb'; rowBorder = '#fde68a'; }
   else { rowBg = '#E1F5EE'; rowBorder = 'rgba(13,148,136,.25)'; }
 
-  // Right label (D1: no "Today" for pending)
+  // Right label
   let rightLabel = '', rightColor = '#64748b';
-  if (!scheduledToday) { rightLabel = _nextScheduledDay(hw, ex, today); rightColor = '#94a3b8'; }
+  if (!scheduledOn) { rightLabel = _nextScheduledDay(hw, ex, todayDate); rightColor = '#94a3b8'; }
   else if (allDone) { rightLabel = T('hw4_done'); rightColor = '#059669'; }
   else if (hasCantDo) { rightLabel = T('hw4_cant_do'); rightColor = '#d97706'; }
   else if (hasSkipped) { rightLabel = T('hw4_skipped'); rightColor = '#94a3b8'; }
+  else if (isMissedPast) { rightLabel = 'Missed'; rightColor = '#d97706'; }
 
-  const interactive = scheduledToday;
+  const interactive = scheduledOn;
 
-  // Edit-mode lookup: single-slot exercises with an existing completion → edit; multi-slot deferred to v2
+  // Edit-mode lookup: single-slot exercises with an existing completion → edit
   let existingCompletion = null;
   if (interactive && slots.length === 1) {
-    existingCompletion = compMap[ex.id + ':' + todayStr + ':' + slots[0]] || null;
+    existingCompletion = compMap[ex.id + ':' + activeDateStr + ':' + slots[0]] || null;
   }
 
   const row = el('div', { style: {
     display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px',
     background: rowBg, border: '0.5px solid ' + rowBorder, borderRadius: '8px',
     marginBottom: '5px', cursor: interactive ? 'pointer' : 'default',
-    opacity: !scheduledToday ? '0.55' : (allDone ? '0.65' : '1'),
+    opacity: !scheduledOn ? '0.55' : (allDone ? '0.65' : '1'),
     transition: 'background .12s',
   } });
 
@@ -242,16 +377,16 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
 
   // Content
   const content = el('div', { style: { flex: '1', minWidth: '0' } });
-  content.appendChild(el('div', { style: { fontWeight: 500, fontSize: '13px', color: !scheduledToday ? '#94a3b8' : '#0f1a18', textDecoration: allDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [ex.title]));
+  content.appendChild(el('div', { style: { fontWeight: 500, fontSize: '13px', color: !scheduledOn ? '#94a3b8' : '#0f1a18', textDecoration: allDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, [ex.title]));
   const subParts = [];
-  if (scheduledToday && slots.length === 1) subParts.push(slots[0].charAt(0).toUpperCase() + slots[0].slice(1));
-  else if (scheduledToday && slots.length > 1) subParts.push(slots.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' + '));
-  const measure = (ex.sets && ex.reps) ? ex.sets + '\u00d7' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
+  if (scheduledOn && slots.length === 1) subParts.push(slots[0].charAt(0).toUpperCase() + slots[0].slice(1));
+  else if (scheduledOn && slots.length > 1) subParts.push(slots.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' + '));
+  const measure = (ex.sets && ex.reps) ? ex.sets + '×' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
   if (measure) subParts.push(measure);
-  if (!scheduledToday && !measure) subParts.push('Not today');
+  if (isToday && !scheduledOn && !measure) subParts.push('Not today');
   const attachCount = Math.max((ex.attached_file_paths || []).length, (ex.attached_file_urls || []).length);
-  if (attachCount > 0) subParts.push('\ud83d\udcce ' + attachCount);
-  if (subParts.length) content.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '1px' } }, [subParts.join(' \u00b7 ')]));
+  if (attachCount > 0) subParts.push('📎 ' + attachCount);
+  if (subParts.length) content.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '1px' } }, [subParts.join(' · ')]));
   if (ex.instructions) content.appendChild(el('div', { style: { fontSize: '12px', color: '#64748b', lineHeight: '1.4', whiteSpace: 'pre-wrap', marginTop: '3px' } }, [ex.instructions]));
   row.appendChild(content);
 
@@ -263,7 +398,7 @@ function _renderExerciseRow(hw, ex, compMap, childId, H) {
       mountCompleteModal({
         homework: hw, exercise: ex,
         slot: slots.length === 1 ? slots[0] : null,
-        scheduledDate: todayStr,
+        scheduledDate: activeDateStr,
         childId,
         existingCompletion,
         onSaved: () => H.re?.(),
