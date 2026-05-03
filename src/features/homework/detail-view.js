@@ -138,6 +138,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     status: c.status,
     exercise: exMap[c.homework_exercise_id],
     note: c.note,
+    photoPath: c.photo_path || null,
     photoUrl: c.photo_url,
     slot: c.slot,
     actualValue: c.actual_value,
@@ -196,10 +197,41 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     }
 
     if (item.note) compCard.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', fontStyle: 'italic', marginBottom: '6px', lineHeight: '1.4' } }, ['\u201c' + item.note + '\u201d']));
-    if (item.photoUrl) {
-      const img = el('img', { src: item.photoUrl, style: { maxWidth: '100%', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', display: 'block', marginBottom: '8px', cursor: 'pointer' } });
-      img.onclick = () => window.open(item.photoUrl, '_blank');
+    if (item.photoPath || item.photoUrl) {
+      const img = el('img', {
+        style: {
+          maxWidth: '100%', maxHeight: '160px', borderRadius: '8px',
+          objectFit: 'cover', display: 'block', marginBottom: '8px',
+          cursor: 'pointer', background: '#f0fdf9',
+        },
+      });
+      img.onerror = () => { img.style.opacity = '0.5'; };
       compCard.appendChild(img);
+
+      // Async-fill: prefer path-based signing, fall back to legacy photo_url
+      (async () => {
+        let url = null;
+        if (item.photoPath) {
+          try { url = await window.HUD?.SB?.signFile?.(item.photoPath); } catch (_) {}
+        }
+        if (!url && item.photoUrl) url = item.photoUrl;
+        if (url) img.src = url;
+        else img.onerror();
+      })();
+
+      // Lightbox tap with iOS-safe pattern (about:blank synchronously, then tab.location)
+      img.onclick = () => {
+        const tab = window.open('about:blank', '_blank');
+        (async () => {
+          let url = null;
+          if (item.photoPath) {
+            try { url = await window.HUD?.SB?.signFile?.(item.photoPath); } catch (_) {}
+          }
+          if (!url && item.photoUrl) url = item.photoUrl;
+          if (url && tab) tab.location = url;
+          else if (tab) tab.close();
+        })();
+      };
     }
 
     // Comments (v1 only — v2 comments will be added later)
