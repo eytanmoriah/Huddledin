@@ -319,7 +319,8 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
     if (hydrate && existingCompletion.note) noteInp.value = existingCompletion.note;
     actionHost.appendChild(noteInp);
 
-    // Photo upload
+    // Photo upload — sub-commit 2 (Session 2): capture path for render-time signing
+    let photoPath = (hydrate && existingCompletion.photo_path) ? existingCompletion.photo_path : null;
     let photoUrl = (hydrate && existingCompletion.photo_url) ? existingCompletion.photo_url : null;
     const photoRow = document.createElement('div');
     photoRow.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;align-items:center;';
@@ -333,7 +334,8 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
         const f = ev.target.files?.[0]; if (!f) return;
         photoBtn.disabled = true; photoBtn.textContent = 'Uploading…';
         try {
-          const { url } = await H.SB.uploadFile('homework/' + childId + '/' + exercise.id, f);
+          const { path, url } = await H.SB.uploadFile('homework/' + childId + '/' + exercise.id, f);
+          photoPath = path;
           photoUrl = url;
           photoBtn.textContent = '✓ Photo added';
         } catch (e) { H.toast?.('Upload failed.', 'error'); photoBtn.textContent = '📷 ' + T('hw4_add_photo'); }
@@ -368,7 +370,7 @@ export function mountCompleteModal({ homework, exercise, slot, scheduledDate, ch
         for (const sl of slotsToSave) {
           const result = await logExerciseCompletion({
             homework, exercise, scheduledDate: typeof scheduledDate === 'string' ? scheduledDate : undefined,
-            slot: sl, status: selectedStatus, note: noteInp.value.trim() || null, photoUrl, actualValue, childId,
+            slot: sl, status: selectedStatus, note: noteInp.value.trim() || null, photoUrl, photoPath, actualValue, childId,
             existingCompletionId: isEdit ? existingCompletion.id : null,
             previousStatus: isEdit ? existingCompletion.status : null,
           });
