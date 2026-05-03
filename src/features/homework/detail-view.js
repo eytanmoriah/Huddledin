@@ -128,9 +128,13 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
   // Build unified activity list from v2 (preferred) + v1 fallback
   const exMap = {};
   exercises.forEach(ex => { exMap[ex.id] = ex; });
+  // Sub-commit 4: separate scheduledDate (when the work was due) from loggedAt (when parent recorded it).
+  // Specialist scans the feed by recorded-recency (loggedAt desc), but display by scheduled date.
   const activityItems = v2ForThis.map(c => ({
     type: 'v2',
-    date: new Date(c.logged_at),
+    scheduledDate: c.scheduled_date ? new Date(c.scheduled_date + 'T12:00:00') : new Date(c.logged_at),
+    loggedAt: c.logged_at ? new Date(c.logged_at) : null,
+    isRetroactive: !!(c.scheduled_date && c.logged_at && c.scheduled_date !== c.logged_at.split('T')[0]),
     status: c.status,
     exercise: exMap[c.homework_exercise_id],
     note: c.note,
@@ -140,14 +144,17 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     id: c.id,
   }));
 
-  // Add v1 completions that don't overlap with v2
+  // Add v1 completions that don't overlap with v2 (v1 has no separate scheduled_date column → never retroactive)
   const v2Dates = new Set(v2ForThis.map(c => c.scheduled_date));
   completions.forEach(comp => {
     const compDate = comp.completed_at ? comp.completed_at.split('T')[0] : '';
     if (!v2Dates.has(compDate)) {
+      const d = new Date(comp.completed_at);
       activityItems.push({
         type: 'v1',
-        date: new Date(comp.completed_at),
+        scheduledDate: d,
+        loggedAt: d,
+        isRetroactive: false,
         status: 'done',
         exercise: null,
         note: comp.note,
@@ -158,7 +165,8 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     }
   });
 
-  activityItems.sort((a, b) => b.date - a.date);
+  // Sort by loggedAt desc — recently-recorded entries float to the top
+  activityItems.sort((a, b) => (b.loggedAt || b.scheduledDate) - (a.loggedAt || a.scheduledDate));
 
   if (!activityItems.length) {
     host.appendChild(el('div', { style: { textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px' } }, [T('hw3_no_activity')]));
@@ -169,8 +177,8 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     const borderColor = item.status === 'cant_do' ? '#fde68a' : item.status === 'skipped' ? '#e2e8f0' : '#e2e8f0';
     const compCard = el('div', { style: { background: '#fff', border: '1.5px solid ' + borderColor, borderRadius: '10px', padding: '12px 14px', marginBottom: '10px' } });
 
-    const relTime = _relTime(item.date);
-    const dayName = item.date.toLocaleDateString([], { weekday: 'short' });
+    const relTime = _relTime(item.scheduledDate);
+    const dayName = item.scheduledDate.toLocaleDateString([], { weekday: 'short' });
     const slotLabel = item.slot ? ' \u00b7 ' + item.slot : '';
     const exLabel = item.exercise ? ' \u00b7 ' + item.exercise.title : '';
     const statusLabels = { done: '\u2713 Done', skipped: '\u2192 Skipped', cant_do: '\u26a0 Couldn\u2019t do' };
@@ -180,6 +188,12 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
       actualLabel = ' \u00b7 ' + item.actualValue + (item.exercise.duration_seconds ? ' min' : ' reps');
     }
     compCard.appendChild(el('div', { style: { fontWeight: 600, fontSize: '13px', color: statusColors[item.status] || '#0f1a18', marginBottom: '4px' } }, [(statusLabels[item.status] || '\u2713 Done') + actualLabel + exLabel + slotLabel + ' \u00b7 ' + dayName + ' \u00b7 ' + relTime]));
+
+    // Retroactive indicator: parent marked this on a different day than scheduled
+    if (item.isRetroactive && item.loggedAt) {
+      const loggedShort = item.loggedAt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      compCard.appendChild(el('div', { style: { fontSize: '11px', color: '#7c3aed', fontWeight: 500, marginBottom: '6px' } }, ['\u23f1 marked ' + loggedShort]));
+    }
 
     if (item.note) compCard.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', fontStyle: 'italic', marginBottom: '6px', lineHeight: '1.4' } }, ['\u201c' + item.note + '\u201d']));
     if (item.photoUrl) {

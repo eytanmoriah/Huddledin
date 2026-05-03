@@ -30,9 +30,10 @@ export function renderHomeworkParent({ childId, isWeb }) {
   }
 
   const todayStr = _fmtLocal(new Date());
-  // If active date was set for a different child, clear it (avoids stale dates across child switches)
-  if (S && S._hwActiveDate && S._hwActiveDateForChild !== childId) {
-    S._hwActiveDate = null;
+  // If active date or missed filter was set for a different child, clear them (avoids stale state across child switches)
+  if (S && S._hwActiveDateForChild !== childId) {
+    if (S._hwActiveDate) S._hwActiveDate = null;
+    if (S._hwMissedFilter) S._hwMissedFilter = false;
     S._hwActiveDateForChild = null;
   }
   const activeDate = S?._hwActiveDate || todayStr;
@@ -100,10 +101,24 @@ async function _loadAndRender(host, childId, isWeb, H, activeDate) {
   // Scroll today into view (right edge) after mount
   requestAnimationFrame(() => { try { strip.scrollLeft = strip.scrollWidth; } catch (_) {} });
 
+  // Missed filter chip row (sub-commit 4)
+  const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+  const missedCount = _computeMissedCount(homeworks, compMap, todayDate);
+  // Auto-clear filter when nothing's missed (no UX trap on a filter view that shows nothing)
+  if (missedCount === 0 && H.S?._hwMissedFilter) H.S._hwMissedFilter = false;
+  const missedFilter = !!H.S?._hwMissedFilter;
+  if (missedCount > 0) {
+    host.appendChild(_renderFilterChips(missedCount, missedFilter, (newVal) => {
+      H.S._hwMissedFilter = newVal;
+      H.S._hwActiveDateForChild = childId;  // tag so child-switch clears alongside activeDate
+      H.re?.();
+    }, H));
+  }
+
   const specGroups = _groupBySpecialist(homeworks, H);
   let renderedSections = 0;
   specGroups.forEach(group => {
-    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate);
+    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, missedFilter, todayDate);
     if (section) { host.appendChild(section); renderedSections++; }
   });
 
@@ -190,6 +205,60 @@ function _aggregateDayState(homeworks, date, compMap, today) {
   return null;                                            // today partial → no dot
 }
 
+// Count past-scheduled slots that have no completion within the 90-day lookback.
+// Strictly past (i = 1..90); today's unmarked exercises are pending, not missed.
+function _computeMissedCount(homeworks, compMap, today) {
+  let count = 0;
+  for (let i = 1; i <= 90; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dStr = _fmtLocal(d);
+    (homeworks || []).forEach(hw => {
+      (hw.exercises || []).forEach(ex => {
+        const slots = exerciseSlotsOn(hw, ex, d);
+        slots.forEach(slot => {
+          if (!compMap[ex.id + ':' + dStr + ':' + slot]) count++;
+        });
+      });
+    });
+  }
+  return count;
+}
+
+function _exerciseHasMissedPastSlot(hw, ex, compMap, today) {
+  for (let i = 1; i <= 90; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dStr = _fmtLocal(d);
+    const slots = exerciseSlotsOn(hw, ex, d);
+    for (const slot of slots) {
+      if (!compMap[ex.id + ':' + dStr + ':' + slot]) return true;
+    }
+  }
+  return false;
+}
+
+function _renderFilterChips(missedCount, isFilterActive, onToggle, H) {
+  const { el } = H;
+  const row = el('div', { style: { display: 'flex', gap: '8px', marginBottom: '12px' } });
+
+  const allChip = el('button', { style: {
+    padding: '6px 14px', borderRadius: '99px', border: '1.5px solid ' + (isFilterActive ? '#e2e8f0' : '#0d9488'),
+    background: isFilterActive ? '#fff' : '#0d9488', color: isFilterActive ? '#475569' : '#fff',
+    fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+  } }, ['All']);
+  allChip.onclick = () => { if (isFilterActive) onToggle(false); };
+  row.appendChild(allChip);
+
+  const missedChip = el('button', { style: {
+    padding: '6px 14px', borderRadius: '99px', border: '1.5px solid ' + (isFilterActive ? '#d97706' : '#fde68a'),
+    background: isFilterActive ? '#d97706' : '#fef3c7', color: isFilterActive ? '#fff' : '#d97706',
+    fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+  } }, ['Missed (' + missedCount + ')']);
+  missedChip.onclick = () => { if (!isFilterActive) onToggle(true); };
+  row.appendChild(missedChip);
+
+  return row;
+}
+
 function _groupBySpecialist(homeworks, H) {
   const specCache = H.DB?.specialists || [];
   const map = {};
@@ -209,13 +278,13 @@ function _groupBySpecialist(homeworks, H) {
   return Object.values(map);
 }
 
-function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate) {
+function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, missedFilter, today) {
   const { el } = H;
   const { specId, specName, specRole, homeworks } = group;
   const collapsed = _collapseState[specId] || false;
 
   // Build cards first; if all are empty for activeDate, hide the entire section
-  const cards = homeworks.map(hw => _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate)).filter(Boolean);
+  const cards = homeworks.map(hw => _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, missedFilter, today)).filter(Boolean);
   if (cards.length === 0) return null;
 
   const section = el('div', { style: { marginBottom: '20px' } });
@@ -248,9 +317,16 @@ function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate)
   return section;
 }
 
-function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate) {
+function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, missedFilter, today) {
   const { el } = H;
-  const exercises = hw.exercises || [];
+  let exercises = hw.exercises || [];
+
+  // Sub-commit 4: when missed-filter is active, narrow exercise set to only those with at least
+  // one past missed slot in the 90-day window. Then per-activeDate row logic applies as usual.
+  if (missedFilter && today) {
+    exercises = exercises.filter(ex => _exerciseHasMissedPastSlot(hw, ex, compMap, today));
+    if (exercises.length === 0) return null;
+  }
 
   // Build exercise rows; if all are null (none scheduled on activeDate), hide the card
   const rows = exercises.map(ex => _renderExerciseRow(hw, ex, compMap, childId, H, activeDate)).filter(Boolean);
