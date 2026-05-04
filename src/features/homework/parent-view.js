@@ -30,10 +30,15 @@ export function renderHomeworkParent({ childId, isWeb }) {
   }
 
   const todayStr = _fmtLocal(new Date());
-  // If active date or missed filter was set for a different child, clear them (avoids stale state across child switches)
+  // Backward-compat migration: S._hwMissedFilter (boolean) → S._hwActiveFilter (string)
+  if (S && S._hwMissedFilter && !S._hwActiveFilter) {
+    S._hwActiveFilter = 'missed';
+  }
+  if (S) delete S._hwMissedFilter;  // legacy key gone after first read
+  // If active date or filter was set for a different child, clear them (avoids stale state across child switches)
   if (S && S._hwActiveDateForChild !== childId) {
     if (S._hwActiveDate) S._hwActiveDate = null;
-    if (S._hwMissedFilter) S._hwMissedFilter = false;
+    if (S._hwActiveFilter && S._hwActiveFilter !== 'all') S._hwActiveFilter = 'all';
     S._hwActiveDateForChild = null;
   }
   const activeDate = S?._hwActiveDate || todayStr;
@@ -101,34 +106,68 @@ async function _loadAndRender(host, childId, isWeb, H, activeDate) {
   // Scroll today into view (right edge) after mount
   requestAnimationFrame(() => { try { strip.scrollLeft = strip.scrollWidth; } catch (_) {} });
 
-  // Missed filter chip row (sub-commit 4)
+  // Filter chip row (Session 3: All / Missed (N) / Completed (M))
   const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+  const todayStrLocal = _fmtLocal(todayDate);
+  const isViewingToday = activeDate === todayStrLocal;
   const missedCount = _computeMissedCount(homeworks, compMap, todayDate);
-  // Auto-clear filter when nothing's missed (no UX trap on a filter view that shows nothing)
-  if (missedCount === 0 && H.S?._hwMissedFilter) H.S._hwMissedFilter = false;
-  const missedFilter = !!H.S?._hwMissedFilter;
-  if (missedCount > 0) {
-    host.appendChild(_renderFilterChips(missedCount, missedFilter, (newVal) => {
-      H.S._hwMissedFilter = newVal;
-      H.S._hwActiveDateForChild = childId;  // tag so child-switch clears alongside activeDate
+  const completedCount = homeworks.filter(hw => _isHomeworkHidden(hw, todayDate, todayStrLocal)).length;
+  // Auto-revert when active filter's count drops to 0 (no UX trap)
+  let activeFilter = (H.S?._hwActiveFilter) || 'all';
+  if (activeFilter === 'missed' && missedCount === 0) activeFilter = 'all';
+  if (activeFilter === 'completed' && completedCount === 0) activeFilter = 'all';
+  if (H.S) H.S._hwActiveFilter = activeFilter;
+
+  if (missedCount > 0 || completedCount > 0) {
+    host.appendChild(_renderFilterChips({ missedCount, completedCount, activeFilter, onChange: (newKey) => {
+      H.S._hwActiveFilter = newKey;
+      H.S._hwActiveDateForChild = childId;  // tag for cross-child clear alongside activeDate
       H.re?.();
-    }, H));
+    }, H }));
   }
 
   const specGroups = _groupBySpecialist(homeworks, H);
   let renderedSections = 0;
   specGroups.forEach(group => {
-    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, missedFilter, todayDate);
+    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, activeFilter, todayDate);
     if (section) { host.appendChild(section); renderedSections++; }
   });
 
-  // Past-date with no scheduled work in any homework
+  // Empty states — branch on filter and view context
   if (renderedSections === 0) {
-    host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
-      el('span', { class: 'empty-state-icon' }, ['📅']),
-      el('div', { class: 'empty-state-title' }, ['No exercises scheduled']),
-      el('div', { class: 'empty-state-body' }, ['Nothing was scheduled for this day.']),
-    ]));
+    if (activeFilter === 'all' && isViewingToday) {
+      // All view, today, all hidden (or no active homeworks at all)
+      const empty = el('div', { class: 'empty-state', style: { marginTop: '12px' } });
+      empty.appendChild(el('span', { class: 'empty-state-icon' }, ['📋']));
+      empty.appendChild(el('div', { class: 'empty-state-title' }, ['No active homework right now']));
+      if (completedCount > 0) {
+        const link = el('div', {
+          style: { color: '#0d9488', fontWeight: 600, marginTop: '12px', cursor: 'pointer', textDecoration: 'underline' }
+        }, ['View completed (' + completedCount + ')']);
+        link.onclick = () => { H.S._hwActiveFilter = 'completed'; H.S._hwActiveDateForChild = childId; H.re?.(); };
+        empty.appendChild(link);
+      } else {
+        empty.appendChild(el('div', { class: 'empty-state-body' }, [T('hw_no_tasks_parent_desc')]));
+      }
+      host.appendChild(empty);
+    } else if (activeFilter === 'all' && !isViewingToday) {
+      // All view, past date, no homework was active that day
+      const empty = el('div', { class: 'empty-state', style: { marginTop: '12px' } });
+      empty.appendChild(el('span', { class: 'empty-state-icon' }, ['📅']));
+      empty.appendChild(el('div', { class: 'empty-state-title' }, ['No homework was active on ' + new Date(activeDate + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })]));
+      const link = el('div', {
+        style: { color: '#0d9488', fontWeight: 600, marginTop: '12px', cursor: 'pointer', textDecoration: 'underline' }
+      }, ['Return to today']);
+      link.onclick = () => { H.S._hwActiveDate = null; H.re?.(); };
+      empty.appendChild(link);
+      host.appendChild(empty);
+    } else {
+      // Missed / Completed views shouldn't render empty (auto-revert handles it), but defensive fallback
+      host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
+        el('span', { class: 'empty-state-icon' }, ['📋']),
+        el('div', { class: 'empty-state-title' }, ['Nothing to show']),
+      ]));
+    }
   }
 }
 
@@ -236,26 +275,51 @@ function _exerciseHasMissedPastSlot(hw, ex, compMap, today) {
   return false;
 }
 
-function _renderFilterChips(missedCount, isFilterActive, onToggle, H) {
+// Session 3: hide expired/completed homework from parent's All today view.
+// Returns true when the homework belongs in the Completed bucket.
+// Paused homeworks intentionally NOT counted as completed (different semantics);
+// they cascade to empty-card hide via isExerciseScheduledOn returning false.
+function _isHomeworkHidden(hw, today, todayStr) {
+  if (hw.is_paused) return false;
+
+  // Rule 1: end_date passed (only honored when duration_type === 'end_date').
+  // hw.end_date < todayStr means strictly less than → today === end_date is still active (last day).
+  if (hw.duration_type === 'end_date' && hw.end_date && hw.end_date < todayStr) return true;
+
+  // Rule 2: Once-only homework with created_at older than 2 days (grace period for retro-marking).
+  // 'once' uses created_at as the schedule date — no separate scheduled_date column.
+  if (hw.recurrence === 'once' && hw.created_at) {
+    const createdDateStr = _fmtLocal(new Date(hw.created_at));
+    const buffer = new Date(today); buffer.setDate(buffer.getDate() - 2);
+    if (createdDateStr < _fmtLocal(buffer)) return true;
+  }
+
+  return false;
+}
+
+function _renderFilterChips({ missedCount, completedCount, activeFilter, onChange, H }) {
   const { el } = H;
-  const row = el('div', { style: { display: 'flex', gap: '8px', marginBottom: '12px' } });
+  const row = el('div', { style: { display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' } });
 
-  const allChip = el('button', { style: {
-    padding: '6px 14px', borderRadius: '99px', border: '1.5px solid ' + (isFilterActive ? '#e2e8f0' : '#0d9488'),
-    background: isFilterActive ? '#fff' : '#0d9488', color: isFilterActive ? '#475569' : '#fff',
-    fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
-  } }, ['All']);
-  allChip.onclick = () => { if (isFilterActive) onToggle(false); };
-  row.appendChild(allChip);
+  const chip = (key, label, baseColor, baseBorder) => {
+    const isActive = activeFilter === key;
+    const c = el('button', { style: {
+      padding: '6px 14px', borderRadius: '99px',
+      border: '1.5px solid ' + (isActive ? baseColor : baseBorder),
+      background: isActive ? baseColor : '#fff',
+      color: isActive ? '#fff' : baseColor,
+      fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+      transition: 'all .12s',
+      userSelect: 'none',
+      WebkitTouchCallout: 'none',
+    } }, [label]);
+    c.onclick = () => { if (!isActive) onChange(key); };
+    return c;
+  };
 
-  const missedChip = el('button', { style: {
-    padding: '6px 14px', borderRadius: '99px', border: '1.5px solid ' + (isFilterActive ? '#d97706' : '#fde68a'),
-    background: isFilterActive ? '#d97706' : '#fef3c7', color: isFilterActive ? '#fff' : '#d97706',
-    fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
-  } }, ['Missed (' + missedCount + ')']);
-  missedChip.onclick = () => { if (!isFilterActive) onToggle(true); };
-  row.appendChild(missedChip);
-
+  row.appendChild(chip('all', 'All', '#0d9488', '#e2e8f0'));
+  if (missedCount > 0) row.appendChild(chip('missed', 'Missed (' + missedCount + ')', '#d97706', '#fde68a'));
+  if (completedCount > 0) row.appendChild(chip('completed', 'Completed (' + completedCount + ')', '#64748b', '#cbd5e1'));
   return row;
 }
 
@@ -278,13 +342,13 @@ function _groupBySpecialist(homeworks, H) {
   return Object.values(map);
 }
 
-function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, missedFilter, today) {
+function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate, activeFilter, today) {
   const { el } = H;
   const { specId, specName, specRole, homeworks } = group;
   const collapsed = _collapseState[specId] || false;
 
   // Build cards first; if all are empty for activeDate, hide the entire section
-  const cards = homeworks.map(hw => _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, missedFilter, today)).filter(Boolean);
+  const cards = homeworks.map(hw => _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, activeFilter, today)).filter(Boolean);
   if (cards.length === 0) return null;
 
   const section = el('div', { style: { marginBottom: '20px' } });
@@ -317,15 +381,25 @@ function _renderSpecialistSection(group, compMap, childId, isWeb, H, activeDate,
   return section;
 }
 
-function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, missedFilter, today) {
+function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, activeFilter, today) {
   const { el } = H;
   let exercises = hw.exercises || [];
+  const todayStr = today ? _fmtLocal(today) : null;
+  const isViewingToday = todayStr && activeDate === todayStr;
+  const isHidden = today && todayStr ? _isHomeworkHidden(hw, today, todayStr) : false;
 
-  // Sub-commit 4: when missed-filter is active, narrow exercise set to only those with at least
-  // one past missed slot in the 90-day window. Then per-activeDate row logic applies as usual.
-  if (missedFilter && today) {
+  // Filter dispatch
+  if (activeFilter === 'completed') {
+    // Completed view shows ONLY hidden homeworks (excludes paused — _isHomeworkHidden gates that)
+    if (!isHidden) return null;
+  } else if (activeFilter === 'missed') {
+    // Missed view: card must contain at least one exercise with a past missed slot
     exercises = exercises.filter(ex => _exerciseHasMissedPastSlot(hw, ex, compMap, today));
     if (exercises.length === 0) return null;
+  } else {
+    // 'all' view: hide expired/once-past-buffer when viewing today.
+    // For past activeDate, no hide — empty-card cascade handles "wasn't active that day".
+    if (isViewingToday && isHidden) return null;
   }
 
   // Build exercise rows; if all are null (none scheduled on activeDate), hide the card
