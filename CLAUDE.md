@@ -1,6 +1,6 @@
 # CLAUDE.md — Huddledin Developer Guidelines
 
-**Last updated:** May 2, 2026
+**Last updated:** May 4, 2026
 
 Read this file first before any Huddledin task. Also check for relevant skills:
 - `C:/Users/eytan/.claude/skills/huddledin-web-design/SKILL.md` — for any web UI work
@@ -450,6 +450,54 @@ Catches regressions early when isolating the cause is cheap.
 
 ---
 
+## 🔄 Process Rules (multi-session push lessons, May 2-4 2026)
+
+These emerged from the Session B → Session 3.2 push. Apply on any non-trivial Huddledin work.
+
+### 1. Investigation before code
+Every non-trivial change goes through: audit prompt → agent investigates → user reviews → user greenlights → agent applies. Skip only for one-line trivial changes.
+
+The "investigate-only" prompt yields a numbered findings deliverable with sections (current behavior / proposed fix / risks / open questions). User answers the open questions and pastes them back as the "Greenlight on X" prompt. That prompt becomes the locked decision record — the diff must match.
+
+### 2. Sub-commit splits
+Commits over ~150 lines OR touching multiple files OR including migrations should split into sub-commits. Each sub-commit independently shippable and testable.
+
+Suggested rhythm:
+- Sub-commit 1 of N — schema or foundational change.
+- Sub-commit 2 — code consuming the new schema.
+- Sub-commit 3+ — polish, indicators, edge cases.
+
+Session 1 split into 4 sub-commits + a Sub-commit 2.5 inserted mid-stream. Each shipped clean and was verifiable in isolation.
+
+### 3. Test between sub-commits
+Never pile sub-commits without testing each. Architectural fixes especially deserve "soak time" — let users hit the new code for a day before changing more.
+
+This caught two regressions in Session 1 that would have been buried under Sub-commit 4 if the chain ran without verification.
+
+### 4. The "5b principle" — broader fix when cheap
+When the agent surfaces a related bug during investigation, prefer the broader fix over the scoped one if it costs ~2 extra lines. Single commits closing two bugs are cleaner than two commits with overlapping context.
+
+Example: Session 3.2 was scoped to 2-day buffer once-off markability. Investigation surfaced that Completed-view edit was also broken. Broadening the condition (drop the `< 2 days` check from buffer detection) fixed both in one change. Named after Q5 option (5a scoped vs 5b broader) in the investigation deliverable format.
+
+### 5. Greenlight prompts as decision artifacts
+The user-side confirmation includes the answers to all open questions, NOT just "yes proceed." This locks decisions in writing — for the agent applying the change AND the future reader piecing together history.
+
+Format:
+```
+Greenlight on [task] with these answers to your N open questions:
+1. [answer to Q1]
+2. [answer to Q2]
+...
+[any architectural clarifications]
+[apply instructions]
+[commit message body]
+Push.
+```
+
+The greenlight is the contract — the diff must match the answers. If something looks wrong post-merge, the greenlight prompt is the spec to compare against.
+
+---
+
 ## 📊 Key SQL & Edge Functions
 
 ### Recent migrations
@@ -458,6 +506,8 @@ Catches regressions early when isolating the cause is cheap.
 - `20260425_add_reports_name.sql` — reports.name column with 1-100 char check (manual via Supabase SQL editor)
 - `20260429_calendar_v2_schema.sql` — series + attendance + soft delete columns for calendar v2
 - `20260502_homework_attached_file_paths.sql` — `attached_file_paths TEXT[]` on `homework_tasks` and `homework_exercises` (path-based storage alongside legacy URL columns; foundation for storage picker)
+- `20260503_homework_completions_v2_parent_update.sql` — parents_update + parents_delete RLS policies on `homework_completions_v2` (enables parent edit/delete of own completions)
+- `20260503_homework_completions_v2_photo_path.sql` — `photo_path TEXT` on `homework_completions_v2` (path-based render replaces expired-URL photo_url for completion photos)
 
 ### Edge Functions
 - `paddle-webhook` — stores subscription + cancel_url
@@ -613,6 +663,68 @@ When something looks wrong post-deploy, gather diagnostic data first (Network ta
 - Specialist approval auto-creates a folder `key='spec_'+specialistId` AND a folder_permissions row at `index.html:6335-6349`.
 - Patient files link to folders via string match: `files.category === folders.key`. NOT a foreign key. Renaming a folder's key would silently strand files.
 - Open RLS on folders/files pre-launch — flagged for HIPAA hardening.
+
+### Lazy-sign pattern for storage URLs
+
+Storage URLs (signed via `createSignedUrl`) expire after their TTL — default 15 min. NEVER eagerly sign URLs at hydration time and store them in `DB.folders` or any cache. The cache outlives the URL.
+
+**Pattern:** store `storage_path` in the data structure. Sign at render or click time via `SB.signFile(path, opts)`. For thumbnail-heavy views, use the `_signFilePool` concurrency limiter (max 4 parallel) so a 30-thumbnail grid doesn't fan out to 30 simultaneous Supabase requests.
+
+**Centralized helper:** `SB.signFile(path, { download, ttl })` handles all signed-URL generation, hardcoded to `huddledin-files` bucket. Live since Session B (May 2026).
+
+Real example: storage picker shipped with eager-signing in `_copyFile`; refactored to path-only in Sub-commit 2.5. Specialist photo loads later relied on this pattern to avoid the parent's "photo broken" report 15 minutes after a completion.
+
+### Path-based render for completion photos
+
+`homework_completions_v2.photo_path` is the canonical source for completion photos. `photo_url` is preserved as a fallback for legacy rows but NOT trusted for active rendering — when stored at write-time, the URL is already expiring and will be dead by the time the specialist opens detail-view.
+
+**Pattern:** read `photo_path` first; sign at render via `SB.signFile`. Fall back to `photo_url` only when `photo_path` is null. Same applies to any new photo or file column added in the future. Thumbnails-beside-text and lightbox both follow this pattern in `complete-modal.js` and `detail-view.js`.
+
+### "Tasks" is two concepts in user-facing strings
+
+Internal naming:
+- `homework` / `homework_tasks` / `homework_completions_v2` — the homework system
+- `spec_tasks` / `parent_tasks` — per-user todo lists
+
+User-facing labels:
+- `homework` → "Home Exercises" (specialist side) or "Homework" (parent side)
+- `spec_tasks` → "Tasks" (specialist personal todos)
+
+**Rule:** never global find-replace "Tasks" in user-facing strings. Internal symbol names (`homework_tasks`, `_hhHwTasksChannel`, etc.) stay as-is — the rename is display-only and varies by viewer role.
+
+### Activity feed item shape (specialist detail-view)
+
+Shape: `{ scheduledDate, loggedAt, isRetroactive, photoPath, photoUrl, ... }`.
+- `scheduledDate` — the day the parent meant. DISPLAY date.
+- `loggedAt` — when the row was inserted into `homework_completions_v2`. SORT key.
+- `isRetroactive` — boolean, derived when `scheduledDate !== loggedAt-as-date`. Drives the "⏱" indicator on the row.
+
+v1 dual-write items always have `isRetroactive=false` (no separate scheduled_date column on the v1 schema). When merging v1+v2 in detail-view, v2 wins on display.
+
+Watch out: any rename of `item.date` to the new tuple needs an exhaustive grep — Session 1 Sub-commit 4 caught 3 references at lines 161-173 of detail-view.js that all needed updating.
+
+### Filter chip + state pattern (parent homework view)
+
+`S._hwActiveFilter` ('all' | 'missed' | 'completed') controls which homework cards render. Pair with `S._hwActiveDateForChild` ledger so navigating between children resets stale filter/date state.
+
+**Rules:**
+- Auto-revert to 'all' when active filter's count drops to 0 — no UX trap where user is stuck on empty Missed view.
+- Cross-child reset: when `S._hwActiveDateForChild !== currentChildId`, clear `_hwActiveDate` and reset `_hwActiveFilter` to 'all'.
+- Backward-compat read for legacy boolean state: `S._hwMissedFilter` (boolean) → `S._hwActiveFilter` (string), then delete the legacy key after first read.
+
+Reference: `src/features/homework/parent-view.js:33-43` (migration), `:113-127` (auto-revert), `:300-324` (chip render). Same pattern is reusable for any feature that combines a date strip with mutually-exclusive filter chips.
+
+### Manual migrations enforcement
+
+Golden Rule #11 says migrations are MANUAL via Supabase SQL editor. The enforcement protocol:
+
+1. Agent commits the migration file under `supabase/migrations/`.
+2. Agent **STOPS**. Posts the SQL block plus an `information_schema` verify query.
+3. User pastes SQL into Supabase SQL editor → runs.
+4. User pastes the verify query result back as confirmation.
+5. Only THEN does the agent push code that depends on the schema change.
+
+Skipping the gate causes silent runtime failures — the JS shipped expecting a column that doesn't exist. Sub-commit 1 of Session 1 + Session 2 followed this protocol; both shipped clean as a result.
 
 ---
 
