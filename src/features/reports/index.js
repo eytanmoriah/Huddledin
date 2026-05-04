@@ -144,14 +144,39 @@ function _newReportFromHub() {
   const children = getChildren();
   if (!children.length) { toast('No patients connected yet.', 'info'); return; }
   if (children.length === 1) { window.HUD_openTiptapGate({ childId: children[0].id, startNew: true }); return; }
+  const sorted = [...children].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   openModal('Select Patient', (mb, close) => {
-    children.forEach(c => {
-      const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' } });
-      row.appendChild(el('span', { style: { fontSize: '1.3rem' } }, [c.avatar || '\ud83e\uddd2']));
-      row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
-      row.onclick = () => { close(); window.HUD_openTiptapGate({ childId: c.id, startNew: true }); };
-      mb.appendChild(row);
+    const searchInp = el('input', {
+      class: 'inp',
+      placeholder: 'Search patients\u2026',
+      dir: 'auto',
+      style: { marginBottom: '10px' },
     });
+    const listEl = el('div', {});
+
+    function _renderList() {
+      listEl.innerHTML = '';
+      const q = (searchInp.value || '').trim().toLowerCase();
+      const filtered = q ? sorted.filter(c => (c.name || '').toLowerCase().includes(q)) : sorted;
+      if (!filtered.length) {
+        listEl.appendChild(el('div', {
+          style: { padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '.84rem' },
+        }, ['No patients match.']));
+        return;
+      }
+      filtered.forEach(c => {
+        const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' } });
+        row.appendChild(el('span', { style: { fontSize: '1.3rem' } }, [c.avatar || '\ud83e\uddd2']));
+        row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
+        row.onclick = () => { close(); window.HUD_openTiptapGate({ childId: c.id, startNew: true }); };
+        listEl.appendChild(row);
+      });
+    }
+
+    searchInp.oninput = _renderList;
+    mb.appendChild(searchInp);
+    mb.appendChild(listEl);
+    _renderList();
   }, 380);
 }
 
