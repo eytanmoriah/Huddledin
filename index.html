@@ -12822,18 +12822,26 @@ function showAptDetailModal(apt,child){
         mb.appendChild(rsvpInfo);
       }
       const attending=mkBtn(T('apt_attending'),'btn-md '+(rsvpStatus==='yes'?'btn-primary':'btn-ghost'),async()=>{
+        if(attending.disabled||notAttending.disabled)return;
+        const _origAtt=attending.textContent;
+        attending.disabled=true;notAttending.disabled=true;attending.textContent=T('btn_loading');
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='yes';DB.appointments=apts;}
         _trackerAdd(_localApptChanges,apt.id);
-        try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpYes:',e);}
-        await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));
+        try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}
+        catch(e){console.error('❌ rsvpYes:',e);attending.disabled=false;notAttending.disabled=false;attending.textContent=_origAtt;toast(T('apt_could_not_save'),'error');return;}
+        try{await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));}catch(e){console.error('❌ rsvpYes notif:',e);}
         close();re();toast(T('apt_marked_attending'));
       });
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
+        if(attending.disabled||notAttending.disabled)return;
+        const _origDec=notAttending.textContent;
+        attending.disabled=true;notAttending.disabled=true;notAttending.textContent=T('btn_loading');
         const apts=DB.appointments,i=apts.findIndex(a=>a.id===apt.id);
         if(i>-1){apts[i].rsvp='no';DB.appointments=apts;}
         _trackerAdd(_localApptChanges,apt.id);
-        try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}catch(e){console.error('❌ rsvpNo:',e);}
+        try{await _supa.from('appointments').update({rsvp:'no'}).eq('id',apt.id);}
+        catch(e){console.error('❌ rsvpNo:',e);attending.disabled=false;notAttending.disabled=false;notAttending.textContent=_origDec;toast(T('apt_could_not_save'),'error');return;}
         // Notify specialist that the event was declined
         if(apt.specialistId){
           try{
