@@ -111,7 +111,7 @@ async function _loadAndRender(host, childId, isWeb, H, activeDate) {
   const todayStrLocal = _fmtLocal(todayDate);
   const isViewingToday = activeDate === todayStrLocal;
   const missedCount = _computeMissedCount(homeworks, compMap, todayDate);
-  const completedCount = homeworks.filter(hw => _isHomeworkHidden(hw, todayDate, todayStrLocal)).length;
+  const completedCount = homeworks.filter(hw => _isHomeworkHidden(hw, todayDate, todayStrLocal, compMap)).length;
   // Auto-revert when active filter's count drops to 0 (no UX trap)
   let activeFilter = (H.S?._hwActiveFilter) || 'all';
   if (activeFilter === 'missed' && missedCount === 0) activeFilter = 'all';
@@ -279,17 +279,29 @@ function _exerciseHasMissedPastSlot(hw, ex, compMap, today) {
 // Returns true when the homework belongs in the Completed bucket.
 // Paused homeworks intentionally NOT counted as completed (different semantics);
 // they cascade to empty-card hide via isExerciseScheduledOn returning false.
-function _isHomeworkHidden(hw, today, todayStr) {
+// Session 3.1: once-off hides immediately when ANY exercise has a completion;
+// 2-day buffer is retro-marking fallback for never-marked once-offs.
+function _isHomeworkHidden(hw, today, todayStr, compMap) {
   if (hw.is_paused) return false;
 
   // Rule 1: end_date passed (only honored when duration_type === 'end_date').
   // hw.end_date < todayStr means strictly less than → today === end_date is still active (last day).
   if (hw.duration_type === 'end_date' && hw.end_date && hw.end_date < todayStr) return true;
 
-  // Rule 2: Once-only homework with created_at older than 2 days (grace period for retro-marking).
-  // 'once' uses created_at as the schedule date — no separate scheduled_date column.
+  // Rule 2: Once-only homework. 'once' uses created_at as the schedule date.
   if (hw.recurrence === 'once' && hw.created_at) {
     const createdDateStr = _fmtLocal(new Date(hw.created_at));
+
+    // 2a. Marked any way (done/skipped/cant_do): hide immediately.
+    // Multi-exercise once-off: ANY exercise marked → whole homework hides
+    // (parent has engaged with it; remaining exercises findable in Completed view).
+    const prefix = ':' + createdDateStr + ':';
+    const wasMarked = (hw.exercises || []).some(ex =>
+      Object.keys(compMap || {}).some(k => k.startsWith(ex.id + prefix))
+    );
+    if (wasMarked) return true;
+
+    // 2b. Never marked AND beyond 2-day retro-marking buffer: hide.
     const buffer = new Date(today); buffer.setDate(buffer.getDate() - 2);
     if (createdDateStr < _fmtLocal(buffer)) return true;
   }
@@ -386,7 +398,7 @@ function _renderHomeworkCard(hw, compMap, childId, isWeb, H, activeDate, activeF
   let exercises = hw.exercises || [];
   const todayStr = today ? _fmtLocal(today) : null;
   const isViewingToday = todayStr && activeDate === todayStr;
-  const isHidden = today && todayStr ? _isHomeworkHidden(hw, today, todayStr) : false;
+  const isHidden = today && todayStr ? _isHomeworkHidden(hw, today, todayStr, compMap) : false;
 
   // Filter dispatch
   if (activeFilter === 'completed') {
@@ -602,8 +614,15 @@ function _renderWeekFooter(hw, compMap, el) {
     const isToday = ds === todayStr;
     const state = computeDayPillState(hw, d, compMap);
 
-    if (state !== 'notScheduled') weekTotal++;
-    if (state === 'allDone') weekDone++;
+    // Session 3.1: count slot-level (not day-level) for the text indicator.
+    // Pills above still color by day-level state — complementary view.
+    (hw.exercises || []).forEach(ex => {
+      const slots = exerciseSlotsOn(hw, ex, d);
+      slots.forEach(slot => {
+        weekTotal++;
+        if (compMap[ex.id + ':' + ds + ':' + slot]?.status === 'done') weekDone++;
+      });
+    });
 
     let bg, color, border;
     if (state === 'allDone') { bg = '#10b981'; color = '#fff'; border = 'none'; }
