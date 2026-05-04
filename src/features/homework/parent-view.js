@@ -464,7 +464,25 @@ function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
   const isToday = activeDateStr === todayStr;
   const isPast = activeDateObj < todayDate;
 
-  const slots = exerciseSlotsOn(hw, ex, activeDateObj);
+  // Session 3.2: once-off retro-buffer mode.
+  // When viewing today, any once-off whose createdDate is in the past renders
+  // interactively against createdDate — slot lookup, completion lookup, and modal
+  // scheduledDate all reroute. Rule 2b in _isHomeworkHidden governs visibility
+  // (hides at 3+ days unmarked); this branch governs interactivity for visible rows.
+  // Covers both the buffer window in All view AND once-off rendering in Completed view.
+  let isBufferMode = false;
+  let bufferDateStr = null;
+  if (isToday && hw.recurrence === 'once' && hw.created_at) {
+    const createdDateStr = _fmtLocal(new Date(hw.created_at));
+    if (createdDateStr < todayStr) {
+      isBufferMode = true;
+      bufferDateStr = createdDateStr;
+    }
+  }
+
+  const lookupDateStr = isBufferMode ? bufferDateStr : activeDateStr;
+  const lookupDateObj = isBufferMode ? new Date(bufferDateStr + 'T12:00:00') : activeDateObj;
+  const slots = exerciseSlotsOn(hw, ex, lookupDateObj);
   const scheduledOn = slots.length > 0;
 
   // Past dates: hide rows for exercises that weren't scheduled that day
@@ -472,7 +490,7 @@ function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
 
   let doneCount = 0, cantDoCount = 0, skippedCount = 0;
   slots.forEach(slot => {
-    const comp = compMap[ex.id + ':' + activeDateStr + ':' + slot];
+    const comp = compMap[ex.id + ':' + lookupDateStr + ':' + slot];
     if (comp?.status === 'done') doneCount++;
     else if (comp?.status === 'cant_do') cantDoCount++;
     else if (comp?.status === 'skipped') skippedCount++;
@@ -517,7 +535,7 @@ function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
   // Edit-mode lookup: single-slot exercises with an existing completion → edit
   let existingCompletion = null;
   if (interactive && slots.length === 1) {
-    existingCompletion = compMap[ex.id + ':' + activeDateStr + ':' + slots[0]] || null;
+    existingCompletion = compMap[ex.id + ':' + lookupDateStr + ':' + slots[0]] || null;
   }
 
   const row = el('div', { style: {
@@ -546,6 +564,10 @@ function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
   const measure = (ex.sets && ex.reps) ? ex.sets + '×' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
   if (measure) subParts.push(measure);
   if (isToday && !scheduledOn && !measure) subParts.push('Not today');
+  if (isBufferMode) {
+    const bDate = new Date(bufferDateStr + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    subParts.unshift('Scheduled ' + bDate);
+  }
   const attachCount = Math.max((ex.attached_file_paths || []).length, (ex.attached_file_urls || []).length);
   if (attachCount > 0) subParts.push('📎 ' + attachCount);
   if (subParts.length) content.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '1px' } }, [subParts.join(' · ')]));
@@ -560,7 +582,7 @@ function _renderExerciseRow(hw, ex, compMap, childId, H, activeDate) {
       mountCompleteModal({
         homework: hw, exercise: ex,
         slot: slots.length === 1 ? slots[0] : null,
-        scheduledDate: activeDateStr,
+        scheduledDate: lookupDateStr,
         childId,
         existingCompletion,
         onSaved: () => H.re?.(),
