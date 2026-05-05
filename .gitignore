@@ -14,6 +14,7 @@ supabase/.temp/
 
 # Build plans (local working docs)
 HOMEWORK_BUILD_PLAN.md
+HOMEWORK_PARENT_REDESIGN.md
 
 # Backup HTML files
 index_backup_*.html
