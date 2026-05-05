@@ -1,10 +1,8 @@
-// Parent homework view — Session B Sub-commit 1 of 3
-// Bubble shell with name + meta line + day-box row placeholder.
-// Day-box generation lands in Sub-commit 2; auto-scroll polish in Sub-commit 3.
-//
-// Removed in this commit (Session 3.x and earlier): date strip, filter chips
-// (All / Missed / Completed), per-exercise rows, week footer, once-off
-// hide-on-mark cascade, missed/completed count helpers, _isHomeworkHidden.
+// Parent homework view — Session B Sub-commit 2 of 3
+// Bubble = name + meta line + day-box row.
+// Day-box row generates per duration_type window rules + recurrence schedule;
+// renders ✓ for fully-done days, teal ring for today, neutral for past/future.
+// Auto-scroll polish lands in Sub-commit 3.
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -152,7 +150,210 @@ function _renderSpecialistSection(group, compMap, childId, isWeb, H) {
   return section;
 }
 
-// Sub-commit 1: bubble shell. Day-box row is a placeholder; Sub-commit 2 builds the real one.
+// Day-letter (Sun..Sat) for box label format "M 15"
+const _DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const _dayBoxLabel = date => _DAY_LETTERS[date.getDay()] + ' ' + date.getDate();
+
+// Strict 'allDone' semantic — day shows ✓ only when every scheduled slot has status='done'.
+function _isDayDone(hw, date, compMap) {
+  const dStr = _fmtLocal(date);
+  let total = 0, done = 0;
+  (hw.exercises || []).forEach(ex => {
+    const slots = exerciseSlotsOn(hw, ex, date);
+    slots.forEach(slot => {
+      total++;
+      if (compMap[ex.id + ':' + dStr + ':' + slot]?.status === 'done') done++;
+    });
+  });
+  return total > 0 && done === total;
+}
+
+// Find next non-deleted appointment for this child + specialist (or null).
+function _findNextAppointment(childId, specId, H) {
+  const apts = H.DB?.appointments || [];
+  const todayStr = _fmtLocal(new Date());
+  const matching = apts
+    .filter(a => a.childId === childId
+              && (a.specialistId === specId || (a.sharedWith || []).includes(specId))
+              && !a.deletedAt
+              && a.date && a.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return matching[0]?.date || null;
+}
+
+// Generate the visible day-box window per duration_type rules + recurrence schedule.
+// Returns array of { date, dStr, isToday, isPast, isFuture, isAssigned } — only days
+// where the homework is actually scheduled. Empty array means the bubble should hide.
+function _generateDayBoxWindow(hw, today, nextApptDate) {
+  // Once-off: always show its single day, regardless of window position (Q2 locked).
+  if (hw.recurrence === 'once') {
+    if (!hw.created_at) return [];
+    const d = new Date(hw.created_at); d.setHours(0, 0, 0, 0);
+    const dStr = _fmtLocal(d);
+    return [{
+      date: d,
+      dStr,
+      isToday: dStr === _fmtLocal(today),
+      isPast: d < today,
+      isFuture: d > today,
+      isAssigned: true,
+    }];
+  }
+
+  if (!hw.created_at) return [];
+  const startDate = new Date(hw.created_at); startDate.setHours(0, 0, 0, 0);
+
+  const SLIDING_BACK = 14;  // days
+  const SLIDING_FWD = 7;    // days
+  const dayMs = 86400000;
+  const todayMs = today.getTime();
+  const startMs = startDate.getTime();
+
+  let windowStart, windowEnd;
+  if (hw.duration_type === 'end_date' && hw.end_date) {
+    const endDate = new Date(hw.end_date + 'T00:00:00'); endDate.setHours(0, 0, 0, 0);
+    const periodDays = Math.round((endDate.getTime() - startMs) / dayMs);
+    if (periodDays > SLIDING_BACK) {
+      // Long period → sliding window, clamped to [startDate, endDate]
+      windowStart = new Date(Math.max(startMs, todayMs - SLIDING_BACK * dayMs));
+      windowEnd = new Date(Math.min(endDate.getTime(), todayMs + SLIDING_FWD * dayMs));
+    } else {
+      // Short period → show the full bounded period
+      windowStart = startDate;
+      windowEnd = endDate;
+    }
+  } else if (hw.duration_type === 'next_appointment') {
+    if (nextApptDate) {
+      const apptDate = new Date(nextApptDate + 'T00:00:00'); apptDate.setHours(0, 0, 0, 0);
+      windowStart = new Date(Math.max(startMs, todayMs - SLIDING_BACK * dayMs));
+      windowEnd = apptDate;
+    } else {
+      // No upcoming appointment → fall back to sliding window
+      windowStart = new Date(Math.max(startMs, todayMs - SLIDING_BACK * dayMs));
+      windowEnd = new Date(todayMs + SLIDING_FWD * dayMs);
+    }
+  } else {
+    // 'open_ended' or unrecognized → sliding window
+    windowStart = new Date(Math.max(startMs, todayMs - SLIDING_BACK * dayMs));
+    windowEnd = new Date(todayMs + SLIDING_FWD * dayMs);
+  }
+  windowStart.setHours(0, 0, 0, 0);
+  windowEnd.setHours(0, 0, 0, 0);
+
+  if (windowEnd < windowStart) return [];
+
+  const todayStr = _fmtLocal(today);
+  const out = [];
+  const cursor = new Date(windowStart);
+  while (cursor <= windowEnd) {
+    const isAssigned = (hw.exercises || []).some(ex => isExerciseScheduledOn(hw, ex, cursor));
+    if (isAssigned) {
+      const dCopy = new Date(cursor);
+      const dStr = _fmtLocal(dCopy);
+      out.push({
+        date: dCopy,
+        dStr,
+        isToday: dStr === todayStr,
+        isPast: dCopy < today,
+        isFuture: dCopy > today,
+        isAssigned: true,
+      });
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+// Render a single day-box. State-based styling per Round 1 design rules.
+function _renderDayBox(box, isDone, H, onTap) {
+  const { el } = H;
+  const { date, isToday } = box;
+
+  let bg, color, border, content, fontSize, fontWeight;
+  if (isDone) {
+    // Completed: ✓ checkmark
+    bg = 'transparent';
+    color = '#0d9488';
+    border = '1.5px solid #0d9488';
+    content = '✓';
+    fontSize = '15px';
+    fontWeight = 700;
+  } else if (isToday) {
+    // Today (uncompleted): teal ring + "M 15" label
+    bg = 'transparent';
+    color = '#0d9488';
+    border = '2px solid #0d9488';
+    content = _dayBoxLabel(date);
+    fontSize = '11px';
+    fontWeight = 700;
+  } else {
+    // Past missed / future open: identical neutral state
+    bg = 'transparent';
+    color = '#7aaba5';
+    border = '1px solid #e2e8f0';
+    content = _dayBoxLabel(date);
+    fontSize = '11px';
+    fontWeight = 600;
+  }
+
+  const boxEl = el('div', {
+    style: {
+      flexShrink: '0',
+      width: '44px',
+      height: '36px',
+      borderRadius: '10px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      background: bg,
+      color,
+      border,
+      fontSize,
+      fontWeight: String(fontWeight),
+      textAlign: 'center',
+      userSelect: 'none',
+      WebkitTouchCallout: 'none',
+      transition: 'transform .12s, border-color .12s',
+    },
+  });
+  if (isToday) boxEl.dataset.today = '1';  // Sub-commit 3 uses this for auto-center
+  boxEl.appendChild(document.createTextNode(content));
+  boxEl.onclick = onTap;
+  return boxEl;
+}
+
+// Render the horizontal scrollable row of day-boxes for a homework.
+function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
+  const { el } = H;
+  const row = el('div', {
+    style: {
+      display: 'flex',
+      gap: '6px',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      WebkitOverflowScrolling: 'touch',
+      scrollbarWidth: 'none',
+      padding: '4px 2px',
+      flex: '1 1 240px',
+      minWidth: '0',
+    },
+  });
+  // Hide webkit scrollbar (matches existing pattern from removed _renderDateStrip)
+  row.style.cssText += ';-ms-overflow-style:none;';
+  row.classList.add('hw-bubble-daybox-row');
+
+  boxes.forEach(box => {
+    const isDone = _isDayDone(hw, box.date, compMap);
+    const boxEl = _renderDayBox(box, isDone, H, () => {
+      console.log('[hw bubble] day-box tap:', { hw: hw.id, date: box.dStr, child: childId });
+    });
+    row.appendChild(boxEl);
+  });
+
+  return row;
+}
+
 function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
   const { el } = H;
 
@@ -160,6 +361,14 @@ function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
   if (hw.is_paused) return null;
 
   const exercises = hw.exercises || [];
+
+  // Generate the day-box window before constructing the bubble — if 0 boxes, skip entirely (Q3).
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const nextApptDate = hw.duration_type === 'next_appointment'
+    ? _findNextAppointment(childId, hw.specialist_id, H)
+    : null;
+  const boxes = _generateDayBoxWindow(hw, today, nextApptDate);
+  if (boxes.length === 0) return null;
 
   const bubble = el('div', { style: {
     background: '#fff',
@@ -171,15 +380,17 @@ function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
     display: 'flex',
     gap: '12px',
     flexWrap: 'wrap',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   } });
   if (isWeb) {
     bubble.onmouseenter = () => { bubble.style.boxShadow = '0 4px 12px rgba(13,148,136,.10),0 2px 4px rgba(0,0,0,.06)'; bubble.style.borderColor = '#c4dbd8'; };
     bubble.onmouseleave = () => { bubble.style.boxShadow = '0 1px 3px rgba(13,148,136,.08),0 1px 2px rgba(0,0,0,.04)'; bubble.style.borderColor = '#e8f4f2'; };
   }
 
-  // Left: name + meta line (tap → drill into today's exercises)
-  const left = el('div', { style: { flex: '1 1 160px', minWidth: '0', cursor: 'pointer' } });
+  // Left: name + meta line (tap → drill into today's exercises).
+  // flex basis 200px + day-box row basis 240px → wraps below ~452px container width
+  // (≤480px viewport stacks name on top, day-box row below; >480px side-by-side).
+  const left = el('div', { style: { flex: '1 1 200px', minWidth: '0', cursor: 'pointer' } });
   left.appendChild(el('div', { style: { fontWeight: 600, fontSize: '15px', color: '#0f1a18', marginBottom: '2px' } }, [hw.title]));
 
   // Meta: "N exercises · <recurrence label>" — exercises first per design doc §4.2.
@@ -198,20 +409,8 @@ function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
   };
   bubble.appendChild(left);
 
-  // Right: day-box row placeholder (Sub-commit 2 replaces this with _renderDayBoxRow)
-  const placeholder = el('div', { style: {
-    minWidth: '160px',
-    flexShrink: '0',
-    fontSize: '11px',
-    color: '#94a3b8',
-    fontStyle: 'italic',
-    alignSelf: 'center',
-    padding: '6px 10px',
-    border: '1px dashed #cbd5e1',
-    borderRadius: '8px',
-    background: '#f8fafc',
-  } }, ['[day-box row — Sub-commit 2]']);
-  bubble.appendChild(placeholder);
+  // Right: day-box row (Sub-commit 2 — generation + rendering)
+  bubble.appendChild(_renderDayBoxRow(boxes, hw, compMap, childId, H));
 
   return bubble;
 }
