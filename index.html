@@ -1617,7 +1617,6 @@ const SEED = {
   milestones:[],
   specialistRequests:[],
   connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
-  todos:[], // [{id, childId, title, note, dueDate, dueTime, completed, reminders:{inApp,email,push}, createdAt}]
   linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
   specialistVaults:[]   // [{vaultId, specialistId, specialistName, childId, authorizedSpecialistIds:[], createdAt}]
 };
@@ -1973,7 +1972,7 @@ const _loaded={
   specialists:false,folders:false,appointments:false,
   homeworkTasks:false,vaultNotes:false,specTasks:false,
   specialistRequests:false,parentTasks:false,coParents:false,
-  inboxFiles:false,todos:false,pastSpecialists:false,
+  inboxFiles:false,pastSpecialists:false,
   careTeam:false,folderPermissions:false
 };
 
@@ -2195,9 +2194,6 @@ async function _refreshPhase2Parent(){
           .then(({data:hwrem})=>LS.set('homeworkReminders',(hwrem||[]).map(r=>({id:r.id,taskId:r.task_id,time:r.reminder_time,isEnabled:r.is_enabled}))))
           .catch(e=>console.error('refresh homework_reminders:',e))
       : Promise.resolve(),
-    _supa.from('todos').select('*').eq('user_id',session.id)
-      .then(({data:tds})=>{LS.set('todos',(tds||[]).map(t=>({id:t.id,childId:t.child_id,title:t.title,note:t.note||'',dueDate:t.due_date||null,dueTime:t.due_time||null,completed:t.completed||false,reminders:t.reminders||{inApp:false,email:false,push:false}})));_loaded.todos=true;})
-      .catch(e=>console.error('refresh todos:',e)),
     (async()=>{
       try{
         const childIds=(LS.get('children',[])||[]).map(c=>c.id);
@@ -4582,7 +4578,6 @@ gcal_failed:'Could not connect Google Calendar. Try again.',
 vault_private_notes:'\uD83D\uDD12 Private notes \u2014 publish summaries to share with parents',vault_not_connected:'Not connected \u2014 notes are yours only \u00B7 publishing disabled',vault_draft_label:'Draft',vault_unsaved_changes:'Unsaved Changes',vault_switch_note:'Switch note without saving?',vault_unsaved_note:'\u26A0\uFE0F Unsaved changes in this note.',vault_locked_readonly:'\uD83D\uDD12 Permanently locked \u2014 read-only',vault_minimise:'\u25B2 Minimise',vault_minimise_unsaved:'Minimise without saving?',vault_clinical_notes:'\uD83D\uDCCB Clinical Notes (Private)',vault_mic_error:'Microphone error: ',vault_dictate_locked:'\uD83D\uDD12 \uD83C\uDF99 Dictate',vault_ai_notes_title:'AI-Powered Session Notes',vault_ai_notes_desc:'Write detailed clinical notes with voice dictation and AI-generated parent summaries.',vault_unlock_trial:'Unlock with AI Trial',vault_draft_saved:'\uD83D\uDCBE Draft saved!',vault_could_not_save_draft:'\u274C Could not save draft. Please try again.',vault_write_first:'Write session notes first so AI can summarize them.',vault_could_not_generate:'Could not generate summary.',vault_could_not_reach_ai:'Could not reach AI service.',vault_lock_notes:'\uD83D\uDD12 Lock Session Notes',vault_no_summary_warn:'\u26A0\uFE0F No Parent Summary',vault_no_summary_msg:'You haven\'t written a parent summary for this note. Parents won\'t be able to see a summary. Continue locking anyway?',vault_lock_confirm:'Lock Session Notes?',vault_lock_msg:'This will permanently lock these notes and make them a read-only record. This cannot be undone.',vault_locked_toast:'\uD83D\uDD12 Session notes locked!',vault_delete_draft:'Delete Note?',vault_delete_draft_msg:'Permanently delete this draft? This cannot be undone.',vault_summary_placeholder:'Write a parent-friendly summary here. This will be published to the parent when you\'re ready.',vault_write_summary_first:'Write a summary before publishing',vault_publish_confirm:'Publish Summary?',vault_publish_msg:'Send this summary to the parent\'s profile and notify them?',vault_could_not_publish:'\u274C Could not publish summary. Please try again.',vault_vc_punctuation:'Punctuation',vault_vc_formatting:'Formatting',vault_vc_headings:'Structure Headings',vault_vc_lists:'Lists',vault_vc_editing:'Editing',
 stodo_sub:'Follow-ups, reports, referrals and reminders',stodo_pending_label:'Pending',stodo_completed_label:'Completed',stodo_task_fallback:'Task',stodo_edit_title:'Edit Clinical Task',stodo_new_title:'New Clinical Task',stodo_task_required:'Task *',stodo_notes_optional:'Notes (optional)',stodo_category_label:'Category',stodo_priority_label:'Priority',stodo_related_patient:'Related Patient (optional)',stodo_no_patient:'\u2014 No specific patient \u2014',stodo_due_date_label:'Due Date (optional)',stodo_reminder_label:'Reminder (optional)',stodo_no_reminder:'No reminder',stodo_on_due:'On due date',stodo_1day:'1 day before',stodo_1week:'1 week before',stodo_save_changes:'Save Changes',stodo_add_task_btn:'Add Task',stodo_enter_title:'Enter a task title',
 ptodo_pending_label:'Pending',ptodo_completed_label:'Completed',ptodo_delete_confirm:'Delete this task?',ptodo_delete_msg:'This will permanently remove',ptodo_task_deleted:'Task deleted',ptodo_task_fallback:'Task',ptodo_mine_label:'Mine',ptodo_shared_label:'Shared',ptodo_no_date:'No date',ptodo_done_by:'\u2713 Done by',ptodo_edit_title:'Edit Task',ptodo_new_title_modal:'New Task',ptodo_task_required:'Task *',ptodo_notes_modal:'Notes (optional)',ptodo_category_modal:'Category',ptodo_priority_modal:'Priority',ptodo_assign_to:'Assign to',ptodo_related_child:'Related Child (optional)',ptodo_no_child:'\u2014 No specific child \u2014',ptodo_due_date_modal:'Due Date (optional)',ptodo_reminder_modal:'Reminder (optional)',ptodo_saving:'Saving\u2026',ptodo_enter_title:'Enter a task title',
-todo_edit_title:'Edit Task',todo_new_title:'New Task',todo_task_title_required:'Task title *',todo_notes_optional:'Notes (optional)',todo_for_which_child:'For which child?',todo_select_child:' \u2014 select child \u2014',todo_reminders_optional:'Reminders (optional)',todo_save_changes:'\uD83D\uDCBE Save Changes',todo_add_task:'\u2795 Add Task',todo_task_title_err:'Please enter a task title.',todo_updated:'\u2705 Task updated!',todo_added:'\u2705 Task added!',todo_delete_title:'Delete Task',todo_delete_msg:'Remove this task?',todo_removed:'Task removed.',
 hw_mark_done:'Mark as Done',hw_not_due_yet:'This task isn\'t due yet.',hw_note_specialist:'Note for specialist (optional)',hw_photo_optional:'Photo (optional)',hw_take_photo:'\uD83D\uDCF7 Take Photo',hw_gallery:'\uD83D\uDDBC\uFE0F Gallery',hw_mark_done_btn:'\u2705 Mark as Done',hw_marked_done:'\u2705 Marked as done!',hw_could_not_save_check:'Could not save. Please try again.',hw_task_details:'Task Details',hw_details_btn:'\uD83D\uDCCA Details',hw_edit_btn:'\u270F\uFE0F Edit',hw_unpin:'\uD83D\uDCCC Unpin',hw_pin:'\uD83D\uDCCD Pin',hw_archive_btn:'\uD83D\uDDC4 Archive',hw_archive_confirm:'Archive Task',hw_archive_msg:'Move to archive? You can restore it later.',hw_archived_toast:'Task archived.',hw_restore_btn:'\u267B\uFE0F Restore',hw_restore_confirm:'Restore Task',hw_restore_msg:'Move back to active tasks?',hw_restored_toast:'Task restored.',hw_delete_btn:'\uD83D\uDDD1 Delete',hw_delete_confirm:'Delete Task',hw_delete_msg:'Permanently delete this task and all its history?',hw_deleted_toast:'Task deleted.',hw_description_label:'Description',hw_difficulty_label:'Difficulty',hw_frequency_label:'Frequency',hw_status_label:'Status',hw_paused_label:'Paused',hw_assigned_to_label:'Assigned to',hw_date_assigned:'Date assigned',hw_due_date_label:'Due date',hw_attachments:'\uD83D\uDCCE Attachments',hw_back_overview:'\u2190 Back to Overview',hw_last7_today_next7:'Last 7 \u00B7 Today \u00B7 Next 7',hw_completions_label:'Completions',hw_no_completions:'No completions yet.',hw_add_comment:'Add Comment',hw_add_another_comment:'Add Another Comment',hw_feedback_for:'Feedback for: ',hw_send_comment:'Send Comment',hw_write_comment_first:'Write a comment first.',hw_comment_sent:'Comment sent!',hw_could_not_comment:'Could not send comment.',hw_loading_data:'Loading completion data\u2026',hw_could_not_load:'Could not load completion data.',hw_done_stat:'Done',hw_total_stat:'Total',hw_rate_stat:'Rate',hw_task_not_found:'Task not found.',hw_back_list:'Back to Task List',
 hw_edit_task_title:'\u270F\uFE0F Edit Task',hw_add_task_title:'\u2795 Add Homework Task',hw_use_template:'\uD83D\uDCCB Use Template',hw_task_title_req:'Task Title *',hw_instructions_label:'Instructions for parent (optional)',hw_attach_files:'Attach Files (optional)',hw_attach_desc:'Add instruction sheets, images or videos for parents',hw_add_files:'+ Add Files',hw_duration_label:'Duration',hw_once_label:'Once',hw_daily_label:'Daily',hw_every_other_day_label:'Every other day',hw_specific_days_label:'Specific days',hw_open_ended:'Open-ended',hw_until_date:'Until date',hw_next_appt:'Next appt',hw_time_of_day:'Time of day (select all that apply)',hw_pin_top:'\uD83D\uDCCC Pin to top of list',hw_save_template:'\uD83D\uDCBE Save as template',hw_save_changes_btn:'\u2705 Save Changes',hw_assign_btn:'\u2705 Assign Task',hw_title_required:'\u26A0\uFE0F Task title is required.',hw_select_day:'\u26A0\uFE0F Select at least one day.',hw_select_end_date:'\u26A0\uFE0F Select an end date.',hw_task_updated:'\u2705 Task updated!',hw_task_assigned:'\u2705 Task assigned!',hw_could_not_save_task:'Could not save task.',hw_cancel_btn:'Cancel',hw_select_1_time:'Select at least one time of day.',
 hw_paused_archive:'Completed or paused tasks will appear here.',hw_all_done:'\u2713 All done',hw_next_7_days:'Next 7 Days',hw_spec_feedback:'\uD83D\uDCAC Specialist Feedback',hw_accept_task:'\u2713 Accept this task',hw_task_accepted:'Task accepted!',hw_could_not_ack:'Could not acknowledge.',hw_pause_task:'\u23F8 Pause Task',hw_resume_task:'\u25B6 Resume Task',hw_paused_toast:'Task paused.',hw_resumed_toast:'Task resumed.',hw_could_not_update:'Could not update task.',hw_set_reminder:'\uD83D\uDD14 Set a Reminder',hw_reminder_saved:'\uD83D\uDD14 Reminder saved!',hw_could_not_save_reminder:'Could not save reminder.',hw_add_to_calendar:'\uD83D\uDCC5 Add to Calendar',hw_spec_tasks_sub:'\'s tasks',hw_not_connected_no_tasks:'Not connected \u2014 cannot add new tasks',hw_archived_here:'Archived tasks will appear here.',hw_pinned_label:'\uD83D\uDCCC Pinned',hw_other_tasks:'Other Tasks',hw_new_tasks_assigned:'New task{s} assigned!',
@@ -5539,7 +5534,6 @@ chat_loading:'\u05D8\u05D5\u05E2\u05DF \u05D4\u05D5\u05D3\u05E2\u05D5\u05EA\u202
 vault_private_notes:'\uD83D\uDD12 \u05D4\u05E2\u05E8\u05D5\u05EA \u05E4\u05E8\u05D8\u05D9\u05D5\u05EA \u2014 \u05E4\u05E8\u05E1\u05DE\u05D5 \u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05DC\u05E9\u05D9\u05EA\u05D5\u05E3 \u05E2\u05DD \u05D4\u05D4\u05D5\u05E8\u05D9\u05DD',vault_not_connected:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA \u05E9\u05DC\u05DB\u05DD \u05D1\u05DC\u05D1\u05D3 \u00B7 \u05E4\u05E8\u05E1\u05D5\u05DD \u05DE\u05D5\u05E9\u05D1\u05EA',vault_draft_label:'\u05D8\u05D9\u05D5\u05D8\u05D4',vault_unsaved_changes:'\u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD \u05DC\u05D0 \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD',vault_switch_note:'\u05DC\u05D4\u05D7\u05DC\u05D9\u05E3 \u05D4\u05E2\u05E8\u05D4 \u05D1\u05DC\u05D9 \u05DC\u05E9\u05DE\u05D5\u05E8?',vault_unsaved_note:'\u26A0\uFE0F \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD \u05DC\u05D0 \u05E9\u05DE\u05D5\u05E8\u05D9\u05DD \u05D1\u05D4\u05E2\u05E8\u05D4 \u05D6\u05D5.',vault_locked_readonly:'\uD83D\uDD12 \u05E0\u05E2\u05D5\u05DC \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u2014 \u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DC\u05D1\u05D3',vault_minimise:'\u25B2 \u05DE\u05D6\u05E2\u05E8',vault_minimise_unsaved:'\u05DC\u05DE\u05D6\u05E2\u05E8 \u05D1\u05DC\u05D9 \u05DC\u05E9\u05DE\u05D5\u05E8?',vault_clinical_notes:'\uD83D\uDCCB \u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA (\u05E4\u05E8\u05D8\u05D9\u05D5\u05EA)',vault_mic_error:'\u05E9\u05D2\u05D9\u05D0\u05EA \u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF: ',vault_dictate_locked:'\uD83D\uDD12 \uD83C\uDF99 \u05D4\u05DB\u05EA\u05D1\u05D4',vault_ai_notes_title:'\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9 \u05DE\u05E4\u05D2\u05E9 \u05DE\u05D1\u05D5\u05E1\u05E1\u05D9 AI',vault_ai_notes_desc:'\u05DB\u05EA\u05D1\u05D5 \u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05D9\u05E0\u05D9\u05D5\u05EA \u05DE\u05E4\u05D5\u05E8\u05D8\u05D5\u05EA \u05E2\u05DD \u05D4\u05DB\u05EA\u05D1\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05D5\u05E1\u05D9\u05DB\u05D5\u05DE\u05D9\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD \u05DE\u05D1\u05D5\u05E1\u05E1\u05D9 AI.',vault_unlock_trial:'\u05E4\u05EA\u05D7\u05D5 \u05E2\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05DF AI',vault_draft_saved:'\uD83D\uDCBE \u05D8\u05D9\u05D5\u05D8\u05D4 \u05E0\u05E9\u05DE\u05E8\u05D4!',vault_could_not_save_draft:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05D8\u05D9\u05D5\u05D8\u05D4. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',vault_write_first:'\u05DB\u05EA\u05D1\u05D5 \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9 \u05E7\u05D5\u05D3\u05DD \u05DB\u05D3\u05D9 \u05E9-AI \u05D9\u05D5\u05DB\u05DC \u05DC\u05E1\u05DB\u05DD.',vault_could_not_generate:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D9\u05E6\u05D5\u05E8 \u05E1\u05D9\u05DB\u05D5\u05DD.',vault_could_not_reach_ai:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05EA\u05D7\u05D1\u05E8 \u05DC\u05E9\u05D9\u05E8\u05D5\u05EA \u05D4-AI.',vault_lock_notes:'\uD83D\uDD12 \u05E0\u05E2\u05DC \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9',vault_no_summary_warn:'\u26A0\uFE0F \u05D0\u05D9\u05DF \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD',vault_no_summary_msg:'\u05DC\u05D0 \u05DB\u05EA\u05D1\u05EA\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD \u05E2\u05D1\u05D5\u05E8 \u05D4\u05E2\u05E8\u05D4 \u05D6\u05D5. \u05D4\u05D4\u05D5\u05E8\u05D9\u05DD \u05DC\u05D0 \u05D9\u05D5\u05DB\u05DC\u05D5 \u05DC\u05E8\u05D0\u05D5\u05EA \u05E1\u05D9\u05DB\u05D5\u05DD. \u05DC\u05D4\u05DE\u05E9\u05D9\u05DA \u05DC\u05E0\u05E2\u05D5\u05DC \u05D1\u05DB\u05DC \u05D6\u05D0\u05EA?',vault_lock_confirm:'\u05DC\u05E0\u05E2\u05D5\u05DC \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9?',vault_lock_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05E0\u05E2\u05DC \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA \u05D0\u05EA \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA \u05D5\u05EA\u05D4\u05E4\u05D5\u05DA \u05D0\u05D5\u05EA\u05DF \u05DC\u05E8\u05E9\u05D5\u05DE\u05D4 \u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05DC\u05D1\u05D3. \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',vault_locked_toast:'\uD83D\uDD12 \u05D4\u05E2\u05E8\u05D5\u05EA \u05DE\u05E4\u05D2\u05E9 \u05E0\u05E0\u05E2\u05DC\u05D5!',vault_delete_draft:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D4\u05E2\u05E8\u05D4?',vault_delete_draft_msg:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D8\u05D9\u05D5\u05D8\u05D4 \u05D6\u05D5 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA? \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D1\u05D8\u05DC.',vault_summary_placeholder:'\u05DB\u05EA\u05D1\u05D5 \u05DB\u05D0\u05DF \u05E1\u05D9\u05DB\u05D5\u05DD \u05D9\u05D3\u05D9\u05D3\u05D5\u05EA\u05D9 \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD. \u05D4\u05E1\u05D9\u05DB\u05D5\u05DD \u05D9\u05E4\u05D5\u05E8\u05E1\u05DD \u05DC\u05D4\u05D5\u05E8\u05D4 \u05DB\u05E9\u05EA\u05D4\u05D9\u05D5 \u05DE\u05D5\u05DB\u05E0\u05D9\u05DD.',vault_write_summary_first:'\u05DB\u05EA\u05D1\u05D5 \u05E1\u05D9\u05DB\u05D5\u05DD \u05DC\u05E4\u05E0\u05D9 \u05E4\u05E8\u05E1\u05D5\u05DD',vault_publish_confirm:'\u05DC\u05E4\u05E8\u05E1\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD?',vault_publish_msg:'\u05DC\u05E9\u05DC\u05D5\u05D7 \u05E1\u05D9\u05DB\u05D5\u05DD \u05D6\u05D4 \u05DC\u05E4\u05E8\u05D5\u05E4\u05D9\u05DC \u05D4\u05D4\u05D5\u05E8\u05D4 \u05D5\u05DC\u05D4\u05D5\u05D3\u05D9\u05E2 \u05DC\u05D4\u05DD?',vault_could_not_publish:'\u274C \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E4\u05E8\u05E1\u05DD \u05E1\u05D9\u05DB\u05D5\u05DD. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',vault_vc_punctuation:'\u05E4\u05D9\u05E1\u05D5\u05E7',vault_vc_formatting:'\u05E2\u05D9\u05E6\u05D5\u05D1',vault_vc_headings:'\u05DB\u05D5\u05EA\u05E8\u05D5\u05EA \u05DE\u05D1\u05E0\u05D4',vault_vc_lists:'\u05E8\u05E9\u05D9\u05DE\u05D5\u05EA',vault_vc_editing:'\u05E2\u05E8\u05D9\u05DB\u05D4',
 stodo_sub:'\u05DE\u05E2\u05E7\u05D1\u05D9\u05DD, \u05D3\u05D5\u05D7\u05D5\u05EA, \u05D4\u05E4\u05E0\u05D9\u05D5\u05EA \u05D5\u05EA\u05D6\u05DB\u05D5\u05E8\u05D5\u05EA',stodo_pending_label:'\u05DE\u05DE\u05EA\u05D9\u05DF',stodo_completed_label:'\u05D4\u05D5\u05E9\u05DC\u05DD',stodo_task_fallback:'\u05DE\u05E9\u05D9\u05DE\u05D4',stodo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4 \u05E7\u05DC\u05D9\u05E0\u05D9\u05EA',stodo_new_title:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E7\u05DC\u05D9\u05E0\u05D9\u05EA \u05D7\u05D3\u05E9\u05D4',stodo_task_required:'\u05DE\u05E9\u05D9\u05DE\u05D4 *',stodo_notes_optional:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_category_label:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D4',stodo_priority_label:'\u05E2\u05D3\u05D9\u05E4\u05D5\u05EA',stodo_related_patient:'\u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E7\u05E9\u05D5\u05E8/\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_no_patient:'\u2014 \u05DC\u05DC\u05D0 \u05DE\u05D8\u05D5\u05E4\u05DC/\u05EA \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9/\u05EA \u2014',stodo_due_date_label:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_reminder_label:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',stodo_no_reminder:'\u05DC\u05DC\u05D0 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA',stodo_on_due:'\u05D1\u05D9\u05D5\u05DD \u05D4\u05D9\u05E2\u05D3',stodo_1day:'\u05D9\u05D5\u05DD \u05DC\u05E4\u05E0\u05D9',stodo_1week:'\u05E9\u05D1\u05D5\u05E2 \u05DC\u05E4\u05E0\u05D9',stodo_save_changes:'\u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',stodo_add_task_btn:'\u05D4\u05D5\u05E1\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D4',stodo_enter_title:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',
 ptodo_pending_label:'\u05DE\u05DE\u05EA\u05D9\u05DF',ptodo_completed_label:'\u05D4\u05D5\u05E9\u05DC\u05DD',ptodo_delete_confirm:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5?',ptodo_delete_msg:'\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05EA\u05DE\u05D7\u05E7 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA',ptodo_task_deleted:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05DE\u05D7\u05E7\u05D4',ptodo_task_fallback:'\u05DE\u05E9\u05D9\u05DE\u05D4',ptodo_mine_label:'\u05E9\u05DC\u05D9',ptodo_shared_label:'\u05DE\u05E9\u05D5\u05EA\u05E3',ptodo_no_date:'\u05DC\u05DC\u05D0 \u05EA\u05D0\u05E8\u05D9\u05DA',ptodo_done_by:'\u2713 \u05D1\u05D5\u05E6\u05E2 \u05E2"\u05D9',ptodo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',ptodo_new_title_modal:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4',ptodo_task_required:'\u05DE\u05E9\u05D9\u05DE\u05D4 *',ptodo_notes_modal:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_category_modal:'\u05E7\u05D8\u05D2\u05D5\u05E8\u05D9\u05D4',ptodo_priority_modal:'\u05E2\u05D3\u05D9\u05E4\u05D5\u05EA',ptodo_assign_to:'\u05D4\u05E7\u05E6\u05D4 \u05DC',ptodo_related_child:'\u05D9\u05DC\u05D3/\u05D4 \u05E7\u05E9\u05D5\u05E8/\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_no_child:'\u2014 \u05DC\u05DC\u05D0 \u05D9\u05DC\u05D3/\u05D4 \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9/\u05EA \u2014',ptodo_due_date_modal:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_reminder_modal:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',ptodo_saving:'\u05E9\u05D5\u05DE\u05E8\u2026',ptodo_enter_title:'\u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',
-todo_edit_title:'\u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',todo_new_title:'\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D3\u05E9\u05D4',todo_task_title_required:'\u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4 *',todo_notes_optional:'\u05D4\u05E2\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',todo_for_which_child:'\u05E2\u05D1\u05D5\u05E8 \u05D0\u05D9\u05D6\u05D4 \u05D9\u05DC\u05D3/\u05D4?',todo_select_child:' \u2014 \u05D1\u05D7\u05E8\u05D5 \u05D9\u05DC\u05D3/\u05D4 \u2014',todo_reminders_optional:'\u05EA\u05D6\u05DB\u05D5\u05E8\u05D5\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',todo_save_changes:'\uD83D\uDCBE \u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',todo_add_task:'\u2795 \u05D4\u05D5\u05E1\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D4',todo_task_title_err:'\u05D0\u05E0\u05D0 \u05D4\u05D6\u05D9\u05E0\u05D5 \u05DB\u05D5\u05EA\u05E8\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4.',todo_updated:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',todo_added:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05D5\u05E1\u05E4\u05D4!',todo_delete_title:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',todo_delete_msg:'\u05DC\u05D4\u05E1\u05D9\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5?',todo_removed:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E1\u05E8\u05D4.',
 hw_mark_done:'\u05E1\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2',hw_not_due_yet:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3 \u05DC\u05D0 \u05D4\u05D2\u05D9\u05E2\u05D4.',hw_note_specialist:'\u05D4\u05E2\u05E8\u05D4 \u05DC\u05DE\u05D8\u05E4\u05DC/\u05EA (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_photo_optional:'\u05EA\u05DE\u05D5\u05E0\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_take_photo:'\uD83D\uDCF7 \u05E6\u05DC\u05DD',hw_gallery:'\uD83D\uDDBC\uFE0F \u05D2\u05DC\u05E8\u05D9\u05D4',hw_mark_done_btn:'\u2705 \u05E1\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2',hw_marked_done:'\u2705 \u05E1\u05D5\u05DE\u05DF \u05DB\u05D1\u05D5\u05E6\u05E2!',hw_could_not_save_check:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8. \u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.',hw_task_details:'\u05E4\u05E8\u05D8\u05D9 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_details_btn:'\uD83D\uDCCA \u05E4\u05E8\u05D8\u05D9\u05DD',hw_edit_btn:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05D4',hw_unpin:'\uD83D\uDCCC \u05D1\u05D8\u05DC \u05D4\u05E6\u05DE\u05D3\u05D4',hw_pin:'\uD83D\uDCCD \u05D4\u05E6\u05DE\u05D3',hw_archive_btn:'\uD83D\uDDC4 \u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',hw_archive_confirm:'\u05D4\u05E2\u05D1\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',hw_archive_msg:'\u05DC\u05D4\u05E2\u05D1\u05D9\u05E8 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF? \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05D7\u05D6\u05E8 \u05DE\u05D0\u05D5\u05D7\u05E8 \u05D9\u05D5\u05EA\u05E8.',hw_archived_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E2\u05D1\u05E8\u05D4 \u05DC\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',hw_restore_btn:'\u267B\uFE0F \u05E9\u05D7\u05D6\u05E8',hw_restore_confirm:'\u05E9\u05D7\u05D6\u05D5\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_restore_msg:'\u05DC\u05D4\u05D7\u05D6\u05D9\u05E8 \u05DC\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA?',hw_restored_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E9\u05D5\u05D7\u05D6\u05E8\u05D4.',hw_delete_btn:'\uD83D\uDDD1 \u05DE\u05D7\u05E7',hw_delete_confirm:'\u05DE\u05D7\u05D9\u05E7\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',hw_delete_msg:'\u05DC\u05DE\u05D7\u05D5\u05E7 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5 \u05D5\u05D0\u05EA \u05DB\u05DC \u05D4\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4 \u05E9\u05DC\u05D4 \u05DC\u05E6\u05DE\u05D9\u05EA\u05D5\u05EA?',hw_deleted_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E0\u05DE\u05D7\u05E7\u05D4.',hw_description_label:'\u05EA\u05D9\u05D0\u05D5\u05E8',hw_difficulty_label:'\u05E8\u05DE\u05EA \u05E7\u05D5\u05E9\u05D9',hw_frequency_label:'\u05EA\u05D3\u05D9\u05E8\u05D5\u05EA',hw_status_label:'\u05E1\u05D8\u05D8\u05D5\u05E1',hw_paused_label:'\u05DE\u05D5\u05E9\u05D4\u05D4',hw_assigned_to_label:'\u05D4\u05D5\u05E7\u05E6\u05D4 \u05DC',hw_date_assigned:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D4\u05E7\u05E6\u05D0\u05D4',hw_due_date_label:'\u05EA\u05D0\u05E8\u05D9\u05DA \u05D9\u05E2\u05D3',hw_attachments:'\uD83D\uDCCE \u05E7\u05D1\u05E6\u05D9\u05DD \u05DE\u05E6\u05D5\u05E8\u05E4\u05D9\u05DD',hw_back_overview:'\u2190 \u05D7\u05D6\u05E8\u05D4 \u05DC\u05E1\u05E7\u05D9\u05E8\u05D4',hw_last7_today_next7:'7 \u05D0\u05D7\u05E8\u05D5\u05E0\u05D9\u05DD \u00B7 \u05D4\u05D9\u05D5\u05DD \u00B7 7 \u05D4\u05D1\u05D0\u05D9\u05DD',hw_completions_label:'\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9\u05DD',hw_no_completions:'\u05D0\u05D9\u05DF \u05D1\u05D9\u05E6\u05D5\u05E2\u05D9\u05DD \u05E2\u05D3\u05D9\u05D9\u05DF.',hw_add_comment:'\u05D4\u05D5\u05E1\u05E3 \u05EA\u05D2\u05D5\u05D1\u05D4',hw_add_another_comment:'\u05D4\u05D5\u05E1\u05E3 \u05EA\u05D2\u05D5\u05D1\u05D4 \u05E0\u05D5\u05E1\u05E4\u05EA',hw_feedback_for:'\u05DE\u05E9\u05D5\u05D1 \u05E2\u05D1\u05D5\u05E8: ',hw_send_comment:'\u05E9\u05DC\u05D7 \u05EA\u05D2\u05D5\u05D1\u05D4',hw_write_comment_first:'\u05DB\u05EA\u05D1\u05D5 \u05EA\u05D2\u05D5\u05D1\u05D4 \u05E7\u05D5\u05D3\u05DD.',hw_comment_sent:'\u05D4\u05EA\u05D2\u05D5\u05D1\u05D4 \u05E0\u05E9\u05DC\u05D7\u05D4!',hw_could_not_comment:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DC\u05D5\u05D7 \u05EA\u05D2\u05D5\u05D1\u05D4.',hw_loading_data:'\u05D8\u05D5\u05E2\u05DF \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D1\u05D9\u05E6\u05D5\u05E2\u2026',hw_could_not_load:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D8\u05E2\u05D5\u05DF \u05E0\u05EA\u05D5\u05E0\u05D9 \u05D1\u05D9\u05E6\u05D5\u05E2.',hw_done_stat:'\u05D1\u05D5\u05E6\u05E2',hw_total_stat:'\u05E1\u05D4"\u05DB',hw_rate_stat:'\u05E9\u05D9\u05E2\u05D5\u05E8',hw_task_not_found:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D4.',hw_back_list:'\u05D7\u05D6\u05E8\u05D4 \u05DC\u05E8\u05E9\u05D9\u05DE\u05EA \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA',
 hw_edit_task_title:'\u270F\uFE0F \u05E2\u05E8\u05D9\u05DB\u05EA \u05DE\u05E9\u05D9\u05DE\u05D4',hw_add_task_title:'\u2795 \u05D4\u05D5\u05E1\u05E3 \u05EA\u05E8\u05D2\u05D9\u05DC \u05D1\u05D9\u05EA',hw_use_template:'\uD83D\uDCCB \u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05EA\u05D1\u05E0\u05D9\u05EA',hw_task_title_req:'\u05DB\u05D5\u05EA\u05E8\u05EA \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 *',hw_instructions_label:'\u05D4\u05E0\u05D7\u05D9\u05D5\u05EA \u05DC\u05D4\u05D5\u05E8\u05D4 (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_attach_files:'\u05E6\u05E8\u05E4\u05D5 \u05E7\u05D1\u05E6\u05D9\u05DD (\u05D0\u05D5\u05E4\u05E6\u05D9\u05D5\u05E0\u05DC\u05D9)',hw_attach_desc:'\u05D4\u05D5\u05E1\u05D9\u05E4\u05D5 \u05D3\u05E4\u05D9 \u05D4\u05E0\u05D7\u05D9\u05D5\u05EA, \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05D0\u05D5 \u05E1\u05E8\u05D8\u05D5\u05E0\u05D9\u05DD \u05DC\u05D4\u05D5\u05E8\u05D9\u05DD',hw_add_files:'+ \u05D4\u05D5\u05E1\u05E3 \u05E7\u05D1\u05E6\u05D9\u05DD',hw_duration_label:'\u05DE\u05E9\u05DA',hw_once_label:'\u05E4\u05E2\u05DD \u05D0\u05D7\u05EA',hw_daily_label:'\u05D9\u05D5\u05DE\u05D9',hw_every_other_day_label:'\u05D9\u05D5\u05DD \u05DC\u05E1\u05D9\u05E8\u05D5\u05D2\u05D9\u05DF',hw_specific_days_label:'\u05D9\u05DE\u05D9\u05DD \u05E1\u05E4\u05E6\u05D9\u05E4\u05D9\u05D9\u05DD',hw_open_ended:'\u05DC\u05DC\u05D0 \u05D4\u05D2\u05D1\u05DC\u05D4',hw_until_date:'\u05E2\u05D3 \u05EA\u05D0\u05E8\u05D9\u05DA',hw_next_appt:'\u05EA\u05D5\u05E8 \u05D4\u05D1\u05D0',hw_time_of_day:'\u05D6\u05DE\u05DF \u05D1\u05D9\u05D5\u05DD (\u05D1\u05D7\u05E8\u05D5 \u05D0\u05EA \u05DB\u05DC \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D9\u05DD)',hw_pin_top:'\uD83D\uDCCC \u05D4\u05E6\u05DE\u05D3 \u05DC\u05E8\u05D0\u05E9 \u05D4\u05E8\u05E9\u05D9\u05DE\u05D4',hw_save_template:'\uD83D\uDCBE \u05E9\u05DE\u05D5\u05E8 \u05DB\u05EA\u05D1\u05E0\u05D9\u05EA',hw_save_changes_btn:'\u2705 \u05E9\u05DE\u05D5\u05E8 \u05E9\u05D9\u05E0\u05D5\u05D9\u05D9\u05DD',hw_assign_btn:'\u2705 \u05D4\u05E7\u05E6\u05D4 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_title_required:'\u26A0\uFE0F \u05E0\u05D3\u05E8\u05E9\u05EA \u05DB\u05D5\u05EA\u05E8\u05EA \u05DC\u05DE\u05E9\u05D9\u05DE\u05D4.',hw_select_day:'\u26A0\uFE0F \u05D1\u05D7\u05E8\u05D5 \u05DC\u05E4\u05D7\u05D5\u05EA \u05D9\u05D5\u05DD \u05D0\u05D7\u05D3.',hw_select_end_date:'\u26A0\uFE0F \u05D1\u05D7\u05E8\u05D5 \u05EA\u05D0\u05E8\u05D9\u05DA \u05E1\u05D9\u05D5\u05DD.',hw_task_updated:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05E2\u05D5\u05D3\u05DB\u05E0\u05D4!',hw_task_assigned:'\u2705 \u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E7\u05E6\u05EA\u05D4!',hw_could_not_save_task:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05DE\u05E9\u05D9\u05DE\u05D4.',hw_cancel_btn:'\u05D1\u05D9\u05D8\u05D5\u05DC',hw_select_1_time:'\u05D1\u05D7\u05E8\u05D5 \u05DC\u05E4\u05D7\u05D5\u05EA \u05D6\u05DE\u05DF \u05D0\u05D7\u05D3 \u05D1\u05D9\u05D5\u05DD.',
 hw_paused_archive:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05D4\u05D5\u05E9\u05DC\u05DE\u05D5 \u05D0\u05D5 \u05D4\u05D5\u05E9\u05D4\u05D5 \u05D9\u05D5\u05E4\u05D9\u05E2\u05D5 \u05DB\u05D0\u05DF.',hw_all_done:'\u2713 \u05D4\u05DB\u05DC \u05D1\u05D5\u05E6\u05E2',hw_next_7_days:'7 \u05D4\u05D9\u05DE\u05D9\u05DD \u05D4\u05D1\u05D0\u05D9\u05DD',hw_spec_feedback:'\uD83D\uDCAC \u05DE\u05E9\u05D5\u05D1 \u05DE\u05D4\u05DE\u05D8\u05E4\u05DC/\u05EA',hw_accept_task:'\u2713 \u05E7\u05D1\u05DC\u05D5 \u05DE\u05E9\u05D9\u05DE\u05D4 \u05D6\u05D5',hw_task_accepted:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D0\u05D5\u05E9\u05E8\u05D4!',hw_could_not_ack:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D0\u05E9\u05E8.',hw_pause_task:'\u23F8 \u05D4\u05E9\u05D4\u05D4 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_resume_task:'\u25B6 \u05D7\u05D3\u05E9 \u05DE\u05E9\u05D9\u05DE\u05D4',hw_paused_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D4\u05D5\u05E9\u05D4\u05EA\u05D4.',hw_resumed_toast:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D4 \u05D7\u05D5\u05D3\u05E9\u05D4.',hw_could_not_update:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E2\u05D3\u05DB\u05DF \u05DE\u05E9\u05D9\u05DE\u05D4.',hw_set_reminder:'\uD83D\uDD14 \u05D4\u05D2\u05D3\u05D9\u05E8\u05D5 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA',hw_reminder_saved:'\uD83D\uDD14 \u05D4\u05EA\u05D6\u05DB\u05D5\u05E8\u05EA \u05E0\u05E9\u05DE\u05E8\u05D4!',hw_could_not_save_reminder:'\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05DE\u05D5\u05E8 \u05EA\u05D6\u05DB\u05D5\u05E8\u05EA.',hw_add_to_calendar:'\uD83D\uDCC5 \u05D4\u05D5\u05E1\u05E3 \u05DC\u05D9\u05D5\u05DE\u05DF',hw_spec_tasks_sub:'\u05D4\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05E9\u05DC',hw_not_connected_no_tasks:'\u05DC\u05D0 \u05DE\u05D7\u05D5\u05D1\u05E8/\u05EA \u2014 \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D4\u05D5\u05E1\u05D9\u05E3 \u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D7\u05D3\u05E9\u05D5\u05EA',hw_archived_here:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF \u05D9\u05D5\u05E4\u05D9\u05E2\u05D5 \u05DB\u05D0\u05DF.',hw_pinned_label:'\uD83D\uDCCC \u05DE\u05D5\u05E6\u05DE\u05D3',hw_other_tasks:'\u05DE\u05E9\u05D9\u05DE\u05D5\u05EA \u05D0\u05D7\u05E8\u05D5\u05EA',hw_new_tasks_assigned:'\u05DE\u05E9\u05D9\u05DE\u05D4/\u05D5\u05EA \u05D7\u05D3\u05E9\u05D4/\u05D5\u05EA \u05D4\u05D5\u05E7\u05E6\u05D5!',
@@ -17207,203 +17201,6 @@ function showParentTaskModal(existing=null){
     });
     mb.appendChild(saveBtn);
   },480);
-}
-
-// Legacy renderTodoCard kept for backward compat
-function renderTodoCard(todo,today){
-  const isOverdue=!todo.completed&&todo.dueDate&&todo.dueDate<today;
-  const card=el('div',{class:'card',style:{
-    display:'flex',gap:'12px',alignItems:'flex-start',marginBottom:'10px',
-    opacity:todo.completed?'0.6':'1',
-    [_isRtl()?'borderRight':'borderLeft']:'4px solid '+(todo.completed?'var(--mint-l)':isOverdue?'var(--rose)':'var(--teal)')
-  }});
-
-  // Checkbox
-  const chk=el('div',{class:'chk'+(todo.completed?' done':''),style:{marginTop:'3px',flexShrink:0}},todo.completed?['✓']:[]);
-  chk.onclick=async()=>{
-    const all=DB.todos||[];
-    const i=all.findIndex(t=>t.id===todo.id);
-    if(i>-1){const nv=!all[i].completed;all[i].completed=nv;DB.todos=all;
-      if(session&&session.id!=='demo'){
-        try{await _supa.from('todos').update({completed:nv}).eq('id',todo.id);}catch(e){console.error('todo complete:',e);toast('⚠️ Could not save change.','error');}
-      }
-    }
-    re();
-  };
-  card.appendChild(chk);
-
-  // Info
-  const info=el('div',{style:{flex:1,minWidth:0}});
-  info.appendChild(el('div',{style:{fontWeight:700,fontSize:'.88rem',color:todo.completed?'var(--slate-l)':'var(--navy)',textDecoration:todo.completed?'line-through':'none',marginBottom:'4px'}},[todo.title]));
-  if(todo.note){
-    info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'5px',lineHeight:'1.4'}},[todo.note]));
-  }
-  const meta=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}});
-  if(todo.dueDate){
-    const dueLbl=el('span',{style:{fontSize:'.72rem',fontWeight:700,color:isOverdue?'var(--rose)':'var(--teal)',background:isOverdue?'#fff1f2':'var(--mint-ll)',padding:'2px 8px',borderRadius:'99px'}},
-      [(isOverdue?'⚠️ Overdue: ':'')+todo.dueDate+(todo.dueTime?' at '+todo.dueTime:'')]);
-    meta.appendChild(dueLbl);
-  }
-  // Reminder badges
-  const r=todo.reminders||{};
-  if(r.inApp)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['🔔 In-App']));
-  if(r.email)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📧 Email']));
-  if(r.push)meta.appendChild(el('span',{style:{fontSize:'.68rem',color:'var(--slate)',background:'var(--mint-ll)',padding:'2px 6px',borderRadius:'99px'}},['📱 Push']));
-  info.appendChild(meta);
-  card.appendChild(info);
-
-  // Actions
-  const acts=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',flexShrink:0}});
-  acts.appendChild(mkBtn('✏️','btn-sm btn-ghost',()=>showAddTodoModal(todo.childId,todo)));
-  acts.appendChild(mkBtn('🗑️','btn-sm btn-danger',()=>openConfirm('Delete Task','Remove this task?',true,async()=>{
-    const tid=todo.id;
-    DB.todos=(DB.todos||[]).filter(t=>t.id!==tid);re();toast('Task removed.');
-    if(session&&session.id!=='demo'){
-      try{await _supa.from('todos').delete().eq('id',tid);}catch(e){console.error('todo delete:',e);}
-      try{await _supa.from('todo_reminders').delete().eq('todo_id',tid);}catch(e){console.error('todo_reminder delete:',e);}
-    }
-  })));
-  card.appendChild(acts);
-  return card;
-}
-
-function showAddTodoModal(childId,existing){
-  const title=existing?'Edit Task':'New Task';
-  openModal(title,(mb,close)=>{
-    // Title
-    mb.appendChild(el('div',{class:'inp-label'},['Task title *']));
-    const titleInp=el('input',{class:'inp',placeholder:'e.g. Speech practice 10 min',style:{marginBottom:'14px'}});
-    if(existing)titleInp.value=existing.title||'';
-    mb.appendChild(titleInp);
-
-    // Note
-    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
-    const noteInp=el('textarea',{class:'inp',placeholder:'Additional details…',style:{marginBottom:'14px',minHeight:'72px'}});
-    if(existing)noteInp.value=existing.note||'';
-    mb.appendChild(noteInp);
-
-    // Due date + time
-    const dateRow=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
-    const dateInp=makeDateInput('Due date');
-    if(existing&&existing.dueDate)dateInp.value=existing.dueDate;
-    const timeInp=el('input',{class:'inp',type:'time',placeholder:'Time (optional)'});
-    if(existing&&existing.dueTime)timeInp.value=existing.dueTime;
-    dateRow.appendChild(dateInp);
-    dateRow.appendChild(timeInp);
-    mb.appendChild(dateRow);
-
-    // Child selector (if no active child)
-    let selChildId=childId||S.activeChild;
-    const allChildren=DB.children.length?DB.children:LS.get('children',[]);
-    if(!selChildId&&allChildren.length>1){
-      mb.appendChild(el('div',{class:'inp-label'},[T('cal_for_which_child')]));
-      const childSel=el('select',{class:'inp',style:{marginBottom:'14px'}});
-      childSel.appendChild(el('option',{value:''},[T('todo_select_child')]));
-      allChildren.forEach(ch=>{
-        const o=el('option',{value:ch.id},[ch.avatar+' '+ch.name]);
-        if(existing&&existing.childId===ch.id)o.selected=true;
-        childSel.appendChild(o);
-      });
-      childSel.onchange=()=>{selChildId=childSel.value;};
-      mb.appendChild(childSel);
-    }
-
-    // Reminder options
-    mb.appendChild(el('div',{class:'inp-label',style:{marginBottom:'8px'}},['Reminders (optional)']));
-    const remRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'20px'}});
-    const remOpts=[
-      {key:'inApp',label:'🔔 In-App',desc:'Alert inside the app when due'},
-      {key:'email',label:'📧 Email',desc:'Email reminder when due'},
-      {key:'push',label:'📱 Push',desc:'Push notification (if enabled)'}
-    ];
-    const remState={inApp:existing?.reminders?.inApp||false,email:existing?.reminders?.email||false,push:existing?.reminders?.push||false};
-    remOpts.forEach(({key,label,desc})=>{
-      const tog=el('div',{style:{
-        display:'flex',alignItems:'center',gap:'8px',padding:'9px 13px',
-        borderRadius:'12px',cursor:'pointer',border:'2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)'),
-        background:remState[key]?'var(--mint-ll)':'#fff',
-        transition:'all .15s',userSelect:'none'
-      }});
-      const dot=el('div',{style:{width:'16px',height:'16px',borderRadius:'50%',border:'2px solid '+(remState[key]?'var(--teal)':'#ccc'),background:remState[key]?'var(--teal)':'#fff',flexShrink:0}});
-      tog.appendChild(dot);
-      tog.appendChild(el('span',{style:{fontSize:'.8rem',fontWeight:700,color:remState[key]?'var(--teal)':'var(--slate)'}},[label]));
-      tog.onclick=()=>{
-        remState[key]=!remState[key];
-        tog.style.border='2px solid '+(remState[key]?'var(--teal)':'var(--mint-l)');
-        tog.style.background=remState[key]?'var(--mint-ll)':'#fff';
-        dot.style.border='2px solid '+(remState[key]?'var(--teal)':'#ccc');
-        dot.style.background=remState[key]?'var(--teal)':'#fff';
-        tog.querySelector('span').style.color=remState[key]?'var(--teal)':'var(--slate)';
-      };
-      remRow.appendChild(tog);
-    });
-    mb.appendChild(remRow);
-
-    // Save
-    mb.appendChild(mkBtn(existing?'💾 Save Changes':'➕ Add Task','btn-lg btn-primary btn-full',async()=>{
-      const t=titleInp.value.trim();
-      if(!t){toast('Please enter a task title.','error');return;}
-      const finalChildId=selChildId||S.activeChild;
-      const todo={
-        id:existing?.id||'td_'+Date.now(),
-        childId:finalChildId||null,
-        title:t,
-        note:noteInp.value.trim(),
-        dueDate:dateInp.value||null,
-        dueTime:timeInp.value||null,
-        completed:existing?.completed||false,
-        reminders:{...remState},
-        createdAt:existing?.createdAt||new Date().toISOString()
-      };
-      if(session?.id!=='demo'){
-        try{
-          await _supa.from('todos').upsert({id:todo.id,child_id:todo.childId||null,household_id:session.householdId||null,user_id:session.id,title:todo.title,note:todo.note||null,due_date:todo.dueDate||null,due_time:todo.dueTime||null,completed:todo.completed||false,reminders:todo.reminders},{onConflict:'id'});
-        }catch(e){console.error('save todo:',e);toast('Could not save task.','error');return;}
-      }
-      const all=DB.todos||[];
-      if(existing){
-        const i=all.findIndex(x=>x.id===existing.id);
-        if(i>-1)all[i]=todo;else all.push(todo);
-      } else {
-        all.push(todo);
-      }
-      DB.todos=all;
-
-      // Schedule in-app reminder if dueDate+dueTime set
-      if(todo.reminders.inApp&&todo.dueDate&&todo.dueTime){
-        const dueMs=new Date(todo.dueDate+'T'+todo.dueTime).getTime();
-        const now=Date.now();
-        if(dueMs>now){
-          const delay=dueMs-now;
-          if(delay<2147483647){ // max setTimeout
-            setTimeout(()=>{
-              if(!(DB.todos||[]).find(t2=>t2.id===todo.id&&t2.completed)){
-                pushNotif('homework','⏰ Reminder: '+todo.title,todo.childId);
-                toast('⏰ Reminder: '+todo.title,'info',6000);
-              }
-            },delay);
-          }
-        }
-      }
-
-      // Email reminder — save to Supabase for server-side scheduling
-      if(todo.reminders.email&&todo.dueDate&&session?.email){
-        try{
-          await _supa.from('todo_reminders').upsert({
-            todo_id:todo.id,
-            user_email:session.email,
-            due_at:todo.dueDate+(todo.dueTime?'T'+todo.dueTime+':00':'T09:00:00'),
-            title:todo.title,
-            child_id:todo.childId||null,
-            sent:false
-          },{onConflict:'todo_id'});
-        }catch(e){console.error('❌ todo reminder save:',e);}
-      }
-
-      close();re();
-      toast(existing?'✅ Task updated!':'✅ Task added!','success');
-    }));
-  },520);
 }
 
 /* -----------------------------------------------

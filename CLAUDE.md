@@ -121,7 +121,7 @@ Read this file first before any Huddledin task. Also check for relevant skills:
 - `notifications` — `upsert_notification` SECURITY DEFINER function handles cross-user ops
 - `folder_permissions` — household + specialist scoping
 - `reports` + `report_templates` + `specialist_phrases` — specialist-scoped (own data only)
-- Legacy tables (homework, milestones, progress, todos, todo_reminders) — deny-all except own user scope where applicable
+- Legacy tables (homework, milestones, progress, todos*, todo_reminders*) — deny-all except own user scope where applicable. (* JS references removed May 2026; table drop pending HIPAA pre-launch pass.)
 - `messages` — currently open (Phase B2 will add RLS for delete feature)
 
 ### Server-side auth on AI endpoints
