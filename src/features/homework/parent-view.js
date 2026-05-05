@@ -382,6 +382,54 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     row.scrollLeft = Math.max(0, Math.min(max, row.scrollLeft + e.deltaY));
   }, { passive: false });
 
+  // Click-and-drag scroll for desktop. Mobile touch swipe is unaffected — touch
+  // events don't fire mousedown/mousemove on most modern browsers.
+  // Drag detection threshold (5px) distinguishes click-to-tap from drag-to-scroll:
+  //   movement < 5px → click passes through to day-box tap handler
+  //   movement ≥ 5px → drag, click suppressed via preventDefault + stopPropagation
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartScrollLeft = 0;
+  let totalDragDistance = 0;
+  const DRAG_THRESHOLD_PX = 5;
+
+  row.style.cursor = 'grab';
+  row.style.userSelect = 'none';
+
+  row.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;  // left click only
+    isDragging = true;
+    dragStartX = e.pageX;
+    dragStartScrollLeft = row.scrollLeft;
+    totalDragDistance = 0;
+    row.style.cursor = 'grabbing';
+  });
+
+  row.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const dx = e.pageX - dragStartX;
+    totalDragDistance = Math.abs(dx);
+    row.scrollLeft = dragStartScrollLeft - dx;
+  });
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    row.style.cursor = 'grab';
+  };
+
+  row.addEventListener('mouseup', (e) => {
+    // If user dragged > threshold, suppress the click that would otherwise fire on the day-box
+    if (totalDragDistance > DRAG_THRESHOLD_PX) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    endDrag();
+  });
+
+  row.addEventListener('mouseleave', endDrag);
+
   return row;
 }
 
