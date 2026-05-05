@@ -351,6 +351,18 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     row.appendChild(boxEl);
   });
 
+  // Sub-commit 3: center today's box in the visible scroll area on initial render.
+  // rAF fires after the row is mounted and laid out. No-op when content fits without scrolling.
+  requestAnimationFrame(() => {
+    try {
+      const todayBox = row.querySelector('[data-today="1"]');
+      if (todayBox && row.scrollWidth > row.clientWidth) {
+        const center = todayBox.offsetLeft - (row.clientWidth / 2) + (todayBox.offsetWidth / 2);
+        row.scrollLeft = Math.max(0, center);
+      }
+    } catch (_) {}
+  });
+
   return row;
 }
 
