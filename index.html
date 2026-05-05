@@ -2620,6 +2620,18 @@ function setupSpecialistSync(){
       if(!myPatientIds.has(String(cid)))return;
       _debouncedRefresh('files');
     })
+    // Session D Sub-commit 1: parent completions propagate to specialist UI in realtime.
+    // No server-side household filter (specialists span multiple households); client-side gate on child_id.
+    .on('postgres_changes',{event:'*',schema:'public',table:'homework_completions_v2'},(p)=>{
+      const _id=p.new?.id||p.old?.id;
+      if(_id&&_localCompletionChanges.has(_id)){_localCompletionChanges.delete(_id);return;}
+      if(p.new?.logged_by===session?.id)return;
+      const cid=p.new?.child_id||p.old?.child_id;
+      if(!cid)return;
+      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+      if(!myPatientIds.has(String(cid)))return;
+      _debouncedRefresh();
+    })
     .subscribe();
 }
 
