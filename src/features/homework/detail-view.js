@@ -259,7 +259,7 @@ function _showKebabMenu(anchor, hw, H) {
 // ── Per-exercise card ──
 
 function _renderExerciseCard(ex, hw, compMap, today, nextApptDate, H) {
-  const { el, S, re } = H;
+  const { el, S } = H;
 
   const card = el('div', { style: {
     background: '#fff',
@@ -311,11 +311,6 @@ function _renderExerciseCard(ex, hw, compMap, today, nextApptDate, H) {
 
   headerRow.appendChild(el('div', { style: { fontSize: '11px', color: '#7aaba5', fontWeight: 500, flexShrink: '0', textAlign: 'right' } }, [progText]));
 
-  headerRow.onclick = () => {
-    const cur = !!(S._hwSpecExpandedExercises[hw.id][ex.id]);
-    S._hwSpecExpandedExercises[hw.id][ex.id] = !cur;
-    re();
-  };
   card.appendChild(headerRow);
 
   // Day-box row (always visible when boxes exist)
@@ -343,41 +338,47 @@ function _renderExerciseCard(ex, hw, compMap, today, nextApptDate, H) {
     _attachDayBoxRowScroll(row);
   }
 
-  // Expanded content (instructions + metadata)
-  if (isExpanded) {
-    const expWrap = el('div', { style: { marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' } });
+  // Expanded content (instructions + metadata) — always built, display toggled
+  const expWrap = el('div', { style: { marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: isExpanded ? 'block' : 'none' } });
 
-    // Stop click propagation so selecting text doesn't collapse
-    expWrap.onclick = (e) => e.stopPropagation();
+  // Stop click propagation so selecting text doesn't collapse
+  expWrap.onclick = (e) => e.stopPropagation();
 
-    if (ex.instructions && ex.instructions.trim()) {
-      expWrap.appendChild(el('div', { class: 'hw2-section-label' }, ['Instructions']));
-      expWrap.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', marginBottom: '12px', whiteSpace: 'pre-wrap' } }, [ex.instructions]));
-    }
-
-    // Metadata blocks: Reps / Sets / Duration / Created
-    const metaBlocks = [];
-    if (ex.reps != null) metaBlocks.push(['Reps', String(ex.reps)]);
-    if (ex.sets != null) metaBlocks.push(['Sets', String(ex.sets)]);
-    if (ex.duration_seconds != null) metaBlocks.push(['Duration', Math.round(ex.duration_seconds / 60) + ' min']);
-    if (ex.created_at) {
-      const d = new Date(ex.created_at);
-      metaBlocks.push(['Created', _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate()]);
-    }
-
-    if (metaBlocks.length > 0) {
-      const metaRow = el('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap' } });
-      metaBlocks.forEach(([label, value]) => {
-        const cell = el('div', { style: { minWidth: '60px' } });
-        cell.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '2px' } }, [label]));
-        cell.appendChild(el('div', { style: { fontSize: '13px', color: '#334155', fontWeight: 600 } }, [value]));
-        metaRow.appendChild(cell);
-      });
-      expWrap.appendChild(metaRow);
-    }
-
-    card.appendChild(expWrap);
+  if (ex.instructions && ex.instructions.trim()) {
+    expWrap.appendChild(el('div', { class: 'hw2-section-label' }, ['Instructions']));
+    expWrap.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', marginBottom: '12px', whiteSpace: 'pre-wrap' } }, [ex.instructions]));
   }
+
+  // Metadata blocks: Reps / Sets / Duration / Created
+  const metaBlocks = [];
+  if (ex.reps != null) metaBlocks.push(['Reps', String(ex.reps)]);
+  if (ex.sets != null) metaBlocks.push(['Sets', String(ex.sets)]);
+  if (ex.duration_seconds != null) metaBlocks.push(['Duration', Math.round(ex.duration_seconds / 60) + ' min']);
+  if (ex.created_at) {
+    const d = new Date(ex.created_at);
+    metaBlocks.push(['Created', _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate()]);
+  }
+
+  if (metaBlocks.length > 0) {
+    const metaRow = el('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap' } });
+    metaBlocks.forEach(([label, value]) => {
+      const cell = el('div', { style: { minWidth: '60px' } });
+      cell.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '2px' } }, [label]));
+      cell.appendChild(el('div', { style: { fontSize: '13px', color: '#334155', fontWeight: 600 } }, [value]));
+      metaRow.appendChild(cell);
+    });
+    expWrap.appendChild(metaRow);
+  }
+
+  card.appendChild(expWrap);
+
+  // Tap handler — DOM-only toggle (no re()), state slot persists for future re-renders
+  headerRow.onclick = () => {
+    const next = !(S._hwSpecExpandedExercises[hw.id][ex.id]);
+    S._hwSpecExpandedExercises[hw.id][ex.id] = next;
+    expWrap.style.display = next ? 'block' : 'none';
+    chevron.textContent = next ? '▾' : '▸';
+  };
 
   return card;
 }
