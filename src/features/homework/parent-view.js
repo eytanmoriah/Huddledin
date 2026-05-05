@@ -35,53 +35,50 @@ export function renderHomeworkParent({ childId, isWeb }) {
 
   const sec = el('div', { class: 'section' });
 
+  // Dashboard back bar (mobile + specialist context, only on bubble list view).
+  // On drill levels, the drill back arrow below the title handles in-section navigation.
+  if (!isDrilledIn && !(window.innerWidth >= 1024 && session?.role === 'parent')) {
+    const backBar = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
+    const backBtn = el('button', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 800, fontSize: '.84rem', padding: '0', minHeight: '44px', fontFamily: 'inherit' } }, [T('ss_back')]);
+    backBtn.onclick = () => { S.activeTab = 'dashboard'; re(); };
+    backBar.appendChild(backBtn);
+    sec.appendChild(backBar);
+  }
+
+  // Title block (always rendered — persists across all drill levels per Sub-commit 5).
+  const headerWrap = el('div', { style: { marginBottom: '18px' } });
+  headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
+  const today = new Date();
+  const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
+  const datePart = today.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const subEl = el('p', { class: 'page-sub' });
+  subEl.appendChild(document.createTextNode(childPart + ' · ' + datePart));
+  headerWrap.appendChild(subEl);
+  sec.appendChild(headerWrap);
+
+  // Drill back arrow (drill levels only, BELOW the persistent title).
+  // 4-level pop: completion details → status picker → exercise detail → exercise list → bubble list.
   if (isDrilledIn) {
-    // Drill view header: back arrow only (no page title / child subtitle).
-    // Back target depends on drill depth: exerciseId set → pop to exercise list; else → pop to bubble list.
     const backRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
     const backBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 700, fontSize: '.84rem', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '4px', minHeight: '44px' } }, ['← Back']);
     backBtn.onclick = () => {
       const d = S._hwParentDrill;
       if (!d) return;
       if (d.status && d.status !== '__pending_status__') {
-        // On completion details (Sub-commit 4): revert status to picker
         S._hwParentDrill = { ...d, status: '__pending_status__' };
       } else if (d.status === '__pending_status__') {
-        // On status picker (Sub-commit 3): pop status, return to exercise detail
         const { status, ...rest } = d;
         S._hwParentDrill = rest;
       } else if (d.exerciseId) {
-        // On exercise detail (Sub-commit 2): pop exerciseId, return to exercise list
         const { childId: c, hwId, dateStr } = d;
         S._hwParentDrill = { childId: c, hwId, dateStr };
       } else {
-        // On exercise list (Sub-commit 1): pop drill entirely
         S._hwParentDrill = null;
       }
       re();
     };
     backRow.appendChild(backBtn);
     sec.appendChild(backRow);
-  } else {
-    // Bubble list view header (Session B layout — unchanged).
-    if (!(window.innerWidth >= 1024 && session?.role === 'parent')) {
-      const backBar = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
-      const backBtn = el('button', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 800, fontSize: '.84rem', padding: '0', minHeight: '44px', fontFamily: 'inherit' } }, [T('ss_back')]);
-      backBtn.onclick = () => { S.activeTab = 'dashboard'; re(); };
-      backBar.appendChild(backBtn);
-      sec.appendChild(backBar);
-    }
-
-    const headerWrap = el('div', { style: { marginBottom: '18px' } });
-    headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
-
-    const today = new Date();
-    const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
-    const datePart = today.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-    const subEl = el('p', { class: 'page-sub' });
-    subEl.appendChild(document.createTextNode(childPart + ' · ' + datePart));
-    headerWrap.appendChild(subEl);
-    sec.appendChild(headerWrap);
   }
 
   const host = el('div');

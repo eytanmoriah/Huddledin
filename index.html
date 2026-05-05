@@ -8070,7 +8070,7 @@ function renderParentDesktop(){
       const tb=el('button',{style:{padding:'10px 18px',border:'none',background:'transparent',fontSize:'14px',fontWeight:isAct?600:500,color:isAct?'#0d9488':'#4a7570',cursor:'pointer',borderBottom:isAct?'2.5px solid #0d9488':'2.5px solid transparent',marginBottom:'-1.5px',transition:'color .15s'}});
       tb.textContent=t.label;
       if(t.id==='chat'){const _cc=_chatBadge(S.activeChild);if(_cc>0){tb.appendChild(el('span',{style:{background:'#0d9488',color:'#fff',borderRadius:'99px',minWidth:'18px',height:'18px',fontSize:'11px',fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:'0 5px',marginInlineStart:'6px',verticalAlign:'middle'}},[_cc>9?'9+':String(_cc)]));}}
-      tb.onclick=()=>{S.activeTab=t.id;if(t.id==='chat'){S.activeChatChildId=S.activeChild;S.activeChatId=null;S.chatsLoaded=false;}re();};
+      tb.onclick=()=>{if(t.id==='homework')S._hwParentDrill=null;S.activeTab=t.id;if(t.id==='chat'){S.activeChatChildId=S.activeChild;S.activeChatId=null;S.chatsLoaded=false;}re();};
       tabBar.appendChild(tb);
     });
     prof.appendChild(tabBar);
@@ -8153,7 +8153,7 @@ function renderParentDesktop(){
   const tasksDue=(DB.homeworkTasks||[]).filter(t=>t.status==='active'&&children.some(c=>c.id===t.childId)).length;
   pills.appendChild(_pill(unreadNotifs+unreadChats,T('home_unread'),()=>{S.navLevel=1;S.activeTab='notifications';re();}));
   pills.appendChild(_pill(weekApts,T('home_this_week'),()=>{S.webCal=true;S.calendarMode='joint';S.navLevel=1;re();}));
-  pills.appendChild(_pill(tasksDue,T('home_tasks'),()=>{if(children.length){S.activeChild=children[0].id;S.navLevel=1;S.activeTab='homework';re();}}));
+  pills.appendChild(_pill(tasksDue,T('home_tasks'),()=>{if(children.length){S.activeChild=children[0].id;S.navLevel=1;S._hwParentDrill=null;S.activeTab='homework';re();}}));
   greetRow.appendChild(pills);
   main.appendChild(greetRow);
 
@@ -8202,7 +8202,7 @@ function renderParentDesktop(){
         const chip=el('button',{style:{background:'#f0f7f6',color:'#0d9488',border:'none',borderRadius:'99px',padding:'4px 12px',fontSize:'11px',fontWeight:600,cursor:'pointer',transition:'background .15s'}});
         chip.textContent=ch.label;
         chip.onmouseenter=()=>chip.style.background='#ccfbf1';chip.onmouseleave=()=>chip.style.background='#f0f7f6';
-        chip.onclick=e=>{e.stopPropagation();S.activeChild=c.id;S.navLevel=1;S.activeTab=ch.tab;if(ch.tab==='chat'){S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;}re();};
+        chip.onclick=e=>{e.stopPropagation();S.activeChild=c.id;S.navLevel=1;if(ch.tab==='homework')S._hwParentDrill=null;S.activeTab=ch.tab;if(ch.tab==='chat'){S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;}re();};
         chips.appendChild(chip);
       });
       if(childCount===1){info.appendChild(chips);}else{card.appendChild(chips);}
@@ -9050,7 +9050,7 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
       };
       qrow.appendChild(mkQuick('📝','Notes',()=>{S.activeChild=c.id;S.activeTab='vault';re();}));
       qrow.appendChild(mkQuick('📅','Cal',()=>{S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();}));
-      qrow.appendChild(mkQuick('✅','Exercises',()=>{S.activeChild=c.id;S.activeTab='homework';re();}));
+      qrow.appendChild(mkQuick('✅','Exercises',()=>{S.activeChild=c.id;S._hwParentDrill=null;S.activeTab='homework';re();}));
       qrow.appendChild(mkQuick('💬','Chat',()=>{S.activeChild=c.id;S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';re();}));
       qrow.appendChild(mkQuick('📁','Files',()=>{S.activeChild=c.id;S.activeTab='files';S.activeFolderId=null;re();}));
       card.appendChild(qrow);
@@ -9554,7 +9554,7 @@ function switchTab(id){
         (async()=>{try{const{error}=await _supa.from('appointments').update({parent_read_at:_now}).in('id',_aptIds);if(error)console.error('❌ mark apts read:',error);}catch(e){console.error('mark apts read:',e);}})();
       }
     }
-    if(id==='homework'){_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{(async()=>{try{await _supa.from('notifications').update({read:true}).eq('id',id);}catch(e){}})();});}}}
+    if(id==='homework'){if(S._hwParentDrill)S._hwParentDrill=null;_clearHwBadgeCache(S.activeChild);_markSeen(S.activeChild,'homework',(DB.homeworkTasks||[]).filter(t=>t.childId===S.activeChild&&t.status==='active').length);if(session?.id!=='demo'){const _hwNotifIds=(DB.notifications||[]).filter(n=>!n.read&&n.childId===S.activeChild&&n.type==='homework').map(n=>n.id);if(_hwNotifIds.length){const ns=DB.notifications;_hwNotifIds.forEach(id=>{const i=ns.findIndex(n=>n.id===id);if(i>-1)ns[i].read=true;});DB.notifications=ns;_hwNotifIds.forEach(id=>{(async()=>{try{await _supa.from('notifications').update({read:true}).eq('id',id);}catch(e){}})();});}}}
     if(id==='chat'){
       // Chat badge uses unreadFor array — must clear it on the relevant chat(s) for this child
       const _chats=DB.chats||[];
