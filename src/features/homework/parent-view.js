@@ -1,8 +1,11 @@
-// Parent homework view — Session C Sub-commit 2 of 5
+// Parent homework view — Session C Sub-commit 3 of 5
 // Routes between bubble list (Session B default) and drill-down screens via
 // S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId [, status]] }.
-// Sub-commits: 1 = exercise list, 2 = exercise detail (this), 3-4 = status + completion.
-// Sub-commit 0 (3abe2de + a068e2d) added wheel + drag.
+// Status state machine:
+//   no status         → exercise detail (Sub-commit 2)
+//   '__pending_status__' → status picker (this commit)
+//   'done'/'skipped'/'cant_do' → completion details placeholder (Sub-commit 4)
+// Sub-commits: 1 = exercise list, 2 = exercise detail, 3 = status (this), 4-5 = completion + polish.
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -39,16 +42,19 @@ export function renderHomeworkParent({ childId, isWeb }) {
     backBtn.onclick = () => {
       const d = S._hwParentDrill;
       if (!d) return;
-      if (d.status) {
-        // Pop status only — return to exercise detail
+      if (d.status && d.status !== '__pending_status__') {
+        // On completion details (Sub-commit 4): revert status to picker
+        S._hwParentDrill = { ...d, status: '__pending_status__' };
+      } else if (d.status === '__pending_status__') {
+        // On status picker (Sub-commit 3): pop status, return to exercise detail
         const { status, ...rest } = d;
         S._hwParentDrill = rest;
       } else if (d.exerciseId) {
-        // Pop exerciseId — return to exercise list
+        // On exercise detail (Sub-commit 2): pop exerciseId, return to exercise list
         const { childId: c, hwId, dateStr } = d;
         S._hwParentDrill = { childId: c, hwId, dateStr };
       } else {
-        // Pop drill entirely — return to bubble list
+        // On exercise list (Sub-commit 1): pop drill entirely
         S._hwParentDrill = null;
       }
       re();
@@ -114,8 +120,10 @@ async function _loadAndRender(host, childId, isWeb, H) {
       re();
       return;
     }
-    if (drill.exerciseId && drill.status) {
-      _renderDrillStatusPlaceholder(host, drill, hw, H);
+    if (drill.exerciseId && drill.status === '__pending_status__') {
+      _renderDrillStatusScreen(host, drill, hw, compMap, H);
+    } else if (drill.exerciseId && drill.status) {
+      _renderDrillCompletionDetailsPlaceholder(host, drill, H);
     } else if (drill.exerciseId) {
       _renderDrillExerciseDetail(host, drill, hw, compMap, childId, isWeb, H);
     } else {
@@ -635,18 +643,133 @@ function _renderDrillExerciseDetail(host, drill, hw, compMap, childId, isWeb, H)
   host.appendChild(cta);
 }
 
-// Sub-commit 2 stub for the status screen — replaced in Sub-commit 3.
-function _renderDrillStatusPlaceholder(host, drill, hw, H) {
+// Single status card. isDefault = pre-highlighted with teal ring border.
+function _renderStatusCard(key, label, hint, icon, isDefault, onTap, H) {
   const { el } = H;
+
+  const card = el('div', { style: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '16px 18px',
+    background: '#fff',
+    border: isDefault ? '2px solid #0d9488' : '1px solid #e8f4f2',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'background .12s, border-color .12s',
+    userSelect: 'none',
+  } });
+
+  card.onmouseenter = () => {
+    if (!isDefault) {
+      card.style.background = '#f5fafa';
+      card.style.borderColor = '#c4dbd8';
+    }
+  };
+  card.onmouseleave = () => {
+    if (!isDefault) {
+      card.style.background = '#fff';
+      card.style.borderColor = '#e8f4f2';
+    }
+  };
+  card.onclick = onTap;
+
+  // Icon (neutral, same for all 3 cards regardless of pre-highlight)
+  card.appendChild(el('div', { style: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    background: '#f0fdf9',
+    color: '#0d6b63',
+    border: '1px solid #d1e0dd',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: '700',
+    flexShrink: '0',
+  } }, [icon]));
+
+  // Text
+  const textWrap = el('div', { style: { flex: '1', minWidth: '0' } });
+  textWrap.appendChild(el('div', { style: {
+    fontSize: '15px',
+    fontWeight: '600',
+    color: '#0f1a18',
+    marginBottom: '2px',
+  } }, [label]));
+  textWrap.appendChild(el('div', { style: {
+    fontSize: '12px',
+    color: '#7aaba5',
+    fontWeight: '500',
+  } }, [hint]));
+  card.appendChild(textWrap);
+
+  return card;
+}
+
+// Status picker — design doc §4.5. Per Round 4 Q11.1: pre-highlight a default
+// (existing status when editing, else 'done') but never auto-tap.
+function _renderDrillStatusScreen(host, drill, hw, compMap, H) {
+  const { el, re, S, toast } = H;
+  const ex = (hw.exercises || []).find(e => e.id === drill.exerciseId);
+
+  if (!ex) {
+    // Stale exercise — pop status + exerciseId, return to exercise list
+    S._hwParentDrill = { childId: drill.childId, hwId: drill.hwId, dateStr: drill.dateStr };
+    toast?.('This exercise was updated — returning to list');
+    re();
+    return;
+  }
+
+  // Determine pre-highlighted default: existing completion status, else 'done'.
+  const date = new Date(drill.dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+  const slots = exerciseSlotsOn(hw, ex, date);
+  const existing = slots
+    .map(s => compMap[ex.id + ':' + drill.dateStr + ':' + (s || '')])
+    .find(c => c);
+  const defaultStatus = existing?.status || 'done';
+
+  // Header
+  host.appendChild(el('div', { style: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#0f1a18',
+    marginBottom: '20px',
+  } }, ['How did it go?']));
+
+  // 3 stacked cards. Status enum uses live values: 'done' / 'skipped' / 'cant_do'.
+  const statuses = [
+    { key: 'done', icon: '✓', label: 'Done', hint: 'Completed the exercise' },
+    { key: 'skipped', icon: '→', label: 'Skipped', hint: "Didn't do it today" },
+    { key: 'cant_do', icon: '×', label: "Couldn't do", hint: 'Tried but not yet able' },
+  ];
+
+  const wrap = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+  statuses.forEach(s => {
+    wrap.appendChild(_renderStatusCard(s.key, s.label, s.hint, s.icon, s.key === defaultStatus, () => {
+      S._hwParentDrill = { ...drill, status: s.key };
+      re();
+    }, H));
+  });
+  host.appendChild(wrap);
+}
+
+// Sub-commit 3 stub for the completion details screen — replaced in Sub-commit 4.
+function _renderDrillCompletionDetailsPlaceholder(host, drill, H) {
+  const { el } = H;
+  const labelMap = { done: 'Done', skipped: 'Skipped', cant_do: "Couldn't do" };
+  const label = labelMap[drill.status] || drill.status;
+
   const wrap = el('div', { style: {
     padding: '24px 16px',
     textAlign: 'center',
     color: '#64748b',
   } });
   wrap.appendChild(el('div', { style: { fontSize: '15px', fontWeight: '600', color: '#0f1a18', marginBottom: '8px' } },
-    ['Status screen']));
+    ['Completion details for ' + label]));
   wrap.appendChild(el('div', { style: { fontSize: '13px', fontStyle: 'italic' } },
-    ['Coming in next sub-commit (Session C Sub-commit 3 — status picker).']));
+    ['Coming in next sub-commit (Session C Sub-commit 4 — completion details + save).']));
   host.appendChild(wrap);
 }
 
