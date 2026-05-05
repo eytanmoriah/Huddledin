@@ -1,12 +1,8 @@
-// Parent homework view — Session C Sub-commit 4 of 5 (Session C complete)
+// Parent homework view — Session C Sub-commit 6 (Session C truly complete)
 // Routes between bubble list (Session B default) and drill-down screens via
 // S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId [, status]] }.
-// Status state machine:
-//   no status         → exercise detail (Sub-commit 2)
-//   '__pending_status__' → status picker (Sub-commit 3)
-//   'done'/'skipped'/'cant_do' → completion details + save (this)
-// Save → INSERT/UPDATE homework_completions_v2 via logExerciseCompletion + drill
-// pops back to exercise list. Activates Session A's media_type column for photo writes.
+// Bubble list filters by S._hwParentView ('active' | 'past') with toggle pills.
+// Title block is tappable — clears drill (in-page "back to bubble list").
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn, logExerciseCompletion } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -25,9 +21,13 @@ export function renderHomeworkParent({ childId, isWeb }) {
   const { el, re, S, session, DB } = H;
   const child = DB?.children?.find(c => c.id === childId);
 
-  // Cross-child guard: stale drill state from a different child auto-clears.
+  // Cross-child guards: drill state and Active/Past view both reset on child switch.
   if (S._hwParentDrill && S._hwParentDrill.childId !== childId) {
     S._hwParentDrill = null;
+  }
+  if (S._hwParentViewChild !== childId) {
+    S._hwParentView = 'active';
+    S._hwParentViewChild = childId;
   }
 
   const drill = S?._hwParentDrill;
@@ -46,7 +46,15 @@ export function renderHomeworkParent({ childId, isWeb }) {
   }
 
   // Title block (always rendered — persists across all drill levels per Sub-commit 5).
-  const headerWrap = el('div', { style: { marginBottom: '18px' } });
+  // Sub-commit 6: tappable. Tap clears drill state (in-page "back to bubble list" affordance).
+  const headerWrap = el('div', { style: {
+    marginBottom: '14px',
+    cursor: 'pointer',
+    borderRadius: '8px',
+    padding: '6px 8px',
+    transition: 'background .12s',
+    userSelect: 'none',
+  } });
   headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
   const today = new Date();
   const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
@@ -54,6 +62,14 @@ export function renderHomeworkParent({ childId, isWeb }) {
   const subEl = el('p', { class: 'page-sub' });
   subEl.appendChild(document.createTextNode(childPart + ' · ' + datePart));
   headerWrap.appendChild(subEl);
+  headerWrap.onmouseenter = () => { headerWrap.style.background = '#f5fafa'; };
+  headerWrap.onmouseleave = () => { headerWrap.style.background = 'transparent'; };
+  headerWrap.onclick = () => {
+    if (S._hwParentDrill) {
+      S._hwParentDrill = null;
+      re();
+    }
+  };
   sec.appendChild(headerWrap);
 
   // Drill back arrow (drill levels only, BELOW the persistent title).
@@ -130,7 +146,7 @@ async function _loadAndRender(host, childId, isWeb, H) {
     return;
   }
 
-  // Bubble list view (Session B default)
+  // Bubble list view (Session B default + Sub-commit 6 Active/Past filter)
   if (!homeworks.length) {
     host.appendChild(el('div', { class: 'empty-state' }, [
       el('span', { class: 'empty-state-icon' }, ['📋']),
@@ -140,7 +156,30 @@ async function _loadAndRender(host, childId, isWeb, H) {
     return;
   }
 
-  const specGroups = _groupBySpecialist(homeworks, H);
+  // Classify homeworks active vs past per design doc §8.3 + Q1.
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const pastHomeworks = homeworks.filter(hw => _isHomeworkPast(hw, today, H));
+  const activeHomeworks = homeworks.filter(hw => !_isHomeworkPast(hw, today, H));
+  const pastCount = pastHomeworks.length;
+
+  // Auto-revert to 'active' when no past homeworks exist (no UX trap).
+  let currentView = S?._hwParentView === 'past' ? 'past' : 'active';
+  if (currentView === 'past' && pastCount === 0) {
+    currentView = 'active';
+    if (S) S._hwParentView = 'active';
+  }
+
+  // Toggle pills (only if past homeworks exist for this child)
+  const toggle = _renderActivePastToggle(currentView, pastCount, (newKey) => {
+    S._hwParentView = newKey;
+    S._hwParentViewChild = childId;
+    re();
+  }, H);
+  if (toggle) host.appendChild(toggle);
+
+  const filteredHomeworks = currentView === 'past' ? pastHomeworks : activeHomeworks;
+
+  const specGroups = _groupBySpecialist(filteredHomeworks, H);
   let renderedSections = 0;
   specGroups.forEach(group => {
     const section = _renderSpecialistSection(group, compMap, childId, isWeb, H);
@@ -148,12 +187,81 @@ async function _loadAndRender(host, childId, isWeb, H) {
   });
 
   if (renderedSections === 0) {
+    const emptyTitle = currentView === 'past' ? 'No past homework' : 'No active homework right now';
     host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
       el('span', { class: 'empty-state-icon' }, ['📋']),
-      el('div', { class: 'empty-state-title' }, ['No active homework right now']),
+      el('div', { class: 'empty-state-title' }, [emptyTitle]),
       el('div', { class: 'empty-state-body' }, [T('hw_no_tasks_parent_desc')]),
     ]));
   }
+}
+
+// Active/Past classification (Sub-commit 6).
+// 'past' rules per design doc §8.3 + Q1:
+//   - duration_type='end_date' AND end_date < today → past
+//   - duration_type='next_appointment' AND no upcoming appointment AND a past appointment exists for the (child, specialist) pair → past
+//   - duration_type='open_ended' → never auto-past (specialist must archive manually)
+//   - 'next_appointment' with no appointments at all → active (no end declared)
+function _isHomeworkPast(hw, today, H) {
+  const todayStr = _fmtLocal(today);
+
+  if (hw.duration_type === 'end_date' && hw.end_date) {
+    return hw.end_date < todayStr;
+  }
+
+  if (hw.duration_type === 'next_appointment') {
+    // If an upcoming appointment exists, the homework is still bounded ahead → active
+    const nextApptDate = _findNextAppointment(hw.child_id, hw.specialist_id, H);
+    if (nextApptDate) return false;
+    // No upcoming → check whether there was a past appointment for this (child, specialist) pair
+    const apts = H.DB?.appointments || [];
+    return apts.some(a =>
+      a.childId === hw.child_id &&
+      (a.specialistId === hw.specialist_id || (a.sharedWith || []).includes(hw.specialist_id)) &&
+      !a.deletedAt &&
+      a.date && a.date < todayStr
+    );
+  }
+
+  // 'open_ended' or any unrecognized duration_type → never auto-past
+  return false;
+}
+
+// Active/Past toggle pills. Returns null when no past homeworks exist (toggle hidden).
+function _renderActivePastToggle(currentView, pastCount, onChange, H) {
+  if (pastCount === 0) return null;
+  const { el } = H;
+
+  const wrap = el('div', { style: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+    flexWrap: 'wrap',
+  } });
+
+  const makePill = (key, label) => {
+    const isActive = currentView === key;
+    const pill = el('button', { style: {
+      padding: '8px 18px',
+      borderRadius: '99px',
+      border: '1.5px solid ' + (isActive ? '#0d9488' : '#e2e8f0'),
+      background: isActive ? '#0d9488' : '#fff',
+      color: isActive ? '#fff' : '#0d9488',
+      fontSize: '13px',
+      fontWeight: '600',
+      cursor: isActive ? 'default' : 'pointer',
+      fontFamily: 'inherit',
+      transition: 'all .12s',
+      userSelect: 'none',
+    } }, [label]);
+    pill.onclick = () => { if (!isActive) onChange(key); };
+    return pill;
+  };
+
+  wrap.appendChild(makePill('active', 'Active'));
+  wrap.appendChild(makePill('past', 'Past Homework'));
+
+  return wrap;
 }
 
 function _groupBySpecialist(homeworks, H) {
