@@ -1,8 +1,8 @@
-// Parent homework view — Session C Sub-commit 1 of 5
+// Parent homework view — Session C Sub-commit 2 of 5
 // Routes between bubble list (Session B default) and drill-down screens via
-// S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId] }.
-// This commit adds the exercise list view; exercise-detail/status/completion
-// land in Sub-commits 2-4. Sub-commit 0 (3abe2de + a068e2d) added wheel + drag.
+// S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId [, status]] }.
+// Sub-commits: 1 = exercise list, 2 = exercise detail (this), 3-4 = status + completion.
+// Sub-commit 0 (3abe2de + a068e2d) added wheel + drag.
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -37,11 +37,19 @@ export function renderHomeworkParent({ childId, isWeb }) {
     const backRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
     const backBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 700, fontSize: '.84rem', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '4px', minHeight: '44px' } }, ['← Back']);
     backBtn.onclick = () => {
-      if (S._hwParentDrill?.exerciseId) {
-        const { childId: c, hwId, dateStr } = S._hwParentDrill;
-        S._hwParentDrill = { childId: c, hwId, dateStr };  // pop exerciseId only
+      const d = S._hwParentDrill;
+      if (!d) return;
+      if (d.status) {
+        // Pop status only — return to exercise detail
+        const { status, ...rest } = d;
+        S._hwParentDrill = rest;
+      } else if (d.exerciseId) {
+        // Pop exerciseId — return to exercise list
+        const { childId: c, hwId, dateStr } = d;
+        S._hwParentDrill = { childId: c, hwId, dateStr };
       } else {
-        S._hwParentDrill = null;  // pop the whole drill
+        // Pop drill entirely — return to bubble list
+        S._hwParentDrill = null;
       }
       re();
     };
@@ -106,8 +114,10 @@ async function _loadAndRender(host, childId, isWeb, H) {
       re();
       return;
     }
-    if (drill.exerciseId) {
-      _renderDrillPlaceholder(host, drill, hw, H);
+    if (drill.exerciseId && drill.status) {
+      _renderDrillStatusPlaceholder(host, drill, hw, H);
+    } else if (drill.exerciseId) {
+      _renderDrillExerciseDetail(host, drill, hw, compMap, childId, isWeb, H);
     } else {
       _renderDrillExerciseList(host, drill, hw, compMap, H);
     }
@@ -337,20 +347,306 @@ function _renderDrillExerciseList(host, drill, hw, compMap, H) {
   host.appendChild(list);
 }
 
-// Sub-commit 1 stub for the exercise detail screen — replaced in Sub-commit 2.
-function _renderDrillPlaceholder(host, drill, hw, H) {
+// Helper: detect video by file extension on the attachment name.
+function _isVideoFile(name) {
+  return /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(name || '');
+}
+
+// Prev/next chevron row at top of exercise detail screen.
+// Hides chevrons at boundaries (no wrap-around per design doc Round 6 Q11.2).
+function _renderPrevNextChevrons(scheduledExercises, currentIdx, drill, H) {
+  const { el, re, S } = H;
+  const prevExId = currentIdx > 0 ? scheduledExercises[currentIdx - 1].id : null;
+  const nextExId = currentIdx < scheduledExercises.length - 1 ? scheduledExercises[currentIdx + 1].id : null;
+
+  const row = el('div', { style: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '14px',
+  } });
+
+  const chevronStyle = (enabled) => ({
+    background: 'none',
+    border: 'none',
+    cursor: enabled ? 'pointer' : 'default',
+    color: enabled ? '#0d9488' : '#cbd5e1',
+    fontSize: '22px',
+    fontWeight: '700',
+    padding: '8px 14px',
+    fontFamily: 'inherit',
+    minHeight: '44px',
+    minWidth: '44px',
+    visibility: enabled ? 'visible' : 'hidden',
+  });
+
+  const prevBtn = el('button', { style: chevronStyle(!!prevExId) }, ['‹']);
+  prevBtn.onclick = () => {
+    if (!prevExId) return;
+    S._hwParentDrill = { ...drill, exerciseId: prevExId };
+    re();
+  };
+  row.appendChild(prevBtn);
+
+  row.appendChild(el('span', { style: {
+    fontSize: '12px',
+    color: '#7aaba5',
+    fontWeight: '500',
+  } }, [(currentIdx + 1) + ' of ' + scheduledExercises.length]));
+
+  const nextBtn = el('button', { style: chevronStyle(!!nextExId) }, ['›']);
+  nextBtn.onclick = () => {
+    if (!nextExId) return;
+    S._hwParentDrill = { ...drill, exerciseId: nextExId };
+    re();
+  };
+  row.appendChild(nextBtn);
+
+  return row;
+}
+
+// Specialist metadata chips: reps, sets, duration, frequency.
+function _renderDetailMetaChips(ex, hw, H) {
   const { el } = H;
+  const chips = [];
+
+  if (ex.reps && ex.sets) chips.push(ex.sets + '×' + ex.reps + ' reps');
+  else if (ex.reps) chips.push(ex.reps + ' reps');
+
+  if (ex.duration_seconds) {
+    const m = Math.round(ex.duration_seconds / 60);
+    chips.push(m >= 1 ? m + ' min' : ex.duration_seconds + ' sec');
+  }
+
+  const rec = hw.recurrence || 'daily';
+  if (rec === 'daily') chips.push(T('hw4_daily'));
+  else if (rec === 'specific_days') chips.push((hw.specific_days || []).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(' · '));
+  else if (rec === 'every_other_day') chips.push('Every other day');
+  else if (rec === 'once') chips.push('one-time');
+
+  if (chips.length === 0) return null;
+
+  const wrap = el('div', { style: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    marginBottom: '16px',
+  } });
+  chips.forEach(c => {
+    wrap.appendChild(el('span', { style: {
+      padding: '4px 10px',
+      borderRadius: '99px',
+      background: '#f0fdf9',
+      color: '#0d6b63',
+      fontSize: '11px',
+      fontWeight: '600',
+      border: '1px solid #d1e0dd',
+    } }, [c]));
+  });
+  return wrap;
+}
+
+// Media block with inline expansion: tap thumbnail → grow in place (image)
+// or play in place (video). Tap again → collapse back.
+function _renderDetailMediaBlock(ex, H) {
+  const { el } = H;
+  const paths = ex.attached_file_paths || [];
+  const urls = ex.attached_file_urls || [];
+  const names = ex.attached_file_names || [];
+  const count = Math.max(paths.length, urls.length, names.length);
+  if (count === 0) return null;
+
+  const wrap = el('div', { style: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    marginBottom: '20px',
+  } });
+
+  for (let i = 0; i < count; i++) {
+    const path = paths[i] || null;
+    const legacyUrl = urls[i] || null;
+    const name = names[i] || ('Attachment ' + (i + 1));
+    const isVideo = _isVideoFile(name);
+
+    const item = el('div', { style: {
+      borderRadius: '10px',
+      overflow: 'hidden',
+      cursor: 'pointer',
+      background: '#f0fdf9',
+      border: '1px solid #d1e0dd',
+    } });
+
+    let isExpanded = false;
+
+    const resolveUrl = async () => {
+      if (path) {
+        try { const u = await H.SB?.signFile?.(path); if (u) return u; } catch (_) {}
+      }
+      return legacyUrl || null;
+    };
+
+    const renderCollapsed = () => {
+      item.innerHTML = '';
+      isExpanded = false;
+      if (isVideo) {
+        const thumb = el('div', { style: {
+          height: '120px',
+          background: '#1a2e2b',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '14px',
+          gap: '8px',
+          fontWeight: '600',
+        } });
+        thumb.appendChild(document.createTextNode('▶  ' + name));
+        item.appendChild(thumb);
+      } else {
+        const img = el('img', { style: {
+          display: 'block',
+          width: '100%',
+          height: '160px',
+          objectFit: 'cover',
+        } });
+        (async () => {
+          const url = await resolveUrl();
+          if (url) img.src = url;
+        })();
+        item.appendChild(img);
+      }
+    };
+
+    const renderExpanded = async () => {
+      const url = await resolveUrl();
+      if (!url) return;
+      item.innerHTML = '';
+      isExpanded = true;
+      if (isVideo) {
+        const v = document.createElement('video');
+        v.src = url;
+        v.controls = true;
+        v.autoplay = true;
+        v.style.cssText = 'display:block;width:100%;max-height:60vh;background:#000;';
+        item.appendChild(v);
+      } else {
+        const img = el('img', { src: url, style: {
+          display: 'block',
+          width: '100%',
+          maxHeight: '60vh',
+          objectFit: 'contain',
+          background: '#1a2e2b',
+        } });
+        item.appendChild(img);
+      }
+    };
+
+    renderCollapsed();
+    item.onclick = () => {
+      if (isExpanded) renderCollapsed();
+      else renderExpanded();
+    };
+
+    wrap.appendChild(item);
+  }
+
+  return wrap;
+}
+
+// Exercise detail screen — design doc §4.4.
+function _renderDrillExerciseDetail(host, drill, hw, compMap, childId, isWeb, H) {
+  const { el, re, S, toast } = H;
   const ex = (hw.exercises || []).find(e => e.id === drill.exerciseId);
 
+  if (!ex) {
+    // Stale exercise (specialist removed it) — pop to exercise list
+    const { childId: c, hwId, dateStr } = drill;
+    S._hwParentDrill = { childId: c, hwId, dateStr };
+    toast?.('This exercise was updated — returning to list');
+    re();
+    return;
+  }
+
+  const date = new Date(drill.dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+
+  // Prev/next chevrons (only render if more than one exercise scheduled that day)
+  const scheduledExercises = (hw.exercises || [])
+    .filter(e => isExerciseScheduledOn(hw, e, date))
+    .sort((a, b) => (a.position || 0) - (b.position || 0));
+  const currentIdx = scheduledExercises.findIndex(e => e.id === drill.exerciseId);
+  if (currentIdx >= 0 && scheduledExercises.length > 1) {
+    host.appendChild(_renderPrevNextChevrons(scheduledExercises, currentIdx, drill, H));
+  }
+
+  // Exercise title (small subheading)
+  host.appendChild(el('div', { style: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#7aaba5',
+    textTransform: 'uppercase',
+    letterSpacing: '.04em',
+    marginBottom: '8px',
+  } }, [ex.title || 'Exercise']));
+
+  // Big instruction text — primary visual element
+  const instruction = ex.instructions || ex.title || 'Exercise';
+  host.appendChild(el('div', { style: {
+    fontSize: '17px',
+    fontWeight: '500',
+    color: '#0f1a18',
+    lineHeight: '1.55',
+    marginBottom: '16px',
+    whiteSpace: 'pre-wrap',
+  } }, [instruction]));
+
+  // Metadata chips
+  const chips = _renderDetailMetaChips(ex, hw, H);
+  if (chips) host.appendChild(chips);
+
+  // Media block
+  const mediaBlock = _renderDetailMediaBlock(ex, H);
+  if (mediaBlock) host.appendChild(mediaBlock);
+
+  // CTA: "Complete it" if no completion exists for this exercise on this date,
+  // "Edit completion" otherwise. Multi-slot: ANY slot's completion triggers edit mode.
+  const slots = exerciseSlotsOn(hw, ex, date);
+  const existingCompletion = slots
+    .map(s => compMap[ex.id + ':' + drill.dateStr + ':' + (s || '')])
+    .find(c => c);
+
+  const cta = el('button', { style: {
+    width: '100%',
+    padding: '14px',
+    border: 'none',
+    borderRadius: '12px',
+    background: '#0d9488',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    marginTop: '8px',
+  } }, [existingCompletion ? 'Edit completion' : 'Complete it']);
+  cta.onclick = () => {
+    S._hwParentDrill = { ...drill, status: '__pending_status__' };
+    re();
+  };
+  host.appendChild(cta);
+}
+
+// Sub-commit 2 stub for the status screen — replaced in Sub-commit 3.
+function _renderDrillStatusPlaceholder(host, drill, hw, H) {
+  const { el } = H;
   const wrap = el('div', { style: {
     padding: '24px 16px',
     textAlign: 'center',
     color: '#64748b',
   } });
   wrap.appendChild(el('div', { style: { fontSize: '15px', fontWeight: '600', color: '#0f1a18', marginBottom: '8px' } },
-    ['Exercise detail · ' + (ex?.title || 'Exercise')]));
+    ['Status screen']));
   wrap.appendChild(el('div', { style: { fontSize: '13px', fontStyle: 'italic' } },
-    ['Coming in next sub-commit (Session C Sub-commit 2 — exercise detail screen).']));
+    ['Coming in next sub-commit (Session C Sub-commit 3 — status picker).']));
   host.appendChild(wrap);
 }
 
