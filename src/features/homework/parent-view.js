@@ -1,13 +1,14 @@
-// Parent homework view — Session C Sub-commit 3 of 5
+// Parent homework view — Session C Sub-commit 4 of 5 (Session C complete)
 // Routes between bubble list (Session B default) and drill-down screens via
 // S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId [, status]] }.
 // Status state machine:
 //   no status         → exercise detail (Sub-commit 2)
-//   '__pending_status__' → status picker (this commit)
-//   'done'/'skipped'/'cant_do' → completion details placeholder (Sub-commit 4)
-// Sub-commits: 1 = exercise list, 2 = exercise detail, 3 = status (this), 4-5 = completion + polish.
+//   '__pending_status__' → status picker (Sub-commit 3)
+//   'done'/'skipped'/'cant_do' → completion details + save (this)
+// Save → INSERT/UPDATE homework_completions_v2 via logExerciseCompletion + drill
+// pops back to exercise list. Activates Session A's media_type column for photo writes.
 
-import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
+import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn, logExerciseCompletion } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
 import { injectHomeworkStyles } from './styles.js';
 
@@ -123,7 +124,7 @@ async function _loadAndRender(host, childId, isWeb, H) {
     if (drill.exerciseId && drill.status === '__pending_status__') {
       _renderDrillStatusScreen(host, drill, hw, compMap, H);
     } else if (drill.exerciseId && drill.status) {
-      _renderDrillCompletionDetailsPlaceholder(host, drill, H);
+      _renderDrillCompletionDetails(host, drill, hw, compMap, childId, H);
     } else if (drill.exerciseId) {
       _renderDrillExerciseDetail(host, drill, hw, compMap, childId, isWeb, H);
     } else {
@@ -755,22 +756,288 @@ function _renderDrillStatusScreen(host, drill, hw, compMap, H) {
   host.appendChild(wrap);
 }
 
-// Sub-commit 3 stub for the completion details screen — replaced in Sub-commit 4.
-function _renderDrillCompletionDetailsPlaceholder(host, drill, H) {
-  const { el } = H;
-  const labelMap = { done: 'Done', skipped: 'Skipped', cant_do: "Couldn't do" };
-  const label = labelMap[drill.status] || drill.status;
+// Completion details + save — design doc §4.6.
+// All fields optional. Pre-fills from existing completion in edit mode.
+// Photo uploads via H.SB.uploadFile; saves via logExerciseCompletion (data.js).
+// Writes media_type='image' for photos (Session A schema column).
+function _renderDrillCompletionDetails(host, drill, hw, compMap, childId, H) {
+  const { el, re, S, toast, DB, session } = H;
+  const ex = (hw.exercises || []).find(e => e.id === drill.exerciseId);
 
-  const wrap = el('div', { style: {
-    padding: '24px 16px',
-    textAlign: 'center',
+  if (!ex) {
+    // Stale exercise — pop status + exerciseId, return to exercise list
+    S._hwParentDrill = { childId: drill.childId, hwId: drill.hwId, dateStr: drill.dateStr };
+    toast?.('This exercise was updated — returning to list');
+    re();
+    return;
+  }
+
+  // Find existing completion for edit mode (single-slot only per current constraint)
+  const date = new Date(drill.dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+  const slots = exerciseSlotsOn(hw, ex, date);
+  const existingFound = slots
+    .map(s => ({ slot: s, comp: compMap[ex.id + ':' + drill.dateStr + ':' + (s || '')] }))
+    .find(o => o.comp);
+  const existingCompletion = existingFound?.comp || null;
+  const slotForWrite = existingFound?.slot || slots[0] || null;
+
+  // Status-aware header
+  const headerText = drill.status === 'done' ? 'How did it go?' : 'What happened?';
+  host.appendChild(el('div', { style: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#0f1a18',
+    marginBottom: '8px',
+  } }, [headerText]));
+
+  // Subtitle
+  const specName = hw.specialist_name || 'your specialist';
+  host.appendChild(el('div', { style: {
+    fontSize: '13px',
+    color: '#7aaba5',
+    fontWeight: '500',
+    marginBottom: '20px',
+  } }, ['All fields are optional — share what helps ' + specName + '.']));
+
+  const sectionLabelStyle = {
+    fontSize: '11px',
+    fontWeight: '700',
     color: '#64748b',
-  } });
-  wrap.appendChild(el('div', { style: { fontSize: '15px', fontWeight: '600', color: '#0f1a18', marginBottom: '8px' } },
-    ['Completion details for ' + label]));
-  wrap.appendChild(el('div', { style: { fontSize: '13px', fontStyle: 'italic' } },
-    ['Coming in next sub-commit (Session C Sub-commit 4 — completion details + save).']));
-  host.appendChild(wrap);
+    marginBottom: '6px',
+    textTransform: 'uppercase',
+    letterSpacing: '.05em',
+  };
+
+  // Reps input
+  host.appendChild(el('div', { style: sectionLabelStyle }, ['Reps done']));
+  const repsInput = el('input', {
+    class: 'hw2-input',
+    type: 'number',
+    inputMode: 'numeric',
+    placeholder: ex.reps ? 'Target: ' + ex.reps : 'Optional',
+    style: { marginBottom: '14px' },
+  });
+  if (existingCompletion?.actual_value != null) repsInput.value = String(existingCompletion.actual_value);
+  host.appendChild(repsInput);
+
+  // Notes textarea
+  host.appendChild(el('div', { style: sectionLabelStyle }, ['Notes']));
+  const notesPlaceholder = drill.status === 'skipped' ? 'Why was it skipped?' :
+                           drill.status === 'cant_do' ? 'What got in the way?' :
+                           'Anything worth telling ' + specName + '?';
+  const notesInput = el('textarea', {
+    class: 'hw2-input hw2-textarea',
+    placeholder: notesPlaceholder,
+    style: { marginBottom: '14px', minHeight: '80px', resize: 'vertical' },
+  });
+  if (existingCompletion?.note) notesInput.value = existingCompletion.note;
+  host.appendChild(notesInput);
+
+  // Photo (single, image only per design doc §12.4 — video deferred for HIPAA BAA)
+  host.appendChild(el('div', { style: sectionLabelStyle }, ['Photo']));
+
+  let photoPath = existingCompletion?.photo_path || null;
+  let photoUrlLegacy = existingCompletion?.photo_url || null;
+  let photoFile = null;  // newly selected, not yet uploaded
+  let photoObjectUrl = null;  // URL.createObjectURL for preview, revoked on cleanup
+
+  const photoWrap = el('div', { style: { marginBottom: '20px' } });
+
+  const triggerFilePicker = () => {
+    const fi = document.createElement('input');
+    fi.type = 'file';
+    fi.accept = 'image/*';
+    fi.onchange = (ev) => {
+      const f = ev.target.files?.[0];
+      if (!f) return;
+      photoFile = f;
+      photoPath = null;  // existing path no longer relevant; will be replaced on save
+      photoUrlLegacy = null;
+      if (photoObjectUrl) { try { URL.revokeObjectURL(photoObjectUrl); } catch (_) {} }
+      photoObjectUrl = URL.createObjectURL(f);
+      renderPhotoUI();
+    };
+    fi.click();
+  };
+
+  const renderPhotoUI = () => {
+    photoWrap.innerHTML = '';
+    const hasMedia = !!(photoFile || photoPath || photoUrlLegacy);
+    if (hasMedia) {
+      const thumbWrap = el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } });
+      const thumb = el('img', { style: {
+        width: '64px',
+        height: '64px',
+        borderRadius: '10px',
+        objectFit: 'cover',
+        flexShrink: '0',
+        background: '#f0fdf9',
+        border: '1px solid #d1e0dd',
+      } });
+      thumbWrap.appendChild(thumb);
+
+      // Async-load thumbnail src
+      (async () => {
+        let url = null;
+        if (photoObjectUrl) url = photoObjectUrl;
+        else if (photoPath) {
+          try { url = await H.SB?.signFile?.(photoPath); } catch (_) {}
+        }
+        if (!url && photoUrlLegacy) url = photoUrlLegacy;
+        if (url) thumb.src = url;
+      })();
+
+      const btnsCol = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+      const replaceBtn = el('button', {
+        type: 'button',
+        style: {
+          padding: '6px 12px',
+          borderRadius: '8px',
+          border: '1px solid #d1e0dd',
+          background: '#fff',
+          color: '#0d6b63',
+          fontSize: '12px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        },
+      }, ['Replace']);
+      replaceBtn.onclick = triggerFilePicker;
+      btnsCol.appendChild(replaceBtn);
+
+      const removeBtn = el('button', {
+        type: 'button',
+        style: {
+          padding: '6px 12px',
+          borderRadius: '8px',
+          border: '1px solid #fecaca',
+          background: '#fff',
+          color: '#dc2626',
+          fontSize: '12px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        },
+      }, ['Remove']);
+      removeBtn.onclick = () => {
+        if (photoObjectUrl) { try { URL.revokeObjectURL(photoObjectUrl); } catch (_) {} photoObjectUrl = null; }
+        photoFile = null;
+        photoPath = null;
+        photoUrlLegacy = null;
+        renderPhotoUI();
+      };
+      btnsCol.appendChild(removeBtn);
+      thumbWrap.appendChild(btnsCol);
+      photoWrap.appendChild(thumbWrap);
+    } else {
+      const addBtn = el('button', {
+        type: 'button',
+        style: {
+          padding: '12px 16px',
+          borderRadius: '10px',
+          border: '1.5px dashed #d1e0dd',
+          background: '#f0fdf9',
+          color: '#0d6b63',
+          fontSize: '13px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          width: '100%',
+        },
+      }, ['📷  Add photo']);
+      addBtn.onclick = triggerFilePicker;
+      photoWrap.appendChild(addBtn);
+    }
+  };
+  renderPhotoUI();
+  host.appendChild(photoWrap);
+
+  // Save button
+  const saveBtn = el('button', {
+    type: 'button',
+    style: {
+      width: '100%',
+      padding: '14px',
+      border: 'none',
+      borderRadius: '12px',
+      background: '#0d9488',
+      color: '#fff',
+      fontSize: '15px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      marginTop: '8px',
+    },
+  }, ['Save']);
+
+  saveBtn.onclick = async () => {
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try {
+      // Upload new photo first if one was selected
+      let finalPhotoPath = photoPath;
+      if (photoFile) {
+        try {
+          const uploadResult = await H.SB.uploadFile('homework/' + childId + '/' + ex.id, photoFile);
+          finalPhotoPath = uploadResult?.path || null;
+        } catch (e) {
+          console.error('❌ photo upload:', e);
+          toast?.('Photo upload failed.', 'error');
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
+          return;
+        }
+      }
+
+      const repsValue = repsInput.value.trim();
+      const actualValue = repsValue ? parseInt(repsValue, 10) : null;
+      const noteValue = notesInput.value.trim() || null;
+      const mediaType = finalPhotoPath ? 'image' : null;
+
+      const result = await logExerciseCompletion({
+        homework: hw,
+        exercise: ex,
+        scheduledDate: drill.dateStr,
+        slot: slotForWrite,
+        status: drill.status,
+        note: noteValue,
+        photoUrl: null,
+        photoPath: finalPhotoPath,
+        mediaType,
+        actualValue,
+        childId,
+        existingCompletionId: existingCompletion?.id || null,
+        previousStatus: existingCompletion?.status || null,
+      });
+
+      if (result?.stale) {
+        toast?.('This was changed elsewhere — please refresh.', 'error');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+        return;
+      }
+      if (result?.alreadyMarked) {
+        toast?.('Already logged.', 'info');
+      } else {
+        toast?.(existingCompletion ? 'Updated' : 'Logged');
+      }
+
+      // Cleanup blob URL before navigating away
+      if (photoObjectUrl) { try { URL.revokeObjectURL(photoObjectUrl); } catch (_) {} photoObjectUrl = null; }
+
+      // Pop back to exercise list (drill loses status + exerciseId)
+      S._hwParentDrill = { childId: drill.childId, hwId: drill.hwId, dateStr: drill.dateStr };
+      re();
+    } catch (e) {
+      console.error('❌ save completion:', e);
+      toast?.('Could not save.', 'error');
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  };
+
+  host.appendChild(saveBtn);
 }
 
 // ── End drill-down helpers ──

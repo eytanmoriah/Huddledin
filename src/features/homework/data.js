@@ -353,7 +353,7 @@ export async function loadCompletionsV2(childId, sinceDate) {
 // TODO(Phase 6d): Remove v1 dual-write block. See PHASE_6_7_DEFERRED.md.
 // existingCompletionId + previousStatus enable edit-mode (UPDATE branch) \u2014 see Session 1 plan.
 export async function logExerciseCompletion({
-  homework, exercise, scheduledDate, slot, status, note, photoUrl, photoPath, actualValue, childId,
+  homework, exercise, scheduledDate, slot, status, note, photoUrl, photoPath, mediaType, actualValue, childId,
   existingCompletionId, previousStatus,
 }) {
   const supa = _supa();
@@ -372,6 +372,7 @@ export async function logExerciseCompletion({
         note: note || null,
         photo_url: photoUrl || null,
         photo_path: photoPath || null,
+        media_type: mediaType || null,
         actual_value: actualValue ?? null,
         slot: slot || null,
       })
@@ -399,6 +400,7 @@ export async function logExerciseCompletion({
       note: note || null,
       photo_url: photoUrl || null,
       photo_path: photoPath || null,
+      media_type: mediaType || null,
       actual_value: actualValue ?? null,
       logged_by: sess.id,
     }).select('id').single();
