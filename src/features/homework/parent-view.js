@@ -848,25 +848,35 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
   boxes.forEach(box => {
     const isDone = _isDayDone(hw, box.date, compMap);
     const boxEl = _renderDayBox(box, isDone, H, () => {
-      H.S._hwParentDrill = { childId, hwId: hw.id, dateStr: box.dStr };
+      // Clamp future dates to today — parents shouldn't backfill forward.
+      // The exercise list view's date chip will show "Today" so the redirect is visible.
+      const todayStr = _fmtLocal(new Date());
+      const effectiveDate = box.dStr > todayStr ? todayStr : box.dStr;
+      H.S._hwParentDrill = { childId, hwId: hw.id, dateStr: effectiveDate };
       H.re?.();
     });
     row.appendChild(boxEl);
   });
 
-  // Position today's box at 70% from left of viewport on initial render.
-  // True centering (50/50) hid past ✓ history on narrow desktop columns; 70% past-bias
-  // surfaces completion history while keeping today + a sliver of future visible.
-  // rAF fires after the row is mounted and laid out. No-op when content fits without scrolling.
+  // Center today's box in the visible scroll viewport on initial render.
+  // Uses getBoundingClientRect rather than offsetLeft because the row's offsetParent
+  // is <body> (no positioned ancestor in the chain), so offsetLeft returned absolute
+  // page-x coordinates and over-shot the scroll on long-history homeworks.
+  // Double-rAF gives flex layout an extra frame to settle before measuring.
+  // No-op when content fits without scrolling.
   requestAnimationFrame(() => {
-    try {
-      const todayBox = row.querySelector('[data-today="1"]');
-      if (todayBox && row.scrollWidth > row.clientWidth) {
-        const PAST_BIAS_FRACTION = 0.7;
-        const target = todayBox.offsetLeft - (row.clientWidth * PAST_BIAS_FRACTION) + (todayBox.offsetWidth / 2);
+    requestAnimationFrame(() => {
+      try {
+        const todayBox = row.querySelector('[data-today="1"]');
+        if (!todayBox) return;
+        if (row.scrollWidth <= row.clientWidth) return;
+        const todayRect = todayBox.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const todayLeftInRow = todayRect.left - rowRect.left + row.scrollLeft;
+        const target = todayLeftInRow + (todayRect.width / 2) - (row.clientWidth / 2);
         row.scrollLeft = Math.max(0, target);
-      }
-    } catch (_) {}
+      } catch (_) {}
+    });
   });
 
   // Translate vertical mouse wheel into horizontal scroll on desktop. Skips trackpad
