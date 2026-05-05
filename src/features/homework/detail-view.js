@@ -1,36 +1,33 @@
-// Specialist homework detail view — Session D Sub-commit 2
-// Per-exercise day-box grid replaces the prior per-completion activity feed.
-// Each exercise gets a row of day-boxes (window per duration_type, statuses
-// encoded by color/icon). Tap a day-box → read-only modal with completion details.
+// Specialist homework detail view — Session D Sub-commit 2.6
+// Simplified header (title + kebab + schedule line), per-exercise cards
+// collapse by default with always-visible day-box rows. Tap a day-box →
+// read-only completion modal.
 
 import { loadHomeworkDetail, loadCompletionsV2 } from './data.js';
-import { scheduleSummary } from './schedule.js';
 import { injectHomeworkStyles } from './styles.js';
 import {
   _generateDayBoxWindow,
   _findNextAppointment,
-  _isDayDone,
   _attachDayBoxRowScroll,
 } from './parent-view.js';
 
 const T = (k, p) => window.HUD?.T?.(k, p) || k;
 const _pad = n => String(n).padStart(2, '0');
 const _fmtLocal = d => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-' + _pad(d.getDate());
-const _DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const _DAY_NAMES_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const _MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function renderHomeworkDetail({ homeworkId, isWeb }) {
   injectHomeworkStyles();
   const H = window.HUD || {};
-  const { el, mkBtn, toast, openConfirm, _supa, re, DB, S, session } = H;
+  const { el, re, S } = H;
 
   const sec = el('div', { class: 'section' });
 
   // Back bar
   const backRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
   const backBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 700, fontSize: '.84rem', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '4px' } }, ['← Back']);
-  backBtn.onclick = () => { S._hwTaskView = null; re(); };
+  backBtn.onclick = () => { S._hwTaskView = null; S._hwSpecExpandedExercises = null; re(); };
   backRow.appendChild(backBtn);
   sec.appendChild(backRow);
 
@@ -44,7 +41,7 @@ export function renderHomeworkDetail({ homeworkId, isWeb }) {
 }
 
 async function _loadAndRender(host, homeworkId, isWeb, H) {
-  const { el, mkBtn, toast, openConfirm, _supa, re, DB, S, session } = H;
+  const { el, S } = H;
   const result = await loadHomeworkDetail(homeworkId);
   host.innerHTML = '';
 
@@ -53,7 +50,7 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     return;
   }
 
-  const { homework: hwBase, exercises, occurrences } = result;
+  const { homework: hwBase, exercises } = result;
   const hw = { ...hwBase, exercises };
 
   // Load v2 completions for this child (90-day window — generous for grid display)
@@ -68,46 +65,14 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     compMap[c.homework_exercise_id + ':' + c.scheduled_date + ':' + (c.slot || '')] = c;
   });
 
-  // ── Header card (kept from previous version) ──
-  const header = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '16px' } });
+  // Ensure expansion state slot exists for this homework
+  if (!S._hwSpecExpandedExercises) S._hwSpecExpandedExercises = {};
+  if (!S._hwSpecExpandedExercises[hw.id]) S._hwSpecExpandedExercises[hw.id] = {};
 
-  const metaRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' } });
-  if (hw.is_pinned) metaRow.appendChild(el('span', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '1px 8px', borderRadius: '99px' } }, ['📌 Pinned']));
-  if (hw.is_paused) metaRow.appendChild(el('span', { style: { fontSize: '10px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '1px 8px', borderRadius: '99px' } }, ['Paused']));
-  const sched = scheduleSummary({ recurrence: hw.recurrence, specificDays: hw.specific_days || [], timeOfDay: hw.time_of_day || 'morning', durationType: hw.duration_type, endDate: hw.end_date });
-  metaRow.appendChild(el('span', { style: { fontSize: '11px', color: '#64748b', fontWeight: 500 } }, [sched]));
-  header.appendChild(metaRow);
+  // ── Header card ──
+  host.appendChild(_renderHeader(hw, H));
 
-  header.appendChild(el('div', { style: { fontWeight: 700, fontSize: '18px', color: '#0f1a18', marginBottom: '4px' } }, [hw.title]));
-  const startDate = hw.created_at ? new Date(hw.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
-  header.appendChild(el('div', { style: { fontSize: '12px', color: '#94a3b8', marginBottom: '12px' } }, ['Started ' + startDate + ' · ' + exercises.length + ' exercise' + (exercises.length !== 1 ? 's' : '')]));
-
-  if (hw.description) {
-    header.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', padding: '10px 12px', background: '#f0fdf9', borderRadius: '8px', marginBottom: '12px' } }, [hw.description]));
-  }
-
-  // Action buttons
-  const actRow = el('div', { style: { display: 'flex', gap: '8px' } });
-  actRow.appendChild(mkBtn('✏️ ' + T('hw3_edit'), 'btn-sm btn-ghost', () => window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId: hw.child_id, homeworkId: hw.id })));
-  actRow.appendChild(mkBtn(hw.is_paused ? '▶ ' + T('hw3_resume') : '⏸ ' + T('hw3_pause'), 'btn-sm btn-ghost', async () => {
-    const { error } = await _supa.from('homework_tasks').update({ is_paused: !hw.is_paused }).eq('id', hw.id);
-    if (error) { toast('Could not update.', 'error'); return; }
-    re();
-  }));
-  actRow.appendChild(mkBtn('🗄 ' + T('hw3_archive_btn'), 'btn-sm btn-ghost', () => {
-    openConfirm(T('hw3_archive_title'), T('hw3_archive_body'), false, async () => {
-      const { error } = await _supa.from('homework_tasks').update({ status: 'archived' }).eq('id', hw.id);
-      if (error) { toast('Could not archive.', 'error'); return; }
-      S._hwTaskView = null; re();
-    });
-  }));
-  header.appendChild(actRow);
-  host.appendChild(header);
-
-  // ── Week strip (kept — overall 7-day view across all exercises) ──
-  host.appendChild(_renderWeekStrip(occurrences, result.completions, el));
-
-  // ── Per-exercise grid (replaces old activity feed + per-exercise progress sections) ──
+  // ── Per-exercise grid ──
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const nextApptDate = hw.duration_type === 'next_appointment'
     ? _findNextAppointment(hw.child_id, hw.specialist_id, H)
@@ -116,86 +81,309 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
   host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '20px' } }, ['Progress']));
 
   exercises.forEach(ex => {
-    host.appendChild(_renderExerciseGridRow(ex, hw, compMap, today, nextApptDate, H));
+    host.appendChild(_renderExerciseCard(ex, hw, compMap, today, nextApptDate, H));
   });
 }
 
-// ── Per-exercise grid row ──
+// ── Header card ──
 
-function _renderExerciseGridRow(ex, hw, compMap, today, nextApptDate, H) {
+function _renderHeader(hw, H) {
   const { el } = H;
+
+  const header = el('div', { style: { background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '16px' } });
+
+  // Top row: title + kebab
+  const topRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } });
+  topRow.appendChild(el('div', { style: { fontWeight: 700, fontSize: '18px', color: '#0f1a18', flex: '1', minWidth: '0' } }, [hw.title]));
+
+  // Pinned/Paused chips before kebab
+  if (hw.is_pinned) topRow.appendChild(el('span', { style: { fontSize: '10px', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: '99px', flexShrink: '0' } }, ['📌 Pinned']));
+  if (hw.is_paused) topRow.appendChild(el('span', { style: { fontSize: '10px', fontWeight: 700, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '99px', flexShrink: '0' } }, ['Paused']));
+
+  const kebabBtn = el('button', {
+    style: {
+      background: 'none', border: 'none', cursor: 'pointer',
+      width: '32px', height: '32px', borderRadius: '8px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: '20px', color: '#64748b', flexShrink: '0',
+      padding: '0', lineHeight: '1',
+    },
+    title: 'More actions',
+  }, ['⋮']);
+  kebabBtn.onmouseenter = () => { kebabBtn.style.background = '#f1f5f9'; };
+  kebabBtn.onmouseleave = () => { kebabBtn.style.background = 'none'; };
+  kebabBtn.onclick = (e) => { e.stopPropagation(); _showKebabMenu(kebabBtn, hw, H); };
+  topRow.appendChild(kebabBtn);
+  header.appendChild(topRow);
+
+  // Schedule line
+  const scheduleText = _formatScheduleLine(hw);
+  header.appendChild(el('div', { style: { fontSize: '12px', color: '#94a3b8', fontWeight: 500, marginTop: '4px' } }, [scheduleText]));
+
+  // Description (plain text, only when populated)
+  if (hw.description && hw.description.trim()) {
+    header.appendChild(el('div', { style: { fontSize: '13px', color: '#64748b', fontStyle: 'italic', lineHeight: '1.5', marginTop: '8px' } }, [hw.description]));
+  }
+
+  return header;
+}
+
+// "Daily, mornings · until May 8" condensed format.
+// Pluralizes time slot for recurring; plain "morning"/etc. for once.
+function _formatScheduleLine(hw) {
+  const recurrence = hw.recurrence || 'daily';
+  const specificDays = hw.specific_days || [];
+  const timeOfDay = hw.time_of_day || 'morning';
+  const durationType = hw.duration_type;
+  const endDate = hw.end_date;
+
+  // Build cadence segment
+  let cadence = '';
+  if (recurrence === 'once') cadence = 'One time';
+  else if (recurrence === 'daily') cadence = 'Daily';
+  else if (recurrence === 'every_other_day') cadence = 'Every other day';
+  else if (recurrence === 'specific_days' && specificDays.length) {
+    const dayLabels = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+    cadence = specificDays.map(d => dayLabels[d] || d).join('/');
+  } else {
+    cadence = 'Daily';
+  }
+
+  // Build time segment (pluralize for recurring, singular for once)
+  const timeSlots = timeOfDay.split(',').filter(Boolean);
+  const isRecurring = recurrence !== 'once';
+  const timeText = timeSlots.map(t => t + (isRecurring ? 's' : '')).join(' + ');
+
+  // Once-off: "One time · [date]"
+  if (recurrence === 'once') {
+    if (hw.created_at) {
+      const d = new Date(hw.created_at);
+      return cadence + ' · ' + _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
+    }
+    return cadence;
+  }
+
+  // Build until/duration segment
+  let until = 'ongoing';
+  if (durationType === 'end_date' && endDate) {
+    const d = new Date(endDate + 'T12:00:00');
+    until = 'until ' + _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
+  } else if (durationType === 'next_appointment') {
+    // We don't have next appt info synchronously here; use 'ongoing' as fallback.
+    // Specialist can see exact date via the day-box grid below.
+    until = 'until next session';
+  } else if (durationType === 'open_ended') {
+    until = 'ongoing';
+  }
+
+  return cadence + ', ' + timeText + ' · ' + until;
+}
+
+// ── Kebab menu (inline popup, closes on outside click + escape) ──
+
+function _showKebabMenu(anchor, hw, H) {
+  const { el, mkBtn, toast, openConfirm, _supa, re, S } = H;
+
+  // Remove any existing menus first
+  document.querySelectorAll('.hw-spec-kebab-menu').forEach(m => m.remove());
+
+  const menu = el('div', { class: 'long-press-menu hw-spec-kebab-menu' });
+
+  const items = [
+    {
+      icon: '✏️',
+      label: T('hw3_edit') || 'Edit',
+      onClick: () => window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId: hw.child_id, homeworkId: hw.id }),
+    },
+    {
+      icon: hw.is_paused ? '▶' : '⏸',
+      label: hw.is_paused ? (T('hw3_resume') || 'Resume') : (T('hw3_pause') || 'Pause'),
+      onClick: async () => {
+        const { error } = await _supa.from('homework_tasks').update({ is_paused: !hw.is_paused }).eq('id', hw.id);
+        if (error) { console.error('❌ pause toggle:', error); toast('Could not update.', 'error'); return; }
+        re();
+      },
+    },
+    {
+      icon: '🗄',
+      label: T('hw3_archive_btn') || 'Archive',
+      onClick: () => {
+        openConfirm(T('hw3_archive_title'), T('hw3_archive_body'), false, async () => {
+          const { error } = await _supa.from('homework_tasks').update({ status: 'archived' }).eq('id', hw.id);
+          if (error) { console.error('❌ archive:', error); toast('Could not archive.', 'error'); return; }
+          S._hwTaskView = null; S._hwSpecExpandedExercises = null; re();
+        });
+      },
+    },
+  ];
+
+  items.forEach(it => {
+    const row = el('div', { class: 'long-press-item' });
+    row.appendChild(el('span', { style: { fontSize: '1rem' } }, [it.icon || '']));
+    row.appendChild(el('span', { style: { flex: '1' } }, [it.label]));
+    row.onclick = (e) => {
+      e.stopPropagation();
+      menu.remove();
+      try { it.onClick && it.onClick(); } catch (err) { console.error('❌ menu action:', err); }
+    };
+    menu.appendChild(row);
+  });
+
+  document.body.appendChild(menu);
+
+  // Position: prefer below anchor, flip up if overflow
+  const rect = anchor.getBoundingClientRect();
+  const mw = 200, mh = items.length * 48 + 12;
+  let x = Math.min(rect.right - mw, window.innerWidth - mw - 12);
+  x = Math.max(12, x);
+  let y = rect.bottom + 8;
+  if (y + mh > window.innerHeight - 12) y = rect.top - mh - 8;
+  y = Math.max(12, y);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  // Close on outside click + Escape
+  setTimeout(() => {
+    const closeMenu = () => {
+      menu.remove();
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+    const onPointer = (ev) => { if (!menu.contains(ev.target)) closeMenu(); };
+    const onKey = (ev) => { if (ev.key === 'Escape') closeMenu(); };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+  }, 50);
+}
+
+// ── Per-exercise card ──
+
+function _renderExerciseCard(ex, hw, compMap, today, nextApptDate, H) {
+  const { el, S, re } = H;
 
   const card = el('div', { style: {
     background: '#fff',
     border: '1.5px solid #e2e8f0',
     borderRadius: '12px',
-    padding: '14px 16px',
-    marginBottom: '12px',
+    padding: '12px 14px',
+    marginBottom: '10px',
   } });
 
-  // Top row: exercise name + measure
-  const topRow = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' } });
-  topRow.appendChild(el('div', { style: { fontWeight: 600, fontSize: '14px', color: '#0f1a18', flex: '1', minWidth: '0' } }, [ex.title]));
-  const measure = (ex.sets && ex.reps) ? ex.sets + '×' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
-  if (measure) topRow.appendChild(el('span', { style: { fontSize: '12px', color: '#64748b', fontWeight: 500, flexShrink: '0' } }, [measure]));
-  card.appendChild(topRow);
+  const isExpanded = !!(S._hwSpecExpandedExercises?.[hw.id]?.[ex.id]);
 
-  // Day-box row (uses parent-view's _generateDayBoxWindow + _attachDayBoxRowScroll)
+  // Compute boxes + counts up front so progress text can render either way
   const boxes = _generateDayBoxWindow(hw, today, nextApptDate)
     .filter(b => _isExerciseScheduledOnBox(ex, hw, b.date));
 
-  if (boxes.length === 0) {
-    card.appendChild(el('div', { style: { fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', padding: '8px 0' } }, ['Not scheduled in current window']));
-    return card;
-  }
-
-  const row = el('div', { style: {
-    display: 'flex',
-    gap: '6px',
-    overflowX: 'auto',
-    overflowY: 'hidden',
-    WebkitOverflowScrolling: 'touch',
-    scrollbarWidth: 'none',
-    padding: '4px 2px 8px',
-  } });
-  row.style.cssText += ';-ms-overflow-style:none;';
-  row.classList.add('hw-bubble-daybox-row');  // reuses existing webkit-scrollbar-hide CSS rule
-
   let doneCount = 0, skippedCount = 0, cantDoCount = 0, pendingPastCount = 0;
-  boxes.forEach(box => {
+  const dayStates = boxes.map(box => {
     const dayState = _classifyDay(ex, hw, box, compMap);
     if (dayState === 'done') doneCount++;
     else if (dayState === 'skipped') skippedCount++;
     else if (dayState === 'cant_do') cantDoCount++;
     else if (dayState === 'past_pending' || dayState === 'today_pending') pendingPastCount++;
-
-    const boxEl = _renderDayBoxSpec(box, dayState, H, () => {
-      _openCompletionModal(ex, hw, box.dStr, compMap, H);
-    });
-    row.appendChild(boxEl);
+    return dayState;
   });
-  card.appendChild(row);
-  _attachDayBoxRowScroll(row);
 
-  // Progress text
-  const parts = [];
-  if (doneCount > 0) parts.push(doneCount + ' done');
-  if (skippedCount > 0) parts.push(skippedCount + ' skipped');
-  if (cantDoCount > 0) parts.push(cantDoCount + " couldn’t");
-  if (pendingPastCount > 0) parts.push(pendingPastCount + ' not yet');
-  const progText = parts.length > 0 ? parts.join(' · ') : 'Not started yet';
-  card.appendChild(el('div', { style: { fontSize: '11px', color: '#7aaba5', fontWeight: 500, marginTop: '6px' } }, [progText]));
+  const progParts = [];
+  if (doneCount > 0) progParts.push(doneCount + ' done');
+  if (skippedCount > 0) progParts.push(skippedCount + ' skipped');
+  if (cantDoCount > 0) progParts.push(cantDoCount + " couldn’t");
+  if (pendingPastCount > 0) progParts.push(pendingPastCount + ' not yet');
+  const progText = boxes.length === 0
+    ? 'Not scheduled in current window'
+    : (progParts.length > 0 ? progParts.join(' · ') : 'Not started yet');
+
+  // Header row (chevron + name/measure + progress) — tap to toggle expand
+  const headerRow = el('div', { style: {
+    display: 'flex', alignItems: 'center', gap: '10px',
+    cursor: 'pointer', userSelect: 'none',
+  } });
+
+  const chevron = el('div', { style: { fontSize: '12px', color: '#94a3b8', flexShrink: '0', width: '14px', textAlign: 'center' } }, [isExpanded ? '▾' : '▸']);
+  headerRow.appendChild(chevron);
+
+  const nameWrap = el('div', { style: { flex: '1', minWidth: '0' } });
+  nameWrap.appendChild(el('div', { style: { fontWeight: 600, fontSize: '14px', color: '#0f1a18' } }, [ex.title]));
+  const measure = (ex.sets && ex.reps) ? ex.sets + '×' + ex.reps + ' reps' : ex.duration_seconds ? Math.round(ex.duration_seconds / 60) + ' min' : '';
+  if (measure) nameWrap.appendChild(el('div', { style: { fontSize: '12px', color: '#94a3b8', marginTop: '2px' } }, [measure]));
+  headerRow.appendChild(nameWrap);
+
+  headerRow.appendChild(el('div', { style: { fontSize: '11px', color: '#7aaba5', fontWeight: 500, flexShrink: '0', textAlign: 'right' } }, [progText]));
+
+  headerRow.onclick = () => {
+    const cur = !!(S._hwSpecExpandedExercises[hw.id][ex.id]);
+    S._hwSpecExpandedExercises[hw.id][ex.id] = !cur;
+    re();
+  };
+  card.appendChild(headerRow);
+
+  // Day-box row (always visible when boxes exist)
+  if (boxes.length > 0) {
+    const row = el('div', { style: {
+      display: 'flex',
+      gap: '6px',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      WebkitOverflowScrolling: 'touch',
+      scrollbarWidth: 'none',
+      padding: '8px 2px 4px',
+      marginTop: '6px',
+    } });
+    row.style.cssText += ';-ms-overflow-style:none;';
+    row.classList.add('hw-bubble-daybox-row');
+
+    boxes.forEach((box, idx) => {
+      const boxEl = _renderDayBoxSpec(box, dayStates[idx], H, () => {
+        _openCompletionModal(ex, hw, box.dStr, compMap, H);
+      });
+      row.appendChild(boxEl);
+    });
+    card.appendChild(row);
+    _attachDayBoxRowScroll(row);
+  }
+
+  // Expanded content (instructions + metadata)
+  if (isExpanded) {
+    const expWrap = el('div', { style: { marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' } });
+
+    // Stop click propagation so selecting text doesn't collapse
+    expWrap.onclick = (e) => e.stopPropagation();
+
+    if (ex.instructions && ex.instructions.trim()) {
+      expWrap.appendChild(el('div', { class: 'hw2-section-label' }, ['Instructions']));
+      expWrap.appendChild(el('div', { style: { fontSize: '13px', color: '#475569', lineHeight: '1.5', marginBottom: '12px', whiteSpace: 'pre-wrap' } }, [ex.instructions]));
+    }
+
+    // Metadata blocks: Reps / Sets / Duration / Created
+    const metaBlocks = [];
+    if (ex.reps != null) metaBlocks.push(['Reps', String(ex.reps)]);
+    if (ex.sets != null) metaBlocks.push(['Sets', String(ex.sets)]);
+    if (ex.duration_seconds != null) metaBlocks.push(['Duration', Math.round(ex.duration_seconds / 60) + ' min']);
+    if (ex.created_at) {
+      const d = new Date(ex.created_at);
+      metaBlocks.push(['Created', _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate()]);
+    }
+
+    if (metaBlocks.length > 0) {
+      const metaRow = el('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap' } });
+      metaBlocks.forEach(([label, value]) => {
+        const cell = el('div', { style: { minWidth: '60px' } });
+        cell.appendChild(el('div', { style: { fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '2px' } }, [label]));
+        cell.appendChild(el('div', { style: { fontSize: '13px', color: '#334155', fontWeight: 600 } }, [value]));
+        metaRow.appendChild(cell);
+      });
+      expWrap.appendChild(metaRow);
+    }
+
+    card.appendChild(expWrap);
+  }
 
   return card;
 }
 
 // Returns true if this exercise is scheduled on this date.
-// _generateDayBoxWindow filters at the homework level (any exercise scheduled = day in window),
-// but for the per-exercise grid we need per-exercise filtering using the same logic.
 function _isExerciseScheduledOnBox(ex, hw, date) {
-  // Reuse parent-view's logic via the homework's exercises array — but we need
-  // isExerciseScheduledOn directly. It's exported from data.js, let's import on demand
-  // via the bridge to avoid extra import statement noise. Inline a slim version:
   if (hw.is_paused) return false;
   if (hw.status !== 'active') return false;
   const recurrence = ex.override_recurrence || hw.recurrence || 'daily';
@@ -226,15 +414,13 @@ function _isExerciseScheduledOnBox(ex, hw, date) {
 //   Any 'skipped' (no cant_do) → 'skipped'
 //   No completions → today/past/future_pending
 function _classifyDay(ex, hw, box, compMap) {
-  // Resolve slots for this exercise on this date (mirror parent-view's exerciseSlotsOn semantics)
   const timeSlots = (ex.override_time_of_day || hw.time_of_day || 'morning').split(',').filter(Boolean);
   const slots = timeSlots.length ? timeSlots : [''];
 
-  let doneN = 0, cantDoN = 0, skippedN = 0, anyCompletion = false;
+  let doneN = 0, cantDoN = 0, skippedN = 0;
   for (const slot of slots) {
     const comp = compMap[ex.id + ':' + box.dStr + ':' + (slot || '')];
     if (!comp) continue;
-    anyCompletion = true;
     if (comp.status === 'done') doneN++;
     else if (comp.status === 'cant_do') cantDoN++;
     else if (comp.status === 'skipped') skippedN++;
@@ -244,60 +430,59 @@ function _classifyDay(ex, hw, box, compMap) {
   if (skippedN > 0) return 'skipped';
   if (doneN === slots.length && doneN > 0) return 'done';
 
-  // No qualifying completion → pending. Subdivide for visual.
   if (box.isToday) return 'today_pending';
   if (box.isFuture) return 'future_pending';
   return 'past_pending';
 }
 
-// Day-box renderer for specialist (3-status color encoding).
+// 32px day-box: day number on top + status icon below, stacked vertically.
 function _renderDayBoxSpec(box, dayState, H, onTap) {
   const { el } = H;
   const { date, isToday } = box;
-  const label = _DAY_LETTERS[date.getDay()] + ' ' + date.getDate();
+  const dayNum = String(date.getDate());
 
-  let bg, color, border, content, fontWeight;
+  let bg, color, border, icon;
   if (dayState === 'done') {
-    bg = '#1D9E75'; color = '#fff'; border = 'none';
-    content = '✓'; fontWeight = '700';
+    bg = '#1D9E75'; color = '#fff'; border = 'none'; icon = '✓';
   } else if (dayState === 'cant_do') {
-    bg = '#A32D2D'; color = '#fff'; border = 'none';
-    content = '×'; fontWeight = '700';
+    bg = '#A32D2D'; color = '#fff'; border = 'none'; icon = '×';
   } else if (dayState === 'skipped') {
-    bg = '#D97706'; color = '#fff'; border = 'none';
-    content = '→'; fontWeight = '700';
+    bg = '#BA7517'; color = '#fff'; border = 'none'; icon = '→';
   } else if (dayState === 'today_pending') {
-    bg = 'transparent'; color = '#0d9488'; border = '2px solid #0d9488';
-    content = label; fontWeight = '700';
+    bg = 'transparent'; color = '#0d9488'; border = '2px solid #0d9488'; icon = null;
   } else {
-    // past_pending or future_pending — same neutral visual
-    bg = 'transparent'; color = '#7aaba5'; border = '1px solid #e2e8f0';
-    content = label; fontWeight = '600';
+    // past_pending or future_pending
+    bg = '#F1EFE8'; color = '#7aaba5'; border = 'none'; icon = null;
   }
 
   const boxEl = el('div', {
     style: {
       flexShrink: '0',
-      width: '44px',
-      height: '36px',
-      borderRadius: '10px',
+      width: '32px',
+      height: '32px',
+      borderRadius: '4px',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       cursor: 'pointer',
       background: bg,
       color,
       border,
-      fontSize: dayState === 'done' || dayState === 'cant_do' || dayState === 'skipped' ? '15px' : '11px',
-      fontWeight,
-      textAlign: 'center',
+      gap: '1px',
       userSelect: 'none',
       WebkitTouchCallout: 'none',
       transition: 'transform .12s, border-color .12s',
     },
   });
   if (isToday) boxEl.dataset.today = '1';
-  boxEl.appendChild(document.createTextNode(content));
+
+  const numEl = el('div', { style: { fontSize: '10px', fontWeight: '600', lineHeight: '1' } }, [dayNum]);
+  boxEl.appendChild(numEl);
+  if (icon) {
+    boxEl.appendChild(el('div', { style: { fontSize: '11px', fontWeight: '700', lineHeight: '1' } }, [icon]));
+  }
+
   boxEl.onclick = onTap;
   return boxEl;
 }
@@ -334,7 +519,7 @@ function _openCompletionModal(ex, hw, dateStr, compMap, H) {
       // Status row
       const status = r.comp.status;
       const statusLabels = { done: '✓ Done', skipped: '→ Skipped', cant_do: '× Couldn’t do' };
-      const statusColors = { done: '#1D9E75', skipped: '#D97706', cant_do: '#A32D2D' };
+      const statusColors = { done: '#1D9E75', skipped: '#BA7517', cant_do: '#A32D2D' };
       mb.appendChild(el('div', { style: { fontSize: '15px', fontWeight: 700, color: statusColors[status] || '#0f1a18', marginBottom: '10px' } }, [statusLabels[status] || status]));
 
       // Reps
@@ -397,47 +582,4 @@ function _openCompletionModal(ex, hw, dateStr, compMap, H) {
       }
     });
   }, 380);
-}
-
-// ── Week strip (kept from previous version — 7-day overview across all exercises) ──
-
-function _renderWeekStrip(occurrences, completions, el) {
-  const wrap = el('div', { style: { display: 'flex', gap: '4px', marginBottom: '12px', padding: '12px', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '10px' } });
-
-  const now = new Date();
-  const day = now.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() + mondayOffset);
-  weekStart.setHours(0, 0, 0, 0);
-  const todayStr = _fmtLocal(now);
-
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    const ds = _fmtLocal(d);
-    const isToday = ds === todayStr;
-
-    const dayOccs = occurrences.filter(o => o.scheduled_date === ds);
-    const scheduled = dayOccs.length;
-    const done = dayOccs.filter(o => {
-      return completions.some(c => c.occurrence_id === o.id);
-    }).length;
-    const pct = scheduled > 0 ? Math.round((done / scheduled) * 100) : 0;
-
-    const col = el('div', { style: { flex: '1', textAlign: 'center' } });
-    col.appendChild(el('div', { style: { fontSize: '10px', fontWeight: isToday ? 800 : 500, color: isToday ? '#0d9488' : '#94a3b8', marginBottom: '4px' } }, [d.toLocaleDateString([], { weekday: 'short' })]));
-
-    const barOuter = el('div', { style: { height: '32px', background: '#f1f5f9', borderRadius: '4px', position: 'relative', overflow: 'hidden' } });
-    if (scheduled > 0) {
-      const barInner = el('div', { style: { position: 'absolute', bottom: '0', left: '0', right: '0', height: pct + '%', background: done === scheduled ? '#0d9488' : '#d1e0dd', borderRadius: '4px', transition: 'height .2s' } });
-      barOuter.appendChild(barInner);
-    }
-    col.appendChild(barOuter);
-
-    if (scheduled > 0) col.appendChild(el('div', { style: { fontSize: '9px', color: '#64748b', marginTop: '2px' } }, [done + '/' + scheduled]));
-    wrap.appendChild(col);
-  }
-
-  return wrap;
 }
