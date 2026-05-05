@@ -8430,14 +8430,12 @@ function renderSpecDesktop(){
 
   // Nav
   const nav=el('div',{class:'spec-dt-nav'});
-  const _chatUnread=(DB.chats||[]).filter(c=>(c.unreadFor||[]).includes(session?.id)).reduce((s,c)=>s+(c.unreadCount||1),0);
   const isPatientsActive=isPatientCtx||S.activeTab==='patients';
   [
     {id:'dashboard',label:T('nav_home'),icon:'🏠'},
     {id:'patients', label:T('spec_nav_patients'),icon:'👥'},
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
-    {id:'chat',     label:T('nav_chat')||'Messages',icon:'💬',badge:_chatUnread||null},
     {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📁'},
     {id:'reports',label:'Reports'+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📋'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
@@ -8457,8 +8455,6 @@ function renderSpecDesktop(){
       } else if(item.id==='calendar'){
         S.activeChild=null;S.calFullscreen=true;
         switchTab('calendar');
-      } else if(item.id==='chat'){
-        S.activeChild=null;S.activeChatChildId=null;S.activeChatId=null;switchTab('chat');
       } else {switchTab(item.id);}
     };
     nav.appendChild(btn);
