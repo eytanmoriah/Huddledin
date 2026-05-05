@@ -1152,7 +1152,7 @@ const _DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const _dayBoxLabel = date => _DAY_LETTERS[date.getDay()] + ' ' + date.getDate();
 
 // Strict 'allDone' semantic — day shows ✓ only when every scheduled slot has status='done'.
-function _isDayDone(hw, date, compMap) {
+export function _isDayDone(hw, date, compMap) {
   const dStr = _fmtLocal(date);
   let total = 0, done = 0;
   (hw.exercises || []).forEach(ex => {
@@ -1166,7 +1166,7 @@ function _isDayDone(hw, date, compMap) {
 }
 
 // Find next non-deleted appointment for this child + specialist (or null).
-function _findNextAppointment(childId, specId, H) {
+export function _findNextAppointment(childId, specId, H) {
   const apts = H.DB?.appointments || [];
   const todayStr = _fmtLocal(new Date());
   const matching = apts
@@ -1181,7 +1181,7 @@ function _findNextAppointment(childId, specId, H) {
 // Generate the visible day-box window per duration_type rules + recurrence schedule.
 // Returns array of { date, dStr, isToday, isPast, isFuture, isAssigned } — only days
 // where the homework is actually scheduled. Empty array means the bubble should hide.
-function _generateDayBoxWindow(hw, today, nextApptDate) {
+export function _generateDayBoxWindow(hw, today, nextApptDate) {
   // Once-off: always show its single day, regardless of window position (Q2 locked).
   if (hw.recurrence === 'once') {
     if (!hw.created_at) return [];
@@ -1353,10 +1353,19 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     row.appendChild(boxEl);
   });
 
+  _attachDayBoxRowScroll(row);
+
+  return row;
+}
+
+// Scroll behaviors for any day-box row: auto-center on today, mouse wheel translation,
+// click-and-drag scroll. Extracted so detail-view (specialist side) can reuse without
+// duplicating the ~80 lines of behavior glue. Pure DOM behavior — no parent-state deps.
+export function _attachDayBoxRowScroll(row) {
   // Center today's box in the visible scroll viewport on initial render.
   // Uses getBoundingClientRect rather than offsetLeft because the row's offsetParent
-  // is <body> (no positioned ancestor in the chain), so offsetLeft returned absolute
-  // page-x coordinates and over-shot the scroll on long-history homeworks.
+  // may be <body> (no positioned ancestor in the chain), so offsetLeft returns absolute
+  // page-x coordinates and over-shoots the scroll on long-history homeworks.
   // Double-rAF gives flex layout an extra frame to settle before measuring.
   // No-op when content fits without scrolling.
   requestAnimationFrame(() => {
@@ -1374,10 +1383,7 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     });
   });
 
-  // Translate vertical mouse wheel into horizontal scroll on desktop. Skips trackpad
-  // horizontal swipes (deltaX !== 0 → native handles). Edge detection lets the page
-  // scroll naturally when at row boundaries — never traps the user. Mobile touch
-  // events don't fire here, so swipe behavior is unchanged.
+  // Translate vertical mouse wheel into horizontal scroll on desktop.
   row.addEventListener('wheel', (e) => {
     if (e.deltaX !== 0) return;
     if (e.deltaY === 0) return;
@@ -1390,11 +1396,7 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     row.scrollLeft = Math.max(0, Math.min(max, row.scrollLeft + e.deltaY));
   }, { passive: false });
 
-  // Click-and-drag scroll for desktop. Mobile touch swipe is unaffected — touch
-  // events don't fire mousedown/mousemove on most modern browsers.
-  // Drag detection threshold (5px) distinguishes click-to-tap from drag-to-scroll:
-  //   movement < 5px → click passes through to day-box tap handler
-  //   movement ≥ 5px → drag, click suppressed via preventDefault + stopPropagation
+  // Click-and-drag scroll for desktop. 5px threshold distinguishes drag from click.
   let isDragging = false;
   let dragStartX = 0;
   let dragStartScrollLeft = 0;
@@ -1405,7 +1407,7 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
   row.style.userSelect = 'none';
 
   row.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;  // left click only
+    if (e.button !== 0) return;
     isDragging = true;
     dragStartX = e.pageX;
     dragStartScrollLeft = row.scrollLeft;
@@ -1428,7 +1430,6 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
   };
 
   row.addEventListener('mouseup', (e) => {
-    // If user dragged > threshold, suppress the click that would otherwise fire on the day-box
     if (totalDragDistance > DRAG_THRESHOLD_PX) {
       e.preventDefault();
       e.stopPropagation();
@@ -1437,8 +1438,6 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
   });
 
   row.addEventListener('mouseleave', endDrag);
-
-  return row;
 }
 
 function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
