@@ -53,7 +53,8 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     return;
   }
 
-  const { homework: hw, exercises, occurrences } = result;
+  const { homework: hwBase, exercises, occurrences } = result;
+  const hw = { ...hwBase, exercises };
 
   // Load v2 completions for this child (90-day window — generous for grid display)
   const ninetyDaysAgo = new Date();
