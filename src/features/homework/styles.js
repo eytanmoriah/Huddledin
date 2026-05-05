@@ -24,6 +24,12 @@ export function injectHomeworkStyles() {
     .hw2-chk { width:20px; height:20px; border-radius:6px; border:2px solid #d1e0dd; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex-shrink:0; cursor:pointer; transition:all .12s; }
     .hw2-chk.checked { background:#0d9488; border-color:#0d9488; }
     .hw-bubble-daybox-row::-webkit-scrollbar { display:none; }
+    .hw-spec-card-header { transition: background-color .12s; border-radius: 8px; margin: -4px -6px; padding: 4px 6px; }
+    .hw-spec-daybox { transition: transform .12s, border-color .12s; }
+    @media (hover: hover) {
+      .hw-spec-card-header:hover { background-color: #f5fafa; }
+      .hw-spec-daybox:hover { transform: scale(1.08); }
+    }
   `;
   document.head.appendChild(s);
 }

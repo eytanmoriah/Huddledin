@@ -78,7 +78,11 @@ async function _loadAndRender(host, homeworkId, isWeb, H) {
     ? _findNextAppointment(hw.child_id, hw.specialist_id, H)
     : null;
 
-  host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '20px' } }, ['Progress']));
+  // Progress section header — label + inline helper text (wraps on narrow viewports)
+  const progHeader = el('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginTop: '20px', marginBottom: '8px' } });
+  progHeader.appendChild(el('div', { class: 'hw2-section-label', style: { margin: '0' } }, ['Progress']));
+  progHeader.appendChild(el('div', { style: { fontSize: '11px', fontStyle: 'italic', color: '#94a3b8', fontWeight: 500 } }, ['tap any day for details · tap exercise for instructions']));
+  host.appendChild(progHeader);
 
   exercises.forEach(ex => {
     host.appendChild(_renderExerciseCard(ex, hw, compMap, today, nextApptDate, H));
@@ -295,7 +299,7 @@ function _renderExerciseCard(ex, hw, compMap, today, nextApptDate, H) {
     : (progParts.length > 0 ? progParts.join(' · ') : 'Not started yet');
 
   // Header row (chevron + name/measure + progress) — tap to toggle expand
-  const headerRow = el('div', { style: {
+  const headerRow = el('div', { class: 'hw-spec-card-header', style: {
     display: 'flex', alignItems: 'center', gap: '10px',
     cursor: 'pointer', userSelect: 'none',
   } });
@@ -457,6 +461,7 @@ function _renderDayBoxSpec(box, dayState, H, onTap) {
   }
 
   const boxEl = el('div', {
+    class: 'hw-spec-daybox',
     style: {
       flexShrink: '0',
       width: '32px',
@@ -473,7 +478,6 @@ function _renderDayBoxSpec(box, dayState, H, onTap) {
       gap: '1px',
       userSelect: 'none',
       WebkitTouchCallout: 'none',
-      transition: 'transform .12s, border-color .12s',
     },
   });
   if (isToday) boxEl.dataset.today = '1';
