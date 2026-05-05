@@ -1,8 +1,8 @@
-// Parent homework view — Session B Sub-commit 2 of 3
-// Bubble = name + meta line + day-box row.
-// Day-box row generates per duration_type window rules + recurrence schedule;
-// renders ✓ for fully-done days, teal ring for today, neutral for past/future.
-// Auto-scroll polish lands in Sub-commit 3.
+// Parent homework view — Session C Sub-commit 1 of 5
+// Routes between bubble list (Session B default) and drill-down screens via
+// S._hwParentDrill = null | { childId, hwId, dateStr [, exerciseId] }.
+// This commit adds the exercise list view; exercise-detail/status/completion
+// land in Sub-commits 2-4. Sub-commit 0 (3abe2de + a068e2d) added wheel + drag.
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn } from './data.js';
 import { mountCompleteModal } from './complete-modal.js';
@@ -21,26 +21,53 @@ export function renderHomeworkParent({ childId, isWeb }) {
   const { el, re, S, session, DB } = H;
   const child = DB?.children?.find(c => c.id === childId);
 
-  const sec = el('div', { class: 'section' });
-
-  if (!(window.innerWidth >= 1024 && session?.role === 'parent')) {
-    const backBar = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
-    const backBtn = el('button', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 800, fontSize: '.84rem', padding: '0', minHeight: '44px', fontFamily: 'inherit' } }, [T('ss_back')]);
-    backBtn.onclick = () => { S.activeTab = 'dashboard'; re(); };
-    backBar.appendChild(backBtn);
-    sec.appendChild(backBar);
+  // Cross-child guard: stale drill state from a different child auto-clears.
+  if (S._hwParentDrill && S._hwParentDrill.childId !== childId) {
+    S._hwParentDrill = null;
   }
 
-  const headerWrap = el('div', { style: { marginBottom: '18px' } });
-  headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
+  const drill = S?._hwParentDrill;
+  const isDrilledIn = !!(drill && drill.hwId && drill.dateStr);
 
-  const today = new Date();
-  const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
-  const datePart = today.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-  const subEl = el('p', { class: 'page-sub' });
-  subEl.appendChild(document.createTextNode(childPart + ' · ' + datePart));
-  headerWrap.appendChild(subEl);
-  sec.appendChild(headerWrap);
+  const sec = el('div', { class: 'section' });
+
+  if (isDrilledIn) {
+    // Drill view header: back arrow only (no page title / child subtitle).
+    // Back target depends on drill depth: exerciseId set → pop to exercise list; else → pop to bubble list.
+    const backRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
+    const backBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 700, fontSize: '.84rem', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '4px', minHeight: '44px' } }, ['← Back']);
+    backBtn.onclick = () => {
+      if (S._hwParentDrill?.exerciseId) {
+        const { childId: c, hwId, dateStr } = S._hwParentDrill;
+        S._hwParentDrill = { childId: c, hwId, dateStr };  // pop exerciseId only
+      } else {
+        S._hwParentDrill = null;  // pop the whole drill
+      }
+      re();
+    };
+    backRow.appendChild(backBtn);
+    sec.appendChild(backRow);
+  } else {
+    // Bubble list view header (Session B layout — unchanged).
+    if (!(window.innerWidth >= 1024 && session?.role === 'parent')) {
+      const backBar = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
+      const backBtn = el('button', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 800, fontSize: '.84rem', padding: '0', minHeight: '44px', fontFamily: 'inherit' } }, [T('ss_back')]);
+      backBtn.onclick = () => { S.activeTab = 'dashboard'; re(); };
+      backBar.appendChild(backBtn);
+      sec.appendChild(backBar);
+    }
+
+    const headerWrap = el('div', { style: { marginBottom: '18px' } });
+    headerWrap.appendChild(el('h2', { class: 'page-title' }, [T('hw_title')]));
+
+    const today = new Date();
+    const childPart = (child?.avatar || '') + ' ' + (child?.name || '');
+    const datePart = today.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    const subEl = el('p', { class: 'page-sub' });
+    subEl.appendChild(document.createTextNode(childPart + ' · ' + datePart));
+    headerWrap.appendChild(subEl);
+    sec.appendChild(headerWrap);
+  }
 
   const host = el('div');
   host.appendChild(el('div', { style: { textAlign: 'center', padding: '24px', color: '#64748b' } }, [T('btn_loading')]));
@@ -51,7 +78,7 @@ export function renderHomeworkParent({ childId, isWeb }) {
 }
 
 async function _loadAndRender(host, childId, isWeb, H) {
-  const { el } = H;
+  const { el, re, S, toast } = H;
 
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -68,6 +95,26 @@ async function _loadAndRender(host, childId, isWeb, H) {
 
   host.innerHTML = '';
 
+  // Drill view dispatch — runs before bubble-list path
+  const drill = S?._hwParentDrill;
+  if (drill && drill.hwId && drill.dateStr) {
+    const hw = homeworks.find(h => h.id === drill.hwId);
+    if (!hw) {
+      // Stale drill state (homework archived/deleted by specialist mid-drill)
+      S._hwParentDrill = null;
+      toast?.('This homework was updated — returning to list');
+      re();
+      return;
+    }
+    if (drill.exerciseId) {
+      _renderDrillPlaceholder(host, drill, hw, H);
+    } else {
+      _renderDrillExerciseList(host, drill, hw, compMap, H);
+    }
+    return;
+  }
+
+  // Bubble list view (Session B default)
   if (!homeworks.length) {
     host.appendChild(el('div', { class: 'empty-state' }, [
       el('span', { class: 'empty-state-icon' }, ['📋']),
@@ -149,6 +196,165 @@ function _renderSpecialistSection(group, compMap, childId, isWeb, H) {
   section.appendChild(body);
   return section;
 }
+
+// ── Drill-down helpers (Session C Sub-commit 1) ──
+
+const _DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const _MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "Today" when dateStr matches today; else "Weekday · Month Day".
+function _formatDateChip(dateStr, todayStr) {
+  if (dateStr === todayStr) return 'Today';
+  const d = new Date(dateStr + 'T12:00:00');
+  return _DAY_NAMES[d.getDay()] + ' · ' + _MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
+}
+
+// Exercise is "done for this day" if every scheduled slot on dateStr has status='done'.
+function _isExerciseDoneOn(ex, hw, dateStr, compMap) {
+  const date = new Date(dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+  const slots = exerciseSlotsOn(hw, ex, date);
+  if (slots.length === 0) return false;
+  return slots.every(slot => compMap[ex.id + ':' + dateStr + ':' + slot]?.status === 'done');
+}
+
+// Exercise-level progress: how many of the scheduled exercises that day are fully done.
+function _computeExerciseProgress(hw, dateStr, compMap) {
+  const date = new Date(dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+  let total = 0, done = 0;
+  (hw.exercises || []).forEach(ex => {
+    if (!isExerciseScheduledOn(hw, ex, date)) return;
+    total++;
+    if (_isExerciseDoneOn(ex, hw, dateStr, compMap)) done++;
+  });
+  return { total, done };
+}
+
+function _renderExerciseListRow(ex, hw, dateStr, compMap, onTap, H) {
+  const { el } = H;
+  const isDone = _isExerciseDoneOn(ex, hw, dateStr, compMap);
+
+  const row = el('div', { style: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '14px 16px',
+    background: '#fff',
+    border: '1px solid #e8f4f2',
+    borderRadius: '12px',
+    marginBottom: '8px',
+    cursor: 'pointer',
+    transition: 'background .12s, border-color .12s',
+    userSelect: 'none',
+  } });
+  row.onmouseenter = () => { row.style.background = '#f5fafa'; row.style.borderColor = '#c4dbd8'; };
+  row.onmouseleave = () => { row.style.background = '#fff'; row.style.borderColor = '#e8f4f2'; };
+
+  // Left indicator: ✓ if exercise fully done for this day, empty circle otherwise
+  const indicator = el('div', { style: {
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    flexShrink: '0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: isDone ? '#0d9488' : 'transparent',
+    color: '#fff',
+    border: isDone ? 'none' : '1.5px solid #c4dbd8',
+    fontSize: '14px',
+    fontWeight: '700',
+  } });
+  if (isDone) indicator.textContent = '✓';
+  row.appendChild(indicator);
+
+  // Exercise name
+  row.appendChild(el('div', { style: {
+    flex: '1',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#0f1a18',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: '0',
+  } }, [ex.title || 'Exercise']));
+
+  // Right chevron
+  row.appendChild(el('span', { style: { fontSize: '14px', color: '#94a3b8', flexShrink: '0' } }, ['›']));
+
+  row.onclick = onTap;
+  return row;
+}
+
+function _renderDrillExerciseList(host, drill, hw, compMap, H) {
+  const { el, re, S } = H;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = _fmtLocal(today);
+
+  // Date chip
+  const chipWrap = el('div', { style: { marginBottom: '8px' } });
+  chipWrap.appendChild(el('span', { style: {
+    display: 'inline-block',
+    padding: '6px 14px',
+    borderRadius: '99px',
+    background: '#f0fdf9',
+    color: '#0d6b63',
+    fontSize: '13px',
+    fontWeight: '600',
+    border: '1px solid #d1e0dd',
+  } }, [_formatDateChip(drill.dateStr, todayStr)]));
+  host.appendChild(chipWrap);
+
+  // Homework title + progress
+  const titleRow = el('div', { style: { marginBottom: '14px' } });
+  titleRow.appendChild(el('div', { style: { fontSize: '17px', fontWeight: '600', color: '#0f1a18', marginBottom: '4px' } }, [hw.title]));
+  const progress = _computeExerciseProgress(hw, drill.dateStr, compMap);
+  if (progress.total > 0) {
+    titleRow.appendChild(el('div', { style: { fontSize: '12px', color: '#7aaba5', fontWeight: '500' } },
+      [progress.done + ' of ' + progress.total + ' done']));
+  }
+  host.appendChild(titleRow);
+
+  // Exercise rows — only those scheduled on drill.dateStr
+  const date = new Date(drill.dateStr + 'T12:00:00'); date.setHours(0, 0, 0, 0);
+  const scheduled = (hw.exercises || []).filter(ex => isExerciseScheduledOn(hw, ex, date));
+
+  if (scheduled.length === 0) {
+    host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
+      el('span', { class: 'empty-state-icon' }, ['📋']),
+      el('div', { class: 'empty-state-title' }, ['No exercises scheduled this day']),
+    ]));
+    return;
+  }
+
+  const list = el('div', {});
+  scheduled.forEach(ex => {
+    list.appendChild(_renderExerciseListRow(ex, hw, drill.dateStr, compMap, () => {
+      S._hwParentDrill = { ...drill, exerciseId: ex.id };
+      re();
+    }, H));
+  });
+  host.appendChild(list);
+}
+
+// Sub-commit 1 stub for the exercise detail screen — replaced in Sub-commit 2.
+function _renderDrillPlaceholder(host, drill, hw, H) {
+  const { el } = H;
+  const ex = (hw.exercises || []).find(e => e.id === drill.exerciseId);
+
+  const wrap = el('div', { style: {
+    padding: '24px 16px',
+    textAlign: 'center',
+    color: '#64748b',
+  } });
+  wrap.appendChild(el('div', { style: { fontSize: '15px', fontWeight: '600', color: '#0f1a18', marginBottom: '8px' } },
+    ['Exercise detail · ' + (ex?.title || 'Exercise')]));
+  wrap.appendChild(el('div', { style: { fontSize: '13px', fontStyle: 'italic' } },
+    ['Coming in next sub-commit (Session C Sub-commit 2 — exercise detail screen).']));
+  host.appendChild(wrap);
+}
+
+// ── End drill-down helpers ──
 
 // Day-letter (Sun..Sat) for box label format "M 15"
 const _DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -346,7 +552,8 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
   boxes.forEach(box => {
     const isDone = _isDayDone(hw, box.date, compMap);
     const boxEl = _renderDayBox(box, isDone, H, () => {
-      console.log('[hw bubble] day-box tap:', { hw: hw.id, date: box.dStr, child: childId });
+      H.S._hwParentDrill = { childId, hwId: hw.id, dateStr: box.dStr };
+      H.re?.();
     });
     row.appendChild(boxEl);
   });
@@ -484,7 +691,8 @@ function _renderHomeworkBubble(hw, compMap, childId, isWeb, H) {
   left.appendChild(el('div', { style: { fontSize: '12px', color: '#7aaba5', fontWeight: 500 } }, [metaParts.join(' · ')]));
 
   left.onclick = () => {
-    console.log('[hw bubble] name tap → today:', { hw: hw.id, child: childId });
+    H.S._hwParentDrill = { childId, hwId: hw.id, dateStr: _fmtLocal(new Date()) };
+    H.re?.();
   };
   bubble.appendChild(left);
 
