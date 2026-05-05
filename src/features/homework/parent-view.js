@@ -351,17 +351,36 @@ function _renderDayBoxRow(boxes, hw, compMap, childId, H) {
     row.appendChild(boxEl);
   });
 
-  // Sub-commit 3: center today's box in the visible scroll area on initial render.
+  // Position today's box at 70% from left of viewport on initial render.
+  // True centering (50/50) hid past ✓ history on narrow desktop columns; 70% past-bias
+  // surfaces completion history while keeping today + a sliver of future visible.
   // rAF fires after the row is mounted and laid out. No-op when content fits without scrolling.
   requestAnimationFrame(() => {
     try {
       const todayBox = row.querySelector('[data-today="1"]');
       if (todayBox && row.scrollWidth > row.clientWidth) {
-        const center = todayBox.offsetLeft - (row.clientWidth / 2) + (todayBox.offsetWidth / 2);
-        row.scrollLeft = Math.max(0, center);
+        const PAST_BIAS_FRACTION = 0.7;
+        const target = todayBox.offsetLeft - (row.clientWidth * PAST_BIAS_FRACTION) + (todayBox.offsetWidth / 2);
+        row.scrollLeft = Math.max(0, target);
       }
     } catch (_) {}
   });
+
+  // Translate vertical mouse wheel into horizontal scroll on desktop. Skips trackpad
+  // horizontal swipes (deltaX !== 0 → native handles). Edge detection lets the page
+  // scroll naturally when at row boundaries — never traps the user. Mobile touch
+  // events don't fire here, so swipe behavior is unchanged.
+  row.addEventListener('wheel', (e) => {
+    if (e.deltaX !== 0) return;
+    if (e.deltaY === 0) return;
+    if (row.scrollWidth <= row.clientWidth) return;
+    const max = row.scrollWidth - row.clientWidth;
+    const atLeft = row.scrollLeft <= 0;
+    const atRight = row.scrollLeft >= max;
+    if ((e.deltaY < 0 && atLeft) || (e.deltaY > 0 && atRight)) return;
+    e.preventDefault();
+    row.scrollLeft = Math.max(0, Math.min(max, row.scrollLeft + e.deltaY));
+  }, { passive: false });
 
   return row;
 }
