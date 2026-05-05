@@ -8,6 +8,12 @@ Read this file first before any Huddledin task. Also check for relevant skills:
 
 ---
 
+## Session continuity
+
+Past session handovers live in `handovers/` (gitignored). Each marks the end of a multi-session work day with: commits shipped, decisions locked, deferred queue, and how to start the next chat. The most recent file is the relevant starting context for ongoing work — read it before assuming the prior session ended cleanly or that all queued tasks are still queued.
+
+---
+
 ## 🏛️ App Architecture
 
 ### Stack

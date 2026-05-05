@@ -31,6 +31,7 @@ STEP2_*.md
 STEP3_*.md
 PADDLE_SETUP.md
 REPORT_SYSTEM_REFERENCE.md
+handovers/
 
 # One-off fix scripts
 _fix_*.js
