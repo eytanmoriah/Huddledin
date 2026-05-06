@@ -43,6 +43,69 @@ export async function incrementTemplateUseCount(templateId) {
   if (upErr) console.error('\u274c increment template use_count:', upErr);
 }
 
+// ── Exercise templates (Template Library Sub-commit 2 of 5) ──
+
+export async function loadExerciseTemplates() {
+  const supa = _supa();
+  const sess = _session();
+  if (!supa || !sess) return [];
+  const { data, error } = await supa.from('exercise_templates').select('*').order('name', { ascending: true });
+  if (error) { console.error('❌ load exercise templates:', error); return []; }
+  return data || [];
+}
+
+export async function saveExerciseTemplate({ name, instructions, reps, sets, durationSeconds, measureUnit, attachedFilePaths, attachedFileNames }) {
+  const supa = _supa();
+  const sess = _session();
+  if (!supa || !sess) throw new Error('Not authenticated');
+  const specId = sess.specialistId || sess.id;
+  const { data, error } = await supa.from('exercise_templates').insert({
+    specialist_id: specId,
+    name,
+    instructions: instructions || null,
+    reps: reps ?? null,
+    sets: sets ?? null,
+    duration_seconds: durationSeconds ?? null,
+    measure_unit: measureUnit || null,
+    attached_file_paths: attachedFilePaths || [],
+    attached_file_names: attachedFileNames || [],
+  }).select('id').single();
+  if (error) { console.error('❌ save exercise template:', error); throw error; }
+  return { id: data.id };
+}
+
+export async function updateExerciseTemplate(id, { name, instructions, reps, sets, durationSeconds, measureUnit, attachedFilePaths, attachedFileNames }) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  const patch = { updated_at: new Date().toISOString() };
+  if (name !== undefined) patch.name = name;
+  if (instructions !== undefined) patch.instructions = instructions || null;
+  if (reps !== undefined) patch.reps = reps ?? null;
+  if (sets !== undefined) patch.sets = sets ?? null;
+  if (durationSeconds !== undefined) patch.duration_seconds = durationSeconds ?? null;
+  if (measureUnit !== undefined) patch.measure_unit = measureUnit || null;
+  if (attachedFilePaths !== undefined) patch.attached_file_paths = attachedFilePaths || [];
+  if (attachedFileNames !== undefined) patch.attached_file_names = attachedFileNames || [];
+  const { error } = await supa.from('exercise_templates').update(patch).eq('id', id);
+  if (error) { console.error('❌ update exercise template:', error); throw error; }
+}
+
+export async function deleteExerciseTemplate(id) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  const { error } = await supa.from('exercise_templates').delete().eq('id', id);
+  if (error) { console.error('❌ delete exercise template:', error); throw error; }
+}
+
+export async function incrementExerciseTemplateUseCount(id) {
+  const supa = _supa();
+  if (!supa || !id) return;
+  const { data, error } = await supa.from('exercise_templates').select('times_used').eq('id', id).single();
+  if (error) { console.error('❌ read exercise template use_count:', error); return; }
+  const { error: upErr } = await supa.from('exercise_templates').update({ times_used: ((data?.times_used) || 0) + 1 }).eq('id', id);
+  if (upErr) console.error('❌ increment exercise template use_count:', upErr);
+}
+
 export function openTemplatePicker({ onPick, onCancel }) {
   const H = window.HUD || {};
   const { openModal, el, toast } = H;

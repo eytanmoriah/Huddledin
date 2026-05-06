@@ -1,7 +1,7 @@
 // Homework Module — Phase 2+3+4 entry point
 
 import { mountHomeworkCreateModal } from './create-modal.js';
-import { openTemplatePicker } from './templates.js';
+import { openTemplatePicker, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount } from './templates.js';
 import { renderHomeworkSpecList } from './list-view.js';
 import { renderHomeworkDetail } from './detail-view.js';
 import { renderHomeworkParent } from './parent-view.js';
@@ -12,4 +12,4 @@ export function initHomework() {
   window.HUD_HOMEWORK_INTERNALS = { exerciseSlotsOn };
 }
 
-export { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent };
+export { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount };

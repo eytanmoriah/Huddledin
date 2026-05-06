@@ -1,6 +1,6 @@
 // Huddledin Module Entry Point
 import { initReports } from './features/reports/index.js';
-import { initHomework, mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent } from './features/homework/index.js';
+import { initHomework, mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount } from './features/homework/index.js';
 
 console.log('[Huddledin] Module system loaded');
 
@@ -12,7 +12,7 @@ if (window.HUD) {
 }
 
 // Homework module public API
-window.HUD_HOMEWORK = { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent };
+window.HUD_HOMEWORK = { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount };
 
 // ── Lazy loader for file-parser bundle ──
 async function loadFileParserBundle() {
