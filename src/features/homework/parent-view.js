@@ -168,31 +168,42 @@ async function _loadAndRender(host, childId, isWeb, H) {
     if (S) S._hwParentView = 'active';
   }
 
-  // Toggle pills (only if past homeworks exist for this child)
+  // Cards container — populated by _fillBubbles; tab toggle replaces only this subtree
+  // (Performance Pass Sub-commit 2): toggling Active/Past previously fired re() which
+  // refetched loadHomeworkForParent + loadCompletionsV2 — purely client-side filtering
+  // shouldn't pay a network cost.
+  const cardsHost = el('div');
+
+  function _fillBubbles(view) {
+    cardsHost.innerHTML = '';
+    const filteredHomeworks = view === 'past' ? pastHomeworks : activeHomeworks;
+    const specGroups = _groupBySpecialist(filteredHomeworks, H);
+    let renderedSections = 0;
+    specGroups.forEach(group => {
+      const section = _renderSpecialistSection(group, compMap, childId, isWeb, H);
+      if (section) { cardsHost.appendChild(section); renderedSections++; }
+    });
+    if (renderedSections === 0) {
+      const emptyTitle = view === 'past' ? 'No past homework' : 'No active homework right now';
+      cardsHost.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
+        el('span', { class: 'empty-state-icon' }, ['📋']),
+        el('div', { class: 'empty-state-title' }, [emptyTitle]),
+        el('div', { class: 'empty-state-body' }, [T('hw_no_tasks_parent_desc')]),
+      ]));
+    }
+  }
+
+  // Toggle pills (only if past homeworks exist for this child) — DOM-only swap
   const toggle = _renderActivePastToggle(currentView, pastCount, (newKey) => {
     S._hwParentView = newKey;
     S._hwParentViewChild = childId;
-    re();
+    if (toggle && toggle.setActive) toggle.setActive(newKey);
+    _fillBubbles(newKey);
   }, H);
-  if (toggle) host.appendChild(toggle);
+  if (toggle) host.appendChild(toggle.wrap);
 
-  const filteredHomeworks = currentView === 'past' ? pastHomeworks : activeHomeworks;
-
-  const specGroups = _groupBySpecialist(filteredHomeworks, H);
-  let renderedSections = 0;
-  specGroups.forEach(group => {
-    const section = _renderSpecialistSection(group, compMap, childId, isWeb, H);
-    if (section) { host.appendChild(section); renderedSections++; }
-  });
-
-  if (renderedSections === 0) {
-    const emptyTitle = currentView === 'past' ? 'No past homework' : 'No active homework right now';
-    host.appendChild(el('div', { class: 'empty-state', style: { marginTop: '12px' } }, [
-      el('span', { class: 'empty-state-icon' }, ['📋']),
-      el('div', { class: 'empty-state-title' }, [emptyTitle]),
-      el('div', { class: 'empty-state-body' }, [T('hw_no_tasks_parent_desc')]),
-    ]));
-  }
+  host.appendChild(cardsHost);
+  _fillBubbles(currentView);
 }
 
 // Active/Past classification (Sub-commit 6).
@@ -238,29 +249,39 @@ function _renderActivePastToggle(currentView, pastCount, onChange, H) {
     flexWrap: 'wrap',
   } });
 
+  const _styleFor = (isActive) => ({
+    padding: '8px 18px',
+    borderRadius: '99px',
+    border: '1.5px solid ' + (isActive ? '#0d9488' : '#e2e8f0'),
+    background: isActive ? '#0d9488' : '#fff',
+    color: isActive ? '#fff' : '#0d9488',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: isActive ? 'default' : 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all .12s',
+    userSelect: 'none',
+  });
+
+  const pills = {};
   const makePill = (key, label) => {
-    const isActive = currentView === key;
-    const pill = el('button', { style: {
-      padding: '8px 18px',
-      borderRadius: '99px',
-      border: '1.5px solid ' + (isActive ? '#0d9488' : '#e2e8f0'),
-      background: isActive ? '#0d9488' : '#fff',
-      color: isActive ? '#fff' : '#0d9488',
-      fontSize: '13px',
-      fontWeight: '600',
-      cursor: isActive ? 'default' : 'pointer',
-      fontFamily: 'inherit',
-      transition: 'all .12s',
-      userSelect: 'none',
-    } }, [label]);
-    pill.onclick = () => { if (!isActive) onChange(key); };
+    const pill = el('button', { style: _styleFor(currentView === key) }, [label]);
+    pill.onclick = () => { if (currentView !== key) onChange(key); };
+    pills[key] = pill;
     return pill;
   };
 
   wrap.appendChild(makePill('active', 'Active'));
   wrap.appendChild(makePill('past', 'Past Homework'));
 
-  return wrap;
+  return {
+    wrap,
+    setActive(key) {
+      Object.assign(pills.active.style, _styleFor(key === 'active'));
+      Object.assign(pills.past.style, _styleFor(key === 'past'));
+      currentView = key;
+    },
+  };
 }
 
 function _groupBySpecialist(homeworks, H) {
