@@ -15,7 +15,10 @@ export async function loadHomeworkTemplates() {
   return data || [];
 }
 
-export async function saveHomeworkTemplate({ title, description, recurrence, specificDays, durationType, timeOfDay, exercisesJson }) {
+// Schedule fields (recurrence, specific_days, duration_type, time_of_day) on homework_templates
+// are dormant per locked design decision (May 7, 2026). Templates carry title + exercises only;
+// schedule is configured fresh per patient. Columns retained for potential HIPAA-pass cleanup.
+export async function saveHomeworkTemplate({ title, description, exercisesJson }) {
   const supa = _supa();
   const sess = _session();
   if (!supa || !sess) throw new Error('Not authenticated');
@@ -24,10 +27,6 @@ export async function saveHomeworkTemplate({ title, description, recurrence, spe
     specialist_id: specId,
     title,
     description: description || null,
-    recurrence: recurrence || 'daily',
-    specific_days: specificDays || null,
-    duration_type: durationType || 'open_ended',
-    time_of_day: timeOfDay || 'morning',
     exercises_json: exercisesJson || null,
   }).select('id').single();
   if (error) { console.error('\u274c save hw template:', error); throw error; }

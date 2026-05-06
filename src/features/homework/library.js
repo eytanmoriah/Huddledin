@@ -69,7 +69,7 @@ async function _refresh(host, H, headerRight, childId) {
   if (headerRight) {
     headerRight.innerHTML = '';
     if (S._templatesView === 'exercises') {
-      headerRight.appendChild(mkBtn('+ ' + (T('btn_new') || 'New'), 'btn-md btn-primary',
+      headerRight.appendChild(mkBtn(T('btn_new') || '+ New', 'btn-md btn-primary',
         () => _openExerciseTemplateEditModal(null, H, () => _refresh(host, H, headerRight, childId))));
     }
   }

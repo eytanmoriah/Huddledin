@@ -40,13 +40,12 @@ export function mountHomeworkCreateModal(opts = {}) {
   };
 
   // Pre-fill from template
+  // Schedule fields (recurrence, specific_days, duration_type, time_of_day) on homework_templates
+  // are dormant per locked design decision (May 7, 2026). Templates carry title + exercises only;
+  // schedule is configured fresh per patient. Columns retained for potential HIPAA-pass cleanup.
   if (template && !isEdit) {
     state.homework.title = template.title || '';
     state.homework.description = template.description || '';
-    state.homework.recurrence = template.recurrence || 'daily';
-    state.homework.specificDays = template.specific_days || [];
-    state.homework.timeOfDay = template.time_of_day || 'morning';
-    state.homework.durationType = template.duration_type || 'open_ended';
     if (template.exercises_json?.length) {
       state.exercises = template.exercises_json.map(ex => ({
         title: ex.title || '', instructions: ex.instructions || '', reps: ex.reps || null, sets: ex.sets || null,
@@ -277,7 +276,7 @@ export function mountHomeworkCreateModal(opts = {}) {
         // Save as template (if checked)
         if (_saveAsTemplate) {
           try {
-            await saveHomeworkTemplate({ title: _tmplNameInp?.value?.trim() || hw.title, description: hw.description, recurrence: hw.recurrence, specificDays: hw.specificDays, durationType: hw.durationType, timeOfDay: hw.timeOfDay, exercisesJson: cleanExercises });
+            await saveHomeworkTemplate({ title: _tmplNameInp?.value?.trim() || hw.title, description: hw.description, exercisesJson: cleanExercises });
           } catch (e) { console.error('save template:', e); }
         }
         // Notify parent (skip if quiet save)
