@@ -13,14 +13,24 @@ import {
 
 const T = (k, p) => window.HUD?.T?.(k, p) || k;
 
-export function renderTemplatesPage({ isWeb }) {
+export function renderTemplatesPage({ isWeb, childId }) {
   injectHomeworkStyles();
   const H = window.HUD || {};
-  const { el, mkBtn, S, re } = H;
+  const { el, mkBtn, S, re, DB } = H;
 
   if (!S._templatesView) S._templatesView = 'exercises';
 
   const sec = el('div', { class: 'section' });
+
+  // Back bar
+  const child = childId ? (DB?.children?.find(c => c.id === childId)) : null;
+  const backLabel = child?.name ? '← ' + (T('templates_back_to_homework', { name: child.name }) || ('Back to ' + child.name + '’s Home Exercises'))
+                                : '← ' + (T('templates_back_to_homework_generic') || 'Back to Home Exercises');
+  const backRow = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1.5px solid #e2e8f0' } });
+  const backBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontWeight: 700, fontSize: '.84rem', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '4px' } }, [backLabel]);
+  backBtn.onclick = () => { S._hwTemplatesView = false; S._hwTemplatesViewChild = null; re(); };
+  backRow.appendChild(backBtn);
+  sec.appendChild(backRow);
 
   // Header
   const hd = el('div', { class: 'sec-hd' });
@@ -28,12 +38,8 @@ export function renderTemplatesPage({ isWeb }) {
     el('h2', { class: 'page-title' }, [T('nav_templates') || 'Templates']),
     el('p', { class: 'page-sub' }, [T('templates_subtitle') || 'Reusable exercises and homeworks for your patients']),
   ]));
-  const newBtn = mkBtn('+ ' + (T('btn_new') || 'New'), 'btn-md btn-primary', () => {
-    if (S._templatesView === 'exercises') _openExerciseTemplateEditModal(null, H, () => _refresh(host, H));
-    else _openHomeworkTemplateEditModal(null, H, () => _refresh(host, H));
-  });
   const right = el('div', { class: 'sec-hd-right' });
-  right.appendChild(newBtn);
+  // + New button is exercise-only; rendered conditionally via _refresh based on active tab
   hd.appendChild(right);
   sec.appendChild(hd);
 
@@ -42,12 +48,12 @@ export function renderTemplatesPage({ isWeb }) {
   host.appendChild(el('div', { style: { textAlign: 'center', padding: '24px', color: '#64748b' } }, [T('btn_loading') || 'Loading...']));
   sec.appendChild(host);
 
-  _refresh(host, H);
+  _refresh(host, H, right, childId);
   return sec;
 }
 
-async function _refresh(host, H) {
-  const { el, S } = H;
+async function _refresh(host, H, headerRight, childId) {
+  const { el, mkBtn, S } = H;
 
   const [exTemplates, hwTemplates] = await Promise.all([
     loadExerciseTemplates(),
@@ -57,12 +63,21 @@ async function _refresh(host, H) {
   host.innerHTML = '';
 
   // Tab bar
-  host.appendChild(_renderTabBar(S._templatesView, exTemplates.length, hwTemplates.length, H, () => _refresh(host, H)));
+  host.appendChild(_renderTabBar(S._templatesView, exTemplates.length, hwTemplates.length, H, () => _refresh(host, H, headerRight, childId)));
+
+  // + New button only on My Exercises tab
+  if (headerRight) {
+    headerRight.innerHTML = '';
+    if (S._templatesView === 'exercises') {
+      headerRight.appendChild(mkBtn('+ ' + (T('btn_new') || 'New'), 'btn-md btn-primary',
+        () => _openExerciseTemplateEditModal(null, H, () => _refresh(host, H, headerRight, childId))));
+    }
+  }
 
   if (S._templatesView === 'exercises') {
-    host.appendChild(_renderExerciseTemplatesList(exTemplates, H, () => _refresh(host, H)));
+    host.appendChild(_renderExerciseTemplatesList(exTemplates, H, () => _refresh(host, H, headerRight, childId), childId));
   } else {
-    host.appendChild(_renderHomeworkTemplatesList(hwTemplates, H, () => _refresh(host, H)));
+    host.appendChild(_renderHomeworkTemplatesList(hwTemplates, H, () => _refresh(host, H, headerRight, childId), childId));
   }
 }
 
@@ -85,7 +100,7 @@ function _renderTabBar(view, exCount, hwCount, H, onSwitch) {
 
 // ── Exercise templates list ──
 
-function _renderExerciseTemplatesList(templates, H, onChanged) {
+function _renderExerciseTemplatesList(templates, H, onChanged, childId) {
   const { el } = H;
   const wrap = el('div');
 
@@ -99,12 +114,12 @@ function _renderExerciseTemplatesList(templates, H, onChanged) {
   }
 
   templates.forEach(tmpl => {
-    wrap.appendChild(_renderExerciseCard(tmpl, H, onChanged));
+    wrap.appendChild(_renderExerciseCard(tmpl, H, onChanged, childId));
   });
   return wrap;
 }
 
-function _renderExerciseCard(tmpl, H, onChanged) {
+function _renderExerciseCard(tmpl, H, onChanged, childId) {
   const { el } = H;
   const card = el('div', { style: {
     background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '12px',
@@ -121,9 +136,14 @@ function _renderExerciseCard(tmpl, H, onChanged) {
   if (measure) info.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '2px' } }, [measure]));
   card.appendChild(info);
 
-  const actions = el('div', { style: { display: 'flex', gap: '4px', flexShrink: '0' } });
+  const actions = el('div', { style: { display: 'flex', gap: '4px', alignItems: 'center', flexShrink: '0' } });
   actions.onclick = (e) => e.stopPropagation();
 
+  if (childId) {
+    const useBtn = el('button', { class: 'btn btn-sm btn-primary', style: { padding: '6px 12px' } }, [T('btn_use') || 'Use']);
+    useBtn.onclick = () => _useExerciseTemplate(tmpl, childId, H);
+    actions.appendChild(useBtn);
+  }
   actions.appendChild(_iconBtn('✎', T('btn_edit') || 'Edit', () => _openExerciseTemplateEditModal(tmpl, H, onChanged)));
   actions.appendChild(_iconBtn('⋮', T('more_actions') || 'More', (btn) => {
     _showRowKebab(btn, [
@@ -149,7 +169,7 @@ function _exerciseMeasure(tmpl) {
 
 // ── Homework templates list ──
 
-function _renderHomeworkTemplatesList(templates, H, onChanged) {
+function _renderHomeworkTemplatesList(templates, H, onChanged, childId) {
   const { el } = H;
   const wrap = el('div');
 
@@ -163,12 +183,12 @@ function _renderHomeworkTemplatesList(templates, H, onChanged) {
   }
 
   templates.forEach(tmpl => {
-    wrap.appendChild(_renderHomeworkCard(tmpl, H, onChanged));
+    wrap.appendChild(_renderHomeworkCard(tmpl, H, onChanged, childId));
   });
   return wrap;
 }
 
-function _renderHomeworkCard(tmpl, H, onChanged) {
+function _renderHomeworkCard(tmpl, H, onChanged, childId) {
   const { el } = H;
   const card = el('div', { style: {
     background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '12px',
@@ -186,9 +206,14 @@ function _renderHomeworkCard(tmpl, H, onChanged) {
   info.appendChild(el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '2px' } }, [subtitle]));
   card.appendChild(info);
 
-  const actions = el('div', { style: { display: 'flex', gap: '4px', flexShrink: '0' } });
+  const actions = el('div', { style: { display: 'flex', gap: '4px', alignItems: 'center', flexShrink: '0' } });
   actions.onclick = (e) => e.stopPropagation();
 
+  if (childId) {
+    const useBtn = el('button', { class: 'btn btn-sm btn-primary', style: { padding: '6px 12px' } }, [T('btn_use') || 'Use']);
+    useBtn.onclick = () => _useHomeworkTemplate(tmpl, childId, H);
+    actions.appendChild(useBtn);
+  }
   actions.appendChild(_iconBtn('✎', T('btn_edit') || 'Edit', () => _openHomeworkTemplateEditModal(tmpl, H, onChanged)));
   actions.appendChild(_iconBtn('⋮', T('more_actions') || 'More', (btn) => {
     _showRowKebab(btn, [
@@ -199,6 +224,39 @@ function _renderHomeworkCard(tmpl, H, onChanged) {
 
   card.onclick = () => _openHomeworkTemplateEditModal(tmpl, H, onChanged);
   return card;
+}
+
+// ── Use handlers — open create-homework modal pre-filled, scoped to current patient ──
+
+function _useExerciseTemplate(tmpl, childId, H) {
+  const { S, re } = H;
+  // Wrap the exercise template into a homework-template-shaped object that
+  // create-modal already understands. Title/description blank; schedule blank
+  // (specialist fills in); exercises_json = single exercise from this template.
+  const synthTemplate = {
+    title: '',
+    description: '',
+    exercises_json: [{
+      title: tmpl.name || '',
+      instructions: tmpl.instructions || '',
+      reps: tmpl.reps ?? null,
+      sets: tmpl.sets ?? null,
+      durationSeconds: tmpl.duration_seconds ?? null,
+      measureUnit: tmpl.measure_unit || null,
+    }],
+  };
+  S._hwTemplatesView = false;
+  S._hwTemplatesViewChild = null;
+  re();
+  window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId, template: synthTemplate });
+}
+
+function _useHomeworkTemplate(tmpl, childId, H) {
+  const { S, re } = H;
+  S._hwTemplatesView = false;
+  S._hwTemplatesViewChild = null;
+  re();
+  window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId, template: tmpl });
 }
 
 // ── Shared row helpers ──

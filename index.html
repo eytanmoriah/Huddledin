@@ -8450,7 +8450,6 @@ function renderSpecDesktop(){
     {id:'patients', label:T('spec_nav_patients'),icon:'👥'},
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
-    {id:'templates',label:T('nav_templates'),icon:'📚'},
     {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📁'},
     {id:'reports',label:'Reports'+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📋'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
@@ -10462,7 +10461,6 @@ function renderContent(){
   if(t==='homework')return r==='parent'?window.HUD_HOMEWORK.renderHomeworkParent({childId:S.activeChild,isWeb:window.innerWidth>=1024}):renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
   if(t==='info'&&r==='specialist')return renderSpecInfoCard();
-  if(t==='templates'&&r==='specialist'&&window.HUD_HOMEWORK)return window.HUD_HOMEWORK.renderTemplatesPage({isWeb:window.innerWidth>=1024});
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
   if(t==='patient-reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderPatientReports();
   if(t==='reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderReports();
@@ -17257,12 +17255,17 @@ async function _generateOccurrences(task){
    HOMEWORK — SPECIALIST VIEW
 ----------------------------------------------- */
 function renderHomeworkSpec(){
+  // Cross-child reset for the templates sub-view
+  if(S._hwTemplatesView&&S._hwTemplatesViewChild!==S.activeChild){
+    S._hwTemplatesView=false;S._hwTemplatesViewChild=null;
+  }
   // Guard: if task view is for a different child, clear it
   if(S._hwTaskView){
     const _t=(DB.homeworkTasks||[]).find(t=>t.id===S._hwTaskView);
     if(!_t||_t.childId!==S.activeChild)S._hwTaskView=null;
   }
   if(S._hwTaskView)return window.HUD_HOMEWORK.renderHomeworkDetail({homeworkId:S._hwTaskView,isWeb:window.innerWidth>=1024});
+  if(S._hwTemplatesView)return window.HUD_HOMEWORK.renderTemplatesPage({childId:S.activeChild,isWeb:window.innerWidth>=1024});
   // Phase 3a: delegate to new module list view
   const isWeb=window.innerWidth>=1024;
   return window.HUD_HOMEWORK.renderHomeworkSpecList({childId:S.activeChild,isWeb});

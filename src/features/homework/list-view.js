@@ -33,10 +33,11 @@ export function renderHomeworkSpecList({ childId, isWeb }) {
   ]));
   if (!isRemoved) {
     const btns = el('div', { class: 'sec-hd-right', style: { display: 'flex', gap: '8px' } });
-    btns.appendChild(mkBtn(T('hw2_templates_btn'), 'btn-md btn-ghost', () => window.HUD_HOMEWORK.openTemplatePicker({
-      onPick: (tmpl) => window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId, template: tmpl }),
-      onCancel: () => {}
-    })));
+    btns.appendChild(mkBtn(T('hw2_templates_btn'), 'btn-md btn-ghost', () => {
+      S._hwTemplatesView = true;
+      S._hwTemplatesViewChild = childId;
+      re();
+    }));
     btns.appendChild(mkBtn(T('hw_new_homework'), 'btn-md btn-primary', () => window.HUD_HOMEWORK.mountHomeworkCreateModal({ childId })));
     hd.appendChild(btns);
   }
