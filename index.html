@@ -3217,6 +3217,7 @@ nav_chat:'Chat',
 nav_chats:'Chats',
 nav_notifications:'Notifications',
 nav_settings:'Settings',
+nav_templates:'Templates',
 nav_requests:'Requests',
 nav_sign_out:'Sign out',
 nav_sign_out_cap:'Sign Out',
@@ -4668,6 +4669,7 @@ nav_chat:'\u05E6\u05F3\u05D0\u05D8',
 nav_chats:'\u05E6\u05F3\u05D0\u05D8\u05D9\u05DD',
 nav_notifications:'\u05D4\u05EA\u05E8\u05D0\u05D5\u05EA',
 nav_settings:'\u05D4\u05D2\u05D3\u05E8\u05D5\u05EA',
+nav_templates:'\u05EA\u05D1\u05E0\u05D9\u05D5\u05EA',
 nav_requests:'\u05D1\u05E7\u05E9\u05D5\u05EA',
 nav_sign_out:'\u05D4\u05EA\u05E0\u05EA\u05E7\u05D5\u05EA',
 nav_sign_out_cap:'\u05D4\u05EA\u05E0\u05EA\u05E7\u05D5\u05EA',
@@ -8448,6 +8450,7 @@ function renderSpecDesktop(){
     {id:'patients', label:T('spec_nav_patients'),icon:'👥'},
     {id:'calendar', label:T('nav_calendar'),icon:'📅'},
     {id:'todo',     label:T('nav_todo'),  icon:'✅'},
+    {id:'templates',label:T('nav_templates'),icon:'📚'},
     {id:'spec-storage',label:T('storage_title')+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📁'},
     {id:'reports',label:'Reports'+(_hasSpecAiAccess()?'':' \uD83D\uDD12'),icon:'📋'},
     {id:'notifications',label:T('nav_notifications'),icon:'🔔',badge:unreadN||null},
@@ -10459,6 +10462,7 @@ function renderContent(){
   if(t==='homework')return r==='parent'?window.HUD_HOMEWORK.renderHomeworkParent({childId:S.activeChild,isWeb:window.innerWidth>=1024}):renderHomeworkSpec();
   if(t==='credentials')return renderCredentials();
   if(t==='info'&&r==='specialist')return renderSpecInfoCard();
+  if(t==='templates'&&r==='specialist'&&window.HUD_HOMEWORK)return window.HUD_HOMEWORK.renderTemplatesPage({isWeb:window.innerWidth>=1024});
   if(t==='spec-storage'&&r==='specialist')return renderSpecStorage();
   if(t==='patient-reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderPatientReports();
   if(t==='reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderReports();

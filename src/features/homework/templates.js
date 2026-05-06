@@ -43,6 +43,31 @@ export async function incrementTemplateUseCount(templateId) {
   if (upErr) console.error('\u274c increment template use_count:', upErr);
 }
 
+export async function loadHomeworkTemplate(id) {
+  const supa = _supa();
+  if (!supa) return null;
+  const { data, error } = await supa.from('homework_templates').select('*').eq('id', id).single();
+  if (error) { console.error('❌ load homework template:', error); return null; }
+  return data;
+}
+
+export async function updateHomeworkTemplate(id, { title, description }) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  const patch = { updated_at: new Date().toISOString() };
+  if (title !== undefined) patch.title = title;
+  if (description !== undefined) patch.description = description || null;
+  const { error } = await supa.from('homework_templates').update(patch).eq('id', id);
+  if (error) { console.error('❌ update homework template:', error); throw error; }
+}
+
+export async function deleteHomeworkTemplate(id) {
+  const supa = _supa();
+  if (!supa) throw new Error('Not authenticated');
+  const { error } = await supa.from('homework_templates').delete().eq('id', id);
+  if (error) { console.error('❌ delete homework template:', error); throw error; }
+}
+
 // ── Exercise templates (Template Library Sub-commit 2 of 5) ──
 
 export async function loadExerciseTemplates() {

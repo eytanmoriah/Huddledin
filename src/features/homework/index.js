@@ -5,6 +5,7 @@ import { openTemplatePicker, loadExerciseTemplates, saveExerciseTemplate, update
 import { renderHomeworkSpecList } from './list-view.js';
 import { renderHomeworkDetail } from './detail-view.js';
 import { renderHomeworkParent } from './parent-view.js';
+import { renderTemplatesPage } from './library.js';
 import { exerciseSlotsOn } from './data.js';
 
 export function initHomework() {
@@ -12,4 +13,4 @@ export function initHomework() {
   window.HUD_HOMEWORK_INTERNALS = { exerciseSlotsOn };
 }
 
-export { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount };
+export { mountHomeworkCreateModal, openTemplatePicker, renderHomeworkSpecList, renderHomeworkDetail, renderHomeworkParent, renderTemplatesPage, loadExerciseTemplates, saveExerciseTemplate, updateExerciseTemplate, deleteExerciseTemplate, incrementExerciseTemplateUseCount };
