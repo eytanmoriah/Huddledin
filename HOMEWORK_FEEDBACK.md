@@ -85,7 +85,6 @@ For Claude/me when triaging — quick lookup of which file owns which surface:
 | Surface | File |
 |---------|------|
 | Parent homework view | `src/features/homework/parent-view.js` |
-| Complete-modal (mark done) | `src/features/homework/complete-modal.js` |
 | Specialist list view | `src/features/homework/list-view.js` |
 | Specialist detail view | `src/features/homework/detail-view.js` |
 | Create/edit homework modal | `src/features/homework/create-modal.js` |

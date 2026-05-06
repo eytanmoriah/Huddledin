@@ -5,7 +5,6 @@
 // Title block is tappable — clears drill (in-page "back to bubble list").
 
 import { loadHomeworkForParent, loadCompletionsV2, isExerciseScheduledOn, exerciseSlotsOn, logExerciseCompletion } from './data.js';
-import { mountCompleteModal } from './complete-modal.js';
 import { injectHomeworkStyles } from './styles.js';
 
 const T = (k, p) => window.HUD?.T?.(k, p) || k;

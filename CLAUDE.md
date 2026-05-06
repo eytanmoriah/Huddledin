@@ -684,7 +684,7 @@ Real example: storage picker shipped with eager-signing in `_copyFile`; refactor
 
 `homework_completions_v2.photo_path` is the canonical source for completion photos. `photo_url` is preserved as a fallback for legacy rows but NOT trusted for active rendering — when stored at write-time, the URL is already expiring and will be dead by the time the specialist opens detail-view.
 
-**Pattern:** read `photo_path` first; sign at render via `SB.signFile`. Fall back to `photo_url` only when `photo_path` is null. Same applies to any new photo or file column added in the future. Thumbnails-beside-text and lightbox both follow this pattern in `complete-modal.js` and `detail-view.js`.
+**Pattern:** read `photo_path` first; sign at render via `SB.signFile`. Fall back to `photo_url` only when `photo_path` is null. Same applies to any new photo or file column added in the future. Thumbnails-beside-text and lightbox both follow this pattern in `detail-view.js`.
 
 ### "Tasks" is two concepts in user-facing strings
 
