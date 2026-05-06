@@ -77,39 +77,54 @@ async function _loadAndRender(host, childId, isWeb, H) {
 
   host.innerHTML = '';
 
-  // Filter tabs
+  // Cards container \u2014 populated by _fillCards; tab toggle replaces only this subtree
+  const cardsHost = el('div');
+
+  function _fillCards(key) {
+    cardsHost.innerHTML = '';
+    const tasks = key === 'active' ? active : archived;
+    if (!tasks.length) {
+      cardsHost.appendChild(el('div', { class: 'empty-state' }, [
+        el('span', { class: 'empty-state-icon' }, ['\ud83d\udccb']),
+        el('div', { class: 'empty-state-title' }, [key === 'active' ? T('hw_no_tasks') : T('hw_archived')]),
+        el('div', { class: 'empty-state-body' }, [key === 'active' ? T('hw_no_tasks_spec_desc') : T('hw3_no_archived')]),
+      ]));
+      return;
+    }
+    const pinned = tasks.filter(t => t.is_pinned);
+    const rest = tasks.filter(t => !t.is_pinned);
+    if (pinned.length) {
+      cardsHost.appendChild(el('div', { class: 'hw2-section-label' }, [T('hw_pinned_label')]));
+      pinned.forEach(hw => cardsHost.appendChild(_renderCard(hw, stats[hw.id], isWeb, childId, H)));
+      if (rest.length) cardsHost.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '14px' } }, [T('hw_other_tasks')]));
+    }
+    rest.forEach(hw => cardsHost.appendChild(_renderCard(hw, stats[hw.id], isWeb, childId, H)));
+  }
+
+  // Filter tabs \u2014 DOM-only toggle (Performance Pass Sub-commit 1).
+  // Previously called re() which refetched loadHomeworksForChild for purely
+  // client-side filtering. Now mutate S._hwSpecTab + swap chip class + rebuild
+  // only the cards container.
   const tabBar = el('div', { style: { display: 'flex', gap: '8px', marginBottom: '18px' } });
+  const tabBtns = {};
   [['active', T('hw_active'), active.length], ['archive', T('hw_archived'), archived.length]].forEach(([key, label, cnt]) => {
     const isAct = tab === key;
     const btn = el('button', { class: isAct ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost' }, [label]);
     btn.appendChild(el('span', { class: 'patient-count-badge' }, [String(cnt)]));
-    btn.onclick = () => { S._hwSpecTab = key; re(); };
+    btn.onclick = () => {
+      if (S._hwSpecTab === key) return;
+      S._hwSpecTab = key;
+      Object.entries(tabBtns).forEach(([k, b]) => {
+        b.className = k === key ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost';
+      });
+      _fillCards(key);
+    };
+    tabBtns[key] = btn;
     tabBar.appendChild(btn);
   });
   host.appendChild(tabBar);
-
-  const tasks = tab === 'active' ? active : archived;
-
-  // Empty state
-  if (!tasks.length) {
-    host.appendChild(el('div', { class: 'empty-state' }, [
-      el('span', { class: 'empty-state-icon' }, ['\ud83d\udccb']),
-      el('div', { class: 'empty-state-title' }, [tab === 'active' ? T('hw_no_tasks') : T('hw_archived')]),
-      el('div', { class: 'empty-state-body' }, [tab === 'active' ? T('hw_no_tasks_spec_desc') : T('hw3_no_archived')])
-    ]));
-    return;
-  }
-
-  // Pinned / rest split
-  const pinned = tasks.filter(t => t.is_pinned);
-  const rest = tasks.filter(t => !t.is_pinned);
-
-  if (pinned.length) {
-    host.appendChild(el('div', { class: 'hw2-section-label' }, [T('hw_pinned_label')]));
-    pinned.forEach(hw => host.appendChild(_renderCard(hw, stats[hw.id], isWeb, childId, H)));
-    if (rest.length) host.appendChild(el('div', { class: 'hw2-section-label', style: { marginTop: '14px' } }, [T('hw_other_tasks')]));
-  }
-  rest.forEach(hw => host.appendChild(_renderCard(hw, stats[hw.id], isWeb, childId, H)));
+  host.appendChild(cardsHost);
+  _fillCards(tab);
 }
 
 function _renderCard(hw, weekStat, isWeb, childId, H) {
