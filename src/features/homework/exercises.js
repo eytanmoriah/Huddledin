@@ -82,6 +82,21 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
       _rebuildRepWrap(repWrap, ex, idx);
       top.appendChild(repWrap);
 
+      // Save as template button
+      const saveTplBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '15px', padding: '2px 6px', flexShrink: '0', transition: 'color .12s' }, title: 'Save as exercise template' }, ['\ud83d\udcbe']);
+      saveTplBtn.onmouseenter = () => { if (!saveTplBtn.disabled) saveTplBtn.style.color = '#0d9488'; };
+      saveTplBtn.onmouseleave = () => { saveTplBtn.style.color = '#94a3b8'; };
+      const _refreshSaveTplBtn = () => {
+        const hasTitle = (exercises[idx].title || '').trim().length > 0;
+        saveTplBtn.disabled = !hasTitle;
+        saveTplBtn.style.opacity = hasTitle ? '1' : '0.3';
+        saveTplBtn.style.cursor = hasTitle ? 'pointer' : 'default';
+      };
+      _refreshSaveTplBtn();
+      titleInp.addEventListener('input', _refreshSaveTplBtn);
+      saveTplBtn.onclick = () => { if (saveTplBtn.disabled) return; _openSaveAsTemplatePrompt(exercises[idx], ctx); };
+      top.appendChild(saveTplBtn);
+
       // Remove button
       const removeBtn = el('button', { style: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '18px', padding: '2px 6px', flexShrink: '0', transition: 'color .12s' } }, ['\u2715']);
       removeBtn.onmouseenter = () => { removeBtn.style.color = '#dc2626'; };
@@ -262,17 +277,265 @@ export function renderExerciseRows(exercises, onChange, homeworkState, ctx) {
       wrap.appendChild(row);
     });
 
-    // Add exercise button
-    const addBtn = el('button', { style: { width: '100%', padding: '10px', background: '#f0fdf9', border: '1.5px dashed #d1e0dd', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', color: '#0d9488', fontWeight: '600', fontFamily: 'inherit' } }, ['+ Add exercise']);
+    // Add buttons row — "+ Add exercise" + "+ Add from library"
+    const addRow = el('div', { style: { display: 'flex', gap: '8px' } });
+    const _btnStyle = { flex: '1', padding: '10px', background: '#f0fdf9', border: '1.5px dashed #d1e0dd', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', color: '#0d9488', fontWeight: '600', fontFamily: 'inherit' };
+
+    const addBtn = el('button', { style: _btnStyle }, ['+ Add exercise']);
     addBtn.onclick = () => {
       exercises.push({ title: '', instructions: '', reps: null, sets: null, durationSeconds: null, measureUnit: null, overrideRecurrence: null, overrideSpecificDays: null, overrideTimeOfDay: null, attachedFileUrls: [], attachedFilePaths: [], attachedFileNames: [], _ui: { expanded: false } });
       onChange(exercises); _render();
     };
-    wrap.appendChild(addBtn);
+    addRow.appendChild(addBtn);
+
+    const fromLibBtn = el('button', { style: _btnStyle }, ['+ Add from library']);
+    fromLibBtn.onclick = () => _openLibraryPicker(exercises, onChange, _render, ctx);
+    addRow.appendChild(fromLibBtn);
+
+    wrap.appendChild(addRow);
   }
 
   _render();
   return wrap;
+}
+
+// ── Save-as-exercise-template prompt (Sub-commit 4) ──
+
+function _openSaveAsTemplatePrompt(ex, ctx) {
+  const H = ctx.H;
+  const { openModal, toast } = H;
+  if (!openModal) return;
+
+  const T = (k) => H.T?.(k) || k;
+
+  openModal(T('templates_save_as_modal_title') || 'Save as exercise template', (mb, close) => {
+    const _el = (tag, attrs = {}, kids = []) => {
+      const e = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') e.className = v;
+        else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v);
+        else e.setAttribute(k, v);
+      }
+      for (const c of kids) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+      return e;
+    };
+
+    mb.appendChild(_el('div', { class: 'hw2-section-label', style: { marginTop: '0' } }, [T('templates_save_as_name_label') || 'Name']));
+    const nameInp = _el('input', { type: 'text', class: 'hw2-input', placeholder: T('templates_save_as_name_placeholder') || 'Template name' });
+    nameInp.value = ex.title || '';
+    nameInp.maxLength = 200;
+    mb.appendChild(nameInp);
+
+    mb.appendChild(_el('div', { style: { fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', marginTop: '6px', marginBottom: '14px' } }, [
+      T('templates_save_as_hint') || 'Saves a snapshot of this exercise (instructions, reps, sets, duration). Future edits to the homework won’t affect the template.',
+    ]));
+
+    const actRow = _el('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' } });
+    const cancelBtn = _el('button', { class: 'btn btn-sm btn-ghost' }, [T('btn_cancel') || 'Cancel']);
+    cancelBtn.onclick = close;
+    actRow.appendChild(cancelBtn);
+
+    const saveBtn = _el('button', { class: 'btn btn-sm btn-primary' }, [T('btn_save') || 'Save']);
+    saveBtn.onclick = async () => {
+      const name = nameInp.value.trim();
+      if (!name) { toast?.(T('templates_name_required') || 'Name is required.', 'error'); return; }
+      saveBtn.disabled = true; saveBtn.textContent = T('btn_loading') || 'Saving...';
+      try {
+        await window.HUD_HOMEWORK?.saveExerciseTemplate?.({
+          name,
+          instructions: ex.instructions || null,
+          reps: ex.reps ?? null,
+          sets: ex.sets ?? null,
+          durationSeconds: ex.durationSeconds ?? null,
+          measureUnit: ex.measureUnit || null,
+          attachedFilePaths: ex.attachedFilePaths || [],
+          attachedFileNames: ex.attachedFileNames || [],
+        });
+        toast?.(T('templates_save_success') || 'Saved to your exercise library.');
+        close();
+      } catch (e) {
+        console.error('❌ save as exercise template:', e);
+        toast?.(T('templates_save_error') || 'Could not save template. Try again.', 'error');
+        saveBtn.disabled = false; saveBtn.textContent = T('btn_save') || 'Save';
+      }
+    };
+    actRow.appendChild(saveBtn);
+    mb.appendChild(actRow);
+
+    nameInp.focus();
+    nameInp.select();
+  }, 420);
+}
+
+// ── Add-from-library picker (Sub-commit 4) ──
+
+function _openLibraryPicker(exercises, onChange, _render, ctx) {
+  const H = ctx.H;
+  const { openModal, toast } = H;
+  if (!openModal) return;
+
+  const T = (k, vars) => H.T?.(k, vars) || k;
+
+  // Load templates first so the modal shows real content (not loading flash for small lists)
+  window.HUD_HOMEWORK?.loadExerciseTemplates?.().then(templates => {
+    if (!templates || !templates.length) {
+      toast?.(T('templates_picker_no_templates') || 'No exercise templates yet. Save one from any exercise to get started.', 'info', 5000);
+      return;
+    }
+    _renderPicker(templates);
+  });
+
+  function _renderPicker(allTemplates) {
+    openModal(T('templates_picker_title') || 'Pick exercises from library', (mb, close) => {
+      const _el = (tag, attrs = {}, kids = []) => {
+        const e = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (k === 'class') e.className = v;
+          else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v);
+          else e.setAttribute(k, v);
+        }
+        for (const c of kids) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+        return e;
+      };
+
+      // Per-row local state — selection + expansion (preserved across search filtering)
+      const stateById = {};
+      allTemplates.forEach(t => { stateById[t.id] = { selected: false, expanded: false }; });
+
+      // Search box
+      const searchInp = _el('input', { type: 'text', class: 'hw2-input', placeholder: T('templates_picker_search') || 'Search templates...', style: { marginBottom: '12px' } });
+      mb.appendChild(searchInp);
+
+      // List host
+      const listHost = _el('div', { style: { maxHeight: '50vh', overflowY: 'auto', marginBottom: '14px' } });
+      mb.appendChild(listHost);
+
+      // Action row (declared first so _renderList can reference _refreshAddBtn)
+      const actRow = _el('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' } });
+      const cancelBtn = _el('button', { class: 'btn btn-sm btn-ghost' }, [T('btn_cancel') || 'Cancel']);
+      cancelBtn.onclick = close;
+      actRow.appendChild(cancelBtn);
+      const addBtn = _el('button', { class: 'btn btn-sm btn-primary' }, []);
+      actRow.appendChild(addBtn);
+      mb.appendChild(actRow);
+
+      function _selectedCount() {
+        return Object.values(stateById).filter(s => s.selected).length;
+      }
+
+      function _refreshAddBtn() {
+        const n = _selectedCount();
+        addBtn.textContent = n === 0
+          ? (T('templates_picker_add_zero') || 'Add')
+          : (T('templates_picker_add_count', { n }) || ('Add ' + n + ' exercise' + (n === 1 ? '' : 's')));
+        addBtn.disabled = n === 0;
+        addBtn.style.opacity = n === 0 ? '0.5' : '1';
+      }
+
+      function _matches(tmpl, q) {
+        if (!q) return true;
+        return (tmpl.name || '').toLowerCase().includes(q.toLowerCase());
+      }
+
+      function _renderList() {
+        const q = searchInp.value.trim();
+        const visible = allTemplates.filter(t => _matches(t, q));
+        listHost.innerHTML = '';
+        if (!visible.length) {
+          listHost.appendChild(_el('div', { style: { padding: '20px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' } }, [T('templates_picker_empty') || 'No matching templates']));
+          return;
+        }
+        visible.forEach(tmpl => {
+          const st = stateById[tmpl.id];
+          const row = _el('div', { style: { background: '#fff', border: '1.5px solid ' + (st.selected ? '#0d9488' : '#e2e8f0'), borderRadius: '10px', padding: '10px 12px', marginBottom: '6px', cursor: 'pointer', transition: 'border-color .12s' } });
+
+          const top = _el('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } });
+
+          const chk = _el('div', { style: { width: '20px', height: '20px', borderRadius: '6px', border: '2px solid ' + (st.selected ? '#0d9488' : '#d1e0dd'), background: st.selected ? '#0d9488' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0', color: '#fff', fontSize: '12px' } }, [st.selected ? '✓' : '']);
+          top.appendChild(chk);
+
+          const info = _el('div', { style: { flex: '1', minWidth: '0' } });
+          info.appendChild(_el('div', { style: { fontSize: '14px', fontWeight: 600, color: '#0f1a18' } }, [tmpl.name || '(unnamed)']));
+          const measure = _exerciseMeasureLabel(tmpl);
+          if (measure) info.appendChild(_el('div', { style: { fontSize: '11px', color: '#94a3b8', marginTop: '2px' } }, [measure]));
+          top.appendChild(info);
+
+          // Tap name area → toggle expansion (preview)
+          info.onclick = (e) => {
+            e.stopPropagation();
+            st.expanded = !st.expanded;
+            _renderList();
+          };
+          row.appendChild(top);
+
+          // Expansion preview
+          if (st.expanded) {
+            const preview = _el('div', { style: { marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', fontSize: '13px', color: '#475569', lineHeight: '1.4' } });
+            if (tmpl.instructions) preview.appendChild(_el('div', { style: { marginBottom: '6px', whiteSpace: 'pre-wrap' } }, [tmpl.instructions]));
+            const detail = [];
+            if (tmpl.reps && tmpl.sets) detail.push(tmpl.sets + '×' + tmpl.reps + ' reps');
+            if (tmpl.duration_seconds) detail.push(Math.round(tmpl.duration_seconds / 60) + ' min');
+            if (tmpl.measure_unit) detail.push(tmpl.measure_unit);
+            if (detail.length) preview.appendChild(_el('div', { style: { fontSize: '11px', color: '#94a3b8' } }, [detail.join(' · ')]));
+            preview.onclick = (e) => e.stopPropagation();
+            row.appendChild(preview);
+          }
+
+          // Tap row (excluding info) → toggle selection
+          row.onclick = () => { st.selected = !st.selected; _refreshAddBtn(); _renderList(); };
+
+          listHost.appendChild(row);
+        });
+      }
+
+      addBtn.onclick = async () => {
+        const picked = allTemplates.filter(t => stateById[t.id]?.selected);
+        if (!picked.length) return;
+        addBtn.disabled = true;
+        // Snapshot copy: each selected template becomes a new exercise row
+        picked.forEach(tmpl => {
+          exercises.push({
+            title: tmpl.name || '',
+            instructions: tmpl.instructions || '',
+            reps: tmpl.reps ?? null,
+            sets: tmpl.sets ?? null,
+            durationSeconds: tmpl.duration_seconds ?? null,
+            measureUnit: tmpl.measure_unit || null,
+            overrideRecurrence: null,
+            overrideSpecificDays: null,
+            overrideTimeOfDay: null,
+            attachedFileUrls: [],
+            attachedFilePaths: tmpl.attached_file_paths ? [...tmpl.attached_file_paths] : [],
+            attachedFileNames: tmpl.attached_file_names ? [...tmpl.attached_file_names] : [],
+            _ui: { expanded: false },
+          });
+        });
+        // Best-effort times_used increments — don't await, don't block close
+        picked.forEach(tmpl => {
+          window.HUD_HOMEWORK?.incrementExerciseTemplateUseCount?.(tmpl.id);
+        });
+        onChange(exercises);
+        _render();
+        close();
+        toast?.(T('templates_picker_added_toast', { n: picked.length }) || ('Added ' + picked.length + ' exercise' + (picked.length === 1 ? '' : 's') + ' from library.'));
+      };
+
+      searchInp.oninput = () => _renderList();
+      _renderList();
+      _refreshAddBtn();
+    }, 480);
+  }
+}
+
+function _exerciseMeasureLabel(tmpl) {
+  if (tmpl.sets && tmpl.reps) return tmpl.sets + '×' + tmpl.reps + ' reps';
+  if (tmpl.duration_seconds) {
+    const mins = Math.round(tmpl.duration_seconds / 60);
+    if (mins >= 1) return mins + ' min';
+    return tmpl.duration_seconds + ' sec';
+  }
+  if (tmpl.measure_unit) return tmpl.measure_unit;
+  return '';
 }
 
 function _extractExt(filename) {
