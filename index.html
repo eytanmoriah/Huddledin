@@ -2622,6 +2622,7 @@ function setupSpecialistSync(){
     })
     // Session D Sub-commit 1: parent completions propagate to specialist UI in realtime.
     // No server-side household filter (specialists span multiple households); client-side gate on child_id.
+    // Performance Pass Sub-commit 3: stacked filters to avoid forcing re() for unrelated events.
     .on('postgres_changes',{event:'*',schema:'public',table:'homework_completions_v2'},(p)=>{
       const _id=p.new?.id||p.old?.id;
       if(_id&&_localCompletionChanges.has(_id)){_localCompletionChanges.delete(_id);return;}
@@ -2630,6 +2631,17 @@ function setupSpecialistSync(){
       if(!cid)return;
       const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
       if(!myPatientIds.has(String(cid)))return;
+      // Level 1 (coarse): not on homework tab → data-only refresh, no re()
+      if(S.activeTab!=='homework'){_debouncedRefresh('homework');return;}
+      // Level 2 (narrow): drilled into a specific homework's detail view — skip
+      // when the event is for a different homework. Falsy eventHwId (rare DELETE
+      // payloads without REPLICA IDENTITY FULL) falls through to full refresh.
+      if(S._hwTaskView){
+        const eventHwId=p.new?.homework_id||p.old?.homework_id;
+        if(eventHwId&&String(eventHwId)!==String(S._hwTaskView)){
+          _debouncedRefresh('homework');return;
+        }
+      }
       _debouncedRefresh();
     })
     .subscribe();
