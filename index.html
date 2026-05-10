@@ -6587,9 +6587,10 @@ function showConnectionCodeModal(childId){
       if(!to||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){toast('⚠️ Enter a valid email address.','error');return;}
       sendBtn.disabled=true;sendBtn.textContent='Sending…';
       try{
+        const _sess=await _supa.auth.getSession();const _tok=_sess?.data?.session?.access_token;
         const resp=await fetch('/api/send-invite',{
           method:'POST',
-          headers:{'Content-Type':'application/json'},
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_tok||'')},
           body:JSON.stringify({to,childName:child?.name||'your patient',connectionCode:code,inviteLink:window.location.origin+(window.location.pathname.replace(/\/$/,'')||'/')+'?code='+code,fromName:session?.name||session?.email||'A parent'})
         });
         if(resp.ok){toast('✅ Code sent to '+to);}
@@ -12618,9 +12619,10 @@ function showInviteModal(){
       // FIX FS2: do NOT call re() here — it destroys the open modal and breaks the close button.
       // The modal already shows the link; re() is deferred until the modal is closed.
       // Send real invite email via Resend
+      const _sess2=await _supa.auth.getSession();const _tok2=_sess2?.data?.session?.access_token;
       fetch('/api/send-invite',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_tok2||'')},
         body:JSON.stringify({
           to:ei.value,
           childName:child?.name||'your patient',
@@ -19492,9 +19494,10 @@ async function showHouseholdInviteModal(fromSettings=false){
       }
 
       // Send email
+      const _sess3=await _supa.auth.getSession();const _tok3=_sess3?.data?.session?.access_token;
       await fetch('/api/send-invite',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_tok3||'')},
         body:JSON.stringify({
           to:email,
           childName:'your family account',
