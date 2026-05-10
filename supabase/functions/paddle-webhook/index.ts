@@ -16,9 +16,13 @@ const supa = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // ─── Signature Verification ────────────────────────────────────────────────────
 // Paddle v2 sends: Paddle-Signature: ts=<timestamp>;h1=<hmac-sha256-hex>
 async function verifySignature(rawBody: string, signatureHeader: string): Promise<boolean> {
-  if (!signatureHeader || PADDLE_WEBHOOK_SECRET === "PADDLE_WEBHOOK_SECRET_PLACEHOLDER") {
-    console.warn("⚠️  Webhook secret not configured — skipping signature verification (dev mode)");
-    return true; // Allow in dev/sandbox until secret is configured
+  if (PADDLE_WEBHOOK_SECRET === "PADDLE_WEBHOOK_SECRET_PLACEHOLDER") {
+    console.error("❌ paddle-webhook: missing PADDLE_WEBHOOK_SECRET env var");
+    return false;
+  }
+  if (!signatureHeader) {
+    console.error("❌ paddle-webhook: missing Paddle-Signature header");
+    return false;
   }
 
   try {
