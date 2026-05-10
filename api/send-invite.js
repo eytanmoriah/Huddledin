@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { checkRateLimit, RATE_WINDOW_SECONDS } from '../lib/rate-limit.mjs';
+// NOTE: lib/rate-limit.mjs is ESM and this file is CommonJS (.js, no
+// "type":"module" in package.json). Static import compiles to require()
+// which can't load .mjs in Vercel's Node runtime → ERR_REQUIRE_ESM.
+// Use dynamic import() inside the async handler instead — see below.
 
 async function verifyAuth(req) {
   const authHeader = req.headers.authorization;
@@ -67,6 +70,8 @@ export default async function handler(req, res) {
   }
 
   // Rate limit — 20/hr per authenticated user. Failure mode: fail closed.
+  // Dynamic import: see top-of-file note. lib/rate-limit.mjs is ESM-only.
+  const { checkRateLimit, RATE_WINDOW_SECONDS } = await import('../lib/rate-limit.mjs');
   const rl = await checkRateLimit(user.id, 'send-invite', 20);
   if (!rl.ok) {
     const retry = rl.retryAfter || RATE_WINDOW_SECONDS;
