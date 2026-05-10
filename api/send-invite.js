@@ -26,10 +26,7 @@ function escapeHtml(s) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_LINK_PREFIXES = [
-  'https://huddledin.com/',
-  'https://www.huddledin.com/',
-];
+const ALLOWED_INVITE_HOSTS = new Set(['huddledin.com', 'www.huddledin.com']);
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -62,7 +59,16 @@ export default async function handler(req, res) {
   if (specialistRole != null && (typeof specialistRole !== 'string' || specialistRole.length > 100)) {
     return res.status(400).json({ error: 'Invalid input' });
   }
-  if (typeof inviteLink !== 'string' || !ALLOWED_LINK_PREFIXES.some(p => inviteLink.startsWith(p))) {
+  if (typeof inviteLink !== 'string') {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  let parsedInviteUrl;
+  try { parsedInviteUrl = new URL(inviteLink); }
+  catch { return res.status(400).json({ error: 'Invalid input' }); }
+  if (parsedInviteUrl.protocol !== 'https:') {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (!ALLOWED_INVITE_HOSTS.has(parsedInviteUrl.hostname)) {
     return res.status(400).json({ error: 'Invalid input' });
   }
   if (to.toLowerCase() === (user.email || '').toLowerCase()) {
