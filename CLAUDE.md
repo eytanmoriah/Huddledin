@@ -732,6 +732,49 @@ Golden Rule #11 says migrations are MANUAL via Supabase SQL editor. The enforcem
 
 Skipping the gate causes silent runtime failures — the JS shipped expecting a column that doesn't exist. Sub-commit 1 of Session 1 + Session 2 followed this protocol; both shipped clean as a result.
 
+### CJS endpoint cannot require() an ESM .mjs module
+
+`package.json` has no `"type": "module"`, so `.js` files in `api/` run as CommonJS in Node. CommonJS `require()` cannot synchronously load ESM `.mjs` modules — the Vercel bundler turns ESM `import` statements into runtime `require()` calls in CJS context, and the require throws `ERR_REQUIRE_ESM` at startup.
+
+**The catch:** `node --check` and `npm run build` do NOT surface this. The build only bundles `src/`, not `api/`. `node --check` validates syntax, not runtime imports. The error surfaces only as Vercel's `FUNCTION_INVOCATION_FAILED` with `ERR_REQUIRE_ESM` in the runtime logs — visible only when a real request hits the endpoint post-deploy.
+
+**Rule:** when a `.js` endpoint in `api/` needs to consume a `.mjs` lib (e.g., `lib/rate-limit.mjs`), either:
+- (a) Make the endpoint `.mjs` itself, and add it to the `vercel.json` `functions` list. Mind the 12-function Hobby cap.
+- (b) Keep the endpoint `.js` and use dynamic `await import('../lib/foo.mjs')` inside the async handler.
+
+`@supabase/supabase-js` is dual-package (CJS + ESM via package `exports`), so static `import { createClient } from '@supabase/supabase-js'` from a `.js` endpoint works. Only our own `lib/*.mjs` modules need the dynamic-import treatment.
+
+Reference: `api/send-invite.js` (since commit `64545a1`) is the canonical example of the dynamic-import pattern at the rate-limit call site. The pre-fix state at commit `2891b59` is the example of the failure mode.
+
+### JWT-verify toggle drift on external-webhook Edge Functions
+
+Edge Functions called by external services (Paddle, future Stripe / Twilio / etc.) need the dashboard "Verify JWT with legacy secret" toggle set to **OFF**, since those services don't send Supabase JWTs. The deploy comment in the function source should include `--no-verify-jwt` to match (e.g., `delete-account/index.ts:3` and `send-push/index.ts:5` both do).
+
+The dashboard toggle and the deploy flag can drift apart. **Symptom of drift:** the Supabase gateway returns 401 with `sb-error-code: UNAUTHORIZED_NO_AUTH_HEADER` for every unauthenticated POST, regardless of whatever the in-function auth logic does. The function never executes. There is no Sentry alert, no Vercel log, no error in source — because the function doesn't run. The drift is only visible by probing the function with `curl` (or by checking the external service's delivery history for failed webhooks).
+
+Reference: paddle-webhook was silently broken from some pre-May-10 date until May 10. Real Paddle events had not reached the function since Apr 12. Caught only because the post-fix `curl` probe in the verification step returned `UNAUTHORIZED_NO_AUTH_HEADER` instead of the expected function-level error.
+
+**Rule:** when an Edge Function is called by something that isn't a Supabase user, confirm BOTH the deploy comment includes `--no-verify-jwt` AND the dashboard toggle is OFF. Audit this whenever adding a new external-caller function. The two settings should always agree.
+
+### RLS silently filters DELETE to zero rows
+
+When RLS is enabled on a table and no DELETE policy exists (or the existing policy doesn't match the calling user), Postgres transparently rewrites the DELETE to `DELETE WHERE ... AND <rls-policy>`. If zero rows match, the request returns **204 with zero rows affected**. No error. No warning. No signal at the client.
+
+The UI sees a successful response and optimistically updates. The next refresh re-fetches from the DB, finds the row still there, re-adds it. Classic "deleted row reappears" symptom.
+
+**Rule:** when a DELETE seems to succeed but the data doesn't change, suspect RLS FIRST. Run `SELECT policyname, cmd FROM pg_policies WHERE tablename = '<x>'` to see what's there. If no DELETE policy exists, default-deny is in effect — no caller can delete from the table.
+
+**Defensive pattern for new delete UIs:** chain `.select()` on the delete call and check `data.length`. If zero rows returned, surface a "delete failed" toast instead of the success toast:
+
+```js
+const { data, error } = await _supa.from('foo').delete().eq('id', id).select();
+if (error) { toast('Could not delete.', 'error'); return; }
+if (!data?.length) { toast('Delete blocked by permissions.', 'error'); return; }
+// success path
+```
+
+Reference: `invites` table cancel-invite was silently broken since the table was created. RLS had SELECT/INSERT/UPDATE policies but no DELETE policy. Diagnosed 2026-05-11. Fixed with one `CREATE POLICY` statement documented in `supabase/migrations/20260511_invites_delete_policy.sql`.
+
 ---
 
 ## 📚 Documentation Files
