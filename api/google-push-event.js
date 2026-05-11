@@ -1,3 +1,17 @@
+import { createClient } from '@supabase/supabase-js';
+
+async function verifyAuth(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  const url = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
+  const supa = createClient(url, serviceKey);
+  const { data: { user }, error } = await supa.auth.getUser(token);
+  return (error || !user) ? null : user;
+}
+
 function parseTime(t) {
   if (!t) return '09:00';
   t = t.trim();
@@ -45,12 +59,71 @@ async function pushEventToCalendar(accessToken, event) {
   return { ok: calRes.ok, data };
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{1,2}:\d{2}(\s*[AP]M)?$/i;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { userId, householdId, appointment } = req.body;
-  if (!userId || !appointment) {
-    return res.status(400).json({ error: 'Missing userId or appointment' });
+  // Auth — verify caller is authenticated. user_id is sourced from the JWT,
+  // never trusted from the request body.
+  let user;
+  try {
+    user = await verifyAuth(req);
+  } catch (e) {
+    console.error('❌ google-push-event auth:', e);
+    return res.status(500).json({ error: 'Auth verification failed' });
+  }
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { appointment } = req.body || {};
+
+  // Validation — all failures collapse to a single "Invalid input" 400.
+  if (!appointment || typeof appointment !== 'object') {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (typeof appointment.title !== 'string' || appointment.title.length === 0 || appointment.title.length > 200) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (typeof appointment.date !== 'string' || !DATE_RE.test(appointment.date)) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (appointment.time != null && (typeof appointment.time !== 'string' || !TIME_RE.test(appointment.time))) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (appointment.childName != null && (typeof appointment.childName !== 'string' || appointment.childName.length > 100)) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (appointment.specialistName != null && (typeof appointment.specialistName !== 'string' || appointment.specialistName.length > 100)) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  if (appointment.type != null && (typeof appointment.type !== 'string' || appointment.type.length > 50)) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+
+  // Source identity from JWT; derive household from authenticated user's profile.
+  const userId = user.id;
+  const SUPABASE_URL = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supa = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  const { data: profileRow, error: profileErr } = await supa
+    .from('profiles')
+    .select('household_id')
+    .eq('id', userId)
+    .limit(1);
+  if (profileErr) {
+    console.error('❌ google-push-event profile lookup:', profileErr);
+    return res.status(500).json({ error: 'Sync failed' });
+  }
+  const householdId = profileRow?.[0]?.household_id || null;
+
+  // Rate limit — 20/hr per authenticated user. Failure mode: fail closed.
+  // Dynamic import: lib/rate-limit.mjs is ESM, this file is CJS.
+  const { checkRateLimit } = await import('../lib/rate-limit.mjs');
+  const rl = await checkRateLimit(userId, 'google-push-event', 20);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 3600));
+    return res.status(429).json({ error: 'Too many requests' });
   }
 
   try {
@@ -74,13 +147,13 @@ export default async function handler(req, res) {
 
     // 1. Push to the creating user's calendar
     const myProfile = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/rpc/get_google_calendar`,
+      `${SUPABASE_URL}/rest/v1/rpc/get_google_calendar`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         },
         body: JSON.stringify({ user_id: userId })
       }
@@ -98,23 +171,23 @@ export default async function handler(req, res) {
     // 2. Also push to all parents in the household (if different from creator)
     if (householdId) {
       const householdRes = await fetch(
-        `${process.env.SUPABASE_URL}/rest/v1/rpc/get_household_google_users`,
+        `${SUPABASE_URL}/rest/v1/rpc/get_household_google_users`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': process.env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
           },
           body: JSON.stringify({ p_household_id: householdId })
         }
       );
       const householdUsers = await householdRes.json();
       if (Array.isArray(householdUsers)) {
-        for (const user of householdUsers) {
+        for (const u of householdUsers) {
           // Skip if same token as creator (already pushed above)
-          if (user.google_refresh_token === myToken) continue;
-          const accessToken = await getAccessToken(user.google_refresh_token);
+          if (u.google_refresh_token === myToken) continue;
+          const accessToken = await getAccessToken(u.google_refresh_token);
           if (accessToken) {
             const result = await pushEventToCalendar(accessToken, event);
             pushResults.push({ who: 'parent', ok: result.ok });
@@ -127,7 +200,7 @@ export default async function handler(req, res) {
     res.status(200).json({ ok: true, pushed: pushResults.length });
 
   } catch (err) {
-    console.error('google-push-event error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('❌ google-push-event:', err.message);
+    res.status(500).json({ error: 'Sync failed' });
   }
 }

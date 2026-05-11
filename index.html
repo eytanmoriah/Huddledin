@@ -14624,8 +14624,9 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
           }
           if(rec==='none'&&session?.id&&session.id!=='demo'){
             const calChild=DB.children.find(c=>c.id===childId)||(LS.get('children',[])).find(c=>c.id===childId);
-            fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({userId:session.id,householdId:calChild?.householdId||getChildHouseholdId(childId)||null,appointment:{
+            const _gpSess=await _supa.auth.getSession();const _gpTok=_gpSess?.data?.session?.access_token;
+            fetch('/api/google-push-event',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_gpTok||'')},
+              body:JSON.stringify({appointment:{
                 title:baseLs.title,date:baseLs.date,time:tmi.value||'09:00 AM',
                 type:baseLs.type,childName:calChild?.name||'',specialistName:si.value||session?.name||''
               }})
@@ -21030,7 +21031,8 @@ function renderSettings(){
     gcCard.appendChild(el('div',{style:{fontSize:'.83rem',color:'var(--teal)',fontWeight:700,marginBottom:'12px'}},[T('settings_gcal_connected')]));
     const disconnBtn=mkBtn(T('settings_gcal_disconnect'),'btn-sm btn-danger',async()=>{
       try{
-        await fetch('/api/google-disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:session.id})});
+        const _gdSess=await _supa.auth.getSession();const _gdTok=_gdSess?.data?.session?.access_token;
+        await fetch('/api/google-disconnect',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_gdTok||'')},body:'{}'});
         session.googleCalendarEnabled=false;
         toast(T('settings_gcal_disconnected'),'info');re();
       }catch(e){toast(T('settings_gcal_disconnect_fail'),'error');}
