@@ -15,6 +15,8 @@ async function verifyAdmin(req) {
   return { user, error: null };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
@@ -22,9 +24,19 @@ export default async function handler(req, res) {
   if (authError === 'unauthenticated') return res.status(401).json({ error: 'Unauthorized' });
   if (authError === 'forbidden') return res.status(403).json({ error: 'Forbidden' });
 
+  // Rate limit — 100/hr per admin. Dynamic import: lib/rate-limit.mjs is ESM, this file is CJS.
+  const { checkRateLimit } = await import('../lib/rate-limit.mjs');
+  const rl = await checkRateLimit(user.id, 'admin-user-detail', 100);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 3600));
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+    if (typeof userId !== 'string' || !UUID_RE.test(userId)) {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
 
     const q = async (table, params) => {
       const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`, {
@@ -101,7 +113,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('admin-user-detail error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ admin-user-detail:', err);
+    res.status(500).json({ error: 'User detail fetch failed' });
   }
 }

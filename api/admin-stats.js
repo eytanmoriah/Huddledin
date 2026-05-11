@@ -22,6 +22,14 @@ export default async function handler(req, res) {
   if (authError === 'unauthenticated') return res.status(401).json({ error: 'Unauthorized' });
   if (authError === 'forbidden') return res.status(403).json({ error: 'Forbidden' });
 
+  // Rate limit — 100/hr per admin. Dynamic import: lib/rate-limit.mjs is ESM, this file is CJS.
+  const { checkRateLimit } = await import('../lib/rate-limit.mjs');
+  const rl = await checkRateLimit(user.id, 'admin-stats', 100);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 3600));
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+
   try {
     const q = async (table, params = '') => {
       const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}?${params}`, {
@@ -53,20 +61,6 @@ export default async function handler(req, res) {
     const authUsers = authData.users || [];
     const authMap = {};
     authUsers.forEach(u => { authMap[u.id] = u; });
-
-    // Diagnostic
-    const diagUrl = `${process.env.SUPABASE_URL}/rest/v1/profiles?select=id,role&limit=3`;
-    console.log('DIAG URL:', diagUrl);
-    console.log('DIAG KEY prefix:', (process.env.SUPABASE_SERVICE_KEY||'').slice(0,20));
-    const diagR = await fetch(diagUrl, {
-      headers: {
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Accept': 'application/json'
-      }
-    });
-    const diagText = await diagR.text();
-    console.log('DIAG status:', diagR.status, 'body:', diagText.slice(0, 300));
 
     const [profiles, children, appointments, messages, files, todos, requests, chats, notes] = await Promise.all([
       q('profiles', 'select=id,role,created_at,household_id,google_calendar_enabled,display_name'),
@@ -247,7 +241,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('admin-stats error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ admin-stats:', err);
+    res.status(500).json({ error: 'Stats fetch failed' });
   }
 }

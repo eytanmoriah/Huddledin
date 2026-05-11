@@ -24,6 +24,9 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -31,8 +34,17 @@ export default async function handler(req, res) {
   if (authError === 'unauthenticated') return res.status(401).json({ error: 'Unauthorized' });
   if (authError === 'forbidden') return res.status(403).json({ error: 'Forbidden' });
 
+  // Rate limit — 100/hr per admin. Dynamic import: lib/rate-limit.mjs is ESM, this file is CJS.
+  const { checkRateLimit } = await import('../lib/rate-limit.mjs');
+  const rl = await checkRateLimit(user.id, 'admin-action', 100);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 3600));
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+
   try {
     const { action, payload } = req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'Invalid input' });
 
     const supa = async (method, path, body) => {
       const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
@@ -51,6 +63,9 @@ export default async function handler(req, res) {
     // ── Approve specialist request ──
     if (action === 'approve_request') {
       const { requestId } = payload;
+      if (typeof requestId !== 'string' || !UUID_RE.test(requestId)) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
       const r = await supa('PATCH', `specialist_requests?id=eq.${requestId}`, { status: 'approved' });
       if (!r.ok) return res.status(500).json({ error: 'Failed to approve' });
 
@@ -73,6 +88,9 @@ export default async function handler(req, res) {
     // ── Reject specialist request ──
     if (action === 'reject_request') {
       const { requestId } = payload;
+      if (typeof requestId !== 'string' || !UUID_RE.test(requestId)) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
       const r = await supa('PATCH', `specialist_requests?id=eq.${requestId}`, { status: 'denied' });
       if (!r.ok) return res.status(500).json({ error: 'Failed to reject' });
       return res.status(200).json({ ok: true });
@@ -81,6 +99,10 @@ export default async function handler(req, res) {
     // ── Flag / unflag user ──
     if (action === 'flag_user') {
       const { userId, flagged } = payload;
+      if (typeof userId !== 'string' || !UUID_RE.test(userId) || typeof flagged !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (userId === user.id) return res.status(400).json({ error: 'Cannot flag yourself' });
       const r = await supa('PATCH', `profiles?id=eq.${userId}`, { flagged: flagged });
       if (!r.ok) return res.status(500).json({ error: 'Failed to flag user' });
       return res.status(200).json({ ok: true });
@@ -89,6 +111,10 @@ export default async function handler(req, res) {
     // ── Disable user (via Supabase Auth admin API) ──
     if (action === 'disable_user') {
       const { userId, disabled } = payload;
+      if (typeof userId !== 'string' || !UUID_RE.test(userId) || typeof disabled !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (userId === user.id) return res.status(400).json({ error: 'Cannot disable yourself' });
       const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
@@ -105,6 +131,12 @@ export default async function handler(req, res) {
     // ── Broadcast notification ──
     if (action === 'broadcast') {
       const { message, audience } = payload; // audience: 'all' | 'parents' | 'specialists'
+      if (typeof message !== 'string' || message.length === 0 || message.length > 500) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (audience !== 'all' && audience !== 'parents' && audience !== 'specialists') {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
 
       // Get all profiles matching audience
       let profilesUrl = 'profiles?select=id,role,household_id';
@@ -148,6 +180,12 @@ export default async function handler(req, res) {
     // ── Re-engagement nudge for stuck households ──
     if (action === 'nudge_stuck') {
       const { householdIds } = payload;
+      if (!Array.isArray(householdIds) || householdIds.length === 0 || householdIds.length > 100) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (!householdIds.every(id => typeof id === 'string' && UUID_RE.test(id))) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
 
       // Get parent profiles for these households
       const profilesRes = await fetch(
@@ -182,7 +220,18 @@ export default async function handler(req, res) {
     // ── Send direct email to user ──
     if (action === 'send_email') {
       const { to, toName, subject, body } = payload;
-      if (!to || !subject || !body) return res.status(400).json({ error: 'Missing fields' });
+      if (typeof to !== 'string' || to.length === 0 || to.length > 320 || !EMAIL_RE.test(to)) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (toName != null && (typeof toName !== 'string' || toName.length > 100)) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (typeof subject !== 'string' || subject.length === 0 || subject.length > 200) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
+      if (typeof body !== 'string' || body.length === 0 || body.length > 5000) {
+        return res.status(400).json({ error: 'Invalid input' });
+      }
 
       // Use same email provider as send-invite (Resend / SendGrid / SMTP)
       // Try Resend first, then SendGrid
@@ -208,8 +257,8 @@ export default async function handler(req, res) {
         });
         if (!r.ok) {
           const err = await r.text();
-          console.error('Resend error:', err);
-          return res.status(500).json({ error: 'Email failed: ' + err });
+          console.error('❌ admin-action send_email (Resend):', err);
+          return res.status(500).json({ error: 'Email send failed' });
         }
         return res.status(200).json({ ok: true });
       }
@@ -227,18 +276,20 @@ export default async function handler(req, res) {
         });
         if (!r.ok) {
           const err = await r.text();
-          return res.status(500).json({ error: 'Email failed: ' + err });
+          console.error('❌ admin-action send_email (SendGrid):', err);
+          return res.status(500).json({ error: 'Email send failed' });
         }
         return res.status(200).json({ ok: true });
       }
 
-      return res.status(500).json({ error: 'No email provider configured (need RESEND_API_KEY or SENDGRID_API_KEY)' });
+      console.error('❌ admin-action send_email: no email provider configured');
+      return res.status(500).json({ error: 'Email send failed' });
     }
 
     return res.status(400).json({ error: 'Unknown action: ' + action });
 
   } catch (err) {
-    console.error('admin-action error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ admin-action:', err);
+    res.status(500).json({ error: 'Action failed' });
   }
 }
