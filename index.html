@@ -2782,7 +2782,7 @@ async function _loadSessionFromSupabase(s){
       ? profile.display_name
       : (s.user.user_metadata?.full_name||s.user.user_metadata?.name||'')
       || s.user.email.split('@')[0];
-    session={id:s.user.id,email:s.user.email,role:profile.role,
+    session={id:s.user.id,email:s.user.email,role:profile.role,isAdmin:profile.is_admin===true,
       name:_displayName,displayName:_fullDisplayName,specialistId:profile.id,isNew:false,
       householdId:profile.household_id,isPrimary:profile.is_primary!==false,
       profession:profile.profession||null,
@@ -10519,7 +10519,7 @@ function renderContent(){
   if(t==='reports'&&r==='specialist'&&window.HUD_REPORTS)return window.HUD_REPORTS.renderReports();
   if(t==='session-summaries')return renderSessionSummaries();
   if(t==='email')return renderEmailInbox();
-  if(t==='admin'&&session?.email==='admin@huddledin.com')return renderAdminDashboard();
+  if(t==='admin'&&session?.isAdmin===true)return renderAdminDashboard();
   if(t==='request')return renderSpecialistRequest();
   if(t==='specialist-requests'&&r==='parent')return renderSpecialistRequests();
   return d('section',[p(T('content_coming_soon'))]);
@@ -20135,7 +20135,7 @@ function renderSpecialistSettings(){
 }
 
 function renderAdminDashboard(){
-  if(session?.email!=='admin@huddledin.com')return renderSettings();
+  if(session?.isAdmin!==true)return renderSettings();
   const sec=el('div',{class:'section',style:{maxWidth:'960px',margin:'0 auto',paddingBottom:'40px'}});
 
   // Header
@@ -20802,7 +20802,7 @@ function renderAdminDashboard(){
 
 function renderSettings(){
   if(session?.role==='specialist')return renderSpecialistSettings();
-  if(session?.email==='admin@huddledin.com')return renderAdminDashboard();
+  if(session?.isAdmin===true)return renderAdminDashboard();
   const sec=el('div',{class:'section'});
   sec.appendChild(el('h2',{class:'page-title',style:{marginBottom:'24px'}},[T('settings_title')]));
 

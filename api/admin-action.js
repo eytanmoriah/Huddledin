@@ -1,18 +1,37 @@
+import { createClient } from '@supabase/supabase-js';
+
+async function verifyAdmin(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return { user: null, error: 'unauthenticated' };
+  const token = authHeader.split(' ')[1];
+  const url = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return { user: null, error: 'unauthenticated' };
+  const supa = createClient(url, serviceKey);
+  const { data: { user }, error: authErr } = await supa.auth.getUser(token);
+  if (authErr || !user) return { user: null, error: 'unauthenticated' };
+  const { data: rows } = await supa.from('profiles').select('is_admin').eq('id', user.id).limit(1);
+  if (!rows?.[0]?.is_admin) return { user: null, error: 'forbidden' };
+  return { user, error: null };
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const { user, error: authError } = await verifyAdmin(req);
+  if (authError === 'unauthenticated') return res.status(401).json({ error: 'Unauthorized' });
+  if (authError === 'forbidden') return res.status(403).json({ error: 'Forbidden' });
 
   try {
-    // Verify admin
-    const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_KEY }
-    });
-    if (!userRes.ok) return res.status(401).json({ error: 'Invalid token' });
-    const user = await userRes.json();
-    if (user.email !== 'admin@huddledin.com') return res.status(403).json({ error: 'Forbidden' });
-
     const { action, payload } = req.body;
 
     const supa = async (method, path, body) => {
@@ -180,8 +199,8 @@ export default async function handler(req, res) {
             subject,
             html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
               <h2 style="color:#0d9488">Message from Huddledin</h2>
-              <p>Hi ${toName || ''},</p>
-              <div style="white-space:pre-wrap;line-height:1.6">${body.replace(/</g,'&lt;')}</div>
+              <p>Hi ${escapeHtml(toName || '')},</p>
+              <div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(body)}</div>
               <hr style="margin:24px 0;border:none;border-top:1px solid #e2e8f0"/>
               <p style="color:#64748b;font-size:12px">This message was sent by the Huddledin admin team.</p>
             </div>`

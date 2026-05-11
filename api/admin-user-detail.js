@@ -1,17 +1,28 @@
+import { createClient } from '@supabase/supabase-js';
+
+async function verifyAdmin(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return { user: null, error: 'unauthenticated' };
+  const token = authHeader.split(' ')[1];
+  const url = process.env.SUPABASE_URL || 'https://smgbojgrdezasxciloll.supabase.co';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return { user: null, error: 'unauthenticated' };
+  const supa = createClient(url, serviceKey);
+  const { data: { user }, error: authErr } = await supa.auth.getUser(token);
+  if (authErr || !user) return { user: null, error: 'unauthenticated' };
+  const { data: rows } = await supa.from('profiles').select('is_admin').eq('id', user.id).limit(1);
+  if (!rows?.[0]?.is_admin) return { user: null, error: 'forbidden' };
+  return { user, error: null };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const { user, error: authError } = await verifyAdmin(req);
+  if (authError === 'unauthenticated') return res.status(401).json({ error: 'Unauthorized' });
+  if (authError === 'forbidden') return res.status(403).json({ error: 'Forbidden' });
 
   try {
-    const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_KEY }
-    });
-    if (!userRes.ok) return res.status(401).json({ error: 'Invalid token' });
-    const adminUser = await userRes.json();
-    if (adminUser.email !== 'admin@huddledin.com') return res.status(403).json({ error: 'Forbidden' });
-
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
