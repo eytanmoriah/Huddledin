@@ -14,10 +14,15 @@ staticFiles.forEach(f => {
   }
 });
 
-// Copy service worker if it exists
+// Copy service worker if it exists. Substitute __BUILD_VERSION__ → deploy timestamp
+// so every build gets a unique CACHE_NAME, forcing the SW's activate cleanup to
+// drop stale caches. Closes audit Report 03 #1 (sw.js cache versioning).
 if (fs.existsSync('sw.js')) {
-  fs.copyFileSync('sw.js', 'public/sw.js');
-  console.log('  📄 Copied sw.js → public/sw.js');
+  const buildVersion = Date.now().toString();
+  const swSource = fs.readFileSync('sw.js', 'utf8');
+  const swProcessed = swSource.replace(/__BUILD_VERSION__/g, buildVersion);
+  fs.writeFileSync('public/sw.js', swProcessed);
+  console.log('  📄 Copied sw.js → public/sw.js (cache: huddledin-' + buildVersion + ')');
 }
 
 // Copy manifest if it exists
@@ -79,6 +84,28 @@ if (fs.existsSync(parserEntry)) {
       target: 'es2020',
     }).then(() => {
       console.log('✅ File parser build complete → public/file-parser.bundle.js');
+    })
+  );
+}
+
+// Tiptap report-builder bundle — lazy-loaded via <script> injection at runtime.
+// Mirrors file-parser pattern. Splits ~100-150 KB gzipped of Tiptap+ProseMirror
+// off the parent's app.bundle.js boot path. Closes audit Report 05 #1.
+const tiptapEntry = 'src/features/reports/tiptap-entry.js';
+if (fs.existsSync(tiptapEntry)) {
+  builds.push(
+    esbuild.build({
+      entryPoints: [tiptapEntry],
+      bundle: true,
+      outfile: 'public/tiptap.bundle.js',
+      format: 'iife',
+      globalName: 'HuddledinTiptap',
+      minify: true,
+      sourcemap: true,
+      target: 'es2020',
+      loader: { '.css': 'text' },
+    }).then(() => {
+      console.log('✅ Tiptap build complete → public/tiptap.bundle.js');
     })
   );
 }

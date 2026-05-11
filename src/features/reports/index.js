@@ -414,7 +414,7 @@ function _draftPreview(content) {
 
 async function _renderDraftsSection(host) {
   const { el, mkBtn, toast, session, openConfirm } = H();
-  const { listDrafts, deleteDraft } = await import('./tiptap-gate.js');
+  const { listDrafts, deleteDraft } = await window.HUD_TIPTAP_API();
   const drafts = await listDrafts({ specialistId: session.id });
   if (!drafts.length) return;
 
@@ -460,7 +460,7 @@ async function handleNewReport(childId) {
   if (!session?.id || !childId) return;
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet — try again in a moment.', 'info'); return; }
 
-  const { findExistingDraft } = await import('./tiptap-gate.js');
+  const { findExistingDraft } = await window.HUD_TIPTAP_API();
   const existing = await findExistingDraft({ specialistId: session.id, childId });
 
   if (!existing) {
@@ -494,7 +494,7 @@ async function handleNewReport(childId) {
 async function _openTemplatePickerForChild({ childId, onPicked }) {
   const { session, openModal, el, mkBtn, toast, _supa, openConfirm } = H();
   if (!session?.id) return;
-  const { substitutePlaceholders } = await import('./tiptap-gate.js');
+  const { substitutePlaceholders } = await window.HUD_TIPTAP_API();
 
   let templates;
   try {
@@ -544,7 +544,7 @@ async function handleStartFromTemplate(childId) {
   if (!session?.id || !childId) return;
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again in a moment.', 'info'); return; }
 
-  const { findExistingDraft } = await import('./tiptap-gate.js');
+  const { findExistingDraft } = await window.HUD_TIPTAP_API();
   const existing = await findExistingDraft({ specialistId: session.id, childId });
 
   if (existing) {
@@ -649,7 +649,7 @@ function renderPatientReports() {
         e.stopPropagation();
         const { openConfirm } = H();
         openConfirm('Delete this draft?', 'This cannot be undone.', true, async () => {
-          const { deleteDraft } = await import('./tiptap-gate.js');
+          const { deleteDraft } = await window.HUD_TIPTAP_API();
           const result = await deleteDraft({ reportId: r.id });
           if (result.ok) { RS.reportsLoaded = false; H().re(); }
           else toast('Failed to delete draft.', 'error');

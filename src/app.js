@@ -34,6 +34,31 @@ async function loadFileParserBundle() {
 }
 window.HUD_LOAD_FILE_PARSER = loadFileParserBundle;
 
+// ── Lazy loader for tiptap bundle ──
+async function loadTiptapBundle() {
+  if (window.HUD_TIPTAP) return;
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="/tiptap.bundle.js"]');
+    if (existing) {
+      if (window.HUD_TIPTAP) return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Tiptap load failed')), { once: true });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = '/tiptap.bundle.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Tiptap load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+async function getTiptapAPI() {
+  await loadTiptapBundle();
+  return window.HUD_TIPTAP;
+}
+window.HUD_TIPTAP_API = getTiptapAPI;
+
 // ── Tiptap editor gate modal ──
 async function openTiptapGateModal(opts = {}) {
   const overlay = document.createElement('div');
@@ -80,7 +105,7 @@ async function openTiptapGateModal(opts = {}) {
   overlay.appendChild(card);
   overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
   document.body.appendChild(overlay);
-  const { mountGateEditor } = await import('./features/reports/tiptap-gate.js');
+  const { mountGateEditor } = await window.HUD_TIPTAP_API();
   gateEditor = await mountGateEditor(editorHost, { ...opts, _closeModal: () => closeModal() });
 }
 window.HUD_openTiptapGate = openTiptapGateModal;
