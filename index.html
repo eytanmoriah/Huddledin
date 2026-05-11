@@ -1563,6 +1563,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .lang-picker button.active{color:var(--teal);font-weight:700;background:var(--mint-ll)}
 .lang-picker button:hover{color:var(--teal)}
 .lang-picker-sep{color:var(--slate-ll);font-weight:300}
+
+/* iOS focus-zoom prevention — any input below 16px triggers viewport zoom on tap.
+   Closes audit #14/#15. Override mobile-only; desktop keeps tighter 15px sizing. */
+@media (max-width: 768px) {
+  input, textarea, select { font-size: 16px; }
+}
 </style>
 </head>
 <body>
