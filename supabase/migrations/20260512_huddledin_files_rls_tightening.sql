@@ -227,17 +227,16 @@ USING (
 -- surfaced them as.
 
 -- B1. Drop the existing too-permissive policies (replace names from Q2 results):
-DROP POLICY IF EXISTS "<existing_select_policy_name>" ON storage.objects;
-DROP POLICY IF EXISTS "<existing_insert_policy_name>" ON storage.objects;
-DROP POLICY IF EXISTS "<existing_update_policy_name>" ON storage.objects;
-DROP POLICY IF EXISTS "<existing_delete_policy_name>" ON storage.objects;
+DROP POLICY IF EXISTS "allow public reads" ON storage.objects;
+DROP POLICY IF EXISTS "allow authenticated uploads" ON storage.objects;
+DROP POLICY IF EXISTS "allow authenticated deletes" ON storage.objects;
 
 -- B2. Drop the 4 vestigial anon-JPG policies. These were dashboard-created
 -- for a public-folder share that no longer exists. Replace names from Q2.
-DROP POLICY IF EXISTS "<anon_jpg_policy_1>" ON storage.objects;
-DROP POLICY IF EXISTS "<anon_jpg_policy_2>" ON storage.objects;
-DROP POLICY IF EXISTS "<anon_jpg_policy_3>" ON storage.objects;
-DROP POLICY IF EXISTS "<anon_jpg_policy_4>" ON storage.objects;
+DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_0" ON storage.objects;
+DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_1" ON storage.objects;
+DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_2" ON storage.objects;
+DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_3" ON storage.objects;
 
 -- B3. Drop the orphan 'Huddledin files' bucket (capital H, public=true,
 -- confirmed empty by Eytan).
@@ -267,15 +266,19 @@ DELETE FROM storage.buckets WHERE id = 'Huddledin files';
 -- -- Step 2: drop the helper function. Optional — leaving harmless.
 -- DROP FUNCTION IF EXISTS can_access_huddledin_path(TEXT, TEXT);
 --
--- -- Step 3: recreate the old too-permissive policies verbatim from Q2.
--- -- PASTE FROM Q2 RESULTS. Format per row in Q2:
--- --
--- -- CREATE POLICY "<policyname from Q2>"
--- -- ON storage.objects FOR <cmd from Q2> TO <roles from Q2>
--- -- USING (<verbatim qual from Q2>)
--- -- WITH CHECK (<verbatim with_check from Q2 — INSERT/UPDATE only>);
--- --
--- -- One block per pre-existing policy that was dropped in B1.
+-- -- Step 3: recreate the old too-permissive policies (verbatim from Q2).
+--
+-- CREATE POLICY "allow public reads"
+-- ON storage.objects FOR SELECT TO public
+-- USING (bucket_id = 'huddledin-files');
+--
+-- CREATE POLICY "allow authenticated uploads"
+-- ON storage.objects FOR INSERT TO authenticated
+-- WITH CHECK (bucket_id = 'huddledin-files');
+--
+-- CREATE POLICY "allow authenticated deletes"
+-- ON storage.objects FOR DELETE TO authenticated
+-- USING (bucket_id = 'huddledin-files');
 --
 -- -- Indexes added in Phase A are harmless — leave them in place.
 -- -- Vestigial anon-JPG policies were already useless; don't recreate.
