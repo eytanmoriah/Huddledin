@@ -3175,6 +3175,7 @@ let S={
   tourStep:0,             // current step index
   patientStatusFilter:'active',  // filter state for renderPatients — survives re()
   activeSpecPatient:null,        // pre-parent patient id when viewing spec-patient-detail
+  activeSpecPatientTab:'Calendar',  // desktop tab inside spec-patient-detail
   calendarMode:'child',          // 'joint' = all children; 'child' = active child only
   activeChatChildId:null,
   chatsLoaded:false,
@@ -8676,6 +8677,17 @@ function renderSpecDesktop(){
       } else {
         bc.appendChild(el('span',{class:'spec-dt-bc-cur'},[activeChild.name.split(' ')[0]]));
       }
+    } else if(S.activeTab==='spec-patient-detail'&&S.activeSpecPatient){
+      const _bcSp=(DB.specialistPatients||[]).find(p=>p.id===S.activeSpecPatient);
+      const bcP=el('span',{class:'spec-dt-bc-link'});bcP.textContent=T('spec_nav_patients');
+      bcP.onclick=()=>{S.activeSpecPatient=null;S.activeTab='patients';re();};
+      bc.appendChild(bcP);
+      bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
+      const bcN=el('span',{class:'spec-dt-bc-link'});bcN.textContent=(_bcSp?.name||'Patient').split(' ')[0];
+      bcN.onclick=()=>{S.activeSpecPatientTab='Calendar';re();};
+      bc.appendChild(bcN);
+      bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
+      bc.appendChild(el('span',{class:'spec-dt-bc-cur'},[S.activeSpecPatientTab||'Calendar']));
     } else {
       const bcHome=el('span',{class:'spec-dt-bc-link'});bcHome.textContent='← '+(T('nav_home')||'Home');
       bcHome.onclick=()=>{S.activeChild=null;S.activeTab='dashboard';S.calFullscreen=false;re();};
@@ -8693,6 +8705,8 @@ function renderSpecDesktop(){
     detail.appendChild(_renderSpecDtPatientsPage(sorted,specId,_rmInactSet));
   } else if(isPatientCtx&&activeChild){
     detail.appendChild(_renderSpecDtPatientDetail(activeChild,specId));
+  } else if(S.activeTab==='spec-patient-detail'&&S.activeSpecPatient){
+    detail.appendChild(_renderSpecDtSpecPatientDetail());
   } else if(!isPatientCtx&&!['todo','notifications','settings','credentials','request',
       'session-summaries','email','calendar','admin','spec-storage','reports','chat'].includes(S.activeTab)){
     // Empty state — no patient selected
@@ -8814,6 +8828,179 @@ function _renderSpecDtPatientDetail(child,specId){
   body.appendChild(renderContent());
   wrap.appendChild(body);
   return wrap;
+}
+
+/* Pre-parent patient detail (desktop) — mirrors _renderSpecDtPatientDetail layout */
+function _renderSpecDtSpecPatientDetail(){
+  const sp=(DB.specialistPatients||[]).find(p=>p.id===S.activeSpecPatient);
+  if(!sp){
+    return el('div',{class:'empty-state'},[
+      el('span',{class:'empty-state-icon'},['❓']),
+      el('div',{class:'empty-state-title'},['Patient not found.']),
+      el('div',{class:'empty-state-body'},['Return to the patients list.'])
+    ]);
+  }
+  if(!S.activeSpecPatientTab)S.activeSpecPatientTab='Calendar';
+
+  const wrap=el('div',{style:{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}});
+
+  /* Header — same DOM/classes as connected-child for visual parity */
+  const hdr=el('div',{class:'spec-dt-det-hdr'});
+  const pr=el('div',{class:'spec-dt-det-pr'});
+  pr.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},54,'50%'));
+
+  const pi=el('div',{class:'spec-dt-det-pi'});
+  const pnameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}});
+  const pname=el('div',{class:'spec-dt-det-name'});pname.textContent=sp.name;
+  pnameRow.appendChild(pname);
+  pnameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
+  pi.appendChild(pnameRow);
+  const pmeta=el('div',{class:'spec-dt-det-meta'});
+  const ageSp=el('span');ageSp.textContent=T('spec_dt_age')+' '+(calcAge(sp.dob)||'—');
+  pmeta.appendChild(ageSp);
+  if(sp.dob){const dobSp=el('span');dobSp.textContent='· '+T('spec_dt_dob')+' '+sp.dob;pmeta.appendChild(dobSp);}
+  pi.appendChild(pmeta);
+  pr.appendChild(pi);
+
+  // Stat tiles — all dashes (no data yet for pre-parent patients)
+  const statsWrap=el('div',{class:'spec-dt-det-stats'});
+  [{l:T('spec_dt_notes_stat')},{l:T('spec_dt_tasks_stat')},{l:T('spec_dt_done_stat')},{l:T('spec_dt_last_note')}].forEach(({l})=>{
+    const sc=el('div',{class:'spec-dt-det-stat'});
+    const sv=el('div',{class:'spec-dt-det-sv'});sv.textContent='—';
+    const sl=el('div',{class:'spec-dt-det-sl'});sl.textContent=l;
+    sc.appendChild(sv);sc.appendChild(sl);statsWrap.appendChild(sc);
+  });
+
+  // Action buttons in header
+  const ha=el('div',{class:'spec-dt-det-ha'});
+  const nNote=el('button',{class:'spec-dt-act-btn'},[T('spec_dt_plus_note')]);
+  nNote.onclick=()=>toast('Coming soon — wired in Sub-commit 4b','info');
+  const nTask=el('button',{class:'spec-dt-act-btn'},[T('spec_dt_plus_task')]);
+  nTask.onclick=()=>toast('Coming soon — wired in Sub-commit 4d','info');
+  ha.appendChild(nNote);ha.appendChild(nTask);
+  // Overflow menu (⋮) — Send invite / Archive / Delete
+  const overflowBtn=el('button',{class:'spec-dt-act-btn',style:{fontSize:'1.1rem',padding:'4px 12px',lineHeight:1},title:'More actions'});
+  overflowBtn.textContent='⋮';
+  overflowBtn.onclick=ev=>{ev.stopPropagation();_showSpecPatientOverflowMenu(sp,overflowBtn);};
+  ha.appendChild(overflowBtn);
+
+  pr.appendChild(statsWrap);
+  pr.appendChild(ha);
+  hdr.appendChild(pr);
+
+  /* Tab bar — same DOM/classes as connected-child for visual parity */
+  const tabbar=el('div',{class:'spec-dt-tabbar'});
+  const PTABS=[
+    {id:'Calendar', label:'📅 '+T('tab_calendar')},
+    {id:'Notes',    label:'📋 '+T('tab_notes')},
+    {id:'Exercises',label:'✅ '+T('tab_tasks'),locked:true},
+    {id:'Files',    label:'📁 '+T('tab_files')},
+    {id:'Chat',     label:'💬 '+T('tab_chat'),locked:true},
+    {id:'Info',     label:T('info_card_info')||'Info'},
+    {id:'Reports',  label:'📋 Reports'}
+  ];
+  PTABS.forEach(t=>{
+    const isAct=S.activeSpecPatientTab===t.id;
+    const btn=el('button',{
+      class:'spec-dt-tab'+(isAct?' active':''),
+      style:Object.assign({position:'relative'},t.locked?{opacity:'0.55',cursor:'not-allowed'}:{}),
+      title:t.locked?'Available after parent connection':''
+    });
+    btn.appendChild(document.createTextNode(t.label));
+    if(t.locked){
+      btn.appendChild(el('span',{style:{marginInlineStart:'4px',fontSize:'.7rem'}},['🔒']));
+    }
+    btn.onclick=()=>{
+      if(t.locked){toast('Available after parent connection','info');return;}
+      S.activeSpecPatientTab=t.id;re();
+    };
+    tabbar.appendChild(btn);
+  });
+  hdr.appendChild(tabbar);
+  wrap.appendChild(hdr);
+
+  /* Content body — per-tab dispatch */
+  const body=el('div',{class:'spec-dt-det-body'});
+  const tab=S.activeSpecPatientTab||'Calendar';
+  if(tab==='Info'){
+    body.appendChild(_renderSpecPatientInfoTab(sp));
+  } else {
+    body.appendChild(_renderSpecPatientComingSoonTab(tab));
+  }
+  wrap.appendChild(body);
+
+  return wrap;
+}
+
+function _renderSpecPatientInfoTab(sp){
+  const wrap=el('div',{style:{padding:'24px'}});
+  const card=el('div',{class:'card',style:{maxWidth:'640px'}});
+  const head=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'16px'}});
+  head.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'1rem',flex:1}},['Patient information']));
+  head.appendChild(mkBtn('Edit','btn-sm btn-ghost',()=>_showCreateSpecPatientModal({existingPatient:sp})));
+  card.appendChild(head);
+  const _kv=(label,value)=>{
+    const row=el('div',{style:{display:'flex',gap:'16px',marginBottom:'10px',fontSize:'.88rem',alignItems:'baseline',flexWrap:'wrap'}});
+    row.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'140px'}},[label+':']));
+    row.appendChild(el('span',{style:{color:'var(--navy)',flex:1,minWidth:'160px'}},[value||'—']));
+    card.appendChild(row);
+  };
+  _kv('Name',sp.name);
+  _kv('Date of birth',sp.dob);
+  _kv('Age',calcAge(sp.dob)||'—');
+  _kv('Pronouns',sp.pronouns||'—');
+  _kv("Parent's name (hint)",sp.parent_name_hint);
+  _kv("Parent's email (hint)",sp.parent_email_hint);
+  if(sp.notes){
+    card.appendChild(el('div',{style:{fontWeight:600,color:'var(--slate)',marginTop:'12px',marginBottom:'6px',fontSize:'.84rem'}},['Notes:']));
+    card.appendChild(el('div',{style:{padding:'12px 14px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.86rem',color:'var(--navy)',lineHeight:'1.55',whiteSpace:'pre-wrap'}},[sp.notes]));
+  }
+  wrap.appendChild(card);
+  return wrap;
+}
+
+function _renderSpecPatientComingSoonTab(tabName){
+  const map={Calendar:'Sub-commit 4d',Notes:'Sub-commit 4b',Files:'Sub-commit 4h',Reports:'Sub-commit 4f'};
+  return el('div',{class:'empty-state',style:{padding:'80px 24px',textAlign:'center'}},[
+    el('span',{class:'empty-state-icon',style:{fontSize:'3rem'}},['🚧']),
+    el('div',{class:'empty-state-title',style:{marginTop:'12px'}},[tabName+' — coming soon']),
+    el('div',{class:'empty-state-body',style:{marginTop:'8px'}},[map[tabName]?('Wired in '+map[tabName]+'.'):'Available shortly.'])
+  ]);
+}
+
+function _showSpecPatientOverflowMenu(sp,anchorBtn){
+  const existing=document.getElementById('spec-patient-overflow-menu');
+  if(existing){existing.remove();return;}
+  const rect=anchorBtn.getBoundingClientRect();
+  const menu=el('div',{id:'spec-patient-overflow-menu',style:{position:'fixed',top:(rect.bottom+6)+'px',right:Math.max(8,window.innerWidth-rect.right)+'px',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'12px',boxShadow:'0 8px 24px rgba(13,148,136,.12), 0 4px 8px rgba(0,0,0,.08)',minWidth:'220px',zIndex:'1000',padding:'6px',display:'flex',flexDirection:'column',gap:'2px'}});
+  const _closeMenu=()=>{menu.remove();document.removeEventListener('click',_closeOnOutside,true);document.removeEventListener('keydown',_closeOnEsc);};
+  const _closeOnOutside=(e2)=>{if(!menu.contains(e2.target)&&e2.target!==anchorBtn)_closeMenu();};
+  const _closeOnEsc=(e2)=>{if(e2.key==='Escape')_closeMenu();};
+  const _menuItem=(label,onClick)=>{
+    const it=el('button',{style:{display:'block',width:'100%',textAlign:'left',padding:'10px 14px',background:'transparent',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:'.86rem',fontWeight:600,color:'var(--navy)',fontFamily:"'Nunito',sans-serif"}});
+    it.textContent=label;
+    it.onmouseenter=()=>{it.style.background='var(--mint-ll)';};
+    it.onmouseleave=()=>{it.style.background='transparent';};
+    it.onclick=()=>{_closeMenu();onClick();};
+    menu.appendChild(it);
+  };
+  _menuItem('📨 Send invite',()=>_showConnectionRequestModalForSpecPatient(sp));
+  if(sp.status==='archived'){
+    _menuItem('↩ Restore patient',async()=>{
+      try{const{error}=await _supa.from('specialist_patients').update({status:'active'}).eq('id',sp.id);if(error){console.error('❌ restore specialist_patient:',error);toast('Failed to restore.','error');return;}toast('✅ '+sp.name+' restored.');await _loadSpecialistPatients();re();}catch(e){console.error('restore specialist_patient:',e);toast('Something went wrong.','error');}
+    });
+  } else {
+    _menuItem('📦 Archive patient',async()=>{
+      try{const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);if(error){console.error('❌ archive specialist_patient:',error);toast('Failed to archive.','error');return;}toast('✅ '+sp.name+' archived.');await _loadSpecialistPatients();S.activeSpecPatient=null;S.activeTab='patients';re();}catch(e){console.error('archive specialist_patient:',e);toast('Something went wrong.','error');}
+    });
+  }
+  _menuItem('🗑 Delete patient',()=>{
+    openConfirm('Delete patient?','This will move '+sp.name+' to your archive. The record is preserved but no longer appears in your active list.',false,async()=>{
+      try{const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);if(error){console.error('❌ delete specialist_patient:',error);toast('Failed to delete.','error');return;}toast('✅ '+sp.name+' moved to archive.');await _loadSpecialistPatients();S.activeSpecPatient=null;S.activeTab='patients';re();}catch(e){console.error('delete specialist_patient:',e);toast('Something went wrong.','error');}
+    });
+  });
+  document.body.appendChild(menu);
+  setTimeout(()=>{document.addEventListener('click',_closeOnOutside,true);document.addEventListener('keydown',_closeOnEsc);},0);
 }
 
 /* Desktop dashboard — 2-column layout: left (banner + bubbles) right (cal + tasks) */
