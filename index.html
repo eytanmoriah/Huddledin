@@ -17636,123 +17636,122 @@ function renderSpecPatientDetail(){
     return sec;
   }
 
-  // ── Header card ───────────────────────────────────────────────
-  const hdr=el('div',{class:'card',style:{background:'linear-gradient(135deg,#f0fdf9,#ffffff)',border:'1.5px solid var(--mint-l)',display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'}});
-  hdr.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},52,'15px'));
-  const hi=el('div',{style:{flex:1,minWidth:0}});
-  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'4px'}});
-  nameRow.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1rem'}},[sp.name]));
-  nameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.7rem',padding:'4px 10px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
-  hi.appendChild(nameRow);
-  hi.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
-  hdr.appendChild(hi);
-  const headEdit=el('button',{style:{background:'transparent',border:'none',cursor:'pointer',fontSize:'1.1rem',padding:'6px 10px',borderRadius:'10px',color:'var(--teal)'},title:'Edit patient'});
-  headEdit.textContent='✏️';
-  headEdit.onmouseenter=()=>{headEdit.style.background='var(--mint-ll)';};
-  headEdit.onmouseleave=()=>{headEdit.style.background='transparent';};
-  headEdit.onclick=()=>_showCreateSpecPatientModal({existingPatient:sp});
-  hdr.appendChild(headEdit);
-  sec.appendChild(hdr);
+  // ── Header card — mirrors renderPatientDashboard's hdrCard ─────
+  const hdrCard=el('div',{class:'card',style:{
+    background:'linear-gradient(135deg,var(--lav-l),var(--mint-ll))',
+    border:'1.5px solid var(--lav)',
+    display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'
+  }});
+  hdrCard.style[_isRtl()?'borderRight':'borderLeft']='5px solid '+(sp.color||'var(--teal)');
+  hdrCard.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},56,'16px'));
+  const hInfo=el('div',{style:{flex:1,minWidth:0}});
+  const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',marginBottom:'2px'}});
+  nameRow.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1.1rem'}},[sp.name]));
+  nameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
+  hInfo.appendChild(nameRow);
+  hInfo.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginTop:'3px'}},
+    ['Age '+(calcAge(sp.dob)||'—')+' · DOB '+(sp.dob||'—')]));
+  hdrCard.appendChild(hInfo);
 
-  // ── Section card builder ──────────────────────────────────────
-  const _section=(title,iconEmoji,bodyBuilder,opts)=>{
-    opts=opts||{};
-    const card=el('div',{class:'card','data-spec-patient-section':opts.dataKey||'',style:{marginBottom:'14px',opacity:opts.muted?'.55':'1',position:'relative'}});
-    const head=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px'}});
-    head.appendChild(el('span',{style:{fontSize:'1.1rem'}},[iconEmoji]));
-    head.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)',fontSize:'.95rem',flex:1}},[title]));
-    if(opts.editFn){
-      const ed=el('button',{style:{background:'transparent',border:'none',cursor:'pointer',fontSize:'.95rem',padding:'4px 8px',borderRadius:'8px',color:'var(--teal)'},title:'Edit'});
-      ed.textContent='✏️';
-      ed.onmouseenter=()=>{ed.style.background='var(--mint-ll)';};
-      ed.onmouseleave=()=>{ed.style.background='transparent';};
-      ed.onclick=opts.editFn;
-      head.appendChild(ed);
-    }
-    card.appendChild(head);
-    bodyBuilder(card);
-    return card;
-  };
+  // Info pill — same styling as connected-child Info pill; opens edit modal
+  const _infoTap=el('button',{style:{background:'transparent',border:'1.5px solid var(--teal)',borderRadius:'99px',padding:'5px 12px',fontSize:'.72rem',fontWeight:700,color:'var(--teal)',cursor:'pointer',flexShrink:0}});
+  _infoTap.textContent=T('info_card_info')||'Info';
+  _infoTap.onclick=e=>{e.stopPropagation();_showCreateSpecPatientModal({existingPatient:sp});};
+  hdrCard.appendChild(_infoTap);
 
-  // ── Info section (usable) ─────────────────────────────────────
-  sec.appendChild(_section('Info','🪪',(card)=>{
-    const _kv=(label,value)=>{
-      const row=el('div',{style:{display:'flex',gap:'12px',marginBottom:'6px',fontSize:'.84rem',alignItems:'baseline',flexWrap:'wrap'}});
-      row.appendChild(el('span',{style:{color:'var(--slate)',fontWeight:600,minWidth:'120px'}},[label+':']));
-      row.appendChild(el('span',{style:{color:'var(--navy)',flex:1,minWidth:'120px'}},[value||'—']));
-      card.appendChild(row);
+  // Overflow menu (⋮) — Send invite / Archive (or Restore) / Delete
+  const overflowBtn=el('button',{style:{background:'transparent',border:'none',cursor:'pointer',fontSize:'1.3rem',padding:'2px 6px',color:'var(--slate)',flexShrink:0,lineHeight:1},title:'More actions'});
+  overflowBtn.textContent='⋮';
+  overflowBtn.onclick=ev=>{
+    ev.stopPropagation();
+    const existing=document.getElementById('spec-patient-overflow-menu');
+    if(existing){existing.remove();return;}
+    const rect=overflowBtn.getBoundingClientRect();
+    const menu=el('div',{id:'spec-patient-overflow-menu',style:{position:'fixed',top:(rect.bottom+6)+'px',right:Math.max(8,window.innerWidth-rect.right)+'px',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'12px',boxShadow:'0 8px 24px rgba(13,148,136,.12), 0 4px 8px rgba(0,0,0,.08)',minWidth:'220px',zIndex:'1000',padding:'6px',display:'flex',flexDirection:'column',gap:'2px'}});
+    const _closeMenu=()=>{menu.remove();document.removeEventListener('click',_closeOnOutside,true);document.removeEventListener('keydown',_closeOnEsc);};
+    const _closeOnOutside=(e2)=>{if(!menu.contains(e2.target)&&e2.target!==overflowBtn)_closeMenu();};
+    const _closeOnEsc=(e2)=>{if(e2.key==='Escape')_closeMenu();};
+    const _menuItem=(label,onClick)=>{
+      const it=el('button',{style:{display:'block',width:'100%',textAlign:'left',padding:'10px 14px',background:'transparent',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:'.86rem',fontWeight:600,color:'var(--navy)',fontFamily:"'Nunito',sans-serif"}});
+      it.textContent=label;
+      it.onmouseenter=()=>{it.style.background='var(--mint-ll)';};
+      it.onmouseleave=()=>{it.style.background='transparent';};
+      it.onclick=()=>{_closeMenu();onClick();};
+      menu.appendChild(it);
     };
-    _kv('Pronouns',sp.pronouns||'—');
-    _kv("Parent's name",sp.parent_name_hint);
-    _kv("Parent's email",sp.parent_email_hint);
-    if(sp.notes){
-      card.appendChild(el('div',{style:{marginTop:'10px',padding:'10px 12px',background:'var(--mint-ll)',borderRadius:'10px',fontSize:'.82rem',color:'var(--navy)',lineHeight:'1.55',whiteSpace:'pre-wrap'}},[sp.notes]));
+    _menuItem('📨 Send invite',()=>_showConnectionRequestModalForSpecPatient(sp));
+    if(sp.status==='archived'){
+      _menuItem('↩ Restore patient',async()=>{
+        try{const{error}=await _supa.from('specialist_patients').update({status:'active'}).eq('id',sp.id);if(error){console.error('❌ restore specialist_patient:',error);toast('Failed to restore.','error');return;}toast('✅ '+sp.name+' restored.');await _loadSpecialistPatients();re();}catch(e){console.error('restore specialist_patient:',e);toast('Something went wrong.','error');}
+      });
+    } else {
+      _menuItem('📦 Archive patient',async()=>{
+        try{const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);if(error){console.error('❌ archive specialist_patient:',error);toast('Failed to archive.','error');return;}toast('✅ '+sp.name+' archived.');await _loadSpecialistPatients();S.activeSpecPatient=null;S.activeTab='patients';re();}catch(e){console.error('archive specialist_patient:',e);toast('Something went wrong.','error');}
+      });
     }
-  },{editFn:()=>_showCreateSpecPatientModal({existingPatient:sp}),dataKey:'info'}));
-
-  // ── Placeholder sections (data wiring in Sub-commits 4a-4h) ─────
-  const _placeholder=(title,iconEmoji,bodyText,key)=>_section(title,iconEmoji,(card)=>{
-    card.appendChild(el('div',{style:{fontSize:'.82rem',color:'var(--slate)',padding:'12px 4px',fontStyle:'italic'}},[bodyText]));
-  },{muted:true,dataKey:key});
-  sec.appendChild(_placeholder('Notes','📝','No notes yet. Session notes will be enabled here.','notes-pre-parent-not-yet-wired'));
-  sec.appendChild(_placeholder('Calendar','📅','No appointments yet. Calendar integration coming soon.','calendar-pre-parent-not-yet-wired'));
-  sec.appendChild(_placeholder('Reports','📋','No reports yet. Reports authoring will be enabled here.','reports-pre-parent-not-yet-wired'));
-  sec.appendChild(_placeholder('Files','📁','No files yet. File uploads coming soon.','files-pre-parent-not-yet-wired'));
-
-  // ── Permanently greyed-out: Exercises + Chat ─────────────────
-  const _lockedSection=(title,iconEmoji,reasonText)=>_section(title,iconEmoji,(card)=>{
-    const row=el('div',{style:{display:'flex',gap:'10px',padding:'12px 4px',alignItems:'flex-start'}});
-    row.appendChild(el('span',{style:{flexShrink:0,fontSize:'1rem'}},['🔒']));
-    row.appendChild(el('span',{style:{fontSize:'.82rem',color:'var(--slate)',fontStyle:'italic',lineHeight:'1.5'}},[reasonText]));
-    card.appendChild(row);
-  },{muted:true,dataKey:'requires-parent'});
-  sec.appendChild(_lockedSection('Exercises','✅','Available after parent connection — home exercises need parent participation to log completions.'));
-  sec.appendChild(_lockedSection('Chat','💬','Available after parent connection — chat requires the parent as a participant.'));
-
-  // ── Actions row ─────────────────────────────────────────────
-  const actions=el('div',{class:'card',style:{marginTop:'8px',display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'flex-end'}});
-
-  // Send invite — opens connection request form
-  // (Sub-commit 7 will pre-fill hints + bind matched_specialist_patient_id; for now opens the standard form.)
-  actions.appendChild(mkBtn('📨 Send invite','btn-md btn-primary',()=>_showConnectionRequestModalDesktop()));
-
-  if(sp.status==='archived'){
-    actions.appendChild(mkBtn('↩ Restore','btn-md btn-ghost',async()=>{
-      try{
-        const{error}=await _supa.from('specialist_patients').update({status:'active'}).eq('id',sp.id);
-        if(error){console.error('❌ restore specialist_patient:',error);toast('Failed to restore.','error');return;}
-        toast('✅ '+sp.name+' restored.');
-        await _loadSpecialistPatients();
-        re();
-      }catch(e){console.error('restore specialist_patient:',e);toast('Something went wrong.','error');}
-    }));
-  } else {
-    actions.appendChild(mkBtn('Archive','btn-md btn-ghost',async()=>{
-      try{
-        const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);
-        if(error){console.error('❌ archive specialist_patient:',error);toast('Failed to archive.','error');return;}
-        toast('✅ '+sp.name+' archived.');
-        await _loadSpecialistPatients();
-        S.activeSpecPatient=null;S.activeTab='patients';re();
-      }catch(e){console.error('archive specialist_patient:',e);toast('Something went wrong.','error');}
-    }));
-  }
-
-  // Delete (soft via status='archived') — confirm first
-  actions.appendChild(mkBtn('Delete','btn-md btn-ghost',()=>{
-    openConfirm('Delete patient?','This will move '+sp.name+' to your archive. The record is preserved but no longer appears in your active list.',false,async()=>{
-      try{
-        const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);
-        if(error){console.error('❌ delete specialist_patient:',error);toast('Failed to delete.','error');return;}
-        toast('✅ '+sp.name+' moved to archive.');
-        await _loadSpecialistPatients();
-        S.activeSpecPatient=null;S.activeTab='patients';re();
-      }catch(e){console.error('delete specialist_patient:',e);toast('Something went wrong.','error');}
+    _menuItem('🗑 Delete patient',()=>{
+      openConfirm('Delete patient?','This will move '+sp.name+' to your archive. The record is preserved but no longer appears in your active list.',false,async()=>{
+        try{const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);if(error){console.error('❌ delete specialist_patient:',error);toast('Failed to delete.','error');return;}toast('✅ '+sp.name+' moved to archive.');await _loadSpecialistPatients();S.activeSpecPatient=null;S.activeTab='patients';re();}catch(e){console.error('delete specialist_patient:',e);toast('Something went wrong.','error');}
+      });
     });
-  }));
+    document.body.appendChild(menu);
+    setTimeout(()=>{document.addEventListener('click',_closeOnOutside,true);document.addEventListener('keydown',_closeOnEsc);},0);
+  };
+  hdrCard.appendChild(overflowBtn);
+  sec.appendChild(hdrCard);
 
-  sec.appendChild(actions);
+  // ── 4-tile 2×2 grid — mirrors connected-child action grid ──────
+  // Clinical Notes + Files: visible-but-not-wired → coming-soon toast.
+  // Home Exercises + Chat: permanently locked → "Available after parent connection".
+  const _bubbles=[
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',locked:false,note:'Sub-commit 4b'},
+    {icon:'📋',label:'Home Exercises',color:'#f97316',bg:'#fff7ed',locked:true},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',locked:false,note:'Sub-commit 4h'},
+    {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',locked:true}
+  ];
+  const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
+  _bubbles.forEach(({icon,label,color,bg,locked,note})=>{
+    const sq=el('div',{class:'card hov',style:{
+      cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+      gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center',position:'relative',
+      opacity:locked?'0.75':'1'
+    }});
+    if(locked)sq.appendChild(el('div',{style:{position:'absolute',top:'6px',[_endSide()]:'8px',fontSize:'.75rem',color:'#94a3b8'}},['🔒']));
+    sq.appendChild(el('div',{style:{fontSize:'2rem',lineHeight:1}},[icon]));
+    sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
+    sq.onclick=()=>{
+      if(locked){toast('Available after parent connection','info');return;}
+      toast('Coming soon — wired in '+note,'info');
+    };
+    grid.appendChild(sq);
+  });
+  sec.appendChild(grid);
+
+  // ── Mini-calendar at the bottom — mirrors connected-child visuals ──
+  // No real appointments yet; override the "+ Event" / "See Full" buttons to coming-soon toasts.
+  const _calComingSoon=()=>toast('Coming soon — calendar wiring in Sub-commit 4d','info');
+  const cal=renderMiniCalendar([{id:'spec_patient_'+sp.id,name:sp.name,color:sp.color||'#7c3aed'}],[],_calComingSoon);
+  cal.querySelectorAll('.mini-cal-expand').forEach(b=>{
+    b.onclick=ev=>{ev.stopPropagation();_calComingSoon();};
+  });
+  sec.appendChild(cal);
+
   return sec;
+}
+
+function _showConnectionRequestModalForSpecPatient(sp){
+  openModal('+ Send invite to parent',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontSize:'.84rem',lineHeight:'1.5'}},
+      ['Send an invitation to '+sp.name+"'s parent. The patient name and email hint are pre-filled from this record."]));
+    mb.appendChild(_renderConnectionRequestForm({
+      onSuccess:()=>{close();re();},
+      submitBtnLabel:'📨 Send Request',
+      submitBtnClass:'btn-md btn-primary',
+      showCancel:true,
+      onCancel:close,
+      defaults:{parentEmail:sp.parent_email_hint||'',childNameHint:sp.name||''}
+    }));
+  },520);
 }
 
 /* -----------------------------------------------
@@ -17852,13 +17851,16 @@ function _showCreateSpecPatientModal(opts){
 /* -----------------------------------------------
    CONNECTION REQUEST FORM — shared helper (phone + desktop)
 ----------------------------------------------- */
-function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,onCancel,showCancel}){
+function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,onCancel,showCancel,defaults}){
+  defaults=defaults||{};
   const wrap=el('div');
   wrap.appendChild(el('div',{class:'inp-label'},["Parent's email"]));
   const pi=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
+  if(defaults.parentEmail)pi.value=defaults.parentEmail;
   wrap.appendChild(pi);
   wrap.appendChild(el('div',{class:'inp-label'},["Child's name (hint for the parent)"]));
   const ni=el('input',{class:'inp',placeholder:'e.g. Erez, Shalev…',style:{marginBottom:'4px'}});
+  if(defaults.childNameHint)ni.value=defaults.childNameHint;
   wrap.appendChild(ni);
   wrap.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'16px',fontStyle:'italic'}},["The parent's name for the child takes priority."]));
   const specRole=session?.profession||'Specialist';
