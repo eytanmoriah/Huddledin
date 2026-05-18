@@ -9112,8 +9112,32 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
   hdr.appendChild(el('span',{class:'spec-patients-count'},[String(activeCount)+' '+(activeCount===1?(T('spec_dt_patient')||'patient'):(T('spec_dt_patients_pl')||'patients'))]));
   const spacer=el('div',{style:{flex:1}});
   hdr.appendChild(spacer);
-  const codeBtn=mkBtn(T('spec_dt_enter_code')||'Enter Patient Code','btn-sm btn-primary',()=>showEnterCodeModal());
-  hdr.appendChild(codeBtn);
+  // + Add dropdown (replaces the standalone "Enter Patient Code" button)
+  // Three actions: new pre-parent patient · request parent connection · enter parent code.
+  const addBtn=mkBtn('+ Add','btn-sm btn-primary',()=>{
+    const existing=document.getElementById('spec-add-menu');
+    if(existing){existing.remove();return;}
+    const rect=addBtn.getBoundingClientRect();
+    const menu=el('div',{id:'spec-add-menu',style:{position:'fixed',top:(rect.bottom+6)+'px',right:Math.max(8,window.innerWidth-rect.right)+'px',background:'#fff',border:'1px solid var(--mint-l)',borderRadius:'12px',boxShadow:'0 8px 24px rgba(13,148,136,.12), 0 4px 8px rgba(0,0,0,.08)',minWidth:'220px',zIndex:'1000',padding:'6px',display:'flex',flexDirection:'column',gap:'2px'}});
+    const _closeMenu=()=>{menu.remove();document.removeEventListener('click',_closeOnOutside,true);document.removeEventListener('keydown',_closeOnEsc);};
+    const _closeOnOutside=(e)=>{if(!menu.contains(e.target)&&e.target!==addBtn)_closeMenu();};
+    const _closeOnEsc=(e)=>{if(e.key==='Escape')_closeMenu();};
+    const _menuItem=(label,onClick)=>{
+      const it=el('button',{style:{display:'block',width:'100%',textAlign:'left',padding:'10px 14px',background:'transparent',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:'.86rem',fontWeight:600,color:'var(--navy)',fontFamily:"'Nunito',sans-serif",transition:'background .12s ease'}});
+      it.textContent=label;
+      it.onmouseenter=()=>{it.style.background='var(--mint-ll)';};
+      it.onmouseleave=()=>{it.style.background='transparent';};
+      it.onclick=()=>{_closeMenu();onClick();};
+      menu.appendChild(it);
+    };
+    _menuItem('+ New patient',()=>_showCreateSpecPatientModal());
+    _menuItem('+ Request connection',()=>_showConnectionRequestModalDesktop());
+    _menuItem('+ Enter parent code',()=>showEnterCodeModal());
+    document.body.appendChild(menu);
+    // Defer outside-click listener so the opening click doesn't immediately close the menu
+    setTimeout(()=>{document.addEventListener('click',_closeOnOutside,true);document.addEventListener('keydown',_closeOnEsc);},0);
+  });
+  hdr.appendChild(addBtn);
   wrap.appendChild(hdr);
 
   // Controls (search + filter tabs)
@@ -17662,6 +17686,78 @@ function _showCreateSpecPatientModal(){
   },520);
 }
 
+/* -----------------------------------------------
+   CONNECTION REQUEST FORM — shared helper (phone + desktop)
+----------------------------------------------- */
+function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,onCancel,showCancel}){
+  const wrap=el('div');
+  wrap.appendChild(el('div',{class:'inp-label'},["Parent's email"]));
+  const pi=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
+  wrap.appendChild(pi);
+  wrap.appendChild(el('div',{class:'inp-label'},["Child's name (hint for the parent)"]));
+  const ni=el('input',{class:'inp',placeholder:'e.g. Erez, Shalev…',style:{marginBottom:'4px'}});
+  wrap.appendChild(ni);
+  wrap.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'16px',fontStyle:'italic'}},["The parent's name for the child takes priority."]));
+  const specRole=session?.profession||'Specialist';
+  wrap.appendChild(el('div',{class:'inp-label'},['Your specialty']));
+  wrap.appendChild(el('div',{style:{padding:'10px 14px',background:'var(--mint-ll)',borderRadius:'var(--r-md)',fontSize:'.88rem',fontWeight:600,color:'var(--navy)',marginBottom:'16px'}},[specRole]));
+  wrap.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
+    ['The parent will receive an email with a link to approve your request. Once approved, the child will appear in your Patients list.']));
+  const lbl=submitBtnLabel||'📨 Send Request';
+  const cls=submitBtnClass||'btn-md btn-primary';
+  const submitBtn=mkBtn(lbl,cls,async()=>{
+    const parentEmail=pi.value.trim();const childHint=ni.value.trim();
+    if(!parentEmail||!parentEmail.includes('@')){toast('Please enter a valid email address.','error');return;}
+    if(!childHint){toast("Please enter the child's name.",'error');return;}
+    if(session?.id==='demo'){toast('Demo mode — request not sent.','info');return;}
+    submitBtn.disabled=true;submitBtn.textContent='⏳ Sending…';
+    try{
+      // Dedup: same specialist + same parent email + pending + NULL child_id
+      const{data:dup}=await _supa.from('specialist_requests').select('id')
+        .eq('specialist_id',session.id).eq('parent_email_hint',parentEmail)
+        .eq('status','pending').is('child_id',null).limit(1);
+      if(dup&&dup.length>0){toast('You already sent a request to this parent. Wait for their response.','error');submitBtn.disabled=false;submitBtn.textContent=lbl;return;}
+      const newId=crypto.randomUUID();
+      const{error:insErr}=await _supa.from('specialist_requests').insert({
+        id:newId,specialist_id:session.id,
+        specialist_name:session.displayName||session.name||'Specialist',
+        role:session.profession||'Specialist',
+        status:'pending',request_type:'join',
+        requested_at:new Date().toISOString(),
+        parent_email_hint:parentEmail,child_name_hint:childHint
+      });
+      if(insErr){console.error('❌ insert specialist_request:',insErr);toast('Failed to send request. Please try again.','error');submitBtn.disabled=false;submitBtn.textContent=lbl;return;}
+      try{const _srSess=await _supa.auth.getSession();const _srTok=_srSess?.data?.session?.access_token||'';await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_srTok},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
+      toast('✅ Request sent to '+parentEmail+'!');
+      pi.value='';ni.value='';
+      submitBtn.disabled=false;submitBtn.textContent=lbl;
+      if(typeof onSuccess==='function')onSuccess({newId,parentEmail});
+    }catch(e){console.error('send specialist request:',e);toast('Something went wrong. Please try again.','error');submitBtn.disabled=false;submitBtn.textContent=lbl;}
+  });
+  if(showCancel){
+    const btnRow=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end'}});
+    btnRow.appendChild(mkBtn('Cancel','btn-md btn-ghost',onCancel||(()=>{})));
+    btnRow.appendChild(submitBtn);
+    wrap.appendChild(btnRow);
+  } else {
+    wrap.appendChild(submitBtn);
+  }
+  return wrap;
+}
+
+function _showConnectionRequestModalDesktop(){
+  openModal('+ Request connection',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontSize:'.84rem',lineHeight:'1.5'}},['Send a request to a parent to join their child\'s care team. They\'ll receive an email with an approval link.']));
+    mb.appendChild(_renderConnectionRequestForm({
+      onSuccess:()=>{close();re();},
+      submitBtnLabel:'📨 Send Request',
+      submitBtnClass:'btn-md btn-primary',
+      showCancel:true,
+      onCancel:close
+    }));
+  },520);
+}
+
 // Specialist back-to-patient bar — insert at top of any section when role=specialist
 function mkSpecBackBar(childName){
   if(session?.role!=='specialist')return null;
@@ -19291,47 +19387,12 @@ function renderSpecialistRequest(){
   // ─── SEND NEW REQUEST FORM ───
   const fc=el('div',{class:'card',style:{marginTop:'20px'}});
   fc.appendChild(el('h3',{style:{fontWeight:800,color:'var(--navy)',marginBottom:'16px'}},['➕ Send New Request']));
-  fc.appendChild(el('div',{class:'inp-label'},["Parent's email"]));
-  const pi=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
-  fc.appendChild(pi);
-  fc.appendChild(el('div',{class:'inp-label'},["Child's name (hint for the parent)"]));
-  const ni=el('input',{class:'inp',placeholder:'e.g. Erez, Shalev…',style:{marginBottom:'4px'}});
-  fc.appendChild(ni);
-  fc.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'16px',fontStyle:'italic'}},["The parent's name for the child takes priority."]));
-  const specRole=session?.profession||'Specialist';
-  fc.appendChild(el('div',{class:'inp-label'},['Your specialty']));
-  fc.appendChild(el('div',{style:{padding:'10px 14px',background:'var(--mint-ll)',borderRadius:'var(--r-md)',fontSize:'.88rem',fontWeight:600,color:'var(--navy)',marginBottom:'16px'}},[specRole]));
-  fc.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.65',marginBottom:'16px',fontWeight:500}},
-    ['The parent will receive an email with a link to approve your request. Once approved, the child will appear in your Patients list.']));
-  const _srBtn=mkBtn('📨 Send Request','btn-lg btn-primary btn-full',async()=>{
-    const parentEmail=pi.value.trim();const childHint=ni.value.trim();
-    if(!parentEmail||!parentEmail.includes('@')){toast('Please enter a valid email address.','error');return;}
-    if(!childHint){toast("Please enter the child's name.",'error');return;}
-    if(session?.id==='demo'){toast('Demo mode — request not sent.','info');return;}
-    _srBtn.disabled=true;_srBtn.textContent='⏳ Sending…';
-    try{
-      // Dedup: same specialist + same parent email + pending + NULL child_id
-      const{data:dup}=await _supa.from('specialist_requests').select('id')
-        .eq('specialist_id',session.id).eq('parent_email_hint',parentEmail)
-        .eq('status','pending').is('child_id',null).limit(1);
-      if(dup&&dup.length>0){toast('You already sent a request to this parent. Wait for their response.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';return;}
-      const newId=crypto.randomUUID();
-      const{error:insErr}=await _supa.from('specialist_requests').insert({
-        id:newId,specialist_id:session.id,
-        specialist_name:session.displayName||session.name||'Specialist',
-        role:session.profession||'Specialist',
-        status:'pending',request_type:'join',
-        requested_at:new Date().toISOString(),
-        parent_email_hint:parentEmail,child_name_hint:childHint
-      });
-      if(insErr){console.error('❌ insert specialist_request:',insErr);toast('Failed to send request. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';return;}
-      // Send email
-      try{const _srSess=await _supa.auth.getSession();const _srTok=_srSess?.data?.session?.access_token||'';await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_srTok},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
-      toast('✅ Request sent to '+parentEmail+'!');pi.value='';ni.value='';
-      _srBtn.disabled=false;_srBtn.textContent='📨 Send Request';re();
-    }catch(e){console.error('send specialist request:',e);toast('Something went wrong. Please try again.','error');_srBtn.disabled=false;_srBtn.textContent='📨 Send Request';}
-  });
-  fc.appendChild(_srBtn);sec.appendChild(fc);
+  fc.appendChild(_renderConnectionRequestForm({
+    onSuccess:()=>{re();},
+    submitBtnLabel:'📨 Send Request',
+    submitBtnClass:'btn-lg btn-primary btn-full'
+  }));
+  sec.appendChild(fc);
   return sec;
 }
 
