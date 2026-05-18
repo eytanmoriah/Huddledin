@@ -2257,8 +2257,8 @@ async function _refreshPhase2Specialist(){
     _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
       .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);_loaded.folderPermissions=true;})
       .catch(()=>{}),
-    _supa.from('vault_notes').select('id,child_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
-      .then(({data:vnotes})=>{LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));_loaded.vaultNotes=true;})
+    _supa.from('vault_notes').select('id,child_id,specialist_patient_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
+      .then(({data:vnotes})=>{LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,specialistPatientId:n.specialist_patient_id||null,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));_loaded.vaultNotes=true;})
       .catch(e=>console.error('refresh vaultNotes:',e)),
     _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
       .then(({data:tasks})=>{LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at})));_loaded.specTasks=true;})
@@ -2279,6 +2279,32 @@ async function _loadSpecialistPatients(){
     DB.specialistPatients=[...(data||[])];
     _loaded.specialistPatients=true;
   }catch(e){console.error('❌ load specialist_patients:',e);}
+}
+
+// Returns the current patient context for notes/files/etc — child-mode or spec_patient-mode.
+// Resolution order: S.activeChild wins, then S.activeSpecPatient, else null.
+function _currentNoteContext(){
+  if(S.activeChild){
+    const c=(DB.children||[]).find(x=>x.id===S.activeChild)||(LS.get('children',[])||[]).find(x=>x.id===S.activeChild);
+    return{kind:'child',child_id:S.activeChild,household_id:c?.householdId||null};
+  }
+  if(S.activeSpecPatient){
+    return{kind:'spec_patient',specialist_patient_id:S.activeSpecPatient};
+  }
+  return null;
+}
+
+// Builds the FK columns for a vault_notes INSERT/UPSERT from a local note row.
+// Exactly one of (child_id, specialist_patient_id) is non-null — matches XOR constraint.
+function _noteFkPayload(note){
+  if(note.specialistPatientId){
+    return{specialist_patient_id:note.specialistPatientId,child_id:null,household_id:null};
+  }
+  return{
+    child_id:note.childId,
+    household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,
+    specialist_patient_id:null
+  };
 }
 
 // Backwards-compatible wrapper — used by realtime, visibility change, and other refresh triggers.
@@ -2618,9 +2644,16 @@ function setupSpecialistSync(){
         return;
       }
       const cid=p.new?.child_id||p.old?.child_id;
-      if(!cid)return;
-      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
-      if(!myPatientIds.has(String(cid)))return;
+      const spId=p.new?.specialist_patient_id||p.old?.specialist_patient_id;
+      if(cid){
+        const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+        if(!myPatientIds.has(String(cid)))return;
+      } else if(spId){
+        const myPreParentIds=new Set((DB.specialistPatients||[]).map(p=>String(p.id)));
+        if(!myPreParentIds.has(String(spId)))return;
+      } else {
+        return;
+      }
       _debouncedRefresh('vault');
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},(p)=>{
@@ -8862,11 +8895,19 @@ function _renderSpecDtSpecPatientDetail(){
   pi.appendChild(pmeta);
   pr.appendChild(pi);
 
-  // Stat tiles — all dashes (no data yet for pre-parent patients)
+  // Stat tiles — Notes wired (Sub-commit 4b); Tasks/Done/LastNote come in 4d.
+  const _specId=session?.specialistId||null;
+  const _ppNotes=(DB.vaultNotes||[]).filter(n=>n.specialistId===_specId&&n.specialistPatientId===sp.id);
+  const _ppLastNote=_ppNotes.length?[..._ppNotes].sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0]?.date:null;
   const statsWrap=el('div',{class:'spec-dt-det-stats'});
-  [{l:T('spec_dt_notes_stat')},{l:T('spec_dt_tasks_stat')},{l:T('spec_dt_done_stat')},{l:T('spec_dt_last_note')}].forEach(({l})=>{
+  [
+    {v:String(_ppNotes.length),l:T('spec_dt_notes_stat')},
+    {v:'—',l:T('spec_dt_tasks_stat')},
+    {v:'—',l:T('spec_dt_done_stat')},
+    {v:_ppLastNote?_ppLastNote.slice(5):'—',l:T('spec_dt_last_note')}
+  ].forEach(({v,l})=>{
     const sc=el('div',{class:'spec-dt-det-stat'});
-    const sv=el('div',{class:'spec-dt-det-sv'});sv.textContent='—';
+    const sv=el('div',{class:'spec-dt-det-sv'});sv.textContent=v;
     const sl=el('div',{class:'spec-dt-det-sl'});sl.textContent=l;
     sc.appendChild(sv);sc.appendChild(sl);statsWrap.appendChild(sc);
   });
@@ -8924,6 +8965,9 @@ function _renderSpecDtSpecPatientDetail(){
   const tab=S.activeSpecPatientTab||'Calendar';
   if(tab==='Info'){
     body.appendChild(_renderSpecPatientInfoTab(sp));
+  } else if(tab==='Notes'){
+    // Sub-commit 4b — renderVault reads _currentNoteContext() and serves both surfaces.
+    body.appendChild(renderVault());
   } else {
     body.appendChild(_renderSpecPatientComingSoonTab(tab));
   }
@@ -16298,17 +16342,23 @@ function _displayNoteTitle(title){
 }
 function renderVault(){
   const specId=session?.specialistId||null;
-  const child=DB.children.find(c=>c.id===S.activeChild);
-  // Sort newest first
-  const myNotes=[...DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild)]
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const _ctx=_currentNoteContext();
+  // Resolve patient display info from whichever model is active
+  const child=_ctx?.kind==='child'?DB.children.find(c=>c.id===S.activeChild):null;
+  const _sp=_ctx?.kind==='spec_patient'?(DB.specialistPatients||[]).find(p=>p.id===S.activeSpecPatient):null;
+  const _patName=child?.name||_sp?.name||'';
+  const _patAvatar=child?.avatar||_sp?.avatar_emoji||'🧒';
+  // Filter notes by context
+  const myNotes=_ctx?.kind==='spec_patient'
+    ?[...DB.vaultNotes.filter(n=>n.specialistId===specId&&n.specialistPatientId===_ctx.specialist_patient_id)].sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    :[...DB.vaultNotes.filter(n=>n.specialistId===specId&&n.childId===S.activeChild)].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   const sec=el('div',{class:'section'});
-  const _vBar=mkSpecBackBar(child?.name);if(_vBar)sec.appendChild(_vBar);
+  const _vBar=mkSpecBackBar(_patName);if(_vBar)sec.appendChild(_vBar);
   const hd=el('div',{class:'sec-hd'});
   hd.appendChild(el('div',{class:'sec-hd-left'},[
     el('h2',{class:'page-title'},[T('vault_title')]),
-    el('p',{class:'page-sub'},[T('vault_private_notes')+' · '+child?.avatar+' '+child?.name])
+    el('p',{class:'page-sub'},[T('vault_private_notes')+(_patName?(' · '+_patAvatar+' '+_patName):'')])
   ]));
   const _vaultRemoved=(child?.connectionStatus||'approved')==='removed';
   hd.appendChild(el('div',{class:'sec-hd-right'},[
@@ -16316,10 +16366,26 @@ function renderVault(){
       const _now=new Date();
       const today=_now.toISOString().split('T')[0];
       const _fmtTitle=_formatNoteTitle(_now);
-      const nn={id:'v_'+Date.now(),specialistId:specId,childId:S.activeChild,date:today,title:_fmtTitle,content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''};
+      const nn={
+        id:'v_'+Date.now(),
+        specialistId:specId,
+        childId:_ctx?.kind==='child'?_ctx.child_id:null,
+        specialistPatientId:_ctx?.kind==='spec_patient'?_ctx.specialist_patient_id:null,
+        date:today,title:_fmtTitle,content:'',published:false,locked:false,isDraft:true,summary:'',lastSaved:''
+      };
       try{
         _trackerAdd(_localVaultNoteChanges,nn.id);
-        await _supa.from('vault_notes').insert({id:nn.id,specialist_id:specId,child_id:nn.childId,household_id:DB.children.find(c=>c.id===nn.childId)?.householdId||null,title:nn.title,content:'',is_draft:true,locked:false,published:false,last_saved:new Date().toISOString()});
+        await _supa.from('vault_notes').insert({
+          id:nn.id,
+          specialist_id:specId,
+          title:nn.title,
+          content:'',
+          is_draft:true,
+          locked:false,
+          published:false,
+          last_saved:new Date().toISOString(),
+          ..._noteFkPayload(nn)
+        });
       }catch(e){console.error('create vault note:',e);}
       const ns=DB.vaultNotes;ns.unshift(nn);DB.vaultNotes=ns;
       S.activeVaultId=nn.id;S.vaultSummary='';S.vaultHasUnsaved=false;re();
@@ -16696,7 +16762,7 @@ function renderVault(){
           const _lastSaved=new Date().toISOString().split('T')[0]+' '+now;
           try{
             _trackerAdd(_localVaultNoteChanges,note.id);
-            await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});
+            await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,is_draft:true,locked:false,published:note.published||false,last_saved:new Date().toISOString()},_noteFkPayload(note)),{onConflict:'id'});
             // Update cache to match what was saved
             const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
             if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].isDraft=true;ns[i].lastSaved=_lastSaved;DB.vaultNotes=ns;}
@@ -16762,7 +16828,7 @@ function renderVault(){
                     const _content=ta.value;
                     const _summary=S.vaultSummary||note.summary||null;
                     _trackerAdd(_localVaultNoteChanges,note.id);
-                    try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                    try{await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},_noteFkPayload(note)),{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                     // Update cache to match what was saved
                     const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                     if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -16782,7 +16848,7 @@ function renderVault(){
                 const _content=ta.value;
                 const _summary=S.vaultSummary||note.summary||null;
                 _trackerAdd(_localVaultNoteChanges,note.id);
-                try{await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},{onConflict:'id'});}catch(e){console.error('lock note:',e);}
+                try{await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,is_draft:false,locked:true,published:note.published||false,last_saved:new Date().toISOString()},_noteFkPayload(note)),{onConflict:'id'});}catch(e){console.error('lock note:',e);}
                 // Update cache to match what was saved
                 const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                 if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].locked=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -16859,7 +16925,7 @@ function renderVault(){
                 const _summary=S.vaultSummary||note.summary||null;
                 try{
                   _trackerAdd(_localVaultNoteChanges,note.id);
-                  await _supa.from('vault_notes').upsert({id:note.id,specialist_id:specId,child_id:note.childId,household_id:DB.children.find(c=>c.id===note.childId)?.householdId||null,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},{onConflict:'id'});
+                  await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},_noteFkPayload(note)),{onConflict:'id'});
                   // Update cache to match what was saved
                   const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
                   if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
@@ -17891,13 +17957,13 @@ function renderSpecPatientDetail(){
   // Clinical Notes + Files: visible-but-not-wired → coming-soon toast.
   // Home Exercises + Chat: permanently locked → "Available after parent connection".
   const _bubbles=[
-    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',locked:false,note:'Sub-commit 4b'},
+    {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',locked:false,tab:'vault'},
     {icon:'📋',label:'Home Exercises',color:'#f97316',bg:'#fff7ed',locked:true},
     {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',locked:false,note:'Sub-commit 4h'},
     {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',locked:true}
   ];
   const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
-  _bubbles.forEach(({icon,label,color,bg,locked,note})=>{
+  _bubbles.forEach(({icon,label,color,bg,locked,tab,note})=>{
     const sq=el('div',{class:'card hov',style:{
       cursor:'pointer',padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
       gap:'10px',minHeight:'100px',background:bg,border:'1.5px solid '+color+'33',textAlign:'center',position:'relative',
@@ -17908,6 +17974,7 @@ function renderSpecPatientDetail(){
     sq.appendChild(el('div',{style:{fontWeight:800,color:color,fontSize:'.84rem'}},[label]));
     sq.onclick=()=>{
       if(locked){toast('Available after parent connection','info');return;}
+      if(tab){S.activeTab=tab;re();return;}
       toast('Coming soon — wired in '+note,'info');
     };
     grid.appendChild(sq);
@@ -18115,6 +18182,9 @@ function mkSpecBackBar(childName){
   if(session?.role!=='specialist')return null;
   // Hide back buttons on desktop — navigation via drawer + tabs
   if(window.innerWidth>=1024)return null;
+  // Pre-parent context: back routes to spec-patient-detail, not the connected-child detail.
+  const _isPrePar=!S.activeChild&&!!S.activeSpecPatient;
+  const _backLabel=childName||(_isPrePar?'Patient':'Patient');
   const bar=el('div',{style:{
     display:'flex',alignItems:'center',gap:'8px',
     marginBottom:'14px',paddingBottom:'12px',
@@ -18126,9 +18196,13 @@ function mkSpecBackBar(childName){
     color:'var(--teal)',fontWeight:800,fontSize:'.84rem',padding:'0'
   }},[
     el('span',{style:{fontSize:'1.1rem'}},['‹']),
-    'Back to '+(childName||'Patient')
+    'Back to '+_backLabel
   ]);
-  btn.onclick=()=>{S.activeFolderId=null;S.activeTab='patient-detail';re();};
+  btn.onclick=()=>{
+    S.activeFolderId=null;
+    S.activeTab=_isPrePar?'spec-patient-detail':'patient-detail';
+    re();
+  };
   bar.appendChild(btn);
   return bar;
 }
