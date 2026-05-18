@@ -117,7 +117,6 @@ BEGIN
       SELECT 1 FROM folder_permissions
       WHERE specialist_id::text = _user_id::text
         AND child_id::text = _seg2
-        AND status = 'approved'
     );
   END IF;
 
@@ -137,7 +136,6 @@ BEGIN
       SELECT 1 FROM folder_permissions
       WHERE specialist_id::text = _user_id::text
         AND child_id::text = _prefix
-        AND status = 'approved'
     );
   END IF;
 
@@ -238,9 +236,18 @@ DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_1"
 DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_2" ON storage.objects;
 DROP POLICY IF EXISTS "Give anon users access to JPG images in folder 1c1igrx_3" ON storage.objects;
 
--- B3. Drop the orphan 'Huddledin files' bucket (capital H, public=true,
--- confirmed empty by Eytan).
-DELETE FROM storage.buckets WHERE id = 'Huddledin files';
+-- B3. Drop the orphan 'Huddledin files' bucket (capital H, public=true).
+--
+-- NOTE: this SQL FAILS in Supabase. The storage.protect_delete() trigger
+-- blocks direct DELETE on storage.* tables.
+-- Error: '42501: Direct deletion from storage tables is not allowed.'
+--
+-- Use the Storage API instead: Supabase Dashboard → Storage → click the
+-- bucket → Delete bucket. The orphan bucket was removed via the Dashboard
+-- on 2026-05-18 (confirmed empty, 0 rows).
+--
+-- The line below is kept commented as documentation of the failed approach.
+-- DELETE FROM storage.buckets WHERE id = 'Huddledin files';
 
 
 -- ───────────────────────────────────────────────────────────────────
