@@ -644,6 +644,30 @@ This means `const { data } = await supa.from(...).select(...)` silently swallows
 
 Real example: the auth-state-change handler at `index.html:~2927` used `.maybeSingle()` without destructuring `error`. RLS denials and any Postgres-level error returned `{data: null, error: PostgrestError}` without throwing, so the catch never fired, `_existingRole` stayed null, and the upsert branch ran — corrupting specialist profiles (Rule #9 corruption pathway). Fixed in Sub-commit B of the `.maybeSingle()` sweep by destructuring error AND adding a defensive skip-upsert-on-error guard.
 
+### Edge Function deploy procedure
+
+Edge Functions in `supabase/functions/*` do NOT auto-deploy when you push to main. Vercel handles the frontend; Supabase deploys are separate.
+
+After committing changes to any function under `supabase/functions/`, deploy via Supabase CLI:
+
+```bash
+supabase functions deploy <function-name>
+```
+
+**CRITICAL: the `--no-verify-jwt` flag for external webhooks.** Functions called by external services (Paddle, future Stripe/Twilio/etc.) cannot pass a Supabase JWT — they need the gateway to allow unauthenticated POSTs. Without the flag, every legitimate webhook gets rejected at the gateway BEFORE reaching the function code.
+
+Current functions and their deploy flags:
+- `paddle-webhook` → `supabase functions deploy paddle-webhook --no-verify-jwt`
+- `send-push` → `supabase functions deploy send-push` (called from authenticated frontend; JWT verify stays on)
+- `delete-account` → `supabase functions deploy delete-account` (called from authenticated frontend)
+
+The flag setting is persistent in the Supabase dashboard. If you ever notice paddle-webhook returning gateway 401s instead of function responses, check the dashboard's "Verify JWT" toggle — see Apr 12 → May 10 silent breakage incident.
+
+CLI setup, if missing on the machine:
+- Install via Scoop on Windows: `scoop install supabase` (after adding the supabase bucket).
+- Authenticate: `supabase login` (browser flow, sometimes flaky). Workaround if login fails: generate an access token at https://supabase.com/dashboard/account/tokens and set `$env:SUPABASE_ACCESS_TOKEN = "..."` in PowerShell for that session.
+- Link project once per machine: `supabase link --project-ref smgbojgrdezasxciloll`.
+
 ### Vercel deploy verification protocol
 
 After every push to main, verify the deploy actually shipped before testing behavior:
