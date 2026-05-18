@@ -9104,8 +9104,16 @@ function _renderSpecDtDashboard(sorted,specId,specName){
 function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
   const wrap=el('div',{class:'spec-patients-wrap'});
 
+  // Sub-commit 3.1 — merge connected children with pre-parent patients (DB.specialistPatients).
+  // Exclude status='linked' rows; those surface as the linked child via the connected-children list.
+  const _specPatients=(DB.specialistPatients||[]).filter(sp=>sp.status!=='linked');
+  const entries=[
+    ...sorted.map(c=>({source:'child',id:c.id,name:c.name,raw:c,isInactive:(c.status||'active')==='inactive'||_rmInactSet.has(c.id)})),
+    ..._specPatients.map(sp=>({source:'spec_patient',id:sp.id,name:sp.name,raw:sp,isInactive:sp.status==='archived'}))
+  ].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+
   // Header
-  const activeCount=sorted.filter(c=>!(((c.status||'active')==='inactive')||_rmInactSet.has(c.id))).length;
+  const activeCount=entries.filter(e=>!e.isInactive).length;
   const hdr=el('div',{class:'spec-patients-hdr'});
   // ← Home back link is in the shared topbar breadcrumb, not duplicated here
   hdr.appendChild(el('h1',{class:'spec-patients-title'},[T('spec_nav_patients')||'My Patients']));
@@ -9159,10 +9167,9 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
   const gridEl=el('div',{class:'spec-patient-grid'});
   const renderGrid=(q)=>{
     gridEl.innerHTML='';
-    const shown=sorted.filter(c=>{
-      const nm=c.name.toLowerCase().includes((q||'').toLowerCase());
-      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
-      const sf=S._dtPF==='all'||(S._dtPF==='inactive'?isInact:!isInact);
+    const shown=entries.filter(entry=>{
+      const nm=entry.name.toLowerCase().includes((q||'').toLowerCase());
+      const sf=S._dtPF==='all'||(S._dtPF==='inactive'?entry.isInactive:!entry.isInactive);
       return nm&&sf;
     });
     if(!shown.length){
@@ -9173,52 +9180,76 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
       ]));
       return;
     }
-    shown.forEach(c=>{
-      const isInact=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
-      const tasks=(DB.specTasks||[]).filter(t=>(t.specialistId===specId||t.specialist_id===specId)&&t.childId===c.id&&!t.done&&!t.completed);
-      const overdue=tasks.filter(t=>t.dueDate&&new Date(t.dueDate)<new Date()).length;
-      const notes=(DB.vaultNotes||[]).filter(n=>n.childId===c.id&&n.specialistId===specId).length;
-      const chatUnread=typeof _chatBadge==='function'?_chatBadge(c.id):0;
+    shown.forEach(entry=>{
+      if(entry.source==='child'){
+        const c=entry.raw;
+        const isInact=entry.isInactive;
+        const tasks=(DB.specTasks||[]).filter(t=>(t.specialistId===specId||t.specialist_id===specId)&&t.childId===c.id&&!t.done&&!t.completed);
+        const overdue=tasks.filter(t=>t.dueDate&&new Date(t.dueDate)<new Date()).length;
+        const notes=(DB.vaultNotes||[]).filter(n=>n.childId===c.id&&n.specialistId===specId).length;
+        const chatUnread=typeof _chatBadge==='function'?_chatBadge(c.id):0;
 
-      const card=el('div',{class:'spec-patient-card'+(isInact?' inactive':'')});
-      const top=el('div',{class:'spec-patient-top'});
-      top.appendChild(mkChildAvatar(c,52,'50%'));
-      const info=el('div',{class:'spec-patient-info'});
-      info.appendChild(el('div',{class:'spec-patient-name'},[c.name]));
-      info.appendChild(el('div',{class:'spec-patient-age'},[calcAge(c.dob)||(T('spec_dt_age_fallback')||'Age unknown')]));
-      top.appendChild(info);
-      card.appendChild(top);
+        const card=el('div',{class:'spec-patient-card'+(isInact?' inactive':'')});
+        const top=el('div',{class:'spec-patient-top'});
+        top.appendChild(mkChildAvatar(c,52,'50%'));
+        const info=el('div',{class:'spec-patient-info'});
+        info.appendChild(el('div',{class:'spec-patient-name'},[c.name]));
+        info.appendChild(el('div',{class:'spec-patient-age'},[calcAge(c.dob)||(T('spec_dt_age_fallback')||'Age unknown')]));
+        top.appendChild(info);
+        card.appendChild(top);
 
-      const badges=el('div',{class:'spec-patient-badges'});
-      if(tasks.length)badges.appendChild(el('span',{class:'spec-patient-badge'+(overdue?' overdue':'')},[tasks.length+' '+(tasks.length===1?'task':'tasks')+(overdue?' · overdue':'')]));
-      if(notes)badges.appendChild(el('span',{class:'spec-patient-badge'},[notes+' '+(notes===1?'note':'notes')]));
-      if(chatUnread)badges.appendChild(el('span',{class:'spec-patient-badge unread'},[chatUnread+' unread']));
-      card.appendChild(badges);
+        const badges=el('div',{class:'spec-patient-badges'});
+        if(tasks.length)badges.appendChild(el('span',{class:'spec-patient-badge'+(overdue?' overdue':'')},[tasks.length+' '+(tasks.length===1?'task':'tasks')+(overdue?' · overdue':'')]));
+        if(notes)badges.appendChild(el('span',{class:'spec-patient-badge'},[notes+' '+(notes===1?'note':'notes')]));
+        if(chatUnread)badges.appendChild(el('span',{class:'spec-patient-badge unread'},[chatUnread+' unread']));
+        card.appendChild(badges);
 
-      // Quick-access icons
-      const qrow=el('div',{class:'spec-patient-quickrow'});
-      const mkQuick=(icon,lbl,fn)=>{
-        const b=el('button',{class:'spec-patient-quick',title:lbl});
-        b.appendChild(el('span',{},[icon]));
-        b.appendChild(el('span',{class:'spec-patient-quick-lbl'},[lbl]));
-        b.onclick=e=>{e.stopPropagation();fn();};
-        return b;
-      };
-      qrow.appendChild(mkQuick('📝','Notes',()=>{S.activeChild=c.id;S.activeTab='vault';re();}));
-      qrow.appendChild(mkQuick('📅','Cal',()=>{S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();}));
-      qrow.appendChild(mkQuick('✅','Exercises',()=>{S.activeChild=c.id;S._hwParentDrill=null;S.activeTab='homework';re();}));
-      qrow.appendChild(mkQuick('💬','Chat',()=>{S.activeChild=c.id;S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';re();}));
-      qrow.appendChild(mkQuick('📁','Files',()=>{S.activeChild=c.id;S.activeTab='files';S.activeFolderId=null;re();}));
-      card.appendChild(qrow);
+        // Quick-access icons
+        const qrow=el('div',{class:'spec-patient-quickrow'});
+        const mkQuick=(icon,lbl,fn)=>{
+          const b=el('button',{class:'spec-patient-quick',title:lbl});
+          b.appendChild(el('span',{},[icon]));
+          b.appendChild(el('span',{class:'spec-patient-quick-lbl'},[lbl]));
+          b.onclick=e=>{e.stopPropagation();fn();};
+          return b;
+        };
+        qrow.appendChild(mkQuick('📝','Notes',()=>{S.activeChild=c.id;S.activeTab='vault';re();}));
+        qrow.appendChild(mkQuick('📅','Cal',()=>{S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();}));
+        qrow.appendChild(mkQuick('✅','Exercises',()=>{S.activeChild=c.id;S._hwParentDrill=null;S.activeTab='homework';re();}));
+        qrow.appendChild(mkQuick('💬','Chat',()=>{S.activeChild=c.id;S.activeChatChildId=c.id;S.activeChatId=null;S.chatsLoaded=false;S.activeTab='chat';re();}));
+        qrow.appendChild(mkQuick('📁','Files',()=>{S.activeChild=c.id;S.activeTab='files';S.activeFolderId=null;re();}));
+        card.appendChild(qrow);
 
-      // Card body click → open patient profile (calendar tab)
-      card.onclick=ev=>{
-        if(ev.target.closest('.spec-patient-quick'))return;
-        _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();
-        const _cid=c.id;
-        loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));
-      };
-      gridEl.appendChild(card);
+        // Card body click → open patient profile (calendar tab)
+        card.onclick=ev=>{
+          if(ev.target.closest('.spec-patient-quick'))return;
+          _pushNav();S.activeChild=c.id;S.activeTab='calendar';S.calendarMode='child';re();
+          const _cid=c.id;
+          loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));
+        };
+        gridEl.appendChild(card);
+      } else {
+        // Pre-parent patient card — no notes/tasks/chat counts (none exist yet), no quick-action row.
+        const sp=entry.raw;
+        const isInact=entry.isInactive;
+        const card=el('div',{class:'spec-patient-card'+(isInact?' inactive':'')});
+        const top=el('div',{class:'spec-patient-top'});
+        top.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},52,'50%'));
+        const info=el('div',{class:'spec-patient-info'});
+        info.appendChild(el('div',{class:'spec-patient-name'},[sp.name]));
+        info.appendChild(el('div',{class:'spec-patient-age'},[calcAge(sp.dob)||(T('spec_dt_age_fallback')||'Age unknown')]));
+        top.appendChild(info);
+        card.appendChild(top);
+
+        const badges=el('div',{class:'spec-patient-badges'});
+        badges.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+        card.appendChild(badges);
+
+        card.onclick=ev=>{
+          _pushNav();S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();
+        };
+        gridEl.appendChild(card);
+      }
     });
   };
   renderGrid(S._dtPS||'');
