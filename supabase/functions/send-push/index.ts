@@ -93,11 +93,16 @@ serve(async (req: Request) => {
   const prefKey = typeToPrefKey[notif.type];
   if (prefKey) {
     try {
-      const { data: profile } = await supa
+      const { data: profiles, error: profileErr } = await supa
         .from("profiles")
         .select("notif_prefs")
         .eq("id", notif.user_id)
-        .maybeSingle();
+        .limit(1);
+      if (profileErr) {
+        console.error("❌ prefs lookup:", profileErr);
+        // Fall through — fail open per existing comment
+      }
+      const profile = profiles?.[0] || null;
       if (profile?.notif_prefs && profile.notif_prefs[prefKey] === false) {
         return new Response(JSON.stringify({ ok: true, skipped: "user_pref_off", prefKey }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }

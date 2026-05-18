@@ -115,11 +115,12 @@ async function handleSubscriptionCancelled(data: any) {
   const paddleSubId = data.id;
 
   // Find the subscription row by paddle_subscription_id
-  const { data: sub, error: findErr } = await supa
+  const { data: subs, error: findErr } = await supa
     .from("subscriptions")
     .select("user_id, household_id, plan")
     .eq("paddle_subscription_id", paddleSubId)
-    .maybeSingle();
+    .limit(1);
+  const sub = subs?.[0] || null;
 
   if (findErr || !sub) {
     console.error("❌ subscription.cancelled: could not find subscription for paddle_id", paddleSubId, findErr);
@@ -171,11 +172,16 @@ async function handleTransactionCompleted(data: any) {
   if (!periodEnd) return;
 
   // Find the subscription row to get household_id and plan
-  const { data: sub } = await supa
+  const { data: subs, error: findErr } = await supa
     .from("subscriptions")
     .select("household_id, plan")
     .eq("paddle_subscription_id", paddleSubId)
-    .maybeSingle();
+    .limit(1);
+  if (findErr) {
+    console.error("❌ transaction.completed lookup error:", findErr);
+    return;
+  }
+  const sub = subs?.[0] || null;
 
   const plan = sub?.plan || "family";
   const updates: Record<string, any> = {

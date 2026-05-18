@@ -2747,17 +2747,9 @@ async function _loadSessionFromSupabase(s){
       ||null;
     if(!_fallbackRole){
       const _pit=localStorage.getItem('pendingInviteToken');
+      // pendingInviteToken is only set by specialist invite links → user must be a specialist
       if(_pit){
-        // Look up invite to get the specialist_role the parent assigned (e.g. 'Therapist', 'Pediatrician')
-        try{
-          const{data:_inv}=await _supa.from('invites').select('specialist_role').eq('token',_pit).maybeSingle();
-          // specialist_role column holds the specialty label; the auth role is always 'specialist'
-          _fallbackRole='specialist';
-        }catch(e){
-          // Invite lookup failed — still safer to default to specialist than parent for this path
-          _fallbackRole='specialist';
-          console.warn('profile auto-create: invite lookup failed, defaulting to specialist',e);
-        }
+        _fallbackRole='specialist';
       } else {
         _fallbackRole='parent';
       }
@@ -11974,7 +11966,9 @@ function showAccessRequest(folder){
         try{
           const {data:childRow,error:childErr}=await _supa.from('children').select('parent_id,household_id').eq('id',childId).single();
           if(childErr||!childRow?.parent_id)throw new Error(childErr?.message||'Could not resolve parent');
-          const {data:_existingFR}=await _supa.from('specialist_requests').select('id').eq('specialist_id',specId).eq('child_id',childId).eq('request_type','folder').eq('status','pending').maybeSingle();
+          const {data:_existingFRs,error:_existingFRErr}=await _supa.from('specialist_requests').select('id').eq('specialist_id',specId).eq('child_id',childId).eq('request_type','folder').eq('status','pending').order('requested_at',{ascending:false}).limit(1);
+          if(_existingFRErr){console.error('❌ folder-request idempotency check:',_existingFRErr);}
+          const _existingFR=_existingFRs?.[0]||null;
           let _srData,_srErr;
           if(_existingFR){
             ({data:_srData,error:_srErr}=await _supa.from('specialist_requests').update({requested_folder:folder.key,requested_folder_name:folder.name,requested_at:_reqAt}).eq('id',_existingFR.id).select('id').single());
