@@ -3983,6 +3983,7 @@ patients_active:'Active',
 patients_inactive:'Inactive',
 patients_all:'All',
 patients_past:'Past Patients',
+patients_no_parent:'No parent',
 // ── Credentials (Chunk 14) ──
 creds_title:'\uD83D\uDCC4 My Credentials',
 creds_upload:'Upload Credential',
@@ -5443,6 +5444,7 @@ patients_active:'\u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
 patients_inactive:'\u05DC\u05D0 \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
 patients_all:'\u05D4\u05DB\u05DC',
 patients_past:'\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD \u05E7\u05D5\u05D3\u05DE\u05D9\u05DD',
+patients_no_parent:'\u05DC\u05DC\u05D0 \u05D4\u05D5\u05E8\u05D4',
 // ── Credentials ──
 creds_title:'\uD83D\uDCC4 \u05D4\u05D0\u05D9\u05E9\u05D5\u05E8\u05D9\u05DD \u05E9\u05DC\u05D9',
 creds_upload:'\u05D4\u05E2\u05DC\u05D0\u05EA \u05D0\u05D9\u05E9\u05D5\u05E8',
@@ -9242,7 +9244,7 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
         card.appendChild(top);
 
         const badges=el('div',{class:'spec-patient-badges'});
-        badges.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+        badges.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
         card.appendChild(badges);
 
         card.onclick=ev=>{
@@ -17599,7 +17601,7 @@ function renderPatients(){
         const info=d('',[], {flex:1});
         const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
         nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[sp.name]));
-        nameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+        nameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
         if(isArchived) nameRow.appendChild(el('span',{class:'badge badge-rose'},[T('patients_inactive')]));
         info.appendChild(nameRow);
         info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
@@ -17636,7 +17638,7 @@ function renderSpecPatientDetailStub(){
   hi.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1rem',marginBottom:'2px'}},[sp.name]));
   hi.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
   hdr.appendChild(hi);
-  hdr.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.7rem',padding:'4px 10px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+  hdr.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.7rem',padding:'4px 10px',borderRadius:'99px',fontWeight:700}},[T('patients_no_parent')||'No parent']));
   sec.appendChild(hdr);
   sec.appendChild(el('div',{class:'empty-state'},[
     el('span',{class:'empty-state-icon'},['🚧']),
