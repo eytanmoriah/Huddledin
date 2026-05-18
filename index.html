@@ -1621,6 +1621,7 @@ const SEED = {
   emailInbox:[],
   progress:[],
   milestones:[],
+  specialistPatients:[],
   specialistRequests:[],
   connectionCodes:[],   // [{code, childId, createdAt, expiresAt, used}]
   linkedSpecialists:[], // [{specialistEmail, specialistName, role, childId, linkedAt}]
@@ -1979,7 +1980,8 @@ const _loaded={
   homeworkTasks:false,vaultNotes:false,specTasks:false,
   specialistRequests:false,parentTasks:false,coParents:false,
   inboxFiles:false,pastSpecialists:false,
-  careTeam:false,folderPermissions:false
+  careTeam:false,folderPermissions:false,
+  specialistPatients:false
 };
 
 // ── Phase 1: critical path for home render (children + notifications + seen_timestamps) ──
@@ -2263,8 +2265,20 @@ async function _refreshPhase2Specialist(){
       .catch(e=>console.error('refresh spec_tasks:',e)),
     _supa.from('homework_tasks').select('*').eq('specialist_id',specId).neq('status','deleted').order('is_pinned',{ascending:false}).order('created_at',{ascending:false})
       .then(({data:hwt})=>{LS.set('homeworkTasks',(hwt||[]).map(t=>({id:t.id,childId:t.child_id,householdId:t.household_id,specialistId:t.specialist_id,specialistName:t.specialist_name||'',title:t.title,description:t.description||'',recurrence:t.recurrence||'once',specificDays:t.specific_days||[],durationType:t.duration_type||'open_ended',endDate:t.end_date||null,timeOfDay:t.time_of_day||'morning',difficulty:t.difficulty||null,isPinned:t.is_pinned||false,isPaused:t.is_paused||false,status:t.status||'active',attachedFileUrls:t.attached_file_urls||[],attachedFilePaths:t.attached_file_paths||[],attachedFileNames:t.attached_file_names||[],createdAt:t.created_at})));_loaded.homeworkTasks=true;})
-      .catch(e=>console.error('refresh specialist homework_tasks:',e))
+      .catch(e=>console.error('refresh specialist homework_tasks:',e)),
+    _loadSpecialistPatients()
   ]);
+}
+
+// Loader for pre-parent patient records — specialist-scoped, owner-RLS gated
+async function _loadSpecialistPatients(){
+  if(!session||session.role!=='specialist'||!_supa||session.id==='demo')return;
+  try{
+    const{data,error}=await _supa.from('specialist_patients').select('*').eq('specialist_id',session.id);
+    if(error){console.error('❌ load specialist_patients:',error);return;}
+    DB.specialistPatients=[...(data||[])];
+    _loaded.specialistPatients=true;
+  }catch(e){console.error('❌ load specialist_patients:',e);}
 }
 
 // Backwards-compatible wrapper — used by realtime, visibility change, and other refresh triggers.
@@ -2571,6 +2585,10 @@ function setupSpecialistSync(){
       const writerId=p.new?.specialist_id||p.old?.specialist_id;
       if(writerId&&(writerId===session?.specialistId||writerId===session?.id))return;
       _debouncedRefresh();
+    })
+    // specialist_patients changes — fires on pre-parent patient create/update/delete from any device
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_patients',filter:'specialist_id=eq.'+specId},()=>{
+      _loadSpecialistPatients().then(()=>{if(S.activeTab==='patients'||S.activeTab==='spec-patient-detail')re();});
     })
     .subscribe();
   // Consolidated specialist child-data channels — client-side patient gating
@@ -3156,6 +3174,7 @@ let S={
   tourActive:false,       // is guided tour running?
   tourStep:0,             // current step index
   patientStatusFilter:'active',  // filter state for renderPatients — survives re()
+  activeSpecPatient:null,        // pre-parent patient id when viewing spec-patient-detail
   calendarMode:'child',          // 'joint' = all children; 'child' = active child only
   activeChatChildId:null,
   chatsLoaded:false,
@@ -10559,6 +10578,7 @@ function renderContent(){
   if(t==='settings')return renderSettings();
   if(t==='patients')return renderPatients();
   if(t==='patient-detail')return renderPatientDashboard();
+  if(t==='spec-patient-detail')return renderSpecPatientDetailStub();
   if(t==='vault')return renderVault();
   if(t==='todo')return r==='specialist'?renderSpecTodo():renderTodoList();
   if(t==='homework')return r==='parent'?window.HUD_HOMEWORK.renderHomeworkParent({childId:S.activeChild,isWeb:window.innerWidth>=1024}):renderHomeworkSpec();
@@ -17388,6 +17408,11 @@ function renderPatients(){
   const si=el('input',{class:'inp',placeholder:T('patients_search'),style:{marginBottom:'12px'}});
   sec.appendChild(si);
 
+  // + New patient — opens create modal for a pre-parent patient record
+  const newBtn=mkBtn('+ New patient','btn-md btn-primary',()=>_showCreateSpecPatientModal());
+  newBtn.style.marginBottom='14px';
+  sec.appendChild(newBtn);
+
   // Filter bar — state lives in S so it survives re()
   const filterBar=el('div',{style:{display:'flex',gap:'8px',marginBottom:'18px'}});
   const filterBtns={};
@@ -17411,11 +17436,17 @@ function renderPatients(){
   const lsChildren=LS.get('children',[]);
   const allChildren=[...DB.children];
   lsChildren.forEach(lc=>{if(!allChildren.find(c=>c.id===lc.id))allChildren.push(lc);});
-  const sorted=[...allChildren].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
-  // Count badges — use hd9_inactive_children (same source as toggle) so counts match the lists
+  // Pre-parent patients — exclude linked rows (those appear as connected children via the merge)
+  const _specPatients=(DB.specialistPatients||[]).filter(sp=>sp.status!=='linked');
+  // Normalize both sources into entries with a `source` tag — interleave alphabetically by last name
   const _rmInactBadge=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
-  const _aC=sorted.filter(c=>!_rmInactBadge.has(c.id)&&(c.connectionStatus||'approved')!=='removed').length;
-  const _iC=sorted.filter(c=>_rmInactBadge.has(c.id)).length;
+  const sorted=[
+    ...allChildren.map(c=>({source:'child',id:c.id,name:c.name,raw:c,isInactive:_rmInactBadge.has(c.id)||(c.status||'active')==='inactive',connStatus:c.connectionStatus||'approved'})),
+    ..._specPatients.map(sp=>({source:'spec_patient',id:sp.id,name:sp.name,raw:sp,isInactive:sp.status==='archived',connStatus:'pre_parent'}))
+  ].sort((a,b)=>a.name.split(' ').pop().localeCompare(b.name.split(' ').pop()));
+  // Count badges — active excludes inactive + removed connections; inactive includes archived spec_patients
+  const _aC=sorted.filter(e=>!e.isInactive&&e.connStatus!=='removed').length;
+  const _iC=sorted.filter(e=>e.isInactive).length;
   Object.entries({active:_aC,inactive:_iC,all:sorted.length}).forEach(([f,n])=>{
     const _badge=el('span',{class:'patient-count-badge'},[String(n)]);
     filterBtns[f].appendChild(_badge);
@@ -17424,15 +17455,13 @@ function renderPatients(){
   const doFilter=q=>{
     stack.innerHTML='';
     const _rmInactSet=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));
-    const filtered=sorted.filter(c=>{
-      const matchName=c.name.toLowerCase().includes(q.toLowerCase());
-      const connSt=c.connectionStatus||'approved';
-      const childSt=c.status||'active';
+    const filtered=sorted.filter(entry=>{
+      const matchName=entry.name.toLowerCase().includes(q.toLowerCase());
+      const isInactive=entry.source==='child'?_rmInactSet.has(entry.id):entry.raw.status==='archived';
       let matchStatus=false;
       if(S.patientStatusFilter==='all') matchStatus=true;
-      // All patients use hd9_inactive_children toggle — removed and approved share same filter logic
-      else if(S.patientStatusFilter==='active') matchStatus=!_rmInactSet.has(c.id);
-      else if(S.patientStatusFilter==='inactive') matchStatus=_rmInactSet.has(c.id);
+      else if(S.patientStatusFilter==='active') matchStatus=!isInactive;
+      else if(S.patientStatusFilter==='inactive') matchStatus=isInactive;
       return matchName&&matchStatus;
     });
     if(!filtered.length){
@@ -17440,65 +17469,90 @@ function renderPatients(){
       stack.appendChild(el('div',{class:'empty-inline'},[msg]));
       return;
     }
-    filtered.forEach(c=>{
-      const isInactive=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
-      const connStatus=c.connectionStatus||'approved';
-      const isPending=connStatus==='pending';
-      const isRemoved=connStatus==='removed';
-      const card=el('div',{class:'card click',style:{
-        display:'flex',alignItems:'center',gap:'15px',
-        border:S.activeChild===c.id?'2.5px solid var(--teal)':isPending?'2px solid #f59e0b':isRemoved?'2px dashed var(--slate-l)':'2px solid var(--mint-l)',
-        filter:isInactive?'grayscale(.5)':'none',
-        opacity:isInactive?'0.75':'1',
-        background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
-      }});
-      const _avWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});_avWrap.appendChild(mkChildAvatar(c,52,'15px'));const _ptNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;const _ptChatUn=(typeof _chatBadge==='function')?_chatBadge(c.id):0;const _ptBadge=_ptNotifs+_ptChatUn;if(_ptBadge>0)_avWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488',zIndex:'10'}},[_ptBadge>99?'99+':String(_ptBadge)]));card.appendChild(_avWrap);
-      const info=d('',[], {flex:1});
-      const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
-      nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
-      if(isPending) nameRow.appendChild(el('span',{style:{background:'#f59e0b',color:'#fff',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_pending_approval')]));
-      else if(isRemoved) nameRow.appendChild(el('span',{style:{background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_not_connected_badge')]));
-      else if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},[T('patients_inactive')]));
-      info.appendChild(nameRow);
-      if(isPending){
-        info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#b45309',fontStyle:'italic',marginBottom:'4px'}},[T('patients_waiting')]));
+    filtered.forEach(entry=>{
+      if(entry.source==='child'){
+        const c=entry.raw;
+        const isInactive=(c.status||'active')==='inactive'||_rmInactSet.has(c.id);
+        const connStatus=c.connectionStatus||'approved';
+        const isPending=connStatus==='pending';
+        const isRemoved=connStatus==='removed';
+        const card=el('div',{class:'card click',style:{
+          display:'flex',alignItems:'center',gap:'15px',
+          border:S.activeChild===c.id?'2.5px solid var(--teal)':isPending?'2px solid #f59e0b':isRemoved?'2px dashed var(--slate-l)':'2px solid var(--mint-l)',
+          filter:isInactive?'grayscale(.5)':'none',
+          opacity:isInactive?'0.75':'1',
+          background:isPending?'#fffbeb':isRemoved?'#f8fafc':''
+        }});
+        const _avWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});_avWrap.appendChild(mkChildAvatar(c,52,'15px'));const _ptNotifs=(DB.notifications||[]).filter(n=>!n.read&&n.childId===c.id).length;const _ptChatUn=(typeof _chatBadge==='function')?_chatBadge(c.id):0;const _ptBadge=_ptNotifs+_ptChatUn;if(_ptBadge>0)_avWrap.appendChild(el('div',{class:'bnav-badge',style:{top:'-4px',left:'-4px',right:'auto',background:'#0d9488',zIndex:'10'}},[_ptBadge>99?'99+':String(_ptBadge)]));card.appendChild(_avWrap);
+        const info=d('',[], {flex:1});
+        const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
+        nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[c.name]));
+        if(isPending) nameRow.appendChild(el('span',{style:{background:'#f59e0b',color:'#fff',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_pending_approval')]));
+        else if(isRemoved) nameRow.appendChild(el('span',{style:{background:'#e2e8f0',color:'#475569',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('patients_not_connected_badge')]));
+        else if(isInactive) nameRow.appendChild(el('span',{class:'badge badge-rose'},[T('patients_inactive')]));
+        info.appendChild(nameRow);
+        if(isPending){
+          info.appendChild(el('div',{style:{fontSize:'.76rem',color:'#b45309',fontStyle:'italic',marginBottom:'4px'}},[T('patients_waiting')]));
+        } else {
+          info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(c.dob)||'—')+' · '+T('patients_dob_label')+' '+(c.dob||'—')]));
+        }
+        card.appendChild(info);
+        if(!isPending){
+          // Unified Active/Inactive toggle — same behavior for all patients (approved and removed)
+          const _isMovedInact=_rmInactSet.has(c.id);
+          const toggle=el('div',{class:'toggle'+(_isMovedInact?'':' on'),style:{flexShrink:0},title:_isMovedInact?'Move back to active':'Move to inactive'});
+          toggle.onclick=e=>{
+            e.stopPropagation();
+            if(_isMovedInact){
+              try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+            }else{
+              try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
+              if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
+            }
+            re();
+          };
+          card.appendChild(toggle);
+        }
+        card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
+        if(isPending){
+          card.onclick=()=>{
+            openModal('Pending Approval',mb=>{
+              const msgEl=el('p',{style:{color:'var(--slate)',textAlign:'center',lineHeight:'1.6',marginBottom:'8px'}});
+              msgEl.textContent='Waiting for parent approval before you can access '+c.name+'\'s information. You\'ll get full access automatically once the parent approves your request.';
+              mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'2rem',marginBottom:'12px'}},['⏳']));
+              mb.appendChild(el('p',{style:{fontWeight:800,color:'var(--navy)',textAlign:'center',marginBottom:'8px'}},[c.name]));
+              mb.appendChild(msgEl);
+            });
+          };
+        } else {
+          card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();const _cid=c.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));};
+        }
+        stack.appendChild(card);
       } else {
-        info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(c.dob)||'—')+' · '+T('patients_dob_label')+' '+(c.dob||'—')]));
+        // Pre-parent patient card — simpler shape, no notifications/chat badges, no LS toggle.
+        const sp=entry.raw;
+        const isArchived=sp.status==='archived';
+        const card=el('div',{class:'card click',style:{
+          display:'flex',alignItems:'center',gap:'15px',
+          border:'2px solid var(--mint-l)',
+          filter:isArchived?'grayscale(.5)':'none',
+          opacity:isArchived?'0.75':'1'
+        }});
+        const _spAvWrap=el('div',{style:{position:'relative',flexShrink:0,overflow:'visible'}});
+        _spAvWrap.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},52,'15px'));
+        card.appendChild(_spAvWrap);
+        const info=d('',[], {flex:1});
+        const nameRow=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px',flexWrap:'wrap'}});
+        nameRow.appendChild(el('div',{style:{fontWeight:800,color:'var(--navy)'}},[sp.name]));
+        nameRow.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+        if(isArchived) nameRow.appendChild(el('span',{class:'badge badge-rose'},[T('patients_inactive')]));
+        info.appendChild(nameRow);
+        info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
+        card.appendChild(info);
+        card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
+        card.onclick=()=>{_pushNav();S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();};
+        stack.appendChild(card);
       }
-      card.appendChild(info);
-      if(!isPending){
-        // Unified Active/Inactive toggle — same behavior for all patients (approved and removed)
-        const _isMovedInact=_rmInactSet.has(c.id);
-        const toggle=el('div',{class:'toggle'+(_isMovedInact?'':' on'),style:{flexShrink:0},title:_isMovedInact?'Move back to active':'Move to inactive'});
-        toggle.onclick=e=>{
-          e.stopPropagation();
-          if(_isMovedInact){
-            // Restore to active list
-            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.delete(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
-          }else{
-            // Move to inactive
-            try{const _ia=new Set(JSON.parse(localStorage.getItem('hd9_inactive_children')||'[]'));_ia.add(c.id);localStorage.setItem('hd9_inactive_children',JSON.stringify([..._ia]));}catch(e2){}
-            if(S.activeChild===c.id){S.activeChild=null;S.activeTab='patients';}
-          }
-          re();
-        };
-        card.appendChild(toggle);
-      }
-      card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-      if(isPending){
-        card.onclick=()=>{
-          openModal('Pending Approval',mb=>{
-            const msgEl=el('p',{style:{color:'var(--slate)',textAlign:'center',lineHeight:'1.6',marginBottom:'8px'}});
-            msgEl.textContent='Waiting for parent approval before you can access '+c.name+'\'s information. You\'ll get full access automatically once the parent approves your request.';
-            mb.appendChild(el('div',{style:{textAlign:'center',fontSize:'2rem',marginBottom:'12px'}},['⏳']));
-            mb.appendChild(el('p',{style:{fontWeight:800,color:'var(--navy)',textAlign:'center',marginBottom:'8px'}},[c.name]));
-            mb.appendChild(msgEl);
-          });
-        };
-      } else {
-        card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();const _cid=c.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));};
-      }
-      stack.appendChild(card);
     });
   };
   doFilter('');
@@ -17506,6 +17560,106 @@ function renderPatients(){
   sec.appendChild(stack);
 
   return sec;
+}
+
+/* -----------------------------------------------
+   PRE-PARENT PATIENT DETAIL — stub (Sub-commit 4 wires up full view)
+----------------------------------------------- */
+function renderSpecPatientDetailStub(){
+  const sec=el('div',{class:'section'});
+  const backBtn=mkBtn('← Patients','btn-sm btn-ghost',()=>{S.activeSpecPatient=null;S.activeTab='patients';re();});
+  backBtn.style.marginBottom='16px';
+  sec.appendChild(backBtn);
+  const sp=(DB.specialistPatients||[]).find(p=>p.id===S.activeSpecPatient);
+  if(!sp){
+    sec.appendChild(el('div',{class:'empty-inline'},['Patient not found.']));
+    return sec;
+  }
+  const hdr=el('div',{class:'card',style:{background:'linear-gradient(135deg,#f0fdf9,#ffffff)',border:'1.5px solid var(--mint-l)',display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'}});
+  hdr.appendChild(mkChildAvatar({name:sp.name,avatar:sp.avatar_emoji||'🧒',color:sp.color},52,'15px'));
+  const hi=el('div',{style:{flex:1}});
+  hi.appendChild(el('div',{style:{fontWeight:900,color:'var(--navy)',fontSize:'1rem',marginBottom:'2px'}},[sp.name]));
+  hi.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
+  hdr.appendChild(hi);
+  hdr.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.7rem',padding:'4px 10px',borderRadius:'99px',fontWeight:700}},['Pre-parent']));
+  sec.appendChild(hdr);
+  sec.appendChild(el('div',{class:'empty-state'},[
+    el('span',{class:'empty-state-icon'},['🚧']),
+    el('div',{class:'empty-state-title'},['Pre-parent patient detail']),
+    el('div',{class:'empty-state-body'},['Full features (folders, reports, homework, appointments) coming in the next update.'])
+  ]));
+  return sec;
+}
+
+/* -----------------------------------------------
+   CREATE PRE-PARENT PATIENT MODAL
+----------------------------------------------- */
+function _showCreateSpecPatientModal(){
+  if(session?.id==='demo'){toast('Demo mode — patients are not persisted.','info');return;}
+  openModal('+ New patient',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontSize:'.84rem',lineHeight:'1.5'}},['Create a patient record before the parent has connected. You can link it to the parent later.']));
+    mb.appendChild(el('div',{class:'inp-label'},["Patient's name"]));
+    const ni=el('input',{class:'inp',placeholder:'e.g. Erez Smith',style:{marginBottom:'12px'}});
+    mb.appendChild(ni);
+    mb.appendChild(el('div',{class:'inp-label'},['Date of birth (optional)']));
+    const di=makeDateInput('Date of birth',{style:{marginBottom:'12px'}});
+    mb.appendChild(di);
+    mb.appendChild(el('div',{class:'inp-label'},['Pronouns (optional)']));
+    const proSel=el('select',{class:'inp',style:{marginBottom:'12px'}});
+    [['','—'],['he','he/him'],['she','she/her'],['they','they/them']].forEach(([v,l])=>{const o=el('option',{value:v});o.textContent=l;proSel.appendChild(o);});
+    mb.appendChild(proSel);
+    mb.appendChild(el('div',{class:'inp-label'},['Avatar emoji']));
+    const emojis=['🧒','🌸','🚀','⭐','🦋','🐻','🦁'];
+    let pickedEmoji='🧒';
+    const emoRow=el('div',{style:{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap'}});
+    emojis.forEach(em=>{
+      const eb=el('button',{style:{fontSize:'1.2rem',padding:'4px 8px',borderRadius:'10px',border:em===pickedEmoji?'2px solid var(--teal)':'2px solid transparent',background:em===pickedEmoji?'var(--mint-l)':'#fff',cursor:'pointer'}});
+      eb.textContent=em;
+      eb.onclick=()=>{pickedEmoji=em;emoRow.querySelectorAll('button').forEach(b=>{b.style.borderColor='transparent';b.style.background='#fff';});eb.style.borderColor='var(--teal)';eb.style.background='var(--mint-l)';};
+      emoRow.appendChild(eb);
+    });
+    mb.appendChild(emoRow);
+    mb.appendChild(el('div',{class:'inp-label'},["Parent's email (optional, helps future matching)"]));
+    const pei=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
+    mb.appendChild(pei);
+    mb.appendChild(el('div',{class:'inp-label'},["Parent's name (optional)"]));
+    const pni=el('input',{class:'inp',placeholder:"Parent's name",style:{marginBottom:'12px'}});
+    mb.appendChild(pni);
+    mb.appendChild(el('div',{class:'inp-label'},['Notes (optional)']));
+    const nti=el('textarea',{class:'inp',placeholder:'Anything to remember about this patient…',style:{marginBottom:'16px',minHeight:'70px',resize:'vertical'}});
+    mb.appendChild(nti);
+    const saveBtn=mkBtn('Save patient','btn-md btn-primary',async()=>{
+      const name=ni.value.trim();
+      if(!name||name.length>200){toast('Please enter a name (1-200 characters).','error');return;}
+      const _autoColor=CHILD_COLORS[(DB.specialistPatients||[]).length%CHILD_COLORS.length];
+      saveBtn.disabled=true;saveBtn.textContent='Saving…';
+      try{
+        const{data,error}=await _supa.from('specialist_patients').insert({
+          specialist_id:session.id,
+          name,
+          dob:di.value||null,
+          pronouns:proSel.value||null,
+          avatar_emoji:pickedEmoji,
+          color:_autoColor,
+          parent_email_hint:pei.value.trim()||null,
+          parent_name_hint:pni.value.trim()||null,
+          notes:nti.value.trim()||null
+        }).select().single();
+        if(error){console.error('❌ create specialist_patient:',error);toast('Failed to create patient.','error');saveBtn.disabled=false;saveBtn.textContent='Save patient';return;}
+        // Optimistic local push — realtime will reconcile if it arrives later
+        const arr=[...(DB.specialistPatients||[])];
+        if(data&&!arr.find(p=>p.id===data.id))arr.push(data);
+        DB.specialistPatients=arr;
+        close();
+        toast('✅ '+name+' added.');
+        re();
+      }catch(e){console.error('create specialist_patient:',e);toast('Something went wrong.','error');saveBtn.disabled=false;saveBtn.textContent='Save patient';}
+    });
+    const btnRow=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end'}});
+    btnRow.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    btnRow.appendChild(saveBtn);
+    mb.appendChild(btnRow);
+  },520);
 }
 
 // Specialist back-to-patient bar — insert at top of any section when role=specialist
