@@ -2257,8 +2257,8 @@ async function _refreshPhase2Specialist(){
     _supa.from('folder_permissions').select('child_id,folder_key').eq('specialist_id',specId)
       .then(({data:perms})=>{const permMap={};(perms||[]).forEach(p=>{if(!permMap[p.child_id])permMap[p.child_id]=[];permMap[p.child_id].push(p.folder_key);});LS.set('my_perms',permMap);_loaded.folderPermissions=true;})
       .catch(()=>{}),
-    _supa.from('vault_notes').select('id,child_id,specialist_patient_id,title,summary,is_draft,locked,published,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
-      .then(({data:vnotes})=>{LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,specialistPatientId:n.specialist_patient_id||null,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));_loaded.vaultNotes=true;})
+    _supa.from('vault_notes').select('id,child_id,specialist_patient_id,title,summary,is_draft,locked,published,pending_publish,last_saved,specialist_id,created_at').eq('specialist_id',specId).neq('title','__DELETED__').order('created_at',{ascending:false})
+      .then(({data:vnotes})=>{LS.set('vaultNotes',(vnotes||[]).map(n=>({id:n.id,childId:n.child_id,specialistPatientId:n.specialist_patient_id||null,title:n.title||'',content:'',summary:n.summary||'',isDraft:n.is_draft!==false,locked:n.locked||false,published:n.published||false,pendingPublish:n.pending_publish||false,lastSaved:n.last_saved||'',specialistId:n.specialist_id,date:n.created_at?n.created_at.split('T')[0]:''})));_loaded.vaultNotes=true;})
       .catch(e=>console.error('refresh vaultNotes:',e)),
     _supa.from('spec_tasks').select('*').eq('specialist_id',specId).order('created_at',{ascending:false})
       .then(({data:tasks})=>{LS.set('specTasks',(tasks||[]).map(t=>({id:t.id,specialistId:t.specialist_id,childId:t.child_id||null,title:t.title,notes:t.notes||'',category:t.category||'General',priority:t.priority||'normal',dueDate:t.due_date||null,reminder:t.reminder||null,completed:t.completed||false,completedAt:t.completed_at||null,createdAt:t.created_at})));_loaded.specTasks=true;})
@@ -3892,6 +3892,12 @@ vault_session_notes_placeholder:'Detailed clinical notes\u2026',
 vault_ai_summary:'AI Summary',
 vault_ai_generating:'Generating\u2026',
 vault_ai_generated:'\u2705 Summary generated',
+vault_pending_publish_title:'No parent connected',
+vault_pending_publish_msg:"This patient is not yet linked to a parent. Save this note as 'publish when connected'? It will automatically become visible to the parent the moment they link.",
+vault_pending_publish_confirm:'Save until linked',
+vault_pending_publish_cancel:'Cancel',
+vault_pending_publish_toast:'Saved \u2014 will publish when parent connects.',
+vault_status_pending_publish:'Pending publish',
 vault_voice_start:'Start Dictation',
 vault_voice_stop:'Stop Dictation',
 vault_voice_commands:'Commands ?',
@@ -5298,6 +5304,12 @@ vault_session_notes_placeholder:'\u05D4\u05E2\u05E8\u05D5\u05EA \u05E7\u05DC\u05
 vault_ai_summary:'\u05E1\u05D9\u05DB\u05D5\u05DD AI',
 vault_ai_generating:'\u05DE\u05D9\u05D9\u05E6\u05E8\u2026',
 vault_ai_generated:'\u2705 \u05D4\u05E1\u05D9\u05DB\u05D5\u05DD \u05E0\u05D5\u05E6\u05E8',
+vault_pending_publish_title:'No parent connected',
+vault_pending_publish_msg:"This patient is not yet linked to a parent. Save this note as 'publish when connected'? It will automatically become visible to the parent the moment they link.",
+vault_pending_publish_confirm:'Save until linked',
+vault_pending_publish_cancel:'Cancel',
+vault_pending_publish_toast:'Saved \u2014 will publish when parent connects.',
+vault_status_pending_publish:'Pending publish',
 vault_voice_start:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_stop:'\u05D4\u05E4\u05E1\u05E7\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_commands:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA ?',
@@ -16420,8 +16432,10 @@ function renderVault(){
     }});
     const flags=el('div',{style:{display:'flex',gap:'5px',flexShrink:0}});
     if(note.locked)flags.appendChild(el('span',{style:{fontSize:'.9rem'}},['🔒']));
-    if(note.published)flags.appendChild(badge(T('sd_published_badge'),'green'));
-    else if(note.isDraft&&!note.locked)flags.appendChild(el('span',{class:'draft-badge'},[T('vault_draft_label')]));
+    if(note.pendingPublish){
+      flags.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700}},[T('vault_status_pending_publish')]));
+    } else if(note.published) flags.appendChild(badge(T('sd_published_badge'),'green'));
+    else if(note.isDraft&&!note.locked) flags.appendChild(el('span',{class:'draft-badge'},[T('vault_draft_label')]));
     const titleEl=el('div',{style:{fontWeight:800,fontSize:'.88rem',color:'var(--navy)',flex:1,lineHeight:'1.3'}},[_displayNoteTitle(note.title)]);
     const dateEl=el('div',{style:{fontSize:'.72rem',color:'var(--slate)',flexShrink:0}},[note.date]);
     const chevron=el('div',{style:{fontSize:'.8rem',color:'var(--slate)',flexShrink:0,transition:'transform .2s',transform:isOpen?'rotate(180deg)':'rotate(0deg)'}},['▼']);
@@ -16791,7 +16805,7 @@ function renderVault(){
             try{
               const _aiSess=await _supa.auth.getSession();const _aiTok=_aiSess?.data?.session?.access_token;
               if(!_aiTok){toast('Session expired — please sign in again.','error');aiSumBtn.disabled=false;aiSumBtn.textContent='✨ '+T('vault_ai_summary');return;}
-              const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_aiTok},body:JSON.stringify({notes:ta.value,childName:child?.name||'the child'})});
+              const resp=await fetch('/api/ai-summary',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_aiTok},body:JSON.stringify({notes:ta.value,childName:child?.name||_sp?.name||'the child'})});
               const result=await resp.json();
               if(result.summary){
                 S.vaultSummary=result.summary;
@@ -16913,29 +16927,54 @@ function renderVault(){
           }
           ab.appendChild(sta);
           if(_sumLocked){ab.appendChild(el('div',{style:{fontSize:'.68rem',color:'var(--slate-l)',marginTop:'4px'}},[T('vault_summary_sent')]));}
-          if(!note.published&&!_vaultRemoved){
+          if(!note.published&&!note.pendingPublish&&!_vaultRemoved){
             const pubBtn=mkBtn(T('vault_publish'),'btn-md btn-primary',()=>{
               if(ta.disabled){toast('Still loading note — please wait a moment.','error');return;}
               if(!(S.vaultSummary||note.summary||'').trim()){toast(T('vault_write_summary_first'),'error');return;}
               pubBtn.disabled=true;
-              openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,async()=>{
+              const _ctx=_currentNoteContext();
+              const _isPrePar=_ctx?.kind==='spec_patient';
+              const _runPublish=async()=>{
                 // Read live values from DOM (closure `note` is stale after oninput edits)
                 const _title=ti.value;
                 const _content=ta.value;
                 const _summary=S.vaultSummary||note.summary||null;
                 try{
                   _trackerAdd(_localVaultNoteChanges,note.id);
-                  await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,is_draft:false,locked:false,published:true,last_saved:new Date().toISOString()},_noteFkPayload(note)),{onConflict:'id'});
+                  const _publishFields=_isPrePar
+                    ?{is_draft:false,locked:false,published:false,pending_publish:true}
+                    :{is_draft:false,locked:false,published:true,pending_publish:false};
+                  await _supa.from('vault_notes').upsert(Object.assign({id:note.id,specialist_id:specId,title:_title,content:_content,summary:_summary,last_saved:new Date().toISOString()},_publishFields,_noteFkPayload(note)),{onConflict:'id'});
                   // Update cache to match what was saved
                   const ns=DB.vaultNotes,i=ns.findIndex(n=>n.id===note.id);
-                  if(i>-1){ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].published=true;ns[i].isDraft=false;DB.vaultNotes=ns;}
-                  // Notify ALL household members (not just primary parent)
-                  const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
-                  await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries',null,null,T('notif_report_count',{n:'{n}',name:noteChild?.name||''}));
+                  if(i>-1){
+                    ns[i].title=_title;ns[i].content=_content;ns[i].summary=_summary;ns[i].isDraft=false;
+                    if(_isPrePar){ns[i].pendingPublish=true;ns[i].published=false;}
+                    else{ns[i].published=true;ns[i].pendingPublish=false;}
+                    DB.vaultNotes=ns;
+                  }
+                  // Connected only: notify household members. No-op for pre-parent (no parent exists).
+                  if(!_isPrePar){
+                    const noteChild=DB.children.find(c=>c.id===note.childId)||(LS.get('children',[])).find(c=>c.id===note.childId);
+                    await notifyOtherParty('report',`${session.name||'Your specialist'} published a session summary for ${noteChild?.name||'your child'}`,note.childId,'session-summaries',null,null,T('notif_report_count',{n:'{n}',name:noteChild?.name||''}));
+                  }
                   if(S._vaultDraftContent)delete S._vaultDraftContent[note.id];if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
-                  S.vaultHasUnsaved=false;re();toast(T('vault_published'));
-                }catch(e){console.error('publish note:',e);toast(T('vault_could_not_publish'),'error');}
-              });
+                  S.vaultHasUnsaved=false;re();
+                  toast(_isPrePar?T('vault_pending_publish_toast'):T('vault_published'));
+                }catch(e){console.error('publish note:',e);toast(T('vault_could_not_publish'),'error');pubBtn.disabled=false;}
+              };
+              if(_isPrePar){
+                // Pre-parent: custom confirm modal with "Save until linked" / "Cancel" labels.
+                openModal(T('vault_pending_publish_title'),(mb,close)=>{
+                  mb.appendChild(p(T('vault_pending_publish_msg'),{marginBottom:'20px'}));
+                  const row=d('',[],{display:'flex',gap:'11px',justifyContent:'flex-end'});
+                  row.appendChild(mkBtn(T('vault_pending_publish_cancel'),'btn-md btn-ghost',()=>{pubBtn.disabled=false;close();}));
+                  row.appendChild(mkBtn(T('vault_pending_publish_confirm'),'btn-md btn-primary',()=>{close();_runPublish();}));
+                  mb.appendChild(row);
+                },420);
+              } else {
+                openConfirm(T('vault_publish_confirm'),T('vault_publish_msg'),false,()=>_runPublish());
+              }
             });
             pubBtn.style.marginTop='10px';
             ab.appendChild(pubBtn);
