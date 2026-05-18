@@ -2923,19 +2923,33 @@ function showVerificationPendingScreen(email){
         // their profile role would be reset to 'parent', corrupting their account.
         let _existingRole=null;
         let _existingHouseholdId=null;
+        let _epErr=null;
         try{
-          const{data:_ep}=await _supa.from('profiles').select('role,household_id').eq('id',s2.user.id).maybeSingle();
-          _existingRole=_ep?.role||null;
-          _existingHouseholdId=_ep?.household_id||null;
-        }catch(e){console.error('onAuthStateChange existing profile check:',e);}
+          const{data:_eps,error:_lookupErr}=await _supa.from('profiles').select('role,household_id').eq('id',s2.user.id).limit(1);
+          if(_lookupErr){
+            _epErr=_lookupErr;
+            console.error('❌ onAuthStateChange existing profile check:',_lookupErr);
+          } else {
+            const _ep=_eps?.[0]||null;
+            _existingRole=_ep?.role||null;
+            _existingHouseholdId=_ep?.household_id||null;
+          }
+        }catch(e){
+          _epErr=e;
+          console.error('❌ onAuthStateChange existing profile check (network):',e);
+        }
         if(_existingRole==='specialist'){
           // Specialist already has a profile — never touch role or household_id
+        } else if(_epErr){
+          // Lookup failed (network OR Postgres error). Skip upsert — better to
+          // let auto-create handle this later than risk corrupting a specialist
+          // profile per Golden Rule #9.
         } else {
-          // New user or existing parent — safe to upsert role
+          // No existing profile (genuinely new user) — safe to upsert role
           try{
             const _oauthUpsertData={id:s2.user.id,email:s2.user.email,role:pendingRole,display_name:s2.user.user_metadata?.full_name||s2.user.email.split('@')[0]};
             await _supa.from('profiles').upsert(_oauthUpsertData,{onConflict:'id'});
-          }catch(e){console.error('Google OAuth profile upsert error:',e);}
+          }catch(e){console.error('❌ Google OAuth profile upsert error:',e);}
         }
       }
       await _loadSessionFromSupabase(s2);_migratePastPatients();

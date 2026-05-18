@@ -60,7 +60,7 @@ Past session handovers live in `handovers/` (gitignored). Each marks the end of 
    if (error) { console.error('❌ x lookup:', error); throw error; }
    ```
 
-3. **Never use `.maybeSingle()`.** Use `.single()` or unconstrained queries.
+3. **Never use `.maybeSingle()`.** Use `.single()` or unconstrained queries. Fix pattern when migrating: `.limit(1)` + `const x = arr?.[0] || null`, never `.single()` (which throws on 0 rows).
 
 4. **`household_id` type is INCONSISTENT across tables.** Verify before assuming:
    - **UUID:** profiles, children, homework_tasks, homework_exercises, homework_completions_v2, chats
@@ -633,6 +633,16 @@ const supa = H._supa();      // ❌ wrong — TypeError, often caught silently
 `HUD._supa` is the Supabase client object directly, NOT a function. The TypeError gets swallowed by surrounding try/catch and masked by fallback paths. Real example: Session B storage picker shipped with `H._supa && H._supa()` — chip clicks silently failed for path-only attachments because they had no legacy URL fallback.
 
 **Rule:** when accessing the Supabase client through the HUD bridge, write `H._supa` (no parens). The local-wrapper convention (`function _supa()` returning the bridge property) exists in `data.js`, `templates.js`, `tiptap-gate.js` — calling THOSE is correct because they're functions that unwrap the property.
+
+### Postgres errors from supabase-js don't throw
+
+The supabase-js client returns Postgres errors (RLS denials, query syntax, timeouts, etc.) in the `error` field of the response — they do NOT throw. Only network-level errors (DNS failure, connection refused, etc.) throw and reach a try/catch.
+
+This means `const { data } = await supa.from(...).select(...)` silently swallows ALL Postgres errors because `error` isn't destructured. The try/catch only catches network errors.
+
+**Rule:** always destructure `{ data, error }` from supabase-js responses, even when you don't think you need the error. Check it explicitly. Don't trust try/catch alone — it doesn't catch what you think it does.
+
+Real example: the auth-state-change handler at `index.html:~2927` used `.maybeSingle()` without destructuring `error`. RLS denials and any Postgres-level error returned `{data: null, error: PostgrestError}` without throwing, so the catch never fired, `_existingRole` stayed null, and the upsert branch ran — corrupting specialist profiles (Rule #9 corruption pathway). Fixed in Sub-commit B of the `.maybeSingle()` sweep by destructuring error AND adding a defensive skip-upsert-on-error guard.
 
 ### Vercel deploy verification protocol
 
