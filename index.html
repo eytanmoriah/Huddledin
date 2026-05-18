@@ -7211,6 +7211,50 @@ _lp.innerHTML=`<style>
 .lp-ft-social{display:flex;gap:16px}
 .lp-ft-social a{color:rgba(255,255,255,.5)}
 .lp-ft-social a:hover{color:#fff}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px){
+  .lp-c{padding:0 20px}
+
+  /* Nav — keep only logo + Sign In */
+  .lp-nav-links{gap:12px}
+  .lp-nav-links > *:not(.lp-nav-cta-signin){display:none}
+
+  /* Hero */
+  .lp-hero{padding:40px 0}
+  .lp-hero .lp-c{grid-template-columns:1fr;gap:32px}
+  .lp-hero h1{font-size:28px}
+  .lp-hero-photos{grid-template-columns:1fr;grid-template-rows:220px}
+  .lp-hero-photos img:not(.lp-ph-big){display:none}
+  .lp-hero-photos .lp-ph-big{grid-row:auto}
+  .lp-hero-chip{position:static;margin-top:12px;max-width:none}
+
+  /* Sections */
+  .lp-features,.lp-collab,.lp-testi,.lp-pricing,.lp-cta-sec{padding:40px 0}
+  .lp-sh{margin-bottom:32px}
+  .lp-sh h2{font-size:24px}
+
+  /* Features grid */
+  .lp-fgrid{grid-template-columns:1fr;gap:16px;margin-bottom:40px}
+
+  /* Collaborate */
+  .lp-collab{grid-template-columns:1fr;gap:32px}
+
+  /* Testimonial */
+  .lp-testi .lp-c{grid-template-columns:1fr;gap:24px;max-width:none}
+
+  /* Pricing card */
+  .lp-pcard{padding:24px}
+  .lp-pprice{font-size:40px}
+
+  /* CTA */
+  .lp-cta-sec h2{font-size:24px}
+
+  /* Footer */
+  .lp-ft-grid{grid-template-columns:1fr 1fr;gap:24px}
+  .lp-ft-brand{grid-column:1 / -1}
+  .lp-ft-bottom{flex-direction:column;gap:12px;align-items:flex-start}
+}
 </style>
 
 <!-- NAV -->
@@ -7220,7 +7264,7 @@ _lp.innerHTML=`<style>
     <a class="lp-nav-link" data-scroll="lp-features">${T('lp_features')}</a>
     <a class="lp-nav-link" data-scroll="lp-pricing">${T('lp_pricing')}</a>
     <a class="lp-nav-link" href="#" data-action="spec-modal">${T('lp_for_specialists')}</a>
-    <button class="lp-nav-link" data-auth="signin">${T('lp_sign_in')}</button>
+    <button class="lp-nav-link lp-nav-cta-signin" data-auth="signin">${T('lp_sign_in')}</button>
     <button class="lp-nav-cta" data-auth="signup">${T('lp_get_started_free')}</button>
     <div id="lp-lang-slot"></div>
   </div>
@@ -21205,7 +21249,7 @@ function re(){
     // Clean up stale modal overlays left in document.body — prevents "stuck" UI
     document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
     if(_appLoading&&session){root.replaceChildren(_renderLoadingScreen());return;}
-    const _newContent=session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth());
+    const _newContent=session?renderShell():(S._showLanding!==false?renderLandingPage():renderAuth());
     // View Transitions: smooth crossfade ONLY on navigation changes. Same-view updates stay instant.
     if(_navChanged&&S.activeTab!=='chat'&&document.startViewTransition){
       try{document.startViewTransition(()=>root.replaceChildren(_newContent));}
@@ -21225,7 +21269,7 @@ function reNow(){
   const root=document.getElementById('root');
   if(!root)return;
   document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
-  root.replaceChildren(session?renderShell():(window.innerWidth>=1024&&S._showLanding!==false?renderLandingPage():renderAuth()));
+  root.replaceChildren(session?renderShell():(S._showLanding!==false?renderLandingPage():renderAuth()));
 }
 
 initData();
