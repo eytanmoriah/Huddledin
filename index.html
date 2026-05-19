@@ -13255,6 +13255,7 @@ function showInviteModal(){
           token,
           parent_id:session.id,
           child_id:S.activeChild,
+          child_name:child?.name||null,
           email:ei.value,
           specialist_email:ei.value,
           specialist_name:ni.value||ei.value.split('@')[0],
@@ -22710,12 +22711,7 @@ async function _processPendingInvite(){
             if(_spsActive.length)DB.specialistPatients=[...(DB.specialistPatients||[]),..._spsActive];
           }
           if(_spsActive.length){
-            let _canonChildName='';
-            try{
-              const{data:_chRow,error:_chErr}=await _supa.from('children').select('name').eq('id',data.child_id).single();
-              if(_chErr)console.error('❌ invite-finalize: child name lookup:',_chErr);
-              if(_chRow?.name)_canonChildName=_chRow.name;
-            }catch(_eN){console.error('❌ invite-finalize: child name lookup ex:',_eN);}
+            const _canonChildName=data.child_name||'';
             const _matched=_findMatchingPreParents(_canonChildName,_spsActive);
             const _choice=await _showInviteFinalizeModal({
               childName:_canonChildName||'this child',
@@ -22751,8 +22747,11 @@ async function _processPendingInvite(){
         let _specRealRole=data.specialist_role||'Specialist';
         try{const{data:_sPro}=await _supa.from('profiles').select('display_name,profession').eq('id',session.id).single();if(_sPro?.display_name)_specRealName=_sPro.display_name;if(_sPro?.profession)_specRealRole=_sPro.profession;}catch(e){}
         // Use .limit(1) instead of .maybeSingle() — maybeSingle errors on >1 row, causing duplicates
-        const {data:_invReqs}=await _supa.from('specialist_requests')
-          .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).eq('request_type','join').order('created_at',{ascending:false}).limit(1);
+        // Sub-commit 11.1: column is `requested_at` (not `created_at` — fixed silent 400 from .maybeSingle() sweep).
+        // Destructure `error` per CLAUDE.md Rule 9 so future surprises surface in the console.
+        const {data:_invReqs,error:_invReqsErr}=await _supa.from('specialist_requests')
+          .select('id,status').eq('specialist_id',session.id).eq('child_id',data.child_id).eq('request_type','join').order('requested_at',{ascending:false}).limit(1);
+        if(_invReqsErr)console.error('❌ invite prior-row lookup:',_invReqsErr);
         const _invReq=_invReqs&&_invReqs.length>0?_invReqs[0]:null;
         if(!_invReq){
           // Fresh connection — insert new approved row
@@ -22827,8 +22826,7 @@ async function _processPendingInvite(){
           });
           if(_mergeErr||!_mergeData?.ok){
             console.error('❌ auto-merge after invite accept failed:',_mergeErr||_mergeData?.error);
-            let _fnChild='this child';
-            try{const{data:_ic2}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic2?.name)_fnChild=_ic2.name;}catch(_e){}
+            const _fnChild=data.child_name||'this child';
             toast(T('invite_finalize_merge_fail',{name:_fnChild}),'warning',6000);
           } else {
             _mergedSuccessfully=true;
@@ -22838,8 +22836,7 @@ async function _processPendingInvite(){
       }
       // Welcome toast — suppressed when merge already fired its own toast.
       if(!_mergedSuccessfully){
-        let _invChildName='the';
-        try{const{data:_ic}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic?.name)_invChildName=_ic.name+"'s";}catch(e){}
+        const _invChildName=data.child_name?(data.child_name+"'s"):'the';
         toast('🎉 Welcome! You have joined '+_invChildName+' care team!','success',5000);
       }
       // Full refresh to load child into patient list with correct connectionStatus
