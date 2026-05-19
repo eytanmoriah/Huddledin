@@ -137,6 +137,19 @@ export function getBranding() {
   return result;
 }
 
+// Minimal share — flips shared_with_parents + shared_at on the reports row.
+// The real share-to-files flow (PDF export + upload to specialist's shared
+// folder + parent notification with deeplink) is queued as Sub-commit 10.
+export async function _shareReportWithParents(reportRow, generatedText, supa, sess) {
+  if (!reportRow?.id) throw new Error('No report id');
+  const nowIso = new Date().toISOString();
+  const { error } = await supa.from('reports')
+    .update({ shared_with_parents: true, shared_at: nowIso, updated_at: nowIso })
+    .eq('id', reportRow.id);
+  if (error) throw error;
+  return { ok: true, sharedAt: nowIso };
+}
+
 function _newReportFromHub() {
   const { toast, openModal, el, mkBtn } = H();
   if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (' + MONTHLY_LIMIT + '/' + MONTHLY_LIMIT + ').', 'error'); return; }
