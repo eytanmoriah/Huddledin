@@ -585,9 +585,9 @@ Active issues to review:
 ## Architectural patterns (apply when relevant)
 
 ### Pattern: Realtime + modals
-**When this applies:** Adding a feature where the user stays in a modal AND that modal writes to `appointments`, `homework_tasks`, or `parent_tasks` (realtime-subscribed tables).
-**Symptom if missed:** Modal closes by itself ~1-2s after the write because `_debouncedRefresh` triggers `re()` which strips overlays at line 19885.
-**Pattern to apply:** Use the suppress counter (`S._suppressRefreshCount`). Increment before openModal, decrement on modal close, run deferred `re()` when count hits 0. Reference: `showAptDetailModal` (commit 9878e16).
+**When this applies:** Adding a feature where the user stays in a modal AND that modal writes to `appointments`, `homework_tasks`, or `parent_tasks` (realtime-subscribed tables). Also applies to any modal mounted during boot/sign-in or any other window where direct `re()` callers may fire.
+**Symptom if missed:** Modal closes by itself because `re()` strips body-level overlays at the strip line in `index.html`. Sub-commit 11 hit this on the invite finalize modal: it mounted during `_processPendingInvite` while lines 3184 (post-refresh re) and 3202 (Phase 1 completion re) were still in flight. The modal's MutationObserver treated the strip as user dismissal and resolved as link_new.
+**Pattern to apply:** Use the suppress counter (`S._suppressRefreshCount`). Increment before openModal, decrement on modal close, run deferred `re()` when count hits 0. Since Sub-commit 11.2, `re()`'s overlay-strip is gated on this counter — so ANY direct `re()` caller (not just `_debouncedRefresh`) now respects the lock. For Promise-returning modals, use try/finally to prevent lock leaks if the Promise throws. Reference: `showAptDetailModal` (commit 9878e16) for the MutationObserver-driven decrement, and `_processPendingInvite`'s `_showInviteFinalizeModal` wrap for the try/finally Promise variant.
 
 ### Pattern: Bulk per-row updates with different values
 **When this applies:** Updating N rows of the same table where each row needs a different value (e.g., date shift, sequential numbering).

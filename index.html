@@ -3183,7 +3183,7 @@ function showVerificationPendingScreen(email){
       // Background full-data refresh ensures specialist dashboard populates on first login
       refreshFromSupabase().then(()=>re()).catch(e=>console.error('❌ refresh:',e));
     }
-    if(event==='SIGNED_OUT'){session=null;S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;re();}
+    if(event==='SIGNED_OUT'){session=null;S.navLevel=0;S.activeChild=null;S.activeTab='dashboard';S.activeChatId=null;S.activeChatChildId=null;S._suppressRefreshCount=0;S._refreshDeferred=false;re();}
   });
   if(session)_seedHistory();
   if(session)_appLoading=true;
@@ -22408,8 +22408,12 @@ function re(){
     const _t0=performance.now();
     const root=document.getElementById('root');
     if(!root)return;
-    // Clean up stale modal overlays left in document.body — prevents "stuck" UI
-    document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
+    // Clean up stale modal overlays left in document.body — prevents "stuck" UI.
+    // Skip when a modal owns the suppress lock (counter > 0). The modal's own
+    // close path will remove its overlay when the user dismisses it.
+    if((S._suppressRefreshCount||0)===0){
+      document.querySelectorAll('body > .overlay').forEach(o=>o.remove());
+    }
     if(_appLoading&&session){root.replaceChildren(_renderLoadingScreen());return;}
     const _newContent=session?renderShell():(S._showLanding!==false?renderLandingPage():renderAuth());
     // View Transitions: smooth crossfade ONLY on navigation changes. Same-view updates stay instant.
@@ -22713,11 +22717,23 @@ async function _processPendingInvite(){
           if(_spsActive.length){
             const _canonChildName=data.child_name||'';
             const _matched=_findMatchingPreParents(_canonChildName,_spsActive);
-            const _choice=await _showInviteFinalizeModal({
-              childName:_canonChildName||'this child',
-              allActivePreParents:_spsActive,
-              matchedPreParents:_matched
-            });
+            // Sub-commit 11.2: suppress-counter wrap. Prevents re() during boot/sign-in
+            // (lines 3184, 3202) from stripping the modal overlay before user choice.
+            S._suppressRefreshCount=(S._suppressRefreshCount||0)+1;
+            let _choice;
+            try{
+              _choice=await _showInviteFinalizeModal({
+                childName:_canonChildName||'this child',
+                allActivePreParents:_spsActive,
+                matchedPreParents:_matched
+              });
+            }finally{
+              S._suppressRefreshCount=Math.max(0,(S._suppressRefreshCount||0)-1);
+              if(S._suppressRefreshCount===0&&S._refreshDeferred){
+                S._refreshDeferred=false;
+                re();
+              }
+            }
             if(_choice?.action==='merge'&&_choice.spId)_chosenMergeSpId=_choice.spId;
           }
         }catch(e){console.error('❌ invite-finalize modal flow:',e);}
