@@ -2312,6 +2312,15 @@ async function _loadSpecialistPatients(){
   }catch(e){console.error('❌ load specialist_patients:',e);}
 }
 
+// Shared name-substring match heuristic. Used by Sub-commit 7b's match banner
+// (in _renderConnectionRequestForm) and Sub-commit 11's invite finalize modal.
+// Returns active spec_patients whose name contains the typed name (lowercased).
+function _findMatchingPreParents(typedName,sps){
+  const q=(typedName||'').trim().toLowerCase();
+  if(q.length<2)return[];
+  return(sps||[]).filter(sp=>sp.status==='active'&&(sp.name||'').toLowerCase().includes(q));
+}
+
 // Sub-commit 7b — auto-fire merge when an outgoing specialist_request reaches
 // status='approved' AND has a matched_specialist_patient_id. Called from the
 // realtime listener on specialist_requests transitions AND from boot-scan.
@@ -4926,6 +4935,21 @@ info_card_no_contact:'Contact information not yet provided.',
 info_card_primary:'Primary',
 info_card_id_number:'ID Number',
 info_card_info:'\u2139\uFE0F Info',
+// \u2500\u2500 Invite finalize modal (Sub-commit 11) \u2500\u2500
+invite_finalize_title:'Finalize connection',
+invite_finalize_subtitle:"You're joining {name}'s care team",
+invite_finalize_link_new_title:'Connect as a new patient',
+invite_finalize_link_new_desc:'Add {name} fresh \u2014 no existing records merged in.',
+invite_finalize_link_new_btn:'Continue',
+invite_finalize_divider:'Or merge with existing',
+invite_finalize_match_hint_one:'\uD83D\uDCA1 You have 1 pre-parent patient with a similar name',
+invite_finalize_match_hint_many:'\uD83D\uDCA1 You have {n} pre-parent patients with similar names',
+invite_finalize_match_btn:'Merge',
+invite_finalize_show_all:'Show all my pre-parent patients ({n})',
+invite_finalize_merge_fail:'Connected to {name}. Auto-merge failed \u2014 retry from patient page.',
+invite_finalize_age_dob:'Age {age} \u00B7 DOB {dob}',
+invite_finalize_age_only:'Age {age}',
+invite_finalize_counts:'{n} notes \u00B7 {r} reports \u00B7 {a} appointments',
 }
 };
 // Hebrew dictionary — lazy-loaded on first use to save parse time for English users
@@ -6371,6 +6395,21 @@ info_card_no_contact:'\u05E4\u05E8\u05D8\u05D9 \u05D4\u05EA\u05E7\u05E9\u05E8\u0
 info_card_primary:'\u05E8\u05D0\u05E9\u05D9/\u05EA',
 info_card_id_number:'\u05EA\u05E2\u05D5\u05D3\u05EA \u05D6\u05D4\u05D5\u05EA',
 info_card_info:'\u2139\uFE0F \u05DE\u05D9\u05D3\u05E2',
+// \u2500\u2500 Invite finalize modal (Sub-commit 11) \u2014 Hebrew placeholders (replace with real translations) \u2500\u2500
+invite_finalize_title:'\u05E1\u05D9\u05D5\u05DD \u05D7\u05D9\u05D1\u05D5\u05E8',
+invite_finalize_subtitle:"\u05D0\u05EA\u05D4 \u05DE\u05E6\u05D8\u05E8\u05E3 \u05DC\u05E6\u05D5\u05D5\u05EA \u05D4\u05D8\u05D9\u05E4\u05D5\u05DC \u05E9\u05DC {name}",
+invite_finalize_link_new_title:'\u05D7\u05D1\u05E8/\u05D9 \u05DB\u05DE\u05D8\u05D5\u05E4\u05DC \u05D7\u05D3\u05E9',
+invite_finalize_link_new_desc:'\u05D4\u05D5\u05E1\u05E3 \u05D0\u05EA {name} \u05D7\u05D3\u05E9 \u2014 \u05DC\u05DC\u05D0 \u05E9\u05D9\u05DC\u05D5\u05D1 \u05E8\u05E9\u05D5\u05DE\u05D5\u05EA \u05E7\u05D9\u05D9\u05DE\u05D5\u05EA.',
+invite_finalize_link_new_btn:'\u05D4\u05DE\u05E9\u05DA',
+invite_finalize_divider:'\u05D0\u05D5 \u05DE\u05D6\u05D2/\u05D9 \u05E2\u05DD \u05E7\u05D9\u05D9\u05DD',
+invite_finalize_match_hint_one:'\uD83D\uDCA1 \u05D9\u05E9 \u05DC\u05DA \u05DE\u05D8\u05D5\u05E4\u05DC \u05D8\u05E8\u05DD-\u05D4\u05D5\u05E8\u05D9\u05DD \u05D0\u05D7\u05D3 \u05E2\u05DD \u05E9\u05DD \u05D3\u05D5\u05DE\u05D4',
+invite_finalize_match_hint_many:'\uD83D\uDCA1 \u05D9\u05E9 \u05DC\u05DA {n} \u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD \u05D8\u05E8\u05DD-\u05D4\u05D5\u05E8\u05D9\u05DD \u05E2\u05DD \u05E9\u05DE\u05D5\u05EA \u05D3\u05D5\u05DE\u05D9\u05DD',
+invite_finalize_match_btn:'\u05DE\u05D6\u05D2',
+invite_finalize_show_all:'\u05D4\u05E6\u05D2/\u05D9 \u05D0\u05EA \u05DB\u05DC \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD \u05D4\u05D8\u05E8\u05DD-\u05D4\u05D5\u05E8\u05D9\u05DD ({n})',
+invite_finalize_merge_fail:'\u05D4\u05D7\u05D9\u05D1\u05D5\u05E8 \u05DC{name} \u05D1\u05D5\u05E6\u05E2. \u05D4\u05DE\u05D9\u05D6\u05D5\u05D2 \u05D4\u05D0\u05D5\u05D8\u05D5\u05DE\u05D8\u05D9 \u05E0\u05DB\u05E9\u05DC \u2014 \u05E0\u05E1/\u05D9 \u05E9\u05D5\u05D1 \u05DE\u05D3\u05E3 \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC.',
+invite_finalize_age_dob:'\u05D2\u05D9\u05DC {age} \u00B7 \u05EA\u05D0\u05E8\u05D9\u05DA \u05DC\u05D9\u05D3\u05D4 {dob}',
+invite_finalize_age_only:'\u05D2\u05D9\u05DC {age}',
+invite_finalize_counts:'{n} \u05D4\u05E2\u05E8\u05D5\u05EA \u00B7 {r} \u05D3\u05D5\u05F4\u05D7\u05D5\u05EA \u00B7 {a} \u05E4\u05D2\u05D9\u05E9\u05D5\u05EA',
 };}
 // If user is already in Hebrew, load immediately
 if(_lang==='he')_ensureHebrew();
@@ -18443,9 +18482,7 @@ function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,o
     matchBanner.innerHTML='';
     matchBanner.style.display='none';
     if(_hasLockedMatch)return;
-    const q=(typedName||'').trim().toLowerCase();
-    if(q.length<2)return;
-    const sps=(DB.specialistPatients||[]).filter(sp=>sp.status==='active'&&(sp.name||'').toLowerCase().includes(q));
+    const sps=_findMatchingPreParents(typedName,DB.specialistPatients);
     if(!sps.length)return;
     matchBanner.style.display='block';
     matchBanner.style.cssText='background:var(--mint-ll);border:1.5px solid var(--mint-l);border-radius:10px;padding:12px;margin-bottom:12px;fontSize:.84rem;';
@@ -18539,6 +18576,117 @@ function _showConnectionRequestModalDesktop(){
       onCancel:close
     }));
   },520);
+}
+
+// ── Sub-commit 11: invite finalize modal ───────────────────────────────
+// Shown when a specialist accepts a parent-initiated invite AND has at least
+// one active pre-parent patient. Lets them choose between linking as new
+// (today's default) or merging into an existing pre-parent record.
+// Returns Promise<{action:'link_new'} | {action:'merge', spId:<uuid>}>.
+// Backdrop / X / Escape resolve as link_new (specialist has no veto).
+function _showInviteFinalizeModal({childName,allActivePreParents,matchedPreParents}){
+  return new Promise(resolve=>{
+    let _resolved=false;
+    const _settle=v=>{if(_resolved)return;_resolved=true;resolve(v);};
+    // Pre-compute activity counts per spec_patient from local DB caches.
+    const _notesBySp=new Map(),_aptsBySp=new Map();
+    (DB.vaultNotes||[]).forEach(n=>{if(n.specialistPatientId)_notesBySp.set(n.specialistPatientId,(_notesBySp.get(n.specialistPatientId)||0)+1);});
+    (DB.appointments||[]).forEach(a=>{if(a.specialistPatientId&&!a.deletedAt)_aptsBySp.set(a.specialistPatientId,(_aptsBySp.get(a.specialistPatientId)||0)+1);});
+    function _countsLineFor(sp){
+      const n=_notesBySp.get(sp.id)||0;
+      const a=_aptsBySp.get(sp.id)||0;
+      return T('invite_finalize_counts',{n:n,r:0,a:a});
+    }
+    function _ageLineFor(sp){
+      const age=calcAge(sp.dob);
+      if(age==null&&!sp.dob)return '';
+      if(sp.dob)return T('invite_finalize_age_dob',{age:age||'—',dob:sp.dob});
+      return T('invite_finalize_age_only',{age:age});
+    }
+    // Render a single match-style card. Used by match list AND show-all expander.
+    function _renderSpCard(sp,onMerge){
+      const card=el('div',{style:{background:'#fff',border:'1.5px solid var(--mint-l)',borderRadius:'10px',padding:'12px 14px',marginBottom:'10px',display:'flex',alignItems:'center',gap:'12px',transition:'border-color .15s ease, box-shadow .15s ease'}});
+      card.onmouseenter=()=>{card.style.borderColor='var(--teal)';card.style.boxShadow='0 2px 8px rgba(13,148,136,.08)';};
+      card.onmouseleave=()=>{card.style.borderColor='var(--mint-l)';card.style.boxShadow='none';};
+      card.appendChild(el('span',{style:{fontSize:'1.6rem',flexShrink:'0'}},[sp.avatar_emoji||'🧒']));
+      const info=el('div',{style:{flex:'1',minWidth:'0'}});
+      info.appendChild(el('div',{style:{fontWeight:'700',color:'var(--navy)',fontSize:'.92rem',marginBottom:'2px'}},[sp.name||'(unnamed)']));
+      const ageLn=_ageLineFor(sp);
+      if(ageLn)info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)',marginBottom:'2px'}},[ageLn]));
+      info.appendChild(el('div',{style:{fontSize:'.74rem',color:'var(--slate)'}},[_countsLineFor(sp)]));
+      card.appendChild(info);
+      const btn=el('button',{style:{background:'transparent',color:'var(--teal)',border:'1.5px solid var(--teal)',padding:'6px 14px',borderRadius:'8px',fontSize:'.8rem',fontWeight:'700',cursor:'pointer',whiteSpace:'nowrap',flexShrink:'0',transition:'background .15s ease, color .15s ease'}},[T('invite_finalize_match_btn')]);
+      btn.onmouseenter=()=>{btn.style.background='var(--teal)';btn.style.color='#fff';};
+      btn.onmouseleave=()=>{btn.style.background='transparent';btn.style.color='var(--teal)';};
+      btn.onclick=ev=>{ev.stopPropagation();onMerge();};
+      card.appendChild(btn);
+      return card;
+    }
+    const closeFn=openModal(T('invite_finalize_title'),(mb,close)=>{
+      // Subtitle
+      mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.9rem',lineHeight:'1.5',marginBottom:'18px'}},[T('invite_finalize_subtitle',{name:childName||'this child'})]));
+      // Primary "Connect as new" card — default highlight.
+      const linkNewCard=el('div',{style:{background:'linear-gradient(135deg, var(--mint-ll), #fff)',border:'2px solid var(--teal)',borderRadius:'12px',padding:'16px',marginBottom:'18px',boxShadow:'0 2px 8px rgba(13,148,136,.10)'}});
+      linkNewCard.appendChild(el('div',{style:{fontWeight:'700',color:'var(--navy)',fontSize:'.98rem',marginBottom:'4px'}},['🌟 '+T('invite_finalize_link_new_title')]));
+      linkNewCard.appendChild(el('div',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.5',marginBottom:'12px'}},[T('invite_finalize_link_new_desc',{name:childName||'them'})]));
+      const linkNewBtn=mkBtn(T('invite_finalize_link_new_btn')+' →','btn-md btn-primary',()=>{close();_settle({action:'link_new'});});
+      linkNewBtn.style.width='100%';
+      linkNewCard.appendChild(linkNewBtn);
+      mb.appendChild(linkNewCard);
+      // Divider
+      const divRow=el('div',{style:{display:'flex',alignItems:'center',gap:'10px',margin:'18px 0 14px',color:'var(--slate)',fontSize:'.74rem',fontWeight:'600',textTransform:'uppercase',letterSpacing:'.04em'}});
+      divRow.appendChild(el('span',{style:{flex:'1',height:'1px',background:'var(--mint-l)'}}));
+      divRow.appendChild(el('span',[T('invite_finalize_divider')]));
+      divRow.appendChild(el('span',{style:{flex:'1',height:'1px',background:'var(--mint-l)'}}));
+      mb.appendChild(divRow);
+      // Match hint strip + match cards (amber accent — only when matches exist).
+      const matches=Array.isArray(matchedPreParents)?matchedPreParents:[];
+      const allActive=Array.isArray(allActivePreParents)?allActivePreParents:[];
+      if(matches.length){
+        const hint=el('div',{style:{background:'var(--amber-50, #fffbeb)',border:'1.5px solid #fef3c7',borderRadius:'10px',padding:'10px 14px',marginBottom:'12px',color:'#92400e',fontSize:'.82rem',fontWeight:'600'}},
+          [matches.length===1?T('invite_finalize_match_hint_one'):T('invite_finalize_match_hint_many',{n:matches.length})]);
+        mb.appendChild(hint);
+        matches.forEach(sp=>{
+          mb.appendChild(_renderSpCard(sp,()=>{close();_settle({action:'merge',spId:sp.id});}));
+        });
+      }
+      // Show-all expander — only when there are non-match pre-parents beyond what's shown.
+      const matchIds=new Set(matches.map(sp=>sp.id));
+      const others=allActive.filter(sp=>!matchIds.has(sp.id));
+      if(others.length){
+        const expBtn=el('button',{style:{background:'transparent',border:'1px dashed var(--mint-l)',borderRadius:'8px',padding:'10px 14px',width:'100%',textAlign:'center',color:'var(--teal)',fontSize:'.82rem',fontWeight:'600',cursor:'pointer',marginTop:matches.length?'8px':'0',transition:'background .15s ease'}},
+          ['▾ '+T('invite_finalize_show_all',{n:others.length})]);
+        expBtn.onmouseenter=()=>{expBtn.style.background='var(--mint-ll)';};
+        expBtn.onmouseleave=()=>{expBtn.style.background='transparent';};
+        const expContainer=el('div',{style:{marginTop:'10px',display:'none'}});
+        others.forEach(sp=>{
+          expContainer.appendChild(_renderSpCard(sp,()=>{close();_settle({action:'merge',spId:sp.id});}));
+        });
+        let _expanded=false;
+        expBtn.onclick=ev=>{ev.stopPropagation();_expanded=!_expanded;expContainer.style.display=_expanded?'block':'none';expBtn.firstChild.nodeValue=(_expanded?'▴ ':'▾ ')+T('invite_finalize_show_all',{n:others.length});};
+        mb.appendChild(expBtn);
+        mb.appendChild(expContainer);
+      }
+    },520);
+    // Detect backdrop/X close without explicit resolution → treat as link_new.
+    // openModal returns a close function; we observe the overlay being removed
+    // via MutationObserver on document.body, but a simpler approach is to
+    // patch the close button + backdrop handlers. Both already call ov.remove(),
+    // so we use the closeFn ref and wrap nothing — instead we rely on resolve()
+    // being called from card clicks above. The fallback is a periodic check
+    // for overlay presence. Cleaner: poll once via requestAnimationFrame on
+    // body until our modal-x click bubbles. To avoid leaks, set a one-shot
+    // observer on the overlay element.
+    requestAnimationFrame(()=>{
+      const overlays=document.querySelectorAll('.overlay');
+      const ov=overlays[overlays.length-1];
+      if(!ov)return;
+      const mo=new MutationObserver(()=>{
+        if(!document.body.contains(ov)){mo.disconnect();_settle({action:'link_new'});}
+      });
+      mo.observe(document.body,{childList:true,subtree:false});
+    });
+  });
 }
 
 // Specialist back-to-patient bar — insert at top of any section when role=specialist
@@ -22547,6 +22695,37 @@ async function _processPendingInvite(){
     if(new Date(data.expires_at)<new Date()){
       toast('⚠️ This invite has expired. Ask the family for a new one.','error',5000);
     } else {
+      // Sub-commit 11 — invite finalize modal. Mounted BEFORE accept writes so
+      // a tab close mid-modal preserves the token for retry. Gated to:
+      //   specialist role + non-demo + at least 1 active pre-parent patient.
+      // Resolves to {action:'link_new'} (default) or {action:'merge', spId}.
+      let _chosenMergeSpId=null;
+      if(session.role==='specialist'&&session.id!=='demo'){
+        try{
+          let _spsActive=(DB.specialistPatients||[]).filter(sp=>sp.status==='active');
+          if(!_spsActive.length){
+            const{data:_spsFetched,error:_spsErr}=await _supa.from('specialist_patients').select('*').eq('specialist_id',session.id).eq('status','active');
+            if(_spsErr)console.error('❌ invite-finalize: fetch specialist_patients:',_spsErr);
+            _spsActive=_spsFetched||[];
+            if(_spsActive.length)DB.specialistPatients=[...(DB.specialistPatients||[]),..._spsActive];
+          }
+          if(_spsActive.length){
+            let _canonChildName='';
+            try{
+              const{data:_chRow,error:_chErr}=await _supa.from('children').select('name').eq('id',data.child_id).single();
+              if(_chErr)console.error('❌ invite-finalize: child name lookup:',_chErr);
+              if(_chRow?.name)_canonChildName=_chRow.name;
+            }catch(_eN){console.error('❌ invite-finalize: child name lookup ex:',_eN);}
+            const _matched=_findMatchingPreParents(_canonChildName,_spsActive);
+            const _choice=await _showInviteFinalizeModal({
+              childName:_canonChildName||'this child',
+              allActivePreParents:_spsActive,
+              matchedPreParents:_matched
+            });
+            if(_choice?.action==='merge'&&_choice.spId)_chosenMergeSpId=_choice.spId;
+          }
+        }catch(e){console.error('❌ invite-finalize modal flow:',e);}
+      }
       // Mark accepted
       await _supa.from('invites').update({accepted:true,accepted_by:session.id}).eq('id',data.id);
       // Add to specialists table — ONLY for specialist users (NEVER for co-parents accepting this URL by mistake)
@@ -22634,10 +22813,35 @@ async function _processPendingInvite(){
         const{error:_invFpErr2}=await _supa.from('folder_permissions').upsert({specialist_id:String(session.id),child_id:data.child_id,folder_key:_invFolderKey,granted_at:new Date().toISOString()});
         if(_invFpErr2)console.error('❌ upsert folder_permissions (invite auto):',_invFpErr2);
       }catch(e){console.error('invite specialist_requests insert:',e);}
-      // Look up child name for welcome toast
-      let _invChildName='the';
-      try{const{data:_ic}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic?.name)_invChildName=_ic.name+"'s";}catch(e){}
-      toast('🎉 Welcome! You have joined '+_invChildName+' care team!','success',5000);
+      // Sub-commit 11 — if user chose merge in the finalize modal, fire RPC
+      // AFTER accept writes settle (specialist_requests + folder_permissions
+      // are now in place — merge pre-flight (g) needs the approved request).
+      // Failure does NOT roll back the accept; pre-parent stays active for
+      // manual retry via Sub-commit 8.
+      let _mergedSuccessfully=false;
+      if(_chosenMergeSpId){
+        try{
+          const{data:_mergeData,error:_mergeErr}=await _supa.rpc('merge_specialist_patient_into_child',{
+            p_spec_patient_id:_chosenMergeSpId,
+            p_child_id:data.child_id
+          });
+          if(_mergeErr||!_mergeData?.ok){
+            console.error('❌ auto-merge after invite accept failed:',_mergeErr||_mergeData?.error);
+            let _fnChild='this child';
+            try{const{data:_ic2}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic2?.name)_fnChild=_ic2.name;}catch(_e){}
+            toast(T('invite_finalize_merge_fail',{name:_fnChild}),'warning',6000);
+          } else {
+            _mergedSuccessfully=true;
+            _handleMergeSuccess(_mergeData);
+          }
+        }catch(e){console.error('❌ invite merge exception:',e);}
+      }
+      // Welcome toast — suppressed when merge already fired its own toast.
+      if(!_mergedSuccessfully){
+        let _invChildName='the';
+        try{const{data:_ic}=await _supa.from('children').select('name').eq('id',data.child_id).single();if(_ic?.name)_invChildName=_ic.name+"'s";}catch(e){}
+        toast('🎉 Welcome! You have joined '+_invChildName+' care team!','success',5000);
+      }
       // Full refresh to load child into patient list with correct connectionStatus
       await refreshFromSupabase();
       if(data.child_id)S.activeChild=data.child_id;
