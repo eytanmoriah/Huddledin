@@ -2234,7 +2234,7 @@ async function _refreshPhase2Specialist(){
     try{
       const {data:apts}=await _supa.from('appointments').select('*').or(`and(specialist_id.eq.${session.id},child_id.is.null),child_id.in.(${approvedIds.join(',')}),shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
       if(apts&&apts.length>0){
-        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
+        LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistPatientId:a.specialist_patient_id||null,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],createdAt:a.created_at?.split('T')[0]||null,seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
       }
       _loaded.appointments=true;
     }catch(e){console.error('refresh spec appointments:',e);}
@@ -2281,9 +2281,11 @@ async function _loadSpecialistPatients(){
   }catch(e){console.error('❌ load specialist_patients:',e);}
 }
 
-// Returns the current patient context for notes/files/etc — child-mode or spec_patient-mode.
-// Resolution order: S.activeChild wins, then S.activeSpecPatient, else null.
-function _currentNoteContext(){
+// Returns the current patient context for notes / appointments / files / reports —
+// child-mode or spec_patient-mode. Resolution order: S.activeChild wins, then
+// S.activeSpecPatient, else null (specialist-personal context — e.g., personal
+// appointments not tied to any patient).
+function _currentPatientContext(){
   if(S.activeChild){
     const c=(DB.children||[]).find(x=>x.id===S.activeChild)||(LS.get('children',[])||[]).find(x=>x.id===S.activeChild);
     return{kind:'child',child_id:S.activeChild,household_id:c?.householdId||null};
@@ -2293,6 +2295,8 @@ function _currentNoteContext(){
   }
   return null;
 }
+// Backward-compat alias — Sub-commit 4b call sites still use this name.
+const _currentNoteContext=_currentPatientContext;
 
 // Builds the FK columns for a vault_notes INSERT/UPSERT from a local note row.
 // Exactly one of (child_id, specialist_patient_id) is non-null — matches XOR constraint.
@@ -2630,9 +2634,18 @@ function setupSpecialistSync(){
       const writerId=p.new?.created_by||p.old?.created_by;
       if(writerId&&writerId===session?.id)return;
       const cid=p.new?.child_id||p.old?.child_id;
-      if(!cid)return;
-      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
-      if(!myPatientIds.has(String(cid)))return;
+      const spId=p.new?.specialist_patient_id||p.old?.specialist_patient_id;
+      if(cid){
+        const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+        if(!myPatientIds.has(String(cid)))return;
+      } else if(spId){
+        const myPreParentIds=new Set((DB.specialistPatients||[]).map(sp=>String(sp.id)));
+        if(!myPreParentIds.has(String(spId)))return;
+      } else {
+        // Specialist personal appointment (no patient ref). Accept only if specialist_id matches.
+        const ownerId=p.new?.specialist_id||p.old?.specialist_id;
+        if(ownerId!==session?.id)return;
+      }
       _debouncedRefresh();
     })
     .subscribe();
@@ -8978,8 +8991,11 @@ function _renderSpecDtSpecPatientDetail(){
   if(tab==='Info'){
     body.appendChild(_renderSpecPatientInfoTab(sp));
   } else if(tab==='Notes'){
-    // Sub-commit 4b — renderVault reads _currentNoteContext() and serves both surfaces.
+    // Sub-commit 4b — renderVault reads _currentPatientContext() and serves both surfaces.
     body.appendChild(renderVault());
+  } else if(tab==='Calendar'){
+    // Sub-commit 4d — renderCalendar reads _currentPatientContext() for spec_patient context.
+    body.appendChild(renderCalendar());
   } else {
     body.appendChild(_renderSpecPatientComingSoonTab(tab));
   }
@@ -13260,7 +13276,7 @@ function showAptDetailModal(apt,child){
         _trackerAdd(_localApptChanges,apt.id);
         try{await _supa.from('appointments').update({rsvp:'yes'}).eq('id',apt.id);}
         catch(e){console.error('❌ rsvpYes:',e);attending.disabled=false;notAttending.disabled=false;attending.textContent=_origAtt;toast(T('apt_could_not_save'),'error');return;}
-        try{await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));}catch(e){console.error('❌ rsvpYes notif:',e);}
+        try{if(apt.childId){await notifyOtherParty('appointments',T('notif_apt_rsvp_yes',{parent:session.name||'Parent',title:apt.title,child:child?.name||''}),apt.childId,'calendar',{aptId:apt.id,aptDate:apt.date},null,T('notif_appointment_count',{n:'{n}',name:child?.name||''}));}}catch(e){console.error('❌ rsvpYes notif:',e);}
         close();re();toast(T('apt_marked_attending'));
       });
       const notAttending=mkBtn(T('apt_not_attending'),'btn-md '+(rsvpStatus==='no'?'btn-danger':'btn-ghost'),async()=>{
@@ -14348,7 +14364,7 @@ function renderCalendar(){
       try{
         const {data:apts}=await _supa.from('appointments').select('*').or(`and(specialist_id.eq.${session.id},child_id.is.null),child_id.in.(${_myPatientIds.join(',')}),shared_with.cs.["${session.id}"]`).is('deleted_at',null).order('date');
         if(apts&&apts.length>0){
-          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
+          LS.set('appointments',apts.map(a=>({id:a.id,childId:a.child_id,specialistPatientId:a.specialist_patient_id||null,specialistId:a.specialist_id,createdBy:a.created_by||null,title:a.title,date:a.date,time:a.time,endTime:a.end_time||null,location:a.location||null,notes:a.notes||null,recurrence:a.recurrence||'none',rsvp:a.rsvp||null,type:a.type||'general',specialist:a.specialist_name||'',sharedWith:a.shared_with||[],seriesId:a.series_id||null,seriesPosition:a.series_position||null,seriesTotal:a.series_total||null,seriesDetached:a.series_detached||false,deletedAt:a.deleted_at||null,attendance:a.attendance||null,attendanceMarkedAt:a.attendance_marked_at||null,attendanceMarkedBy:a.attendance_marked_by||null})));
           S._calRefreshing=false;re();
         } else {S._calRefreshing=false;}
       }catch(e){S._calRefreshing=false;}
@@ -14359,11 +14375,14 @@ function renderCalendar(){
     S._extensionsRunThisSession=true;
     setTimeout(()=>{_runRollingExtensions().catch(e=>console.error('❌ rolling extension:',e));},500);
   }
+  const _calCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
   const childApts=isParent
     ?(S.calendarMode==='joint'
       ?_allApts
       :_allApts.filter(a=>a.childId===S.activeChild))
-    :_allApts.filter(a=>(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id)))&&(a.childId==null||_myPatientIds.includes(a.childId)));
+    :(_calCtx?.kind==='spec_patient'
+      ?_allApts.filter(a=>a.specialistPatientId===_calCtx.specialist_patient_id)
+      :_allApts.filter(a=>(a.specialistId===session.id||(Array.isArray(a.sharedWith)&&a.sharedWith.includes(session.id)))&&(a.childId==null||_myPatientIds.includes(a.childId))));
   const child=DB.children.find(c=>c.id===S.activeChild);
 
   const _isWebCal=window.innerWidth>=1024;
@@ -14857,14 +14876,25 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
     // Child/patient selector
     const children=DB.children;
     const _isSpec=session?.role==='specialist';
+    // Sub-commit 4d — detect pre-parent context. If set, lock the patient to the active
+    // pre-parent and skip the picker entirely.
+    const _addCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
+    const _isSpecPatientCtx=_addCtx?.kind==='spec_patient';
+    const _spPatient=_isSpecPatientCtx?(DB.specialistPatients||[]).find(p=>p.id===_addCtx.specialist_patient_id):null;
     // Specialists always get the picker (with Personal option). Parents get it only when >1 child.
     // For specialists in patient context (calendarMode='child' + activeChild visible), pre-select that patient.
     const _isPatientContext=_isSpec&&S.calendarMode==='child'&&S.activeChild;
     const _activeChildVisible=_isPatientContext&&children.some(c=>c.id===S.activeChild);
-    let _selectedChild=_isSpec
-      ?(_activeChildVisible?S.activeChild:null)
-      :(S.activeChild||(children[0]?.id||null));
-    if(_isSpec||children.length>1){
+    let _selectedChild=_isSpecPatientCtx
+      ?null
+      :(_isSpec
+        ?(_activeChildVisible?S.activeChild:null)
+        :(S.activeChild||(children[0]?.id||null)));
+    if(_isSpecPatientCtx){
+      // Pre-parent: show read-only patient display instead of picker.
+      mb.appendChild(el('div',{class:'inp-label'},['Patient']));
+      mb.appendChild(el('div',{style:{padding:'10px 14px',background:'var(--mint-ll)',borderRadius:'var(--r-md)',fontSize:'.88rem',fontWeight:600,color:'var(--navy)',marginBottom:'10px'}},[(_spPatient?.avatar_emoji||'🧒')+' '+(_spPatient?.name||'Pre-parent patient')]));
+    } else if(_isSpec||children.length>1){
       mb.appendChild(el('div',{class:'inp-label'},[T(_isSpec?'cal_for_which_patient':'cal_for_which_child')]));
       const _picker=makePatientCombo({
         children:children,
@@ -14955,21 +14985,23 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
       _aptSaveBtn.disabled=true;_aptSaveBtn.textContent=T('btn_loading');
       const specId2=session?.specialistId||null;
       const childId=_selectedChild;
+      const _specPatId=_isSpecPatientCtx?_addCtx.specialist_patient_id:null;
       const childRec=childId?((LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId)):null;
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
       const _specName=si.value||(session?.role==='specialist'?session?.name:null)||null;
-      const _parentId=childRec?.parentId||(childId?session.id:null);
-      const _hhId=childId?(childRec?.householdId||getChildHouseholdId(childId)):null;
+      const _parentId=_isSpecPatientCtx?null:(childRec?.parentId||(childId?session.id:null));
+      const _hhId=_isSpecPatientCtx?null:(childId?(childRec?.householdId||getChildHouseholdId(childId)):null);
       const _specIdVal=session.role==='specialist'?session.id:null;
       const _rnd6=()=>Math.random().toString(36).slice(2,8);
       const baseAptId='a_'+Date.now()+'_'+_rnd6();
-      const baseLs={id:baseAptId,childId,
+      const baseLs={id:baseAptId,childId,specialistPatientId:_specPatId,
         title:ti.value,specialist:si.value||(session?.role==='specialist'?session?.name:'')||'',
         specialistId:specId2,createdBy:session.id,date:di.value,time:timeStr,
         endTime:endTmi.value||null,location:loci.value||null,
         notes:notesI.value||null,recurrence:recurSel.value,
         type:typeSel.value,sharedWith};
       const baseDb={id:baseAptId,child_id:childId,
+        specialist_patient_id:_specPatId,
         parent_id:_parentId,household_id:_hhId,
         specialist_id:_specIdVal,created_by:session.id,
         title:ti.value,date:di.value,time:timeStr,
@@ -18021,12 +18053,17 @@ function renderSpecPatientDetail(){
   sec.appendChild(grid);
 
   // ── Mini-calendar at the bottom — mirrors connected-child visuals ──
-  // No real appointments yet; override the "+ Event" / "See Full" buttons to coming-soon toasts.
-  const _calComingSoon=()=>toast('Coming soon — calendar wiring in Sub-commit 4d','info');
-  const cal=renderMiniCalendar([{id:'spec_patient_'+sp.id,name:sp.name,color:sp.color||'#7c3aed'}],[],_calComingSoon);
-  cal.querySelectorAll('.mini-cal-expand').forEach(b=>{
-    b.onclick=ev=>{ev.stopPropagation();_calComingSoon();};
-  });
+  // Sub-commit 4d: pass real pre-parent appointments; route +Event to the real modal,
+  // See Full to the full Calendar tab.
+  const _ppApts=(DB.appointments||[]).filter(a=>a.specialistPatientId===sp.id&&!a.deletedAt);
+  const _onExpand=()=>{S.activeTab='calendar';re();};
+  const cal=renderMiniCalendar([{id:'spec_patient_'+sp.id,name:sp.name,color:sp.color||'#7c3aed'}],_ppApts,_onExpand);
+  // Override the two header buttons. renderMiniCalendar appends +Event first, then See Full.
+  // The default +Event handler tries to set S.activeChild from the fake-child arg — bypass it
+  // by calling showAddEventModal() directly. _currentPatientContext() handles the routing.
+  const _expandBtns=cal.querySelectorAll('.mini-cal-expand');
+  if(_expandBtns[0])_expandBtns[0].onclick=ev=>{ev.stopPropagation();showAddEventModal();};
+  if(_expandBtns[1])_expandBtns[1].onclick=ev=>{ev.stopPropagation();_onExpand();};
   sec.appendChild(cal);
 
   return sec;
