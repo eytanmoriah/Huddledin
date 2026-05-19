@@ -30,6 +30,11 @@
 -- A row's existence IS the permission grant; revocation is a DELETE.
 -- This matches the May 12 storage RLS tightening design.
 --
+-- Note on updated_at columns: vault_notes, appointments, and files do NOT
+-- have updated_at columns. Only reports and specialist_patients do.
+-- Steps A/B/E UPDATEs omit updated_at; Steps C/G preserve it.
+-- (First end-to-end merge test on May 19 caught this — Sub-commit 6.2 fix.)
+--
 -- Apply manually via Supabase SQL Editor per Golden Rule #11.
 
 CREATE OR REPLACE FUNCTION public.merge_specialist_patient_into_child(
@@ -122,8 +127,7 @@ BEGIN
         specialist_patient_id = NULL,
         published = CASE WHEN pending_publish THEN true ELSE published END,
         pending_publish = false,
-        household_id = _child.household_id,
-        updated_at = _linked_at
+        household_id = _child.household_id
     WHERE specialist_patient_id = p_spec_patient_id
     RETURNING 1
   )
@@ -135,8 +139,7 @@ BEGIN
     SET child_id = p_child_id,
         specialist_patient_id = NULL,
         household_id = _child.household_id,
-        parent_id = _child.parent_id,
-        updated_at = _linked_at
+        parent_id = _child.parent_id
     WHERE specialist_patient_id = p_spec_patient_id
     RETURNING 1
   )
@@ -172,8 +175,7 @@ BEGIN
   WITH updated AS (
     UPDATE files
     SET child_id = p_child_id,
-        specialist_patient_id = NULL,
-        updated_at = _linked_at
+        specialist_patient_id = NULL
     WHERE specialist_patient_id = p_spec_patient_id
     RETURNING 1
   )
