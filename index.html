@@ -2297,6 +2297,8 @@ async function _refreshPhase2Specialist(){
       .catch(e=>console.error('refresh specialist homework_tasks:',e)),
     _loadSpecialistPatients()
   ]);
+  // Sub-commit 7b — boot-scan for offline approvals after Phase 2 settles.
+  _scanForPendingAutoMerges().catch(e=>console.error('❌ scan-pending-auto-merges:',e));
 }
 
 // Loader for pre-parent patient records — specialist-scoped, owner-RLS gated
@@ -2308,6 +2310,73 @@ async function _loadSpecialistPatients(){
     DB.specialistPatients=[...(data||[])];
     _loaded.specialistPatients=true;
   }catch(e){console.error('❌ load specialist_patients:',e);}
+}
+
+// Sub-commit 7b — auto-fire merge when an outgoing specialist_request reaches
+// status='approved' AND has a matched_specialist_patient_id. Called from the
+// realtime listener on specialist_requests transitions AND from boot-scan.
+async function _maybeAutoMergeForRequest(req){
+  if(!req?.matched_specialist_patient_id||!req?.child_id)return;
+  if(!_supa||session?.role!=='specialist')return;
+  try{
+    const{data,error}=await _supa.rpc('merge_specialist_patient_into_child',{
+      p_spec_patient_id:req.matched_specialist_patient_id,
+      p_child_id:req.child_id
+    });
+    if(error||!data?.ok){
+      console.error('❌ auto-merge failed:',error||data?.error);
+      toast(T('automerge_fail')||"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",'error',6000);
+      return;
+    }
+    if(data.already_linked)return; // silent — already done.
+    _handleMergeSuccess(data);
+  }catch(e){console.error('❌ auto-merge exception:',e);}
+}
+
+// Sub-commit 7b — boot-scan for approved+matched requests on app load (covers
+// the offline-approval case: parent approved while specialist was logged out).
+async function _scanForPendingAutoMerges(){
+  if(!session||session.role!=='specialist'||!_supa||session.id==='demo')return;
+  try{
+    const{data:approvedTagged}=await _supa.from('specialist_requests')
+      .select('id,child_id,matched_specialist_patient_id,specialist_id')
+      .eq('specialist_id',session.id)
+      .eq('status','approved')
+      .not('matched_specialist_patient_id','is',null);
+    if(!approvedTagged?.length)return;
+    const activeSpIds=new Set(
+      (DB.specialistPatients||[]).filter(sp=>sp.status==='active').map(sp=>sp.id)
+    );
+    for(const req of approvedTagged){
+      if(activeSpIds.has(req.matched_specialist_patient_id)){
+        await _maybeAutoMergeForRequest(req);
+      }
+    }
+  }catch(e){console.error('❌ boot-scan auto-merge:',e);}
+}
+
+// Sub-commit 7b — post-merge UX: update local cache, redirect view, toast.
+function _handleMergeSuccess(mergeResult){
+  const spId=mergeResult.specialist_patient_id;
+  const childId=mergeResult.child_id;
+  const sps=[...(DB.specialistPatients||[])];
+  const i=sps.findIndex(sp=>sp.id===spId);
+  if(i>-1){
+    sps[i]={...sps[i],status:'linked',linked_child_id:childId,linked_at:mergeResult.linked_at};
+    DB.specialistPatients=sps;
+  }
+  if(S.activeSpecPatient===spId){
+    S.activeSpecPatient=null;
+    S.activeChild=childId;
+    S.activeTab='patient-detail';
+    if(S.activeSpecPatientTab)S.activeSpecPatientTab='Calendar';
+    re();
+  } else if(S.activeTab==='patients'){
+    re();
+  }
+  const child=(DB.children||[]).find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
+  const childName=child?.name||'patient';
+  toast((T('automerge_linked_toast')||"✨ Pre-parent patient linked to {name}'s family!").replace('{name}',childName),'success',4500);
 }
 
 // Returns the current patient context for notes / appointments / files / reports —
@@ -2645,8 +2714,18 @@ function setupSpecialistSync(){
   _specPermsChannel=_supa.channel('spec_sync:'+specId)
     .on('postgres_changes',{event:'*',schema:'public',table:'folder_permissions',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
     // specialist_requests changes — fires on approval, removal, or new connection via invite
-    // Triggers immediate cache refresh so specialist sees new patients without page reload
-    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},()=>{_debouncedRefresh();})
+    // Triggers immediate cache refresh so specialist sees new patients without page reload.
+    // Sub-commit 7b — also detects status='approved' transitions with a tagged
+    // matched_specialist_patient_id and fires the auto-merge RPC.
+    .on('postgres_changes',{event:'*',schema:'public',table:'specialist_requests',filter:'specialist_id=eq.'+specId},(p)=>{
+      if(p.eventType==='UPDATE'
+        &&p.new?.status==='approved'
+        &&p.new?.matched_specialist_patient_id
+        &&p.old?.status!=='approved'){
+        _maybeAutoMergeForRequest(p.new);
+      }
+      _debouncedRefresh();
+    })
     // Real-time notifications — fires when parent sends specialist a notification
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:'user_id=eq.'+specId},(p)=>{
       if(S.activeTab==='chat'&&S.activeChatId&&(p.new?.type==='message'||p.new?.type==='chat')){
@@ -3979,6 +4058,8 @@ report_pending_share_cancel:'Cancel',
 report_pending_share_toast:'Saved — will share when parent connects.',
 report_status_pending_share:'Pending share',
 report_share_fail:"Couldn't save share state. Try again.",
+automerge_fail:"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",
+automerge_linked_toast:"✨ Pre-parent patient linked to {name}'s family!",
 vault_voice_start:'Start Dictation',
 vault_voice_stop:'Stop Dictation',
 vault_voice_commands:'Commands ?',
@@ -5398,6 +5479,8 @@ report_pending_share_cancel:'Cancel',
 report_pending_share_toast:'Saved \u2014 will share when parent connects.',
 report_status_pending_share:'Pending share',
 report_share_fail:"Couldn't save share state. Try again.",
+automerge_fail:"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",
+automerge_linked_toast:"\u2728 Pre-parent patient linked to {name}'s family!",
 vault_voice_start:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_stop:'\u05D4\u05E4\u05E1\u05E7\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_commands:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA ?',
@@ -18227,14 +18310,15 @@ function renderSpecPatientDetail(){
 function _showConnectionRequestModalForSpecPatient(sp){
   openModal('+ Send invite to parent',(mb,close)=>{
     mb.appendChild(el('p',{style:{color:'var(--slate)',marginBottom:'14px',fontSize:'.84rem',lineHeight:'1.5'}},
-      ['Send an invitation to '+sp.name+"'s parent. The patient name and email hint are pre-filled from this record."]));
+      ['Send an invitation to '+sp.name+"'s parent. The patient name and email hint are pre-filled from this record. Auto-merge will run when the parent connects."]));
     mb.appendChild(_renderConnectionRequestForm({
       onSuccess:()=>{close();re();},
       submitBtnLabel:'📨 Send Request',
       submitBtnClass:'btn-md btn-primary',
       showCancel:true,
       onCancel:close,
-      defaults:{parentEmail:sp.parent_email_hint||'',childNameHint:sp.name||''}
+      defaults:{parentEmail:sp.parent_email_hint||'',childNameHint:sp.name||''},
+      matchedSpecPatientId:sp.id  // Sub-commit 7b — implicit match; banner suppressed.
     }));
   },520);
 }
@@ -18336,8 +18420,13 @@ function _showCreateSpecPatientModal(opts){
 /* -----------------------------------------------
    CONNECTION REQUEST FORM — shared helper (phone + desktop)
 ----------------------------------------------- */
-function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,onCancel,showCancel,defaults}){
+function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,onCancel,showCancel,defaults,matchedSpecPatientId}){
   defaults=defaults||{};
+  // Sub-commit 7b — pre-parent match wiring. _hasLockedMatch=true suppresses
+  // the suggestion banner (surface #3: invite sent from a spec_patient detail
+  // page, match is implicit).
+  let _selectedMatchedSpecPatientId=matchedSpecPatientId||null;
+  const _hasLockedMatch=!!matchedSpecPatientId;
   const wrap=el('div');
   wrap.appendChild(el('div',{class:'inp-label'},["Parent's email"]));
   const pi=el('input',{class:'inp',placeholder:'parent@example.com',type:'email',style:{marginBottom:'12px'}});
@@ -18347,6 +18436,49 @@ function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,o
   const ni=el('input',{class:'inp',placeholder:'e.g. Erez, Shalev…',style:{marginBottom:'4px'}});
   if(defaults.childNameHint)ni.value=defaults.childNameHint;
   wrap.appendChild(ni);
+  // Suggestion banner — visible when typed name matches one or more active spec_patients.
+  const matchBanner=el('div',{style:{display:'none'}});
+  wrap.appendChild(matchBanner);
+  function _renderMatchBanner(typedName){
+    matchBanner.innerHTML='';
+    matchBanner.style.display='none';
+    if(_hasLockedMatch)return;
+    const q=(typedName||'').trim().toLowerCase();
+    if(q.length<2)return;
+    const sps=(DB.specialistPatients||[]).filter(sp=>sp.status==='active'&&(sp.name||'').toLowerCase().includes(q));
+    if(!sps.length)return;
+    matchBanner.style.display='block';
+    matchBanner.style.cssText='background:var(--mint-ll);border:1.5px solid var(--mint-l);border-radius:10px;padding:12px;margin-bottom:12px;fontSize:.84rem;';
+    matchBanner.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',marginBottom:'8px',fontSize:'.82rem'}},
+      ['💡 You have '+sps.length+' pre-parent patient'+(sps.length===1?'':'s')+' with similar names:']));
+    sps.forEach(sp=>{
+      const isSel=_selectedMatchedSpecPatientId===sp.id;
+      const card=el('div',{style:{background:isSel?'#fef3c7':'#fff',border:isSel?'1.5px solid #f59e0b':'1.5px solid var(--mint-l)',borderRadius:'8px',padding:'10px 12px',marginBottom:'8px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px'}});
+      card.appendChild(el('span',{style:{fontSize:'1.2rem'}},[sp.avatar_emoji||'🧒']));
+      const info=el('div',{style:{flex:1,minWidth:0}});
+      info.appendChild(el('div',{style:{fontWeight:700,color:'var(--navy)',fontSize:'.86rem'}},[sp.name]));
+      info.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)'}},
+        ['Age '+(calcAge(sp.dob)||'—')+(sp.dob?' · DOB '+sp.dob:'')]));
+      card.appendChild(info);
+      const btn=el('button',{style:{background:isSel?'transparent':'var(--teal)',color:isSel?'#92400e':'#fff',border:isSel?'none':'none',padding:'4px 10px',borderRadius:'6px',fontSize:'.74rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}},[isSel?'✓ Selected':'Match']);
+      btn.onclick=ev=>{ev.stopPropagation();_selectedMatchedSpecPatientId=isSel?null:sp.id;_renderMatchBanner(ni.value);};
+      card.appendChild(btn);
+      card.onclick=()=>{_selectedMatchedSpecPatientId=isSel?null:sp.id;_renderMatchBanner(ni.value);};
+      matchBanner.appendChild(card);
+    });
+    if(_selectedMatchedSpecPatientId){
+      const clearLink=el('a',{style:{display:'inline-block',marginTop:'4px',fontSize:'.74rem',color:'var(--teal)',cursor:'pointer',textDecoration:'underline'}},['Create as new patient (clear selection)']);
+      clearLink.onclick=()=>{_selectedMatchedSpecPatientId=null;_renderMatchBanner(ni.value);};
+      matchBanner.appendChild(clearLink);
+    }
+  }
+  let _matchBannerTimer=null;
+  ni.addEventListener('input',()=>{
+    clearTimeout(_matchBannerTimer);
+    _matchBannerTimer=setTimeout(()=>{if(!_hasLockedMatch)_renderMatchBanner(ni.value);},300);
+  });
+  // Initial render — covers the case where ni.value is pre-populated from defaults.
+  if(!_hasLockedMatch&&ni.value)_renderMatchBanner(ni.value);
   wrap.appendChild(el('div',{style:{fontSize:'.72rem',color:'var(--slate)',marginBottom:'16px',fontStyle:'italic'}},["The parent's name for the child takes priority."]));
   const specRole=session?.profession||'Specialist';
   wrap.appendChild(el('div',{class:'inp-label'},['Your specialty']));
@@ -18374,7 +18506,8 @@ function _renderConnectionRequestForm({onSuccess,submitBtnLabel,submitBtnClass,o
         role:session.profession||'Specialist',
         status:'pending',request_type:'join',
         requested_at:new Date().toISOString(),
-        parent_email_hint:parentEmail,child_name_hint:childHint
+        parent_email_hint:parentEmail,child_name_hint:childHint,
+        matched_specialist_patient_id:_selectedMatchedSpecPatientId||null
       });
       if(insErr){console.error('❌ insert specialist_request:',insErr);toast('Failed to send request. Please try again.','error');submitBtn.disabled=false;submitBtn.textContent=lbl;return;}
       try{const _srSess=await _supa.auth.getSession();const _srTok=_srSess?.data?.session?.access_token||'';await fetch('/api/send-specialist-request',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_srTok},body:JSON.stringify({to:parentEmail,specialistName:session.displayName||session.name||'Specialist',specialistRole:session.profession||'Specialist',childNameHint:childHint,requestId:newId})});}catch(emailErr){console.warn('Email send failed (non-blocking):',emailErr);}
