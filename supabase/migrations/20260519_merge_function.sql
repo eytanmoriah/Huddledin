@@ -18,12 +18,17 @@
 -- handles post-merge access via specialist_patients.linked_child_id.
 --
 -- Authorization: caller must own the spec_patient AND have an approved
--- specialist_request for the target child. Service role explicitly NOT
--- granted EXECUTE.
+-- specialist_request for the target child. Postgres defaults EXECUTE to
+-- PUBLIC; REVOKE statements after the GRANT tighten access to
+-- authenticated only (service_role + anon + PUBLIC all revoked).
 --
 -- Advisory lock ensures concurrent merge attempts on the same pre-parent
 -- serialize. Idempotent re-call returns already_linked status with
 -- current state.
+--
+-- Note on folder_permissions (Step F): the table has NO status column.
+-- A row's existence IS the permission grant; revocation is a DELETE.
+-- This matches the May 12 storage RLS tightening design.
 --
 -- Apply manually via Supabase SQL Editor per Golden Rule #11.
 
@@ -177,9 +182,12 @@ BEGIN
   -- ═══ Step F: folder_permissions ═════════════════════════════
   -- INSERT specialist grants for each migrated folder. Composite PK
   -- (specialist_id, child_id, folder_key) handles dedup via ON CONFLICT.
+  -- Note: folder_permissions has NO status column — the row's existence
+  -- IS the permission grant; revocation is a DELETE (per the May 12
+  -- storage RLS tightening investigation).
   IF _folder_keys IS NOT NULL AND array_length(_folder_keys, 1) > 0 THEN
-    INSERT INTO folder_permissions (specialist_id, child_id, folder_key, granted_at, status)
-    SELECT _caller::text, p_child_id, unnest(_folder_keys), _linked_at, 'approved'
+    INSERT INTO folder_permissions (specialist_id, child_id, folder_key, granted_at)
+    SELECT _caller::text, p_child_id, unnest(_folder_keys), _linked_at
     ON CONFLICT DO NOTHING;
     GET DIAGNOSTICS _perms_count = ROW_COUNT;
   END IF;
@@ -217,6 +225,16 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.merge_specialist_patient_into_child(UUID, UUID)
   TO authenticated;
+
+-- Postgres defaults EXECUTE to PUBLIC on new functions. Revoke from
+-- everyone else to enforce the auth-only design (service_role is
+-- explicitly NOT granted access; the in-function auth.uid() guard
+-- catches anon/service_role calls regardless, but tightening grants
+-- surfaces the error at the API layer instead of silent guard
+-- failure).
+REVOKE EXECUTE ON FUNCTION public.merge_specialist_patient_into_child(UUID, UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.merge_specialist_patient_into_child(UUID, UUID) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.merge_specialist_patient_into_child(UUID, UUID) FROM service_role;
 
 -- service_role NOT granted execute. Future admin tooling can add a
 -- separate explicit-admin-auth function if needed.
