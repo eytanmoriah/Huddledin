@@ -1905,21 +1905,42 @@ const SB = {
   async sendMessage(msg){const {data}=await _supa.from('messages').insert(msg).select().single();return data;},
   async getFolders(childId){
     // Sub-commit 2.5: stores paths only — render sites sign on demand via SB.signFile.
-    const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id').eq('child_id',childId).order('created_at');
+    const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id,specialist_patient_id').eq('child_id',childId).order('created_at');
     if(!fData||!fData.length)return[];
-    const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type').eq('child_id',childId);
+    const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type,specialist_patient_id').eq('child_id',childId);
     return fData.map(f=>({
-      id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,
+      id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,specialistPatientId:f.specialist_patient_id||null,
       files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
         id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
         sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
         storagePath:fi.storage_path,mimeType:fi.mime_type||null,
+        specialistPatientId:fi.specialist_patient_id||null,
         url:null  // tombstone — signed lazily at render
       }))
     }));
   },
+  // Sub-commit 4h — mirror of getFolders for pre-parent patients (Path X).
+  async getFoldersForSpecPatient(specPatientId){
+    const {data:fData}=await _supa.from('folders').select('id,name,icon,key,child_id,specialist_patient_id').eq('specialist_patient_id',specPatientId).order('created_at');
+    if(!fData||!fData.length)return[];
+    const {data:fiData}=await _supa.from('files').select('id,name,created_at,shared_with,uploaded_by,storage_path,category,mime_type,specialist_patient_id').eq('specialist_patient_id',specPatientId);
+    return fData.map(f=>({
+      id:f.id,name:f.name,icon:f.icon||'📁',key:f.key||'general',childId:f.child_id,specialistPatientId:f.specialist_patient_id||null,
+      files:(fiData||[]).filter(fi=>fi.category===f.key).map(fi=>({
+        id:fi.id,name:fi.name,date:fi.created_at?fi.created_at.split('T')[0]:'',locked:false,
+        sharedWith:fi.shared_with||[],uploadedBy:fi.uploaded_by,
+        storagePath:fi.storage_path,mimeType:fi.mime_type||null,
+        specialistPatientId:fi.specialist_patient_id||null,
+        url:null
+      }))
+    }));
+  },
   async addFile(file){
-    const payload={child_id:file.childId||null,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
+    // Sub-commit 4h — context-aware FK payload matching files_patient_xor constraint.
+    const _fk=file.specialistPatientId
+      ?{specialist_patient_id:file.specialistPatientId,child_id:null}
+      :{child_id:file.childId||null,specialist_patient_id:null};
+    const payload={..._fk,uploaded_by:file.uploadedBy,name:file.name,storage_path:file.storagePath,mime_type:file.mimeType||'application/octet-stream',size_bytes:file.sizeBytes||0,category:file.category||'general',shared_with:[]};
     const {data,error}=await _supa.from('files').insert(payload).select('id').single();
     if(error){console.error('addFile error:',error.message,error.details,error.hint);throw new Error(error.message);}
     _trackerAdd(_localFileChanges,data?.id);
@@ -1929,8 +1950,13 @@ const SB = {
   async deleteFile(fileId){_trackerAdd(_localFileChanges,fileId);const{error}=await _supa.from('files').delete().eq('id',fileId);if(error){console.error('❌ deleteFile:',error);return false;}return true;},
   async deleteFolder(folderId){const{error}=await _supa.from('folders').delete().eq('id',folderId);if(error){console.error('❌ deleteFolder:',error);return false;}return true;},
   async addFolder(folder){
-    const folderId=folder.id||('f_'+folder.childId+'_'+folder.key+'_'+Date.now());
-    const {data,error}=await _supa.from('folders').insert({id:folderId,child_id:folder.childId,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
+    // Sub-commit 4h — context-aware FK payload matching folders_patient_xor.
+    const _isSp=!!folder.specialistPatientId;
+    const folderId=folder.id||('f_'+(folder.childId||folder.specialistPatientId)+'_'+folder.key+'_'+Date.now());
+    const _fk=_isSp
+      ?{specialist_patient_id:folder.specialistPatientId,child_id:null}
+      :{child_id:folder.childId,specialist_patient_id:null};
+    const {data,error}=await _supa.from('folders').insert({id:folderId,..._fk,name:folder.name,icon:folder.icon,key:folder.key}).select().single();
     if(error)throw error;
     return data;
   },
@@ -2241,12 +2267,15 @@ async function _refreshPhase2Specialist(){
     // Care team + folders per approved child (fire-and-forget inside Phase 2)
     try{
       const approvedMapped=(LS.get('children',[])||[]).filter(c=>c.connectionStatus==='approved');
-      const [,folderResults2]=await Promise.all([
+      // Sub-commit 4h — also load pre-parent patient folders.
+      const _ppForFolders=DB.specialistPatients||[];
+      const [,folderResults2,specPatientFolders]=await Promise.all([
         Promise.all(approvedMapped.map(ch=>loadChildSpecialists(ch.id).catch(()=>[]))),
-        Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[])))
+        Promise.all(approvedMapped.map(ch=>SB.getFolders(ch.id).catch(()=>[]))),
+        Promise.all(_ppForFolders.map(sp=>SB.getFoldersForSpecPatient(sp.id).catch(()=>[])))
       ]);
-      const allFolders=folderResults2.flat();
-      if(allFolders.length>0){LS.set('folders',allFolders);if(S.activeTab==='files')re();}
+      const allFolders=[...folderResults2.flat(),...specPatientFolders.flat()];
+      if(allFolders.length>0){LS.set('folders',allFolders);if(S.activeTab==='files'||S.activeTab==='spec-patient-detail')re();}
       _loaded.careTeam=true;_loaded.folders=true;
     }catch(e){}
   } else {
@@ -2708,9 +2737,18 @@ function setupSpecialistSync(){
         return;
       }
       const cid=p.new?.child_id||p.old?.child_id;
-      if(!cid)return;
-      const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
-      if(!myPatientIds.has(String(cid)))return;
+      const spId=p.new?.specialist_patient_id||p.old?.specialist_patient_id;
+      if(cid){
+        const myPatientIds=new Set((DB.children||[]).map(c=>String(c.id)));
+        if(!myPatientIds.has(String(cid)))return;
+      } else if(spId){
+        const myPreParentIds=new Set((DB.specialistPatients||[]).map(sp=>String(sp.id)));
+        if(!myPreParentIds.has(String(spId)))return;
+      } else {
+        // Inbox file. Only own.
+        const ownerId=p.new?.uploaded_by||p.old?.uploaded_by;
+        if(ownerId!==session?.id)return;
+      }
       _debouncedRefresh('files');
     })
     // Session D Sub-commit 1: parent completions propagate to specialist UI in realtime.
@@ -9036,6 +9074,9 @@ function _renderSpecDtSpecPatientDetail(){
   } else if(tab==='Reports'){
     // Sub-commit 4f — patient-reports renderer is context-aware via _currentPatientContext().
     body.appendChild(window.HUD_REPORTS?.renderPatientReports?.()||_renderSpecPatientComingSoonTab(tab));
+  } else if(tab==='Files'){
+    // Sub-commit 4h — renderFiles reads _currentPatientContext() for spec_patient context.
+    body.appendChild(renderFiles());
   } else {
     body.appendChild(_renderSpecPatientComingSoonTab(tab));
   }
@@ -11747,10 +11788,38 @@ function renderFiles(){
   const isParent=session?.role==='parent';
   const spec=getMySpecialistRecord();
   const myPerms=LS.get('my_perms',{});
+  // Sub-commit 4h — context-aware: child OR spec_patient.
+  const _ctx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
+  const _isSpecPatientCtx=_ctx?.kind==='spec_patient';
+  const _spForFiles=_isSpecPatientCtx?(DB.specialistPatients||[]).find(p=>p.id===_ctx.specialist_patient_id):null;
   const perms=spec?.permissions[S.activeChild]||myPerms[S.activeChild]||[];
-  const canAccess=key=>isParent||perms.includes(key);
-  const _dbFolders=DB.folders.filter(f=>f.childId===S.activeChild);
-  const child=DB.children.find(c=>c.id===S.activeChild);
+  // Pre-parent: specialist owns directly, all folders accessible. Connected: existing perms gate.
+  const canAccess=key=>isParent||_isSpecPatientCtx||perms.includes(key);
+  let _dbFolders=_isSpecPatientCtx
+    ?DB.folders.filter(f=>f.specialistPatientId===_ctx.specialist_patient_id)
+    :DB.folders.filter(f=>f.childId===S.activeChild);
+  // Lazy root-folder auto-create for pre-parent context.
+  if(_isSpecPatientCtx&&_dbFolders.length===0&&_spForFiles&&_supa){
+    const _ppRootKey='spec_'+_ctx.specialist_patient_id;
+    const _newRootFolder={
+      name:'Patient Files',icon:'📁',key:_ppRootKey,
+      specialistPatientId:_ctx.specialist_patient_id,
+      childId:null
+    };
+    // Fire-and-forget — UI re-renders when realtime delivers the new row.
+    (async()=>{
+      try{
+        const saved=await SB.addFolder(_newRootFolder);
+        const fls=DB.folders;
+        fls.push({id:saved?.id,name:_newRootFolder.name,icon:_newRootFolder.icon,key:_ppRootKey,childId:null,specialistPatientId:_ctx.specialist_patient_id,files:[]});
+        DB.folders=fls;
+        if(S.activeTab==='files'||S.activeTab==='spec-patient-detail')re();
+      }catch(e){console.error('❌ pre-parent root folder auto-create:',e);}
+    })();
+  }
+  const child=_isSpecPatientCtx
+    ?{name:_spForFiles?.name||'Patient',avatar:_spForFiles?.avatar_emoji||'🧒',color:_spForFiles?.color||null}
+    :DB.children.find(c=>c.id===S.activeChild);
   const childColor=child?.color||'var(--teal)';
   // Phase 2 loading state: if folders haven't loaded yet and cache is empty, show spinner
   if(!_loaded.folders&&_dbFolders.length===0){
@@ -11769,6 +11838,10 @@ function renderFiles(){
 
   const sec=el('div',{class:'section'});
   const _fBar=mkSpecBackBar(child?.name);if(_fBar)sec.appendChild(_fBar);
+  // Sub-commit 4h — pre-parent banner: small amber pill above the folder grid.
+  if(_isSpecPatientCtx){
+    sec.appendChild(el('div',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.74rem',fontWeight:600,padding:'8px 12px',borderRadius:'10px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'6px'}},['🔒 Pre-parent · only you can see these files']));
+  }
   if(isParent){
     const fi=el('input',{type:'file',accept:'image/*,application/pdf,.doc,.docx',style:{display:'none'}});fi.id='fileInput';
     fi.onchange=e=>{const f=e.target.files[0];if(f)showShareModal(f);};
@@ -12080,10 +12153,16 @@ function showShareModal(file){
       }
       upBtn.innerHTML='<span class="spinner"></span> Uploading...';upBtn.disabled=true;
       try{
-        const {path,url}=await SB.uploadFile(S.activeChild,file);
+        // Sub-commit 4h — context-aware storage path + FK payload.
+        const _upCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
+        const _isPpUp=_upCtx?.kind==='spec_patient';
+        const _stPrefix=_isPpUp?('spec_patient/'+_upCtx.specialist_patient_id):S.activeChild;
+        const {path,url}=await SB.uploadFile(_stPrefix,file);
         const folderId=folderSel.value;
         const folder=DB.folders.find(f=>f.id===folderId);
-        const newFile={childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder?.key||'general'};
+        const newFile=_isPpUp
+          ?{specialistPatientId:_upCtx.specialist_patient_id,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder?.key||'general'}
+          :{childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder?.key||'general'};
         const saved=await SB.addFile(newFile);
         const fileId=saved?.id||crypto.randomUUID();
         // Update local cache so UI reflects immediately without a full refresh
@@ -12101,8 +12180,11 @@ function showShareModal(file){
 }
 
 function showAddFolderModal(){
-  const child=DB.children.find(c=>c.id===S.activeChild);
-  if(!child){toast(T('files_select_child_first'),'error');return;}
+  // Sub-commit 4h — context-aware: child OR spec_patient.
+  const _afCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
+  const _afIsSpPat=_afCtx?.kind==='spec_patient';
+  const child=_afIsSpPat?null:DB.children.find(c=>c.id===S.activeChild);
+  if(!child&&!_afIsSpPat){toast(T('files_select_child_first'),'error');return;}
   openModal('📁 '+T('files_new_folder'),(mb,close)=>{
     mb.appendChild(el('div',{class:'inp-label'},[T('files_folder_name_label')]));
     const nameInp=el('input',{class:'inp',placeholder:T('files_folder_name_placeholder'),style:{marginBottom:'14px'}});
@@ -12133,7 +12215,10 @@ function showAddFolderModal(){
       const name=nameInp.value.trim();
       if(!name){toast(T('files_enter_name'),'error');return;}
       const key='custom_'+Date.now();
-      const newFolder={id:'f_'+S.activeChild+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,childId:S.activeChild};
+      // Sub-commit 4h — context-aware folder creation.
+      const newFolder=_afIsSpPat
+        ?{id:'f_'+_afCtx.specialist_patient_id+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,specialistPatientId:_afCtx.specialist_patient_id,childId:null}
+        :{id:'f_'+S.activeChild+'_'+Date.now(),name,icon:iconInp.value.trim()||'📁',key,childId:S.activeChild};
       try{
         await SB.addFolder(newFolder);
         const selected=Object.entries(permsMap).filter(([,v])=>v).map(([k])=>k);
@@ -12276,8 +12361,14 @@ function showFolderModal(folder,isParent){
         const file=e.target.files[0];if(!file)return;
         upPopBtn.textContent='⏳ Uploading…';upPopBtn.disabled=true;
         try{
-          const {path,url}=await SB.uploadFile(S.activeChild,file);
-          const newFile={childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder.key||'general'};
+          // Sub-commit 4h — context-aware storage path + FK payload.
+          const _upCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
+          const _isPpUp=_upCtx?.kind==='spec_patient';
+          const _stPrefix=_isPpUp?('spec_patient/'+_upCtx.specialist_patient_id):S.activeChild;
+          const {path,url}=await SB.uploadFile(_stPrefix,file);
+          const newFile=_isPpUp
+            ?{specialistPatientId:_upCtx.specialist_patient_id,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder.key||'general'}
+            :{childId:S.activeChild,uploadedBy:session.id,name:file.name,storagePath:path,mimeType:file.type||'application/octet-stream',sizeBytes:file.size||0,category:folder.key||'general'};
           const saved=await SB.addFile(newFile);
           const fileId=saved?.id||crypto.randomUUID();
           const fls=DB.folders;
@@ -18070,7 +18161,7 @@ function renderSpecPatientDetail(){
   const _bubbles=[
     {icon:'📋',label:'Clinical Notes',color:'#7c3aed',bg:'#f5f3ff',locked:false,tab:'vault'},
     {icon:'📋',label:'Home Exercises',color:'#f97316',bg:'#fff7ed',locked:true},
-    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',locked:false,note:'Sub-commit 4h'},
+    {icon:'📁',label:'Files',         color:'#0ea5e9',bg:'#f0f9ff',locked:false,tab:'files'},
     {icon:'💬',label:'Chat',          color:'#0d9488',bg:'#ecfdf5',locked:true}
   ];
   const grid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'12px',marginBottom:'22px'}});
