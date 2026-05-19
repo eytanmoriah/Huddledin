@@ -2365,7 +2365,7 @@ async function _scanForPendingAutoMerges(){
 }
 
 // Sub-commit 7b — post-merge UX: update local cache, redirect view, toast.
-function _handleMergeSuccess(mergeResult){
+function _handleMergeSuccess(mergeResult,opt_childNameHint){
   const spId=mergeResult.specialist_patient_id;
   const childId=mergeResult.child_id;
   const sps=[...(DB.specialistPatients||[])];
@@ -2383,8 +2383,13 @@ function _handleMergeSuccess(mergeResult){
   } else if(S.activeTab==='patients'){
     re();
   }
+  // fix-24: caller-supplied hint wins over local DB lookup. 11.2's caller passes
+  // invites.child_name (always populated since fix-22's NOT NULL constraint) so
+  // the toast renders correctly even when DB.children doesn't yet hold the just-
+  // merged child. 7b caller passes nothing → falls through to DB lookup → 'patient'
+  // fallback (acceptable for now; future fix-25 may add async fetch).
   const child=(DB.children||[]).find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
-  const childName=child?.name||'patient';
+  const childName=opt_childNameHint||child?.name||'patient';
   toast((T('automerge_linked_toast')||"✨ Pre-parent patient linked to {name}'s family!").replace('{name}',childName),'success',4500);
 }
 
@@ -8924,13 +8929,13 @@ function renderSpecDesktop(){
       bc.appendChild(bcP);
       bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
       if(S.activeTab!=='vault'){
-        const bcC=el('span',{class:'spec-dt-bc-link'});bcC.textContent=activeChild.name.split(' ')[0];
+        const bcC=el('span',{class:'spec-dt-bc-link'});bcC.textContent=activeChild.name;
         bcC.onclick=()=>{S.activeTab='vault';re();};
         bc.appendChild(bcC);
         bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
         bc.appendChild(el('span',{class:'spec-dt-bc-cur'},[TAB_NAMES[S.activeTab]||S.activeTab]));
       } else {
-        bc.appendChild(el('span',{class:'spec-dt-bc-cur'},[activeChild.name.split(' ')[0]]));
+        bc.appendChild(el('span',{class:'spec-dt-bc-cur'},[activeChild.name]));
       }
     } else if(S.activeTab==='spec-patient-detail'&&S.activeSpecPatient){
       const _bcSp=(DB.specialistPatients||[]).find(p=>p.id===S.activeSpecPatient);
@@ -8938,7 +8943,7 @@ function renderSpecDesktop(){
       bcP.onclick=()=>{S.activeSpecPatient=null;S.activeTab='patients';re();};
       bc.appendChild(bcP);
       bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
-      const bcN=el('span',{class:'spec-dt-bc-link'});bcN.textContent=(_bcSp?.name||'Patient').split(' ')[0];
+      const bcN=el('span',{class:'spec-dt-bc-link'});bcN.textContent=(_bcSp?.name||'Patient');
       bcN.onclick=()=>{S.activeSpecPatientTab='Calendar';re();};
       bc.appendChild(bcN);
       bc.appendChild(el('span',{class:'spec-dt-bc-sep'},['›']));
@@ -22846,7 +22851,7 @@ async function _processPendingInvite(){
             toast(T('invite_finalize_merge_fail',{name:_fnChild}),'warning',6000);
           } else {
             _mergedSuccessfully=true;
-            _handleMergeSuccess(_mergeData);
+            _handleMergeSuccess(_mergeData,data.child_name);
           }
         }catch(e){console.error('❌ invite merge exception:',e);}
       }

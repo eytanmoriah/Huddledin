@@ -1,0 +1,31 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- Drop redundant out-of-band folder_permissions index
+-- Date: 2026-05-19
+-- Batch: fix-24 (cosmetic cleanup)
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Production had two byte-identical btree indexes on
+-- folder_permissions(specialist_id, child_id):
+--
+--   1. folder_permissions_specialist_child_idx
+--      Source: 20260512_huddledin_files_rls_tightening.sql:57
+--      Canonical, kept.
+--
+--   2. idx_folder_permissions_specialist
+--      Source: created out-of-band in production (not in any source
+--      migration file). Discovered 2026-05-19 during fix-24 audit.
+--      Redundant — dropped.
+--
+-- Verify query after applying:
+--   SELECT indexname, indexdef FROM pg_indexes
+--   WHERE tablename = 'folder_permissions'
+--   ORDER BY indexname;
+--
+-- Expected post-drop: 2 rows
+--   - folder_permissions_pkey
+--   - folder_permissions_specialist_child_idx
+--
+-- Applied to production 2026-05-19 manually via Supabase SQL Editor.
+-- This file documents the change retroactively as source-of-truth.
+
+DROP INDEX IF EXISTS idx_folder_permissions_specialist;
