@@ -11799,13 +11799,18 @@ function renderFiles(){
     ?DB.folders.filter(f=>f.specialistPatientId===_ctx.specialist_patient_id)
     :DB.folders.filter(f=>f.childId===S.activeChild);
   // Lazy root-folder auto-create for pre-parent context.
-  if(_isSpecPatientCtx&&_dbFolders.length===0&&_spForFiles&&_supa){
+  // Sub-commit 4h.1 — module-level guard against the in-tab race exposed
+  // on May 19 verification: re() re-rendered renderFiles before the first
+  // INSERT response landed, producing two identical rows 360ms apart.
+  if(!window._creatingRootFor)window._creatingRootFor=new Set();
+  if(_isSpecPatientCtx&&_dbFolders.length===0&&_spForFiles&&_supa&&!window._creatingRootFor.has(_ctx.specialist_patient_id)){
     const _ppRootKey='spec_'+_ctx.specialist_patient_id;
     const _newRootFolder={
       name:'Patient Files',icon:'📁',key:_ppRootKey,
       specialistPatientId:_ctx.specialist_patient_id,
       childId:null
     };
+    window._creatingRootFor.add(_ctx.specialist_patient_id);
     // Fire-and-forget — UI re-renders when realtime delivers the new row.
     (async()=>{
       try{
@@ -11814,7 +11819,26 @@ function renderFiles(){
         fls.push({id:saved?.id,name:_newRootFolder.name,icon:_newRootFolder.icon,key:_ppRootKey,childId:null,specialistPatientId:_ctx.specialist_patient_id,files:[]});
         DB.folders=fls;
         if(S.activeTab==='files'||S.activeTab==='spec-patient-detail')re();
-      }catch(e){console.error('❌ pre-parent root folder auto-create:',e);}
+      }catch(e){
+        // Likely a UNIQUE-violation from a cross-tab race (defense-in-depth
+        // via partial unique index from Sub-commit 4h.1's migration).
+        // Re-fetch existing folders and merge whatever the other tab created.
+        console.error('❌ pre-parent root folder auto-create:',e);
+        try{
+          const{data:existing}=await _supa.from('folders').select('*').eq('specialist_patient_id',_ctx.specialist_patient_id);
+          if(existing?.length){
+            const fls=DB.folders;
+            const newOnes=existing.filter(r=>!fls.find(f=>f.id===r.id));
+            if(newOnes.length){
+              newOnes.forEach(r=>fls.push({id:r.id,name:r.name,icon:r.icon,key:r.key,childId:r.child_id,specialistPatientId:r.specialist_patient_id,files:[]}));
+              DB.folders=fls;
+              if(S.activeTab==='files'||S.activeTab==='spec-patient-detail')re();
+            }
+          }
+        }catch(e2){console.error('❌ post-conflict folder re-fetch:',e2);}
+      }finally{
+        window._creatingRootFor.delete(_ctx.specialist_patient_id);
+      }
     })();
   }
   const child=_isSpecPatientCtx
