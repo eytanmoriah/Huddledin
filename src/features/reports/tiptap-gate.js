@@ -219,14 +219,14 @@ function _resolveChild(childId) {
   return [...db, ...ls].find(c => c.id === childId);
 }
 
-async function saveDraft({ reportId, content, childId, templateId, name }) {
+async function saveDraft({ reportId, content, childId, specialistPatientId, templateId, name }) {
   if (_saveAbort) _saveAbort.abort();
   _saveAbort = new AbortController();
 
   const supa = _supa();
   const sess = _session();
   if (!supa || !sess) throw new Error('Not authenticated');
-  if (!childId) throw new Error('No patient selected');
+  if (!childId && !specialistPatientId) throw new Error('No patient selected');
 
   if (reportId) {
     const { data, error } = await supa.from('reports')
@@ -238,9 +238,14 @@ async function saveDraft({ reportId, content, childId, templateId, name }) {
     return { id: data.id, updated_at: data.updated_at };
   }
 
+  // Exactly one of (child_id, specialist_patient_id) is set \u2014 matches the
+  // reports_patient_xor CHECK constraint added in Sub-commit 4e.
+  const fkPayload = specialistPatientId
+    ? { specialist_patient_id: specialistPatientId, child_id: null }
+    : { child_id: childId };
   const insertPayload = {
     specialist_id: sess.id,
-    child_id: childId,
+    ...fkPayload,
     content,
     schema_version: 1,
     status: 'draft',
@@ -315,18 +320,19 @@ export async function saveTemplateV2({ templateId, content, name, description, s
   }
 }
 
-export async function findExistingDraft({ specialistId, childId }) {
+export async function findExistingDraft({ specialistId, childId, specialistPatientId }) {
   const supa = _supa();
   if (!supa) return null;
+  if (!childId && !specialistPatientId) return null;
   try {
-    const { data, error } = await supa.from('reports')
+    let q = supa.from('reports')
       .select('id, updated_at, content')
       .eq('specialist_id', specialistId)
-      .eq('child_id', childId)
       .eq('status', 'draft')
-      .not('content', 'is', null)
-      .order('updated_at', { ascending: false })
-      .limit(1);
+      .not('content', 'is', null);
+    if (specialistPatientId) q = q.eq('specialist_patient_id', specialistPatientId);
+    else q = q.eq('child_id', childId);
+    const { data, error } = await q.order('updated_at', { ascending: false }).limit(1);
     if (error) { console.error('\u274c findExistingDraft:', error); return null; }
     return data?.length ? data[0] : null;
   } catch (e) {
@@ -339,7 +345,7 @@ async function loadReport(reportId) {
   const supa = _supa();
   if (!supa) return { error: 'not_authenticated' };
   const { data, error } = await supa.from('reports')
-    .select('id, name, content, schema_version, child_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, finalized_at')
+    .select('id, name, content, schema_version, child_id, specialist_patient_id, updated_at, status, generated_text, report_type, shared_with_parents, shared_at, pending_share, finalized_at')
     .eq('id', reportId);
   if (error) { console.error('\u274c report load:', error); return { error: error.message }; }
   if (!data || data.length === 0) return { error: 'not_found' };
@@ -365,9 +371,24 @@ export async function mountGateEditor(containerEl, opts = {}) {
   // ── Resolve report data ──
   let reportId = opts.draftId || opts.reportId || null;
   let childId = opts.childId || null;
+  let specialistPatientId = opts.specialistPatientId || null;
   let initialContent = null;
   let loadMessage = null;
   let reportRow = null;
+
+  // Sub-commit 4f — resolves the active patient (child OR spec_patient) into
+  // a child-shaped object so substitutePlaceholders + phrase suggestions work
+  // uniformly across both surfaces.
+  const _resolvePatient = () => {
+    if (childId) return _resolveChild(childId);
+    if (specialistPatientId) {
+      return window.HUD?._resolveContextPatient?.({
+        kind: 'spec_patient',
+        specialist_patient_id: specialistPatientId
+      }) || null;
+    }
+    return null;
+  };
 
   if (reportId && !opts.startNew) {
     const result = await loadReport(reportId);
@@ -393,6 +414,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     reportRow = result.data;
     initialContent = reportRow.content;
     if (reportRow.child_id) childId = reportRow.child_id;
+    if (reportRow.specialist_patient_id) specialistPatientId = reportRow.specialist_patient_id;
     if (reportRow.status === 'draft' && reportRow.updated_at) {
       const d = new Date(reportRow.updated_at);
       loadMessage = 'Continuing draft from ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -408,7 +430,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
     else if (opts.templateSections) initialContent = sectionsToTiptapDoc(opts.templateSections);
   }
 
-  if (!childId && !isTemplateMode) {
+  if (!childId && !specialistPatientId && !isTemplateMode) {
     childId = await _findDefaultChild();
   }
 
@@ -417,7 +439,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
   let _phraseExt = null;
   if (!isFinalized) {
     _phraseExt = createPhraseSuggestionExtension({
-      getChild: () => childId ? _resolveChild(childId) : null,
+      getChild: () => _resolvePatient(),
       loadPhrases: async () => (await import('./phrases.js')).loadPhrases(),
       onPhraseSelected: (phrase) => {
         const supa = _supa();
@@ -764,7 +786,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
         window.HUD?.openConfirm?.('Selection too long', 'Phrases can be up to 5,000 characters. Please select a shorter passage.', false, () => {});
         return;
       }
-      const child = childId ? _resolveChild(childId) : null;
+      const child = _resolvePatient();
       if (child && !isTemplateMode) selectedText = reverseSubstitutePlaceholders(selectedText, child);
       const suggestedName = selectedText.length > 50 ? selectedText.substring(0, 47).trim() + '...' : selectedText;
       window.HUD_REPORTS?.openNewPhraseDialog?.(suggestedName, selectedText);
@@ -794,7 +816,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
       const { generatePDFBlob } = await import('./pdf-util.js');
       const { ensureBranding, getBranding, calcAge, _buildCredentials, _downloadBlob } = await import('./index.js');
       await ensureBranding();
-      const child = _resolveChild(childId);
+      const child = _resolvePatient();
       const sess = _session();
       const ci = { name: child?.name || 'Patient', dob: child?.dob || '', age: calcAge(child?.dob) };
       const si = { name: sess?.displayName || sess?.name || '', specialty: sess?.profession || '', credentials: _buildCredentials?.(sess) || '' };
@@ -809,9 +831,42 @@ export async function mountGateEditor(containerEl, opts = {}) {
 
   async function _handleShare() {
     try {
-      const { _shareReportWithParents, ensureBranding } = await import('./index.js');
       const sess = _session();
       const supa = _supa();
+      const T = window.HUD?.T;
+      // Pre-parent reports take the pending-share path \u2014 no parent to share to yet.
+      // The merge function (Sub-commit 6) will flip pending_share -> shared_with_parents
+      // when the patient links to a parent.
+      const isPreParent = !reportRow?.child_id && !!reportRow?.specialist_patient_id;
+      if (isPreParent) {
+        const confirmed = await new Promise(resolve => {
+          const openModal = window.HUD?.openModal;
+          const mkBtn = window.HUD?.mkBtn;
+          const el = window.HUD?.el;
+          if (!openModal || !mkBtn || !el) { resolve(true); return; }
+          openModal(T?.('report_pending_share_title') || 'No parent connected', (mb, close) => {
+            mb.appendChild(el('p', { style: { color: 'var(--slate)', lineHeight: '1.65', fontSize: '.86rem', marginBottom: '20px' } }, [T?.('report_pending_share_msg') || "This patient is not yet linked to a parent. Save this report as 'share when connected'?"]));
+            const row = el('div', { style: { display: 'flex', gap: '11px', justifyContent: 'flex-end' } });
+            row.appendChild(mkBtn(T?.('report_pending_share_cancel') || 'Cancel', 'btn-md btn-ghost', () => { close(); resolve(false); }));
+            row.appendChild(mkBtn(T?.('report_pending_share_confirm') || 'Save until linked', 'btn-md btn-primary', () => { close(); resolve(true); }));
+            mb.appendChild(row);
+          }, 420);
+        });
+        if (!confirmed) return;
+        const nowIso = new Date().toISOString();
+        const { error } = await supa.from('reports')
+          .update({ pending_share: true, updated_at: nowIso })
+          .eq('id', reportId);
+        if (error) { console.error('\u274c pending share:', error); _toast?.(T?.('report_share_fail') || 'Could not save share state.', 'error'); return; }
+        reportRow.pending_share = true;
+        if (shareBtn) shareBtn.remove();
+        statusLine.textContent = T?.('report_pending_share_toast') || 'Saved \u2014 will share when parent connects.';
+        _toast?.(T?.('report_pending_share_toast') || 'Saved \u2014 will share when parent connects.');
+        try { window.HUD?.re?.(); } catch (_) {}
+        return;
+      }
+      // Connected child: existing share-to-parents path.
+      const { _shareReportWithParents } = await import('./index.js');
       const md = reportRow?.generated_text || tiptapToMarkdown(editor.getJSON());
       await _shareReportWithParents({ ...reportRow, id: reportId }, md, supa, sess);
       reportRow.shared_with_parents = true;
@@ -836,14 +891,17 @@ export async function mountGateEditor(containerEl, opts = {}) {
       actionsWrap.appendChild(badge);
     }
     actionsWrap.appendChild(_mkActionBtn('\ud83d\udce5 Download PDF', 'padding:6px 14px;border:1px solid #d1e0dd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;', _handleDownloadPDF));
-    if (!reportRow?.shared_with_parents) {
+    if (!reportRow?.shared_with_parents && !reportRow?.pending_share) {
       shareBtn = _mkActionBtn('\ud83d\udce4 Share with Parents', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', _handleShare);
       actionsWrap.appendChild(shareBtn);
+    }
+    if (reportRow?.pending_share) {
+      actionsWrap.appendChild(_mkActionBtn('\u23f3 Pending share', 'padding:6px 14px;border:1px solid #fbbf24;border-radius:8px;background:#fef3c7;color:#92400e;font-size:13px;font-family:inherit;font-weight:600;cursor:default;', () => {}));
     }
   } else {
     // Finalize button (edit mode)
     const finalizeBtn = _mkActionBtn('\u2705 Finalize', 'padding:6px 14px;border:none;border-radius:8px;background:#0d9488;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;', () => {
-      if (!reportId || !childId) { _toast?.('Cannot finalize \u2014 save a draft first.', 'error'); return; }
+      if (!reportId || (!childId && !specialistPatientId)) { _toast?.('Cannot finalize \u2014 save a draft first.', 'error'); return; }
       if (reportRow?.status === 'finalized') return;
       const doFinalize = async () => {
         try {
@@ -859,7 +917,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
             .select('id, finalized_at, status')
             .single();
           if (error) { console.error('\u274c finalize:', error); _toast?.('Finalize failed.', 'error'); return; }
-          reportRow = { ...(reportRow || {}), ...data, content: json, generated_text: md, child_id: childId, report_type: reportRow?.report_type || 'general' };
+          reportRow = { ...(reportRow || {}), ...data, content: json, generated_text: md, child_id: childId, specialist_patient_id: specialistPatientId, report_type: reportRow?.report_type || 'general' };
           editor.setEditable(false);
           // Swap toolbar to read-only actions
           toolbar.textContent = '';
@@ -1114,7 +1172,7 @@ export async function mountGateEditor(containerEl, opts = {}) {
   } else if (isTemplateMode) {
     statusLine.textContent = 'Edit sections, then save as a reusable template.';
   } else {
-    statusLine.textContent = childId ? 'Your draft saves automatically. Close anytime \u2014 your work is safe.' : 'No patient linked \u2014 drafts will not save.';
+    statusLine.textContent = (childId || specialistPatientId) ? 'Your draft saves automatically. Close anytime \u2014 your work is safe.' : 'No patient linked \u2014 drafts will not save.';
   }
   containerEl.appendChild(statusLine);
 
@@ -1175,12 +1233,12 @@ export async function mountGateEditor(containerEl, opts = {}) {
     }
 
     async function doSave() {
-      if (!dirty || saving || !childId) return;
+      if (!dirty || saving || (!childId && !specialistPatientId)) return;
       saving = true;
       showSaveStatus('Saving\u2026', 'saving');
       try {
         const json = editor.getJSON();
-        const result = await saveDraft({ reportId, content: json, childId, templateId: opts.fromTemplateId || null, name: _reportName?.trim() || null });
+        const result = await saveDraft({ reportId, content: json, childId, specialistPatientId, templateId: opts.fromTemplateId || null, name: _reportName?.trim() || null });
         if (!reportId) reportId = result.id;
         dirty = false;
         showSaveStatus('Saved', 'saved');

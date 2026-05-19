@@ -87,8 +87,15 @@ function statusBadge(status) {
 
 function nav(view, step) {
   RS.view = view; RS.step = step || 0; RS.dirty = false;
-  // If going to 'hub' and we came from a patient tab, go back to patient context instead
-  if (view === 'hub' && RS.returnToPatient) {
+  // If going to 'hub' and we came from a patient tab, go back to patient context instead.
+  // Sub-commit 4f — handle pre-parent return separately to avoid S.activeChild corruption.
+  if (view === 'hub' && RS.returnToSpecPatient) {
+    const { S } = H();
+    S.activeSpecPatient = RS.returnToSpecPatient;
+    S.activeTab = 'spec-patient-detail';
+    S.activeSpecPatientTab = 'Reports';
+    RS.returnToSpecPatient = null;
+  } else if (view === 'hub' && RS.returnToPatient) {
     const { S } = H();
     S.activeChild = RS.returnToPatient;
     S.activeTab = 'patient-reports';
@@ -256,13 +263,20 @@ export function renderReports() {
 
   const children = getChildren();
   RS.reports.filter(r => r.status !== 'draft').forEach(r => {
-    const child = children.find(c => c.id === r.child_id);
+    // Sub-commit 4f — resolve patient via context helper, supporting both connected children and pre-parent specialist_patients.
+    const _patient = r.specialist_patient_id
+      ? window.HUD?._resolveContextPatient?.({ kind: 'spec_patient', specialist_patient_id: r.specialist_patient_id })
+      : children.find(c => c.id === r.child_id);
+    const _isPreParent = !!r.specialist_patient_id;
+    const child = _patient; // keep var name for downstream readability
     const card = el('div', { class: 'rpt-card' });
     const top = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } });
     top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [(child?.avatar || '\ud83e\uddd2') + ' ' + (child?.name || 'Patient') + ' \u2014 ' + (r.name || 'Untitled')]));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
     badges.appendChild(statusBadge(r.status));
-    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
+    if (_isPreParent) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#fef3c7', color: '#92400e' } }, [(window.HUD?.T?.('patients_no_parent') || 'No parent')]));
+    if (r.pending_share) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#fef3c7', color: '#92400e' } }, ['⏳ ' + (window.HUD?.T?.('report_status_pending_share') || 'Pending share')]));
+    else if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['📤 Shared']));
     top.appendChild(badges);
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [(r.created_at ? new Date(r.created_at).toLocaleDateString() : '')]));
@@ -270,6 +284,7 @@ export function renderReports() {
       if (r.content && typeof window.HUD_openTiptapGate === 'function') {
         window.HUD_openTiptapGate({
           childId: r.child_id,
+          specialistPatientId: r.specialist_patient_id,
           draftId: r.status === 'draft' ? r.id : undefined,
           reportId: r.status !== 'draft' ? r.id : undefined,
           readOnly: r.status === 'finalized',
@@ -468,16 +483,19 @@ async function _renderDraftsSection(host) {
 // ════════════════════════════════════════
 // BETA: New Tiptap editor from patient context
 // ════════════════════════════════════════
-async function handleNewReport(childId) {
+async function handleNewReport(arg) {
+  // Sub-commit 4f — accept {childId, specialistPatientId} object OR legacy bare childId.
+  const childId = typeof arg === 'string' ? arg : (arg?.childId || null);
+  const specialistPatientId = typeof arg === 'object' ? (arg?.specialistPatientId || null) : null;
   const { session, openModal, el, mkBtn, toast } = H();
-  if (!session?.id || !childId) return;
+  if (!session?.id || (!childId && !specialistPatientId)) return;
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet — try again in a moment.', 'info'); return; }
 
   const { findExistingDraft } = await window.HUD_TIPTAP_API();
-  const existing = await findExistingDraft({ specialistId: session.id, childId });
+  const existing = await findExistingDraft({ specialistId: session.id, childId, specialistPatientId });
 
   if (!existing) {
-    window.HUD_openTiptapGate({ childId });
+    window.HUD_openTiptapGate({ childId, specialistPatientId });
     return;
   }
 
@@ -495,8 +513,8 @@ async function handleNewReport(childId) {
     const row = el('div', {}, []);
     row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;';
     row.appendChild(mkBtn('Cancel', 'btn-md btn-ghost', close));
-    row.appendChild(mkBtn('Start new', 'btn-md btn-secondary', () => { close(); window.HUD_openTiptapGate({ childId, startNew: true }); }));
-    row.appendChild(mkBtn('Resume draft', 'btn-md btn-primary', () => { close(); window.HUD_openTiptapGate({ draftId: existing.id, childId }); }));
+    row.appendChild(mkBtn('Start new', 'btn-md btn-secondary', () => { close(); window.HUD_openTiptapGate({ childId, specialistPatientId, startNew: true }); }));
+    row.appendChild(mkBtn('Resume draft', 'btn-md btn-primary', () => { close(); window.HUD_openTiptapGate({ draftId: existing.id, childId, specialistPatientId }); }));
     mb.appendChild(row);
   }, 420);
 }
@@ -504,7 +522,7 @@ async function handleNewReport(childId) {
 // ════════════════════════════════════════
 // Template picker (shared by "From template" + "Use template" toolbar)
 // ════════════════════════════════════════
-async function _openTemplatePickerForChild({ childId, onPicked }) {
+async function _openTemplatePickerForChild({ childId, specialistPatientId, onPicked }) {
   const { session, openModal, el, mkBtn, toast, _supa, openConfirm } = H();
   if (!session?.id) return;
   const { substitutePlaceholders } = await window.HUD_TIPTAP_API();
@@ -529,7 +547,12 @@ async function _openTemplatePickerForChild({ childId, onPicked }) {
     return;
   }
 
-  const child = childId ? getChildren().find(c => c.id === childId) : null;
+  // Sub-commit 4f — resolve patient via context helper to support pre-parent.
+  const child = childId
+    ? getChildren().find(c => c.id === childId)
+    : (specialistPatientId
+      ? window.HUD?._resolveContextPatient?.({ kind: 'spec_patient', specialist_patient_id: specialistPatientId })
+      : null);
 
   openModal('Pick a template', (mb, close) => {
     templates.forEach(t => {
@@ -552,13 +575,16 @@ async function _openTemplatePickerForChild({ childId, onPicked }) {
   }, 480);
 }
 
-async function handleStartFromTemplate(childId) {
+async function handleStartFromTemplate(arg) {
+  // Sub-commit 4f \u2014 accept {childId, specialistPatientId} object OR legacy bare childId.
+  const childId = typeof arg === 'string' ? arg : (arg?.childId || null);
+  const specialistPatientId = typeof arg === 'object' ? (arg?.specialistPatientId || null) : null;
   const { session, openModal, el, mkBtn, toast } = H();
-  if (!session?.id || !childId) return;
+  if (!session?.id || (!childId && !specialistPatientId)) return;
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again in a moment.', 'info'); return; }
 
   const { findExistingDraft } = await window.HUD_TIPTAP_API();
-  const existing = await findExistingDraft({ specialistId: session.id, childId });
+  const existing = await findExistingDraft({ specialistId: session.id, childId, specialistPatientId });
 
   if (existing) {
     const proceed = await new Promise(resolve => {
@@ -580,13 +606,14 @@ async function handleStartFromTemplate(childId) {
       }, 420);
     });
     if (proceed === 'cancel') return;
-    if (proceed === 'resume') { window.HUD_openTiptapGate({ draftId: existing.id, childId }); return; }
+    if (proceed === 'resume') { window.HUD_openTiptapGate({ draftId: existing.id, childId, specialistPatientId }); return; }
   }
 
   await _openTemplatePickerForChild({
     childId,
+    specialistPatientId,
     onPicked: (subbed, t) => {
-      window.HUD_openTiptapGate({ childId, initialContent: subbed, fromTemplateId: t.id, startNew: true });
+      window.HUD_openTiptapGate({ childId, specialistPatientId, initialContent: subbed, fromTemplateId: t.id, startNew: true });
     },
   });
 }
@@ -598,7 +625,12 @@ function renderPatientReports() {
   injectStyles();
   const { el, mkBtn, toast, session, _supa, _hasSpecAiAccess, _showSpecAiUpgradeModal, S } = H();
   const sec = document.createElement('div'); sec.className = 'section';
-  const childId = S.activeChild;
+  // Sub-commit 4f — context-aware resolution. Supports both connected-child
+  // (S.activeChild) and pre-parent (S.activeSpecPatient) callers.
+  const _ctx = window.HUD?._currentPatientContext?.();
+  const childId = _ctx?.kind === 'child' ? _ctx.child_id : null;
+  const specialistPatientId = _ctx?.kind === 'spec_patient' ? _ctx.specialist_patient_id : null;
+  const _isPreParent = !!specialistPatientId;
 
   // Lock gate
   if (!_hasSpecAiAccess()) {
@@ -618,17 +650,21 @@ function renderPatientReports() {
   }
 
   const children = getChildren();
-  const child = children.find(c => c.id === childId);
-  const childReports = RS.reports.filter(r => r.child_id === childId);
+  const child = _isPreParent
+    ? window.HUD?._resolveContextPatient?.(_ctx)
+    : children.find(c => c.id === childId);
+  const childReports = _isPreParent
+    ? RS.reports.filter(r => r.specialist_patient_id === specialistPatientId)
+    : RS.reports.filter(r => r.child_id === childId);
 
   // Header
   const hdr = el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' } });
   hdr.appendChild(el('h2', { style: { fontWeight: 800, color: '#0f172a', fontSize: '1rem', margin: 0 } }, ['📋 Reports']));
   const hdrBtns = el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } });
-  hdrBtns.appendChild(mkBtn('\ud83d\udccb From template', 'btn-sm btn-ghost', () => handleStartFromTemplate(childId)));
+  hdrBtns.appendChild(mkBtn('\ud83d\udccb From template', 'btn-sm btn-ghost', () => handleStartFromTemplate({ childId, specialistPatientId })));
   hdrBtns.appendChild(mkBtn('+ New Report', 'btn-sm btn-primary', () => {
     if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (' + MONTHLY_LIMIT + '/' + MONTHLY_LIMIT + ').', 'error'); return; }
-    handleNewReport(childId);
+    handleNewReport({ childId, specialistPatientId });
   }));
   hdr.appendChild(hdrBtns);
   sec.appendChild(hdr);
@@ -650,7 +686,8 @@ function renderPatientReports() {
     top.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a', fontSize: '.88rem' } }, [r.name || 'Untitled']));
     const badges = el('div', { style: { display: 'flex', gap: '4px' } });
     badges.appendChild(statusBadge(r.status));
-    if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['\ud83d\udce4 Shared']));
+    if (r.pending_share) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#fef3c7', color: '#92400e' } }, ['\u23f3 ' + (window.HUD?.T?.('report_status_pending_share') || 'Pending share')]));
+    else if (r.shared_with_parents) badges.appendChild(el('span', { class: 'rpt-badge', style: { background: '#dbeafe', color: '#1e40af' } }, ['\ud83d\udce4 Shared']));
     top.appendChild(badges);
     card.appendChild(top);
     card.appendChild(el('div', { style: { fontSize: '.76rem', color: '#64748b' } }, [r.created_at ? new Date(r.created_at).toLocaleDateString() : '']));
@@ -674,6 +711,7 @@ function renderPatientReports() {
       if (r.content && typeof window.HUD_openTiptapGate === 'function') {
         window.HUD_openTiptapGate({
           childId: r.child_id,
+          specialistPatientId: r.specialist_patient_id,
           draftId: r.status === 'draft' ? r.id : undefined,
           reportId: r.status !== 'draft' ? r.id : undefined,
           readOnly: r.status === 'finalized',

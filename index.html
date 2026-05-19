@@ -2298,6 +2298,29 @@ function _currentPatientContext(){
 // Backward-compat alias — Sub-commit 4b call sites still use this name.
 const _currentNoteContext=_currentPatientContext;
 
+// Resolves a patient row to a CHILD-SHAPED object regardless of whether the
+// active context is a connected child or a pre-parent specialist_patient.
+// Used by the Reports module so substitutePlaceholders + getChild work
+// uniformly across both surfaces. Returns null if the context is unset
+// or the underlying row isn't loaded yet.
+function _resolveContextPatient(ctx){
+  if(!ctx)return null;
+  if(ctx.kind==='child'){
+    return(DB.children||[]).find(c=>c.id===ctx.child_id)
+        ||(LS.get('children',[])||[]).find(c=>c.id===ctx.child_id)||null;
+  }
+  if(ctx.kind==='spec_patient'){
+    const sp=(DB.specialistPatients||[]).find(p=>p.id===ctx.specialist_patient_id);
+    if(!sp)return null;
+    return{
+      id:sp.id,name:sp.name,dob:sp.dob,pronouns:sp.pronouns,
+      avatar:sp.avatar_emoji,color:sp.color,
+      _isSpecPatient:true,_specPatientId:sp.id
+    };
+  }
+  return null;
+}
+
 // Builds the FK columns for a vault_notes INSERT/UPSERT from a local note row.
 // Exactly one of (child_id, specialist_patient_id) is non-null — matches XOR constraint.
 function _noteFkPayload(note){
@@ -3911,6 +3934,13 @@ vault_pending_publish_confirm:'Save until linked',
 vault_pending_publish_cancel:'Cancel',
 vault_pending_publish_toast:'Saved \u2014 will publish when parent connects.',
 vault_status_pending_publish:'Pending publish',
+report_pending_share_title:'No parent connected',
+report_pending_share_msg:"This patient is not yet linked to a parent. Save this report as 'share when connected'? It will automatically become visible to the parent the moment they link.",
+report_pending_share_confirm:'Save until linked',
+report_pending_share_cancel:'Cancel',
+report_pending_share_toast:'Saved — will share when parent connects.',
+report_status_pending_share:'Pending share',
+report_share_fail:"Couldn't save share state. Try again.",
 vault_voice_start:'Start Dictation',
 vault_voice_stop:'Stop Dictation',
 vault_voice_commands:'Commands ?',
@@ -5323,6 +5353,13 @@ vault_pending_publish_confirm:'Save until linked',
 vault_pending_publish_cancel:'Cancel',
 vault_pending_publish_toast:'Saved \u2014 will publish when parent connects.',
 vault_status_pending_publish:'Pending publish',
+report_pending_share_title:'No parent connected',
+report_pending_share_msg:"This patient is not yet linked to a parent. Save this report as 'share when connected'? It will automatically become visible to the parent the moment they link.",
+report_pending_share_confirm:'Save until linked',
+report_pending_share_cancel:'Cancel',
+report_pending_share_toast:'Saved \u2014 will share when parent connects.',
+report_status_pending_share:'Pending share',
+report_share_fail:"Couldn't save share state. Try again.",
 vault_voice_start:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_stop:'\u05D4\u05E4\u05E1\u05E7\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_commands:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA ?',
@@ -8996,6 +9033,9 @@ function _renderSpecDtSpecPatientDetail(){
   } else if(tab==='Calendar'){
     // Sub-commit 4d — renderCalendar reads _currentPatientContext() for spec_patient context.
     body.appendChild(renderCalendar());
+  } else if(tab==='Reports'){
+    // Sub-commit 4f — patient-reports renderer is context-aware via _currentPatientContext().
+    body.appendChild(window.HUD_REPORTS?.renderPatientReports?.()||_renderSpecPatientComingSoonTab(tab));
   } else {
     body.appendChild(_renderSpecPatientComingSoonTab(tab));
   }
@@ -22414,6 +22454,7 @@ window.HUD={
   _speechLang,_availableLangs,_lang,
   _generateOccurrences,notifyOtherParty,getChildHouseholdId,
   _trackCompletionChange:(id)=>_trackerAdd(_localCompletionChanges,id),
+  _currentPatientContext,_resolveContextPatient,
 };
 window.dispatchEvent(new Event('hud-ready'));
 </script>
