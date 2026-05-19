@@ -1,0 +1,65 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- specialist_requests pending-unique partial index
+-- Date: 2026-05-19
+-- Batch: fix-25
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Schema-level enforcement of the invariant "at most one pending
+-- specialist_request per (specialist_id, child_id, request_type)".
+-- Closes the underlying gap that the May 18 .maybeSingle() sweep only
+-- patched at the application layer. Tonight's fix-22 confirmed
+-- Error 2's silent 400 had bypassed the dedup branches at
+-- index.html:22772 and :22777 since the sweep — meaning re-invite
+-- scenarios COULD have written duplicate rows during that window.
+-- Production audit returned zero duplicates (table escaped damage),
+-- but the schema-level guarantee means future code paths can't
+-- reintroduce the bug.
+--
+-- Scope:
+--   - status='pending' only. Approved/declined/removed accumulate
+--     history freely (e.g., specialist removed then re-invited later).
+--   - (specialist_id, child_id, request_type) tuple covers join,
+--     folder, and consult request types — all three already obey the
+--     one-pending-per-tuple invariant at the application layer.
+--   - NULL child_id rows are NOT constrained (btree treats NULLs as
+--     distinct). The spec-initiated parent-email-only requests at
+--     index.html:18540 keep their app-layer dedup on parent_email_hint.
+--
+-- Apply manually via Supabase SQL Editor per Golden Rule #11.
+
+CREATE UNIQUE INDEX IF NOT EXISTS specialist_requests_pending_unique
+  ON specialist_requests (specialist_id, child_id, request_type)
+  WHERE status = 'pending';
+
+-- ───────────────────────────────────────────────────────────────────
+-- VERIFY queries — paste after applying
+-- ───────────────────────────────────────────────────────────────────
+--
+-- (1) Index exists:
+--   SELECT indexname, indexdef FROM pg_indexes
+--   WHERE tablename='specialist_requests'
+--     AND indexname='specialist_requests_pending_unique';
+--   Expected: 1 row showing the partial unique index.
+--
+-- (2) Smoke test — zero pending duplicates:
+--   SELECT specialist_id, child_id, request_type, COUNT(*)
+--   FROM specialist_requests
+--   WHERE status='pending'
+--   GROUP BY 1,2,3
+--   HAVING COUNT(*)>1;
+--   Expected: zero rows.
+--
+-- (3) Pre-flight broader audit — covers all status values to confirm
+--     no hidden duplicates anywhere that might surface later:
+--   SELECT specialist_id, child_id, request_type, status, COUNT(*) as dupes
+--   FROM specialist_requests
+--   GROUP BY specialist_id, child_id, request_type, status
+--   HAVING COUNT(*) > 1
+--   ORDER BY dupes DESC;
+--   Expected: zero rows in 'pending' status (other statuses may have
+--   legitimate accumulation from history preservation).
+
+-- ───────────────────────────────────────────────────────────────────
+-- ROLLBACK (only if verification fails)
+-- ───────────────────────────────────────────────────────────────────
+-- DROP INDEX IF EXISTS specialist_requests_pending_unique;
