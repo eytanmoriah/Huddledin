@@ -19669,6 +19669,40 @@ function _showCopyToPatientModal(file){
         }).select('id').single();
         if(_insErr){console.error('❌ copy file INSERT:',_insErr);throw _insErr;}
         _trackerAdd(_localFileChanges,_copyIns?.id);
+        // Sub-commit 12a: optimistic update. Tracker above suppresses the actor's own realtime
+        // echo for 5s, so without this push the file is invisible until the tracker clears. Pattern
+        // mirrors the parent connected-child upload path at index.html:11203/11881/12527.
+        // Local DB.folders uses camelCase field names — see SB.getFolders mapping at :1911-1936.
+        const _folderKey=folderSel.options[folderSel.selectedIndex]?.dataset?.key||null;
+        if(_copyIns?.id&&_folderKey){
+          const _newFileRow={
+            id:_copyIns.id,
+            name:file.name,
+            date:new Date().toISOString().split('T')[0],
+            locked:false,
+            sharedWith:[],
+            uploadedBy:session.id,
+            storagePath:destPath,
+            mimeType:blob.type||null,
+            specialistPatientId:_pickedKind==='spec_patient'?_pickedId:null,
+            url:null,
+          };
+          const _fls=[...(DB.folders||[])];
+          const _fIdx=_fls.findIndex(f=>
+            f.key===_folderKey&&(
+              (_pickedKind==='spec_patient'&&f.specialistPatientId===_pickedId)||
+              (_pickedKind==='child'&&f.childId===_pickedId)
+            )
+          );
+          if(_fIdx>-1){
+            const _files=[_newFileRow,...((_fls[_fIdx].files)||[])];
+            _fls[_fIdx]={..._fls[_fIdx],files:_files};
+            DB.folders=_fls;
+            re();
+          }
+          // If folder not in local cache (e.g., specialist hasn't opened the destination's Files
+          // tab yet), skip the optimistic update. Realtime echo or next visit will load it.
+        }
         close();toast(T('storage_copied'));
       }catch(e){console.error('copy to patient:',e);toast(T('storage_upload_failed'),'error');}
     }));
