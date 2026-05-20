@@ -853,6 +853,31 @@ export async function mountGateEditor(containerEl, opts = {}) {
           }, 420);
         });
         if (!confirmed) return;
+        // Sub-commit 10: generate + upload the PDF NOW (Option 6a). On merge, the file's
+        // FK flips from specialist_patient_id to child_id automatically (Sub-commit 6
+        // Step E), and _handleMergeSuccess fires the notification for newly-promoted
+        // reports. This means the PDF exists in spec_patient/<sp_id>/... at share time
+        // and becomes parent-visible on merge without any extra PDF generation.
+        const _pdfToPatientFolder = window.HUD_REPORTS?._pdfToPatientFolder;
+        if (typeof _pdfToPatientFolder === 'function') {
+          try {
+            const md = reportRow?.generated_text || tiptapToMarkdown(editor.getJSON());
+            const sp_id = reportRow.specialist_patient_id;
+            await _pdfToPatientFolder({
+              reportRow: { ...reportRow, id: reportId },
+              generatedText: md,
+              supa,
+              sess,
+              isPreParent: true,
+              patientId: sp_id,
+              folderKey: 'spec_' + sp_id,
+            });
+          } catch (e) {
+            console.error('\u274c pre-parent share-to-files:', e);
+            _toast?.('Could not save report PDF: ' + (e?.message || 'error'), 'error');
+            return;
+          }
+        }
         const nowIso = new Date().toISOString();
         const { error } = await supa.from('reports')
           .update({ pending_share: true, updated_at: nowIso })

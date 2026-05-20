@@ -144,17 +144,168 @@ export function getBranding() {
   return result;
 }
 
-// Minimal share — flips shared_with_parents + shared_at on the reports row.
-// The real share-to-files flow (PDF export + upload to specialist's shared
-// folder + parent notification with deeplink) is queued as Sub-commit 10.
+// ── Sub-commit 10: share-to-files helper (Steps 1-4 of the share chain) ──
+// Generates the PDF, uploads to the patient's shared folder, INSERTs the files
+// row, and optimistically pushes into DB.folders[].files[] + re().
+// Returns { fileId, folderKey, destPath, filename } for the caller to use in
+// notification linkData. Throws on any failure with the orphaned blob cleaned
+// up automatically.
+//
+// Args (object):
+//   reportRow   — the reports row (needs id, name?, report_type?, child_id, specialist_patient_id)
+//   generatedText — markdown source for PDF generation
+//   supa        — Supabase client
+//   sess        — current session (for uploaded_by + specialist info)
+//   isPreParent — bool: pre-parent (Pattern G path) or connected child (Pattern F)
+//   patientId   — child_id OR specialist_patient_id depending on isPreParent
+//   folderKey   — destination folder key ('spec_<specialistId>' for connected; 'spec_<sp_id>' for pre-parent)
+export async function _pdfToPatientFolder({ reportRow, generatedText, supa, sess, isPreParent, patientId, folderKey }) {
+  if (!reportRow?.id) throw new Error('No report id');
+  if (!patientId) throw new Error('No patient id');
+  if (!folderKey) throw new Error('No folder key');
+  const hud = H();
+  const DB = hud.DB || {};
+  const LS = hud.LS;
+
+  // Step 1 — PDF generation. Mirror _handleDownloadPDF pattern at tiptap-gate.js:812-830.
+  await ensureBranding();
+  let child = null;
+  if (isPreParent) {
+    child = (DB.specialistPatients || []).find(sp => sp.id === patientId) || null;
+  } else {
+    child = (DB.children || []).find(c => c.id === patientId)
+      || (LS?.get?.('children', []) || []).find(c => c.id === patientId)
+      || null;
+  }
+  const ci = {
+    name: child?.name || 'Patient',
+    dob: child?.dob || '',
+    age: calcAge(child?.dob),
+  };
+  const si = {
+    name: sess?.displayName || sess?.name || '',
+    specialty: sess?.profession || '',
+    credentials: _buildCredentials(sess) || '',
+  };
+  const blob = await generatePDFBlob(generatedText, reportRow?.report_type || 'general', ci, si, getBranding());
+
+  // Step 2 — Upload to storage (Pattern F for connected child, Pattern G for pre-parent).
+  const filename = (reportRow?.name?.trim() || reportRow?.report_type || 'report') + '.pdf';
+  const storagePrefix = isPreParent ? ('spec_patient/' + patientId) : patientId;
+  const destPath = storagePrefix + '/' + Date.now() + '_' + filename;
+  const { error: upErr } = await supa.storage.from('huddledin-files').upload(destPath, blob, { contentType: 'application/pdf', upsert: false });
+  if (upErr) { console.error('❌ share-to-files upload:', upErr); throw upErr; }
+
+  // Step 3 — files INSERT with XOR-aware FK + folder-matching category.
+  const _fk = isPreParent
+    ? { specialist_patient_id: patientId, child_id: null }
+    : { child_id: patientId, specialist_patient_id: null };
+  const { data: insRow, error: insErr } = await supa.from('files').insert({
+    ..._fk,
+    uploaded_by: sess.id,
+    name: filename,
+    storage_path: destPath,
+    mime_type: 'application/pdf',
+    size_bytes: blob.size || 0,
+    category: folderKey,
+  }).select('id').single();
+  if (insErr) {
+    console.error('❌ share-to-files INSERT:', insErr);
+    // Cleanup orphaned upload — best-effort, don't mask the original error.
+    try { await supa.storage.from('huddledin-files').remove([destPath]); } catch (_) {}
+    throw insErr;
+  }
+  const fileId = insRow?.id;
+
+  // Step 4 — Optimistic DB.folders push (mirror Sub-commit 12a pattern).
+  // Local file row shape uses camelCase (see SB.getFolders mapping at index.html:1911).
+  try {
+    const _fls = [...(DB.folders || [])];
+    const _fIdx = _fls.findIndex(f => f.key === folderKey && (
+      (isPreParent && f.specialistPatientId === patientId) ||
+      (!isPreParent && f.childId === patientId)
+    ));
+    if (_fIdx > -1) {
+      const _newFileRow = {
+        id: fileId,
+        name: filename,
+        date: new Date().toISOString().split('T')[0],
+        locked: false,
+        sharedWith: [],
+        uploadedBy: sess.id,
+        storagePath: destPath,
+        mimeType: 'application/pdf',
+        specialistPatientId: isPreParent ? patientId : null,
+        url: null,
+      };
+      _fls[_fIdx] = { ..._fls[_fIdx], files: [_newFileRow, ...((_fls[_fIdx].files) || [])] };
+      hud.DB.folders = _fls;
+      try { hud.re?.(); } catch (_) {}
+    }
+    // If folder not in local cache, skip optimistic push — realtime echo / next visit loads it.
+  } catch (e) {
+    console.error('❌ share-to-files optimistic push:', e);
+    // Non-fatal — DB row exists, just local cache out of sync until next refresh.
+  }
+
+  return { fileId, folderKey, destPath, filename };
+}
+
+// Sub-commit 10: full share-to-files flow for finalized reports (connected child).
+// Calls _pdfToPatientFolder for Steps 1-4, then fires the parent notification (Step 5),
+// then flips shared_with_parents=true LAST (Step 6 / commit point).
+//
+// Pre-parent reports take a DIFFERENT path — they don't call this function. See
+// tiptap-gate.js _handleShare for the pre-parent branch which calls
+// _pdfToPatientFolder directly + sets pending_share=true.
 export async function _shareReportWithParents(reportRow, generatedText, supa, sess) {
   if (!reportRow?.id) throw new Error('No report id');
+  // Two-device race defense: idempotency guard.
+  if (reportRow.shared_with_parents) return { ok: true, alreadyShared: true };
+
+  const isPreParent = !reportRow.child_id && !!reportRow.specialist_patient_id;
+  const patientId = isPreParent ? reportRow.specialist_patient_id : reportRow.child_id;
+  const specId = sess?.specialistId || sess?.id;
+  const folderKey = 'spec_' + (isPreParent ? patientId : specId);
+
+  // Steps 1-4 via helper.
+  const { fileId, folderKey: usedFolderKey } = await _pdfToPatientFolder({
+    reportRow, generatedText, supa, sess, isPreParent, patientId, folderKey,
+  });
+
+  // Step 5 — Notification (connected child only; pre-parent has no parent yet).
+  if (!isPreParent) {
+    try {
+      const hud = H();
+      const childName = (hud.DB?.children || []).find(c => c.id === patientId)?.name
+        || (hud.LS?.get?.('children', []) || []).find(c => c.id === patientId)?.name
+        || 'your child';
+      const specName = sess?.displayName || sess?.name || 'Your specialist';
+      if (typeof hud.notifyOtherParty === 'function') {
+        await hud.notifyOtherParty(
+          'report',
+          `${specName} shared a report for ${childName}`,
+          patientId,
+          'files',
+          { fileId, folderKey: usedFolderKey, childId: patientId },
+          null,
+          null
+        );
+      }
+    } catch (e) {
+      console.error('❌ share-to-files notification:', e);
+      // Non-fatal — file is uploaded and the next step still commits the share.
+    }
+  }
+
+  // Step 6 — UPDATE the reports row (the commit). If anything before fails, the
+  // report stays in unshared state and the Share button remains visible for retry.
   const nowIso = new Date().toISOString();
   const { error } = await supa.from('reports')
     .update({ shared_with_parents: true, shared_at: nowIso, updated_at: nowIso })
     .eq('id', reportRow.id);
   if (error) throw error;
-  return { ok: true, sharedAt: nowIso };
+  return { ok: true, sharedAt: nowIso, fileId, folderKey: usedFolderKey };
 }
 
 function _newReportFromHub() {
@@ -954,6 +1105,7 @@ window.HUD_REPORTS = {
   navToTemplates,
   openNewPhraseDialog,
   _openTemplatePickerForChild,
+  _pdfToPatientFolder,
   loadPhrases,
   calcAge,
   RS,

@@ -2391,6 +2391,54 @@ function _handleMergeSuccess(mergeResult,opt_childNameHint){
   const child=(DB.children||[]).find(c=>c.id===childId)||(LS.get('children',[])||[]).find(c=>c.id===childId);
   const childName=opt_childNameHint||child?.name||'patient';
   toast((T('automerge_linked_toast')||"✨ Pre-parent patient linked to {name}'s family!").replace('{name}',childName),'success',4500);
+
+  // Sub-commit 10 (Q4 bundle): merge-time notification for reports promoted from
+  // pending_share to shared_with_parents during this merge. Sub-commit 6 Step C
+  // sets shared_at = linked_at for those rows. Find them and fire a parent
+  // notification for each. Fire-and-forget — notification failure shouldn't
+  // mask the merge success UX.
+  (async()=>{
+    try{
+      if(!_supa||!mergeResult?.linked_at)return;
+      const{data:_promoted,error:_pErr}=await _supa.from('reports')
+        .select('id,name,report_type')
+        .eq('child_id',childId)
+        .eq('shared_at',mergeResult.linked_at);
+      if(_pErr){console.error('❌ merge-time report notifs lookup:',_pErr);return;}
+      if(!_promoted?.length)return;
+      const specName=session?.displayName||session?.name||'Your specialist';
+      const _resolvedChildName=opt_childNameHint||child?.name||'your child';
+      for(const r of _promoted){
+        // Each promoted report's PDF was already uploaded at share-time (Option 6a).
+        // Sub-commit 6 Step E flipped its files-row FK to child_id during merge.
+        // Look up the file id by storage_path category match for the linkData.
+        // Best-effort lookup — if the file lookup fails, omit fileId from linkData.
+        let _fileId=null;
+        try{
+          const{data:_files}=await _supa.from('files')
+            .select('id')
+            .eq('child_id',childId)
+            .eq('category','spec_'+spId)
+            .eq('mime_type','application/pdf')
+            .order('created_at',{ascending:false})
+            .limit(5);
+          // Heuristic: match by filename containing the report name (best-effort)
+          _fileId=(_files||[]).find(f=>!r.name||true)?.id||null;
+        }catch(e){console.warn('merge notif file lookup:',e);}
+        try{
+          await notifyOtherParty(
+            'report',
+            specName+' shared a report for '+_resolvedChildName,
+            childId,
+            'files',
+            {fileId:_fileId,folderKey:'spec_'+spId,childId},
+            null,
+            null
+          );
+        }catch(e){console.error('❌ merge-time report notif fire:',e);}
+      }
+    }catch(e){console.error('❌ merge-time report notifs:',e);}
+  })();
 }
 
 // Returns the current patient context for notes / appointments / files / reports —
@@ -8721,7 +8769,20 @@ function renderParentDesktop(){
     const ago=n.time||'';
     ri.appendChild(el('div',{style:{fontSize:'12px',color:'#7aaba5'}},[(child?.name?.split(' ')[0]||'')+' · '+ago]));
     row.appendChild(ri);
-    row.onclick=()=>{if(n.childId){S.activeChild=n.childId;S.navLevel=1;S.activeTab=n.linkTab||'dashboard';re();}};
+    row.onclick=()=>{
+      if(!n.childId)return;
+      S.activeChild=n.childId;S.navLevel=1;S.activeTab=n.linkTab||'dashboard';
+      // Sub-commit 10: deep-link to a specific folder in Files tab via linkData.folderKey.
+      if(n.linkTab==='files'){
+        S.activeFolderId=null;
+        const _lk=n.linkData?.folderKey;
+        if(_lk){
+          const _f=(DB.folders||[]).find(f=>f.key===_lk&&f.childId===n.childId);
+          if(_f)S.activeFolderId=_f.id;
+        }
+      }
+      re();
+    };
     actCard.appendChild(row);
   });}
   side.appendChild(actCard);
@@ -19895,6 +19956,15 @@ function renderNotifications(){
               const _apt2=(DB.appointments||[]).find(a=>a.id===ld.aptId);
               if(_apt2){const _ch2=(DB.children||[]).find(c=>c.id===_apt2.childId);showAptDetailModal(_apt2,_ch2);}
             },300);
+          }
+        } else if(tab==='files'){
+          // Sub-commit 10: deep-link to a specific folder in the Files tab via linkData.folderKey.
+          // S.activeFolderId stores the folder's id (UUID), not its key — look up id from key.
+          S.calFullscreen=false;S.activeTab='files';S.activeFolderId=null;
+          if(ld?.folderKey){
+            const _targetCid=ld.childId||n.childId;
+            const _f=(DB.folders||[]).find(f=>f.key===ld.folderKey&&(f.childId===_targetCid||(_targetCid&&String(f.childId)===String(_targetCid))));
+            if(_f)S.activeFolderId=_f.id;
           }
         } else {
           S.calFullscreen=false;S.activeTab=tab;
