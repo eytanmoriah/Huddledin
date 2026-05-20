@@ -17345,6 +17345,9 @@ function renderVault(){
             if(S._vaultDraftTitle)delete S._vaultDraftTitle[note.id];
             S.vaultHasUnsaved=false;
             saveDraftBtn.disabled=false;
+            // Sub-commit 12b: re() so the notes list reflects the saved title/summary/lastSaved
+            // immediately. Tracker at :17338 suppresses the actor's realtime echo for 5s.
+            re();
             toast(T('vault_draft_saved'));
           }catch(e){console.error('save draft:',e);toast(T('vault_could_not_save_draft'),'error');saveDraftBtn.disabled=false;}
         });
