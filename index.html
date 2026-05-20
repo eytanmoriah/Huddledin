@@ -2868,6 +2868,21 @@ function setupSpecialistSync(){
       }
       _debouncedRefresh();
     })
+    // Sub-commit 12c: reports realtime listener for cross-device sync. Per fix-29b audit,
+    // no tracker needed — cache-invalidation IS the refresh mechanism. Echo arriving after
+    // an action-site invalidation is idempotent (set boolean to false twice, no harm).
+    // Filter server-side by specialist_id (reports table has the column, unlike vault_notes/files).
+    .on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table:'reports',
+      filter:'specialist_id=eq.'+specId,
+    },(p)=>{
+      if(typeof window.HUD_REPORTS?.invalidateReportsCache==='function'){
+        window.HUD_REPORTS.invalidateReportsCache();
+      }
+      _debouncedRefresh();
+    })
     .subscribe();
 }
 
