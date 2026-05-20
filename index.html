@@ -9715,7 +9715,8 @@ function _renderSpecDtPatientsPage(sorted,specId,_rmInactSet){
         card.appendChild(badges);
 
         card.onclick=ev=>{
-          _pushNav();S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();
+          // Sub-commit 9a: clear opposite-kind context so _currentPatientContext() resolves correctly.
+          _pushNav();S.activeChild=null;S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();
         };
         gridEl.appendChild(card);
       }
@@ -15052,15 +15053,38 @@ function makePatientCombo(opts){
     noneOption=null,
     initialValue=null,
     onChange=()=>{},
-    showSearchAlways=false
+    showSearchAlways=false,
+    withPreParents=false
   }=opts||{};
-  const _showSearch=showSearchAlways||children.length>5;
+  // Sub-commit 9a: when withPreParents is true, merge active spec_patients into the option list and
+  // switch the value namespace from bare id strings to {kind, id} objects. Legacy callers that omit
+  // the flag keep the string-value behavior.
+  const _isKind=withPreParents;
+  const _eqValue=(a,b)=>{
+    if(_isKind)return !!a&&!!b&&a.kind===b.kind&&a.id===b.id;
+    return a===b;
+  };
+  const _mergedEntries=[];
+  children.forEach(c=>_mergedEntries.push({kind:'child',id:c.id,name:c.name||'',avatar:c.avatar||'🧒'}));
+  if(withPreParents){
+    (DB.specialistPatients||[]).filter(sp=>sp.status==='active').forEach(sp=>{
+      _mergedEntries.push({kind:'spec_patient',id:sp.id,name:sp.name||'',avatar:sp.avatar_emoji||'🧒'});
+    });
+    _mergedEntries.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  }
+  const _showSearch=showSearchAlways||_mergedEntries.length>5;
   const options=[];
-  if(personalOption)options.push({value:'__personal__',label:'🕒 '+T('cal_personal_block')});
-  if(noneOption)options.push({value:noneOption.value,label:noneOption.label});
-  children.forEach(c=>options.push({value:c.id,label:(c.avatar||'🧒')+' '+c.name,_searchKey:c.name.toLowerCase()}));
-  let _value=initialValue||'';
-  const _findLabel=v=>{const o=options.find(x=>x.value===v);return o?o.label:'';};
+  if(personalOption)options.push({value:_isKind?{kind:'__personal__',id:null}:'__personal__',label:'🕒 '+T('cal_personal_block'),isPersonal:true});
+  if(noneOption)options.push({value:_isKind?{kind:'__none__',id:null}:noneOption.value,label:noneOption.label,isNone:true});
+  _mergedEntries.forEach(e=>options.push({
+    value:_isKind?{kind:e.kind,id:e.id}:e.id,
+    label:(e.avatar||'🧒')+' '+e.name,
+    _searchKey:e.name.toLowerCase(),
+    kind:e.kind
+  }));
+  let _value=initialValue||(_isKind?null:'');
+  const _findLabel=v=>{const o=options.find(x=>_eqValue(x.value,v));return o?o.label:'';};
+  const _findOpt=v=>options.find(x=>_eqValue(x.value,v));
   const _placeholderText='— '+placeholder+' —';
   const wrap=el('div',{style:{position:'relative',marginBottom:'12px'}});
   let display,searchInput;
@@ -15086,8 +15110,13 @@ function makePatientCombo(opts){
     }
     if(!matches.length){dropdown.style.display='none';return;}
     matches.forEach(opt=>{
-      const item=el('div',{style:{padding:'8px 12px',fontSize:'.82rem',cursor:'pointer'}});
-      item.textContent=opt.label;
+      const item=el('div',{style:{padding:'8px 12px',fontSize:'.82rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}});
+      // Label on the left, optional "No parent" pill flush right for pre-parent rows.
+      const lbl=el('span',{style:{flex:'1'}});lbl.textContent=opt.label;
+      item.appendChild(lbl);
+      if(opt.kind==='spec_patient'){
+        item.appendChild(el('span',{style:{background:'#fef3c7',color:'#92400e',fontSize:'.65rem',padding:'2px 8px',borderRadius:'99px',fontWeight:700,flexShrink:'0'}},[T('patients_no_parent')||'No parent']));
+      }
       item.onmouseenter=()=>{item.style.background='var(--mint-ll)';};
       item.onmouseleave=()=>{item.style.background='transparent';};
       item.onmousedown=e=>{
@@ -15133,7 +15162,7 @@ function makePatientCombo(opts){
     wrap,
     getValue:()=>_value,
     setValue:v=>{
-      _value=v||'';
+      _value=v||(_isKind?null:'');
       const lbl=_findLabel(_value);
       if(_showSearch){
         searchInput.value=lbl;
@@ -15159,32 +15188,42 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
     // Child/patient selector
     const children=DB.children;
     const _isSpec=session?.role==='specialist';
-    // Sub-commit 4d — detect pre-parent context. If set, lock the patient to the active
-    // pre-parent and skip the picker entirely.
+    // Sub-commit 9a — withPreParents picker for specialists. Pre-selects the active patient via
+    // _currentPatientContext() but lets the user override (no locked display). Connected children
+    // and pre-parent patients are interleaved alphabetically in the dropdown, distinguished by
+    // an inline "No parent" amber pill on pre-parent rows.
     const _addCtx=(typeof _currentPatientContext==='function')?_currentPatientContext():null;
-    const _isSpecPatientCtx=_addCtx?.kind==='spec_patient';
-    const _spPatient=_isSpecPatientCtx?(DB.specialistPatients||[]).find(p=>p.id===_addCtx.specialist_patient_id):null;
-    // Specialists always get the picker (with Personal option). Parents get it only when >1 child.
-    // For specialists in patient context (calendarMode='child' + activeChild visible), pre-select that patient.
-    const _isPatientContext=_isSpec&&S.calendarMode==='child'&&S.activeChild;
-    const _activeChildVisible=_isPatientContext&&children.some(c=>c.id===S.activeChild);
-    let _selectedChild=_isSpecPatientCtx
-      ?null
-      :(_isSpec
-        ?(_activeChildVisible?S.activeChild:null)
-        :(S.activeChild||(children[0]?.id||null)));
-    if(_isSpecPatientCtx){
-      // Pre-parent: show read-only patient display instead of picker.
-      mb.appendChild(el('div',{class:'inp-label'},['Patient']));
-      mb.appendChild(el('div',{style:{padding:'10px 14px',background:'var(--mint-ll)',borderRadius:'var(--r-md)',fontSize:'.88rem',fontWeight:600,color:'var(--navy)',marginBottom:'10px'}},[(_spPatient?.avatar_emoji||'🧒')+' '+(_spPatient?.name||'Pre-parent patient')]));
-    } else if(_isSpec||children.length>1){
+    // Kind-aware tracking. For specialists with withPreParents, _selectedKind+_selectedId is the
+    // single source of truth. For parents (legacy string-value path), _selectedChild is the child id.
+    let _selectedKind=null,_selectedId=null,_selectedChild=null;
+    if(_isSpec){
+      // Pre-select based on active patient context.
+      if(_addCtx?.kind==='child'&&_addCtx.child_id){
+        _selectedKind='child';_selectedId=_addCtx.child_id;
+      } else if(_addCtx?.kind==='spec_patient'&&_addCtx.specialist_patient_id){
+        _selectedKind='spec_patient';_selectedId=_addCtx.specialist_patient_id;
+      }
+      // Else: no pre-selection — user picks from dropdown (or leaves as Personal).
+    } else {
+      // Parent path: pre-select active child or first available.
+      _selectedChild=S.activeChild||(children[0]?.id||null);
+    }
+    if(_isSpec||children.length>1){
       mb.appendChild(el('div',{class:'inp-label'},[T(_isSpec?'cal_for_which_patient':'cal_for_which_child')]));
       const _picker=makePatientCombo({
         children:children,
         placeholder:T(_isSpec?'cal_for_which_patient':'cal_for_which_child'),
         personalOption:_isSpec,
-        initialValue:_selectedChild,
-        onChange:v=>{_selectedChild=v==='__personal__'?null:(v||null);}
+        withPreParents:_isSpec,
+        initialValue:_isSpec?(_selectedKind?{kind:_selectedKind,id:_selectedId}:null):_selectedChild,
+        onChange:v=>{
+          if(_isSpec){
+            if(!v||v.kind==='__personal__'){_selectedKind=null;_selectedId=null;}
+            else{_selectedKind=v.kind;_selectedId=v.id;}
+          } else {
+            _selectedChild=v==='__personal__'?null:(v||null);
+          }
+        }
       });
       mb.appendChild(_picker.wrap);
     }
@@ -15267,13 +15306,16 @@ function showAddEventModal(prefilledDate=null,prefilledStart=null,prefilledEnd=n
       if(!_isSpec&&!_selectedChild){toast(T('apt_title_date_required'),'error');return;}
       _aptSaveBtn.disabled=true;_aptSaveBtn.textContent=T('btn_loading');
       const specId2=session?.specialistId||null;
-      const childId=_selectedChild;
-      const _specPatId=_isSpecPatientCtx?_addCtx.specialist_patient_id:null;
+      // Sub-commit 9a: resolve childId / specialist_patient_id from kind-aware selection.
+      // Specialists: _selectedKind+_selectedId carry the kind; parents: _selectedChild is the child id.
+      const childId=_isSpec?(_selectedKind==='child'?_selectedId:null):_selectedChild;
+      const _specPatId=_isSpec&&_selectedKind==='spec_patient'?_selectedId:null;
+      const _isPreParent=!!_specPatId;
       const childRec=childId?((LS.get('children',[])).find(c=>c.id===childId)||DB.children.find(c=>c.id===childId)):null;
       const timeStr=tmi.value?(tmi.value+(endTmi.value?' – '+endTmi.value:'')):'TBD';
       const _specName=si.value||(session?.role==='specialist'?session?.name:null)||null;
-      const _parentId=_isSpecPatientCtx?null:(childRec?.parentId||(childId?session.id:null));
-      const _hhId=_isSpecPatientCtx?null:(childId?(childRec?.householdId||getChildHouseholdId(childId)):null);
+      const _parentId=_isPreParent?null:(childRec?.parentId||(childId?session.id:null));
+      const _hhId=_isPreParent?null:(childId?(childRec?.householdId||getChildHouseholdId(childId)):null);
       const _specIdVal=session.role==='specialist'?session.id:null;
       const _rnd6=()=>Math.random().toString(36).slice(2,8);
       const baseAptId='a_'+Date.now()+'_'+_rnd6();
@@ -18189,7 +18231,8 @@ function renderPatients(){
             });
           };
         } else {
-          card.onclick=()=>{_pushNav();S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();const _cid=c.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));};
+          // Sub-commit 9a: clear opposite-kind context (defense-in-depth — direction is masked by _currentPatientContext precedence today, but explicit clear prevents future confusion).
+          card.onclick=()=>{_pushNav();S.activeSpecPatient=null;S.activeChild=c.id;S.pastPatientMode=isRemoved;S.activeTab='patient-detail';re();const _cid=c.id;loadChildSpecialists(_cid).then(()=>{if(S.activeChild===_cid)re();}).catch(e=>console.error('❌ loadChildSpecs:',e));};
         }
         stack.appendChild(card);
       } else {
@@ -18214,7 +18257,8 @@ function renderPatients(){
         info.appendChild(el('div',{style:{fontSize:'.78rem',color:'var(--slate)',marginBottom:'6px'}},[T('patients_age_label')+' '+(calcAge(sp.dob)||'—')+' · '+T('patients_dob_label')+' '+(sp.dob||'—')]));
         card.appendChild(info);
         card.appendChild(el('span',{style:{color:'var(--slate-l)',fontSize:'1.1rem',fontWeight:800}},['›']));
-        card.onclick=()=>{_pushNav();S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();};
+        // Sub-commit 9a: clear opposite-kind context so _currentPatientContext() resolves correctly.
+        card.onclick=()=>{_pushNav();S.activeChild=null;S.activeSpecPatient=sp.id;S.activeTab='spec-patient-detail';re();};
         stack.appendChild(card);
       }
     });

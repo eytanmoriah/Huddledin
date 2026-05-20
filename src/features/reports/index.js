@@ -158,13 +158,25 @@ export async function _shareReportWithParents(reportRow, generatedText, supa, se
 }
 
 function _newReportFromHub() {
-  const { toast, openModal, el, mkBtn } = H();
+  const { toast, openModal, el, mkBtn, T } = H();
   if (RS.monthlyCount >= MONTHLY_LIMIT) { toast('Monthly limit reached (' + MONTHLY_LIMIT + '/' + MONTHLY_LIMIT + ').', 'error'); return; }
   if (typeof window.HUD_openTiptapGate !== 'function') { toast('Editor not loaded yet \u2014 try again.', 'info'); return; }
-  const children = getChildren();
-  if (!children.length) { toast('No patients connected yet.', 'info'); return; }
-  if (children.length === 1) { window.HUD_openTiptapGate({ childId: children[0].id, startNew: true }); return; }
-  const sorted = [...children].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // Sub-commit 9a: merge connected children with active pre-parent patients (kind-tagged entries).
+  const { DB, session } = H();
+  const _isSpec = session?.role === 'specialist';
+  const _children = getChildren().map(c => ({ kind: 'child', id: c.id, name: c.name || '', avatar: c.avatar || '\ud83e\uddd2' }));
+  const _preParents = _isSpec
+    ? (DB?.specialistPatients || []).filter(sp => sp.status === 'active').map(sp => ({ kind: 'spec_patient', id: sp.id, name: sp.name || '', avatar: sp.avatar_emoji || '\ud83e\uddd2' }))
+    : [];
+  const _all = [..._children, ..._preParents];
+  if (!_all.length) { toast('No patients connected yet.', 'info'); return; }
+  if (_all.length === 1) {
+    const only = _all[0];
+    if (only.kind === 'spec_patient') window.HUD_openTiptapGate({ specialistPatientId: only.id, startNew: true });
+    else window.HUD_openTiptapGate({ childId: only.id, startNew: true });
+    return;
+  }
+  const sorted = _all.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   openModal('Select Patient', (mb, close) => {
     const searchInp = el('input', {
       class: 'inp',
@@ -187,8 +199,17 @@ function _newReportFromHub() {
       filtered.forEach(c => {
         const row = el('div', { class: 'rpt-card', style: { cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' } });
         row.appendChild(el('span', { style: { fontSize: '1.3rem' } }, [c.avatar || '\ud83e\uddd2']));
-        row.appendChild(el('div', { style: { fontWeight: 700, color: '#0f172a' } }, [c.name]));
-        row.onclick = () => { close(); window.HUD_openTiptapGate({ childId: c.id, startNew: true }); };
+        const nameWrap = el('div', { style: { flex: '1', fontWeight: 700, color: '#0f172a' } });
+        nameWrap.textContent = c.name;
+        row.appendChild(nameWrap);
+        if (c.kind === 'spec_patient') {
+          row.appendChild(el('span', { class: 'rpt-badge', style: { background: '#fef3c7', color: '#92400e' } }, [(T && T('patients_no_parent')) || 'No parent']));
+        }
+        row.onclick = () => {
+          close();
+          if (c.kind === 'spec_patient') window.HUD_openTiptapGate({ specialistPatientId: c.id, startNew: true });
+          else window.HUD_openTiptapGate({ childId: c.id, startNew: true });
+        };
         listEl.appendChild(row);
       });
     }
