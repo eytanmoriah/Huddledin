@@ -37,6 +37,7 @@ function buildPayload(notif: any) {
     appointments: "📅 New appointment",
     homework: "✅ Homework update",
     report: "📋 New session summary",
+    report_share: "📤 Report shared",
     invite: "🤝 Team update",
     consult: "🔗 Consultation request",
     files: "📁 File update",
@@ -85,7 +86,7 @@ serve(async (req: Request) => {
   // Map notification type → pref key. Unmapped types always send.
   const typeToPrefKey: Record<string, string> = {
     message: "chat", chat: "chat",
-    report: "reports",
+    report: "reports", report_share: "reports",
     homework: "homework",
     appointments: "appointments", appointment_declined: "appointments",
     consult: "consult",

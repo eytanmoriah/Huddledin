@@ -283,7 +283,7 @@ export async function _shareReportWithParents(reportRow, generatedText, supa, se
       const specName = sess?.displayName || sess?.name || 'Your specialist';
       if (typeof hud.notifyOtherParty === 'function') {
         await hud.notifyOtherParty(
-          'report',
+          'report_share',
           `${specName} shared a report for ${childName}`,
           patientId,
           'files',

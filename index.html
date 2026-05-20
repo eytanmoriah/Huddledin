@@ -2427,7 +2427,7 @@ function _handleMergeSuccess(mergeResult,opt_childNameHint){
         }catch(e){console.warn('merge notif file lookup:',e);}
         try{
           await notifyOtherParty(
-            'report',
+            'report_share',
             specName+' shared a report for '+_resolvedChildName,
             childId,
             'files',
@@ -7183,14 +7183,14 @@ const getTabs=()=>session?.role==='parent'?PARENT_TABS:SPEC_TABS;
 ----------------------------------------------- */
 const TC={speech:'#0d9488',ot:'#f97316',pt:'#8b5cf6',general:'#64748b',meds:'#f59e0b',school:'#ec4899'};
 const catBadge=c=>c==='Speech'?'teal':c==='OT'?'coral':c==='PT'?'lav':'slate';
-const notifIcon={report:'📄',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗',appointments:'📅',message:'💬',reconnected:'🔗'};
+const notifIcon={report:'📄',report_share:'📤',homework:'✅',chat:'💬',invite:'🤝',consult:'🔗',appointments:'📅',message:'💬',reconnected:'🔗'};
 
 // Pruning is now handled inside the upsert_notification SECURITY DEFINER function
 
 function pushNotif(type,msg,childId,linkTab=null){
   // Auto-derive linkTab from type if not provided
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',report_share:'files',invite:'team',consult:'team',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Write to LOCAL DB only — so the current user sees it in their UI immediately
@@ -7224,7 +7224,7 @@ async function _upsertNotif(uid,{type,message,stackMessage,childId,householdId,l
 async function notifyOtherParty(type,msg,childId,linkTab=null,linkData=null,targetUserId=null,stackMessage=null){
   if(session?.id==='demo')return;
   if(!linkTab){
-    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',invite:'team',consult:'team',appointments:'calendar'};
+    const autoTab={homework:'homework',chat:'chat',report:'session-summaries',report_share:'files',invite:'team',consult:'team',appointments:'calendar'};
     linkTab=autoTab[type]||null;
   }
   // Get household_id — try cache first, then live Supabase lookup as fallback
