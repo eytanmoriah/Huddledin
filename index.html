@@ -4089,30 +4089,6 @@ report_status_pending_share:'Pending share',
 report_share_fail:"Couldn't save share state. Try again.",
 automerge_fail:"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",
 automerge_linked_toast:"✨ Pre-parent patient linked to {name}'s family!",
-// ── Sub-commit 8: manual merge UI (Hebrew placeholders, real translations TBD) ──
-merge_menu_label:'מזג עם מטופל קיים',
-merge_modal_title:'מזג עם מטופל קיים',
-merge_modal_subtitle:"בחר מטופל מחובר קיים למיזוג עם '{name}'. כל ההערות, הפגישות, הדו״חות, התיקיות והקבצים יועברו למטופל הנבחר.",
-merge_modal_placeholder:'חפש מטופלים…',
-merge_modal_continue:'המשך →',
-merge_confirm_title:'אישור מיזוג',
-merge_confirm_subtitle:"למזג את '{source}' עם {target}?",
-merge_confirm_loading:'טוען…',
-merge_confirm_will_move:'יועברו:',
-merge_confirm_disclaimer:"לאחר המיזוג, '{source}' יסומן כמקושר וייעלם מרשימת המטופלים הטרם-הוריים הפעילים שלך.",
-merge_confirm_warning:'⚠ פעולה זו אינה ניתנת לביטול.',
-merge_confirm_no_data:'אין נתונים להעברה — פעולה זו רק תסמן את הקישור.',
-merge_btn:'🔗 מזג',
-merge_loading:'ממזג…',
-merge_count_notes:'הערות',
-merge_count_appts:'פגישות',
-merge_count_reports:'דו״חות',
-merge_count_folders:'תיקיות',
-merge_count_files:'קבצים',
-merge_error_unauthorized:'אינך מורשה יותר עבור מטופל זה.',
-merge_error_already_linked:'רשומה טרם-הורית זו כבר מקושרת במקום אחר.',
-merge_error_generic:'המיזוג נכשל — נסה שוב.',
-merge_already_linked:'כבר מקושר.',
 // ── Sub-commit 8: manual merge UI ──
 merge_menu_label:'Merge into existing patient',
 merge_modal_title:'Merge into existing patient',
@@ -5573,6 +5549,30 @@ report_status_pending_share:'Pending share',
 report_share_fail:"Couldn't save share state. Try again.",
 automerge_fail:"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",
 automerge_linked_toast:"\u2728 Pre-parent patient linked to {name}'s family!",
+// \u2500\u2500 Sub-commit 8: manual merge UI (Hebrew placeholders, real translations TBD) \u2500\u2500
+merge_menu_label:'\u05DE\u05D6\u05D2 \u05E2\u05DD \u05DE\u05D8\u05D5\u05E4\u05DC \u05E7\u05D9\u05D9\u05DD',
+merge_modal_title:'\u05DE\u05D6\u05D2 \u05E2\u05DD \u05DE\u05D8\u05D5\u05E4\u05DC \u05E7\u05D9\u05D9\u05DD',
+merge_modal_subtitle:"\u05D1\u05D7\u05E8 \u05DE\u05D8\u05D5\u05E4\u05DC \u05DE\u05D7\u05D5\u05D1\u05E8 \u05E7\u05D9\u05D9\u05DD \u05DC\u05DE\u05D9\u05D6\u05D5\u05D2 \u05E2\u05DD '{name}'. \u05DB\u05DC \u05D4\u05D4\u05E2\u05E8\u05D5\u05EA, \u05D4\u05E4\u05D2\u05D9\u05E9\u05D5\u05EA, \u05D4\u05D3\u05D5\u05F4\u05D7\u05D5\u05EA, \u05D4\u05EA\u05D9\u05E7\u05D9\u05D5\u05EA \u05D5\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D9\u05D5\u05E2\u05D1\u05E8\u05D5 \u05DC\u05DE\u05D8\u05D5\u05E4\u05DC \u05D4\u05E0\u05D1\u05D7\u05E8.",
+merge_modal_placeholder:'\u05D7\u05E4\u05E9 \u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD\u2026',
+merge_modal_continue:'\u05D4\u05DE\u05E9\u05DA \u2192',
+merge_confirm_title:'\u05D0\u05D9\u05E9\u05D5\u05E8 \u05DE\u05D9\u05D6\u05D5\u05D2',
+merge_confirm_subtitle:"\u05DC\u05DE\u05D6\u05D2 \u05D0\u05EA '{source}' \u05E2\u05DD {target}?",
+merge_confirm_loading:'\u05D8\u05D5\u05E2\u05DF\u2026',
+merge_confirm_will_move:'\u05D9\u05D5\u05E2\u05D1\u05E8\u05D5:',
+merge_confirm_disclaimer:"\u05DC\u05D0\u05D7\u05E8 \u05D4\u05DE\u05D9\u05D6\u05D5\u05D2, '{source}' \u05D9\u05E1\u05D5\u05DE\u05DF \u05DB\u05DE\u05E7\u05D5\u05E9\u05E8 \u05D5\u05D9\u05D9\u05E2\u05DC\u05DD \u05DE\u05E8\u05E9\u05D9\u05DE\u05EA \u05D4\u05DE\u05D8\u05D5\u05E4\u05DC\u05D9\u05DD \u05D4\u05D8\u05E8\u05DD-\u05D4\u05D5\u05E8\u05D9\u05D9\u05DD \u05D4\u05E4\u05E2\u05D9\u05DC\u05D9\u05DD \u05E9\u05DC\u05DA.",
+merge_confirm_warning:'\u26A0 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05D0\u05D9\u05E0\u05D4 \u05E0\u05D9\u05EA\u05E0\u05EA \u05DC\u05D1\u05D9\u05D8\u05D5\u05DC.',
+merge_confirm_no_data:'\u05D0\u05D9\u05DF \u05E0\u05EA\u05D5\u05E0\u05D9\u05DD \u05DC\u05D4\u05E2\u05D1\u05E8\u05D4 \u2014 \u05E4\u05E2\u05D5\u05DC\u05D4 \u05D6\u05D5 \u05E8\u05E7 \u05EA\u05E1\u05DE\u05DF \u05D0\u05EA \u05D4\u05E7\u05D9\u05E9\u05D5\u05E8.',
+merge_btn:'\uD83D\uDD17 \u05DE\u05D6\u05D2',
+merge_loading:'\u05DE\u05DE\u05D6\u05D2\u2026',
+merge_count_notes:'\u05D4\u05E2\u05E8\u05D5\u05EA',
+merge_count_appts:'\u05E4\u05D2\u05D9\u05E9\u05D5\u05EA',
+merge_count_reports:'\u05D3\u05D5\u05F4\u05D7\u05D5\u05EA',
+merge_count_folders:'\u05EA\u05D9\u05E7\u05D9\u05D5\u05EA',
+merge_count_files:'\u05E7\u05D1\u05E6\u05D9\u05DD',
+merge_error_unauthorized:'\u05D0\u05D9\u05E0\u05DA \u05DE\u05D5\u05E8\u05E9\u05D4 \u05D9\u05D5\u05EA\u05E8 \u05E2\u05D1\u05D5\u05E8 \u05DE\u05D8\u05D5\u05E4\u05DC \u05D6\u05D4.',
+merge_error_already_linked:'\u05E8\u05E9\u05D5\u05DE\u05D4 \u05D8\u05E8\u05DD-\u05D4\u05D5\u05E8\u05D9\u05EA \u05D6\u05D5 \u05DB\u05D1\u05E8 \u05DE\u05E7\u05D5\u05E9\u05E8\u05EA \u05D1\u05DE\u05E7\u05D5\u05DD \u05D0\u05D7\u05E8.',
+merge_error_generic:'\u05D4\u05DE\u05D9\u05D6\u05D5\u05D2 \u05E0\u05DB\u05E9\u05DC \u2014 \u05E0\u05E1\u05D4 \u05E9\u05D5\u05D1.',
+merge_already_linked:'\u05DB\u05D1\u05E8 \u05DE\u05E7\u05D5\u05E9\u05E8.',
 vault_voice_start:'\u05D4\u05EA\u05D7\u05DC\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_stop:'\u05D4\u05E4\u05E1\u05E7\u05EA \u05D4\u05E7\u05DC\u05D8\u05D4',
 vault_voice_commands:'\u05E4\u05E7\u05D5\u05D3\u05D5\u05EA ?',
@@ -9434,20 +9434,23 @@ function _showManualMergeConfirmModal(sp,targetChildId,targetChildName,countsPro
       ].filter(([,n])=>n>0);
       if(!rows.length){
         // All zero — single explanatory line, hide the "will move" header.
+        // Sub-commit 8.1: el() signature is (tag, attrs, kids). Earlier code passed
+        // the children array as the second arg (attrs), which made el() iterate it
+        // as Object.entries → setAttribute('0', '...') and produce an empty div.
         willMoveLine.style.display='none';
-        countsList.appendChild(el('div',[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
+        countsList.appendChild(el('div',{},[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
       } else {
         rows.forEach(([key,n])=>{
           const labelKey={notes:'merge_count_notes',appts:'merge_count_appts',reports:'merge_count_reports',folders:'merge_count_folders',files:'merge_count_files'}[key];
           const labelFallback={notes:'notes',appts:'appointments',reports:'reports',folders:'folders',files:'files'}[key];
-          const row=el('div',['• '+n+' '+(T(labelKey)||labelFallback)]);
+          const row=el('div',{},['• '+n+' '+(T(labelKey)||labelFallback)]);
           countsList.appendChild(row);
         });
       }
     }).catch(e=>{
       console.error('❌ merge counts fetch:',e);
       countsList.innerHTML='';
-      countsList.appendChild(el('div',[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
+      countsList.appendChild(el('div',{},[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
     });
     // Disclaimer + warning
     mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.55',marginBottom:'10px'}},
