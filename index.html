@@ -4074,6 +4074,54 @@ report_status_pending_share:'Pending share',
 report_share_fail:"Couldn't save share state. Try again.",
 automerge_fail:"Auto-merge failed. Open the patient and try 'Merge into existing' manually.",
 automerge_linked_toast:"✨ Pre-parent patient linked to {name}'s family!",
+// ── Sub-commit 8: manual merge UI (Hebrew placeholders, real translations TBD) ──
+merge_menu_label:'מזג עם מטופל קיים',
+merge_modal_title:'מזג עם מטופל קיים',
+merge_modal_subtitle:"בחר מטופל מחובר קיים למיזוג עם '{name}'. כל ההערות, הפגישות, הדו״חות, התיקיות והקבצים יועברו למטופל הנבחר.",
+merge_modal_placeholder:'חפש מטופלים…',
+merge_modal_continue:'המשך →',
+merge_confirm_title:'אישור מיזוג',
+merge_confirm_subtitle:"למזג את '{source}' עם {target}?",
+merge_confirm_loading:'טוען…',
+merge_confirm_will_move:'יועברו:',
+merge_confirm_disclaimer:"לאחר המיזוג, '{source}' יסומן כמקושר וייעלם מרשימת המטופלים הטרם-הוריים הפעילים שלך.",
+merge_confirm_warning:'⚠ פעולה זו אינה ניתנת לביטול.',
+merge_confirm_no_data:'אין נתונים להעברה — פעולה זו רק תסמן את הקישור.',
+merge_btn:'🔗 מזג',
+merge_loading:'ממזג…',
+merge_count_notes:'הערות',
+merge_count_appts:'פגישות',
+merge_count_reports:'דו״חות',
+merge_count_folders:'תיקיות',
+merge_count_files:'קבצים',
+merge_error_unauthorized:'אינך מורשה יותר עבור מטופל זה.',
+merge_error_already_linked:'רשומה טרם-הורית זו כבר מקושרת במקום אחר.',
+merge_error_generic:'המיזוג נכשל — נסה שוב.',
+merge_already_linked:'כבר מקושר.',
+// ── Sub-commit 8: manual merge UI ──
+merge_menu_label:'Merge into existing patient',
+merge_modal_title:'Merge into existing patient',
+merge_modal_subtitle:"Select an existing connected patient to merge '{name}' into. All notes, appointments, reports, folders, and files will move to the selected patient.",
+merge_modal_placeholder:'Search patients…',
+merge_modal_continue:'Continue →',
+merge_confirm_title:'Confirm merge',
+merge_confirm_subtitle:"Merge '{source}' into {target}?",
+merge_confirm_loading:'Loading…',
+merge_confirm_will_move:'This will move:',
+merge_confirm_disclaimer:"After merging, '{source}' will be marked as linked and disappear from your active pre-parent list.",
+merge_confirm_warning:'⚠ This action cannot be undone.',
+merge_confirm_no_data:'No data to migrate — this will just mark the link.',
+merge_btn:'🔗 Merge',
+merge_loading:'Merging…',
+merge_count_notes:'notes',
+merge_count_appts:'appointments',
+merge_count_reports:'reports',
+merge_count_folders:'folders',
+merge_count_files:'files',
+merge_error_unauthorized:'You are no longer approved for that patient.',
+merge_error_already_linked:'This pre-parent record is already linked elsewhere.',
+merge_error_generic:'Merge failed — please try again.',
+merge_already_linked:'Already linked.',
 vault_voice_start:'Start Dictation',
 vault_voice_stop:'Stop Dictation',
 vault_voice_commands:'Commands ?',
@@ -9270,6 +9318,10 @@ function _showSpecPatientOverflowMenu(sp,anchorBtn){
       try{const{error}=await _supa.from('specialist_patients').update({status:'active'}).eq('id',sp.id);if(error){console.error('❌ restore specialist_patient:',error);toast('Failed to restore.','error');return;}toast('✅ '+sp.name+' restored.');await _loadSpecialistPatients();re();}catch(e){console.error('restore specialist_patient:',e);toast('Something went wrong.','error');}
     });
   } else {
+    // Sub-commit 8: manual merge action — hidden when specialist has zero approved connected children.
+    if((DB.children||[]).filter(c=>(c.connectionStatus||'approved')==='approved'&&(c.status||'active')!=='inactive').length){
+      _menuItem('🔗 '+(T('merge_menu_label')||'Merge into existing patient'),()=>_showManualMergeModal(sp));
+    }
     _menuItem('📦 Archive patient',async()=>{
       try{const{error}=await _supa.from('specialist_patients').update({status:'archived'}).eq('id',sp.id);if(error){console.error('❌ archive specialist_patient:',error);toast('Failed to archive.','error');return;}toast('✅ '+sp.name+' archived.');await _loadSpecialistPatients();S.activeSpecPatient=null;S.activeTab='patients';re();}catch(e){console.error('archive specialist_patient:',e);toast('Something went wrong.','error');}
     });
@@ -9281,6 +9333,157 @@ function _showSpecPatientOverflowMenu(sp,anchorBtn){
   });
   document.body.appendChild(menu);
   setTimeout(()=>{document.addEventListener('click',_closeOnOutside,true);document.addEventListener('keydown',_closeOnEsc);},0);
+}
+
+// ── Sub-commit 8: manual merge UI on pre-parent detail view ─────────────────
+// Two-modal flow: pick target connected child → confirm with migration counts.
+// Reuses merge_specialist_patient_into_child RPC + _handleMergeSuccess helper.
+
+async function _fetchMergeCounts(spId){
+  const [notes,appts,reports,folders,files]=await Promise.all([
+    _supa.from('vault_notes').select('*',{count:'exact',head:true}).eq('specialist_patient_id',spId),
+    _supa.from('appointments').select('*',{count:'exact',head:true}).eq('specialist_patient_id',spId).is('deleted_at',null),
+    _supa.from('reports').select('*',{count:'exact',head:true}).eq('specialist_patient_id',spId),
+    _supa.from('folders').select('*',{count:'exact',head:true}).eq('specialist_patient_id',spId),
+    _supa.from('files').select('*',{count:'exact',head:true}).eq('specialist_patient_id',spId),
+  ]);
+  [notes,appts,reports,folders,files].forEach((r,i)=>{
+    if(r.error)console.error('❌ merge counts '+['notes','appts','reports','folders','files'][i]+':',r.error);
+  });
+  return {
+    notes:notes.count||0,
+    appts:appts.count||0,
+    reports:reports.count||0,
+    folders:folders.count||0,
+    files:files.count||0,
+  };
+}
+
+function _showManualMergeModal(sp){
+  const _eligible=(DB.children||[])
+    .filter(c=>(c.connectionStatus||'approved')==='approved'&&(c.status||'active')!=='inactive')
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(!_eligible.length){
+    toast('No connected patients available to merge into.','info',4000);
+    return;
+  }
+  openModal('🔗 '+(T('merge_modal_title')||'Merge into existing patient'),(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.84rem',lineHeight:'1.5',marginBottom:'14px'}},
+      [(T('merge_modal_subtitle')||"Select an existing connected patient to merge '{name}' into. All notes, appointments, reports, folders, and files will move to the selected patient.").replace('{name}',sp.name||'this patient')]));
+    mb.appendChild(el('div',{class:'inp-label'},['Patient']));
+    const _picker=makePatientCombo({
+      children:_eligible,
+      placeholder:T('merge_modal_placeholder')||'Search patients…',
+    });
+    mb.appendChild(_picker.wrap);
+    const btnRow=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end',marginTop:'8px'}});
+    btnRow.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    const contBtn=mkBtn(T('merge_modal_continue')||'Continue →','btn-md btn-primary',()=>{
+      const targetChildId=_picker.getValue();
+      if(!targetChildId){toast('Pick a patient first.','error');return;}
+      const targetChild=_eligible.find(c=>c.id===targetChildId);
+      const targetChildName=targetChild?.name||'patient';
+      // Pre-fetch counts so Modal 2 mounts with the promise already in flight.
+      const _countsPromise=_fetchMergeCounts(sp.id);
+      close();
+      _showManualMergeConfirmModal(sp,targetChildId,targetChildName,_countsPromise);
+    });
+    btnRow.appendChild(contBtn);
+    mb.appendChild(btnRow);
+  },480);
+}
+
+function _showManualMergeConfirmModal(sp,targetChildId,targetChildName,countsPromise){
+  openModal(T('merge_confirm_title')||'Confirm merge',(mb,close)=>{
+    mb.appendChild(el('p',{style:{color:'var(--navy)',fontSize:'.92rem',fontWeight:600,marginBottom:'14px'}},
+      [(T('merge_confirm_subtitle')||"Merge '{source}' into {target}?")
+        .replace('{source}',sp.name||'this patient')
+        .replace('{target}',targetChildName)]));
+    // Migration counts section — skeleton until countsPromise resolves.
+    const countsHolder=el('div',{style:{background:'var(--mint-ll)',border:'1.5px solid var(--mint-l)',borderRadius:'10px',padding:'12px 14px',marginBottom:'14px'}});
+    const willMoveLine=el('div',{style:{fontSize:'.78rem',fontWeight:700,color:'var(--navy)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:'8px'}},
+      [T('merge_confirm_will_move')||'This will move:']);
+    countsHolder.appendChild(willMoveLine);
+    const countsList=el('div',{style:{fontSize:'.86rem',color:'var(--navy)',lineHeight:'1.7'}},
+      [T('merge_confirm_loading')||'Loading…']);
+    countsHolder.appendChild(countsList);
+    mb.appendChild(countsHolder);
+    countsPromise.then(counts=>{
+      countsList.innerHTML='';
+      const rows=[
+        ['notes',counts.notes],
+        ['appts',counts.appts],
+        ['reports',counts.reports],
+        ['folders',counts.folders],
+        ['files',counts.files],
+      ].filter(([,n])=>n>0);
+      if(!rows.length){
+        // All zero — single explanatory line, hide the "will move" header.
+        willMoveLine.style.display='none';
+        countsList.appendChild(el('div',[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
+      } else {
+        rows.forEach(([key,n])=>{
+          const labelKey={notes:'merge_count_notes',appts:'merge_count_appts',reports:'merge_count_reports',folders:'merge_count_folders',files:'merge_count_files'}[key];
+          const labelFallback={notes:'notes',appts:'appointments',reports:'reports',folders:'folders',files:'files'}[key];
+          const row=el('div',['• '+n+' '+(T(labelKey)||labelFallback)]);
+          countsList.appendChild(row);
+        });
+      }
+    }).catch(e=>{
+      console.error('❌ merge counts fetch:',e);
+      countsList.innerHTML='';
+      countsList.appendChild(el('div',[T('merge_confirm_no_data')||'No data to migrate — this will just mark the link.']));
+    });
+    // Disclaimer + warning
+    mb.appendChild(el('p',{style:{color:'var(--slate)',fontSize:'.82rem',lineHeight:'1.55',marginBottom:'10px'}},
+      [(T('merge_confirm_disclaimer')||"After merging, '{source}' will be marked as linked and disappear from your active pre-parent list.").replace('{source}',sp.name||'this patient')]));
+    mb.appendChild(el('p',{style:{color:'#92400e',fontSize:'.82rem',fontWeight:700,marginBottom:'16px'}},
+      [T('merge_confirm_warning')||'⚠ This action cannot be undone.']));
+    // Buttons
+    const btnRow=el('div',{style:{display:'flex',gap:'10px',justifyContent:'flex-end'}});
+    btnRow.appendChild(mkBtn('Cancel','btn-md btn-ghost',close));
+    const mergeBtn=mkBtn(T('merge_btn')||'🔗 Merge','btn-md btn-danger',()=>_runManualMerge(sp.id,targetChildId,targetChildName,mergeBtn));
+    btnRow.appendChild(mergeBtn);
+    mb.appendChild(btnRow);
+  },480);
+}
+
+async function _runManualMerge(spId,targetChildId,targetChildName,mergeBtn){
+  mergeBtn.disabled=true;
+  const origText=mergeBtn.textContent;
+  mergeBtn.textContent=T('merge_loading')||'Merging…';
+  try{
+    const{data,error}=await _supa.rpc('merge_specialist_patient_into_child',{
+      p_spec_patient_id:spId,
+      p_child_id:targetChildId,
+    });
+    if(error||!data?.ok){
+      console.error('❌ manual merge:',error||data?.error);
+      const errMsg=data?.error==='not_authorized_for_child'
+        ?(T('merge_error_unauthorized')||'You are no longer approved for that patient.')
+        :data?.error==='already_linked_to_different_child'
+        ?(T('merge_error_already_linked')||'This pre-parent record is already linked elsewhere.')
+        :(T('merge_error_generic')||'Merge failed — please try again.');
+      toast(errMsg,'error',5000);
+      mergeBtn.disabled=false;
+      mergeBtn.textContent=origText;
+      return;
+    }
+    if(data.already_linked){
+      toast(T('merge_already_linked')||'Already linked.','info',3000);
+      return;
+    }
+    // Success — close current modal overlay and let _handleMergeSuccess do the rest
+    // (DB.specialistPatients update, redirect to connected-child detail, toast).
+    const ov=document.querySelector('body > .overlay');
+    if(ov)ov.remove();
+    _handleMergeSuccess(data,targetChildName);
+  }catch(e){
+    console.error('❌ manual merge exception:',e);
+    toast(T('merge_error_generic')||'Something went wrong.','error');
+    mergeBtn.disabled=false;
+    mergeBtn.textContent=origText;
+  }
 }
 
 /* Desktop dashboard — 2-column layout: left (banner + bubbles) right (cal + tasks) */
