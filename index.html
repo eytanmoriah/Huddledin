@@ -2445,6 +2445,30 @@ function _handleMergeSuccess(mergeResult,opt_childNameHint){
 // child-mode or spec_patient-mode. Resolution order: S.activeChild wins, then
 // S.activeSpecPatient, else null (specialist-personal context — e.g., personal
 // appointments not tied to any patient).
+//
+// ── PRECEDENCE CONTRACT — read before changing the order of the two checks ──
+//
+// The `S.activeChild` check FIRST is INTENTIONAL and ~30 navigation entry points
+// depend on it. Most sites that navigate INTO a connected-child context do
+// `S.activeChild = X` WITHOUT clearing `S.activeSpecPatient = null` first. If a
+// prior pre-parent view left `S.activeSpecPatient` set, those navigations leave
+// both state variables populated simultaneously. This helper's precedence is
+// the ONLY thing that prevents stale `S.activeSpecPatient` from winning and
+// resolving to the wrong patient.
+//
+// Only the pre-parent entry sites (Sub-commit 9a) explicitly clear the opposite
+// kind before assigning their own — see index.html:~10001 and ~18546. Both
+// `S.activeSpecPatient = <non-null>` sites are hygiene-correct. The asymmetry
+// is on the connected-child side, where the cost-vs-risk audit (fix-32) chose
+// to lean on this precedence rather than sweep 30 working navigations.
+//
+// WARNING: if you flip the precedence (e.g., make `spec_patient` win), you MUST
+// first sweep every `S.activeChild = <non-null>` navigation entry point to add
+// `S.activeSpecPatient = null;` before the assignment. Otherwise ~30 sites
+// (notification taps, dashboard child cards, calendar rows, pill clicks,
+// chat/event deep links, etc.) will silently resolve to the wrong patient.
+// The site list is in audit-2026-05-10/fix-32-pre-parent-consolidation-audit.md
+// Section 4 — DO NOT skip that sweep.
 function _currentPatientContext(){
   if(S.activeChild){
     const c=(DB.children||[]).find(x=>x.id===S.activeChild)||(LS.get('children',[])||[]).find(x=>x.id===S.activeChild);
